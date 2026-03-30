@@ -9,6 +9,7 @@ import {
   CalendarDays, 
   Users, 
   FileText, 
+  Briefcase,
   Settings, 
   Plus, 
   HelpCircle, 
@@ -89,6 +90,18 @@ export function Sidebar() {
         >
           <FileText size={20} />
           <span className="text-sm">Prontuários</span>
+        </Link>
+
+        <Link 
+          href="/equipe"
+          className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+            isActive('/equipe')
+              ? 'bg-white text-[#006b5a] shadow-sm translate-x-1 font-semibold' 
+              : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
+          }`}
+        >
+          <Briefcase size={20} />
+          <span className="text-sm">Equipe</span>
         </Link>
 
         <Link 
