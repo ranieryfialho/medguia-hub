@@ -47,7 +47,7 @@ export function SlideNovoAgendamento({ pacientes, profissionais, controlledOpen,
   const [pacienteDropdownOpen, setPacienteDropdownOpen] = useState(false)
   const comboboxRef = useRef<HTMLDivElement>(null)
   const [selectedProfissionalId, setSelectedProfissionalId] = useState('')
-  const [selectedTipo, setSelectedTipo] = useState('Consulta Padrão')
+  const [selectedTipo, setSelectedTipo] = useState('FOT Fisioterapia')
   const [horaInicioValue, setHoraInicioValue] = useState('')
   const [horaFimValue, setHoraFimValue] = useState('')
   const [observacoesValue, setObservacoesValue] = useState('')
@@ -274,10 +274,14 @@ export function SlideNovoAgendamento({ pacientes, profissionais, controlledOpen,
             <div className="space-y-1 relative">
               <label className="text-xs font-semibold text-[#6d7a75] absolute -top-2 left-3 bg-white px-1 z-10">Tipo de atendimento *</label>
               <select name="tipo" required value={selectedTipo} onChange={e => setSelectedTipo(e.target.value)} className="w-full bg-white border border-[#bcc9c4] rounded-lg px-4 py-3 text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/50 transition-all font-medium appearance-none shadow-sm">
-                <option value="Consulta Padrão">Consulta Padrão</option>
-                <option value="Retorno">Retorno</option>
-                <option value="Avaliação">Avaliação Inicial</option>
-                <option value="Sessão">Sessão Fisioterapia</option>
+                <option value="FOT Fisioterapia">FOT Fisioterapia</option>
+                <option value="FOT Avaliação">FOT Avaliação</option>
+                <option value="CTA">CTA</option>
+                <option value="Consulta">Consulta</option>
+                <option value="Laser">Laser</option>
+                <option value="Ondas de Choque">Ondas de Choque</option>
+                <option value="Reavaliação">Reavaliação</option>
+                <option value="Ativação Base 2026">Ativação Base 2026</option>
               </select>
             </div>
 

@@ -4,12 +4,19 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
+function normalizarCPF(cpf: string): string {
+  return cpf.replace(/\D/g, '')
+}
+
 export async function criarPaciente(prevState: any, formData: FormData) {
   const supabase = await createClient()
 
+  const cpfRaw = (formData.get('cpf') as string || '').trim()
+  const cpf = cpfRaw ? normalizarCPF(cpfRaw) : ''
+
   const dadosPaciente = {
     nome: formData.get('nome') as string,
-    cpf: formData.get('cpf') as string,
+    cpf: cpf || null,
     data_nascimento: formData.get('data_nascimento') as string,
     telefone: formData.get('telefone') as string,
     telefone_secundario: formData.get('telefone_secundario') as string,
@@ -25,6 +32,18 @@ export async function criarPaciente(prevState: any, formData: FormData) {
     complemento: formData.get('complemento') as string,
     observacoes_gerais: formData.get('observacoes_gerais') as string,
     convenio: formData.get('convenio') as string,
+  }
+
+  if (cpf) {
+    const { data: cpfExistente } = await supabase
+      .from('pacientes')
+      .select('id')
+      .eq('cpf', cpf)
+      .maybeSingle()
+
+    if (cpfExistente) {
+      return { error: 'Já existe um paciente cadastrado com este CPF.', fields: dadosPaciente }
+    }
   }
 
   const { error } = await supabase
@@ -44,10 +63,13 @@ export async function editarPaciente(prevState: any, formData: FormData) {
   const supabase = await createClient()
   const id = formData.get('id') as string
 
+  const cpfRaw = (formData.get('cpf') as string || '').trim()
+  const cpf = cpfRaw ? normalizarCPF(cpfRaw) : ''
+
   const dadosPaciente = {
     ativo: formData.get('ativo') === 'true',
     nome: formData.get('nome') as string,
-    cpf: formData.get('cpf') as string,
+    cpf: cpf || null,
     data_nascimento: formData.get('data_nascimento') as string,
     telefone: formData.get('telefone') as string,
     telefone_secundario: formData.get('telefone_secundario') as string,
@@ -63,6 +85,19 @@ export async function editarPaciente(prevState: any, formData: FormData) {
     complemento: formData.get('complemento') as string,
     observacoes_gerais: formData.get('observacoes_gerais') as string,
     convenio: formData.get('convenio') as string,
+  }
+
+  if (cpf) {
+    const { data: cpfExistente } = await supabase
+      .from('pacientes')
+      .select('id')
+      .eq('cpf', cpf)
+      .neq('id', id)
+      .maybeSingle()
+
+    if (cpfExistente) {
+      return { error: 'Já existe um paciente cadastrado com este CPF.', fields: dadosPaciente }
+    }
   }
 
   const { error } = await supabase
