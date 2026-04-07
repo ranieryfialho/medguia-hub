@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useId, useRef } from 'react'
 import { criarAgendamento, editarAtendimento } from '@/actions/agenda'
-import { X, CalendarPlus, User, Minus, Plus } from 'lucide-react'
+import { X, CalendarPlus, User, Minus, Plus, Search } from 'lucide-react'
 import { format } from 'date-fns'
 
 type Paciente = { id: string, nome: string }
@@ -35,6 +35,7 @@ const DIAS_SEMANA = [
 export function SlideNovoAgendamento({ pacientes, profissionais, controlledOpen, onControlledClose, defaultPacienteId, atendimentoParaEditar }: SlideProps) {
   const isControlled = controlledOpen !== undefined
   const modoEdicao = !!atendimentoParaEditar
+  const formId = useId()
   const [isOpen, setIsOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -42,6 +43,9 @@ export function SlideNovoAgendamento({ pacientes, profissionais, controlledOpen,
   const [dataAgendamento, setDataAgendamento] = useState('')
   const diaDoMes = dataAgendamento ? dataAgendamento.split('-')[2] : '--'
   const [selectedPacienteId, setSelectedPacienteId] = useState(defaultPacienteId ?? '')
+  const [pacienteSearch, setPacienteSearch] = useState('')
+  const [pacienteDropdownOpen, setPacienteDropdownOpen] = useState(false)
+  const comboboxRef = useRef<HTMLDivElement>(null)
   const [selectedProfissionalId, setSelectedProfissionalId] = useState('')
   const [selectedTipo, setSelectedTipo] = useState('Consulta Padrão')
   const [horaInicioValue, setHoraInicioValue] = useState('')
@@ -60,6 +64,8 @@ export function SlideNovoAgendamento({ pacientes, profissionais, controlledOpen,
     if (atendimentoParaEditar) {
       const dataObj = new Date(atendimentoParaEditar.data_agendamento)
       setSelectedPacienteId(atendimentoParaEditar.paciente_id)
+      const pacienteEdit = pacientes.find(p => p.id === atendimentoParaEditar.paciente_id)
+      if (pacienteEdit) setPacienteSearch(pacienteEdit.nome)
       setSelectedProfissionalId(atendimentoParaEditar.profissional_id ?? '')
       setDataAgendamento(format(dataObj, 'yyyy-MM-dd'))
       setHoraInicioValue(format(dataObj, 'HH:mm'))
@@ -70,7 +76,7 @@ export function SlideNovoAgendamento({ pacientes, profissionais, controlledOpen,
       setSelectedTipo(atendimentoParaEditar.tipo ?? 'Consulta Padrão')
       setObservacoesValue(atendimentoParaEditar.observacoes ?? '')
     }
-  }, [atendimentoParaEditar])
+  }, [atendimentoParaEditar, pacientes])
 
   // Sincroniza estado aberto com prop controlada
   useEffect(() => {
@@ -78,9 +84,32 @@ export function SlideNovoAgendamento({ pacientes, profissionais, controlledOpen,
       setIsOpen(controlledOpen!)
       if (controlledOpen && defaultPacienteId) {
         setSelectedPacienteId(defaultPacienteId)
+        const p = pacientes.find(p => p.id === defaultPacienteId)
+        if (p) setPacienteSearch(p.nome)
       }
     }
-  }, [isControlled, controlledOpen, defaultPacienteId])
+  }, [isControlled, controlledOpen, defaultPacienteId, pacientes])
+
+  // Fecha dropdown ao clicar fora
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (comboboxRef.current && !comboboxRef.current.contains(e.target as Node)) {
+        setPacienteDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const pacientesFiltrados = pacienteSearch
+    ? pacientes.filter(p => p.nome.toLowerCase().includes(pacienteSearch.toLowerCase()))
+    : pacientes
+
+  function selecionarPaciente(p: Paciente) {
+    setSelectedPacienteId(p.id)
+    setPacienteSearch(p.nome)
+    setPacienteDropdownOpen(false)
+  }
 
   useEffect(() => {
     if (isRecorrente && dataAgendamento && diasSelecionados.length === 0) {
@@ -116,7 +145,10 @@ export function SlideNovoAgendamento({ pacientes, profissionais, controlledOpen,
     setTerminaEm('sem_fim')
     setOcorrencias('1')
     setDataAgendamento('')
-    if (!defaultPacienteId) setSelectedPacienteId('')
+    if (!defaultPacienteId) {
+      setSelectedPacienteId('')
+      setPacienteSearch('')
+    }
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -177,7 +209,7 @@ export function SlideNovoAgendamento({ pacientes, profissionais, controlledOpen,
         </div>
 
         <div className="flex-1 overflow-y-auto px-8 py-6 scrollbar-thin scrollbar-thumb-slate-200">
-          <form id="form-agendamento" onSubmit={handleSubmit} className="space-y-6">
+          <form id={formId} onSubmit={handleSubmit} className="space-y-6">
 
             {!modoEdicao && (
               <div className="flex w-full border border-[#bcc9c4]/50 rounded-lg overflow-hidden mb-6">
@@ -188,20 +220,46 @@ export function SlideNovoAgendamento({ pacientes, profissionais, controlledOpen,
 
             <div className="space-y-1 relative">
               <label className="text-xs font-semibold text-[#6d7a75] absolute -top-2 left-3 bg-white px-1 z-10">Paciente *</label>
-              <div className="relative">
+              <div className="relative" ref={comboboxRef}>
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#3d4945]/50">
-                  <User size={18} />
+                  {selectedPacienteId ? <User size={18} /> : <Search size={18} />}
                 </div>
-                <select
-                  name="paciente_id"
-                  required
-                  value={selectedPacienteId}
-                  onChange={e => setSelectedPacienteId(e.target.value)}
-                  className="w-full bg-white border border-[#bcc9c4] rounded-lg pl-11 pr-4 py-3 text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/50 focus:border-[#006b5a] transition-all font-medium appearance-none shadow-sm"
-                >
-                  <option value="">Selecione um paciente...</option>
-                  {pacientes.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
-                </select>
+                <input
+                  type="text"
+                  placeholder="Pesquisar paciente pelo nome..."
+                  value={pacienteSearch}
+                  onChange={e => {
+                    setPacienteSearch(e.target.value)
+                    setSelectedPacienteId('')
+                    setPacienteDropdownOpen(true)
+                  }}
+                  onFocus={() => setPacienteDropdownOpen(true)}
+                  className="w-full bg-white border border-[#bcc9c4] rounded-lg pl-11 pr-4 py-3 text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/50 focus:border-[#006b5a] transition-all font-medium shadow-sm"
+                />
+                <input type="hidden" name="paciente_id" value={selectedPacienteId} />
+
+                {pacienteDropdownOpen && (
+                  <div className="absolute z-[60] w-full mt-1 bg-white border border-[#bcc9c4] rounded-lg shadow-xl max-h-56 overflow-y-auto">
+                    {pacientesFiltrados.length > 0 ? (
+                      pacientesFiltrados.map(p => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onMouseDown={() => selecionarPaciente(p)}
+                          className={`w-full text-left px-4 py-2.5 text-sm transition-colors font-medium ${
+                            selectedPacienteId === p.id
+                              ? 'bg-[#f0fcf9] text-[#006b5a]'
+                              : 'text-[#171d1c] hover:bg-[#f0f5f4]'
+                          }`}
+                        >
+                          {p.nome}
+                        </button>
+                      ))
+                    ) : (
+                      <p className="px-4 py-3 text-sm text-[#6d7a75]">Nenhum paciente encontrado.</p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -394,7 +452,7 @@ export function SlideNovoAgendamento({ pacientes, profissionais, controlledOpen,
             <button type="button" onClick={handleClose} className="px-6 py-2.5 rounded-lg font-bold text-[#3d4945] bg-white border border-[#bcc9c4] hover:bg-[#dee3e3] transition-colors">
               Cancelar
             </button>
-            <button form="form-agendamento" type="submit" disabled={loading} className="bg-[#006b5a] text-white px-8 py-2.5 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-[#004f43] transition-colors shadow-md disabled:opacity-70">
+            <button form={formId} type="submit" disabled={loading} className="bg-[#006b5a] text-white px-8 py-2.5 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-[#004f43] transition-colors shadow-md disabled:opacity-70">
               {loading ? 'Salvando...' : 'Salvar'}
             </button>
           </div>

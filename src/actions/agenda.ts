@@ -63,7 +63,7 @@ export async function criarAgendamento(formData: FormData) {
 
   if (erroAgendamento || !agendamentoPai) {
     console.error('Erro ao criar agendamento pai:', erroAgendamento?.message)
-    return { error: 'Ocorreu um erro ao salvar o agendamento.' }
+    return { error: `Erro ao criar agendamento: ${erroAgendamento?.message ?? 'Resposta vazia do banco'}` }
   }
 
   const agendamentoId = agendamentoPai.id
@@ -181,7 +181,7 @@ export async function criarAgendamento(formData: FormData) {
 
   if (error) {
     console.error('Erro ao agendar:', error.message)
-    return { error: 'Ocorreu um erro ao salvar o(s) agendamento(s).' }
+    return { error: `Erro ao salvar atendimento(s): ${error.message}` }
   }
 
   revalidatePath('/agenda')
