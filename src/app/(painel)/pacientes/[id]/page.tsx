@@ -1,14 +1,14 @@
+import { BtnVoltar } from '@/components/features/BtnVoltar'
 import { createClient } from '@/lib/supabase/server'
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { FormNovoEvento } from '@/components/features/FormNovoEvento'
 import { FormRegistrarAvaliacao } from '@/components/features/FormRegistrarAvaliacao'
 import { FormNovaObservacao } from '@/components/features/FormNovaObservacao'
 import { FiltrosJornada } from '@/components/features/FiltrosJornada'
-import { CartaoEvento } from '@/components/features/CartaoEvento'
+import { CartaoAgendamento } from '@/components/features/CartaoAgendamento'
+import { Suspense } from 'react'
 import { format } from 'date-fns'
 import { 
-  ArrowLeft, 
   AlertTriangle, 
   FileText, 
   CalendarClock,
@@ -39,29 +39,58 @@ export default async function PacienteDetailsPage({
 
   if (error || !paciente) notFound()
 
-  const { data: todosEventos } = await supabase
-    .from('eventos_paciente')
-    .select(`*, responsavel:profiles(full_name)`)
+  const { data: atendimentos } = await supabase
+    .from('atendimentos')
+    .select(`*, agendamento:agendamentos(tipo, is_recorrente)`)
     .eq('paciente_id', pacienteId)
-    .order('created_at', { ascending: false })
+    .order('data_agendamento', { ascending: false })
 
-  let eventosFiltrados = todosEventos?.filter((evento) => {
-    const matchesBusca = termoBusca 
-      ? evento.observacao?.toLowerCase().includes(termoBusca.toLowerCase()) || 
-        evento.status.toLowerCase().includes(termoBusca.toLowerCase()) ||
-        (evento.titulo && evento.titulo.toLowerCase().includes(termoBusca.toLowerCase()))
-      : true;
-    
-    const matchesStatus = (statusFiltro && statusFiltro !== 'todos')
-      ? evento.status === statusFiltro
-      : true;
+  // Agrupar atendimentos por agendamento_id
+  const gruposMap = new Map<string, { agendamento_id: string | null; tipo: string; is_recorrente: boolean; sessoes: any[] }>()
 
-    return matchesBusca && matchesStatus;
-  });
-
-  if (ordemFiltro === 'asc' && eventosFiltrados) {
-    eventosFiltrados = [...eventosFiltrados].reverse()
+  for (const atend of atendimentos ?? []) {
+    const chave = atend.agendamento_id ?? `avulso_${atend.id}`
+    if (!gruposMap.has(chave)) {
+      gruposMap.set(chave, {
+        agendamento_id: atend.agendamento_id ?? null,
+        tipo: (atend.agendamento as any)?.tipo ?? atend.tipo ?? 'Sessão',
+        is_recorrente: (atend.agendamento as any)?.is_recorrente ?? false,
+        sessoes: [],
+      })
+    }
+    gruposMap.get(chave)!.sessoes.push(atend)
   }
+
+  // Ordenar grupos pela data da sessão mais recente
+  let grupos = Array.from(gruposMap.values()).sort((a, b) => {
+    const dataA = Math.max(...a.sessoes.map(s => new Date(s.data_agendamento).getTime()))
+    const dataB = Math.max(...b.sessoes.map(s => new Date(s.data_agendamento).getTime()))
+    return dataB - dataA
+  })
+
+  // Filtros
+  let gruposFiltrados = grupos.filter((grupo) => {
+    const matchesBusca = termoBusca
+      ? grupo.tipo.toLowerCase().includes(termoBusca.toLowerCase()) ||
+        grupo.sessoes.some(s =>
+          s.observacoes?.toLowerCase().includes(termoBusca.toLowerCase()) ||
+          s.status.toLowerCase().includes(termoBusca.toLowerCase())
+        )
+      : true
+
+    const matchesStatus = statusFiltro && statusFiltro !== 'todos'
+      ? grupo.sessoes.some(s => s.status === statusFiltro)
+      : true
+
+    return matchesBusca && matchesStatus
+  })
+
+  if (ordemFiltro === 'asc') {
+    gruposFiltrados = [...gruposFiltrados].reverse()
+  }
+
+  // Para o resumo clínico e última interação, usar atendimentos flat
+  const todosAtendimentos = atendimentos ?? []
 
   const calcularIdade = (dataNascimento: string | null) => {
     if (!dataNascimento) return '--'
@@ -77,9 +106,9 @@ export default async function PacienteDetailsPage({
     let trechoEventos = 'Paciente recém-cadastrado, ainda sem histórico na jornada de eventos.';
     let trechoObs = '';
 
-    if (todosEventos && todosEventos.length > 0) {
-      const statusMaisRecente = todosEventos[0].status.replace(/_/g, ' ');
-      trechoEventos = `Paciente possui histórico de ${todosEventos.length} evento(s) registrado(s). Atualmente encontra-se na fase de "${statusMaisRecente}".`;
+    if (todosAtendimentos.length > 0) {
+      const statusMaisRecente = todosAtendimentos[0].status.replace(/_/g, ' ');
+      trechoEventos = `Paciente possui histórico de ${todosAtendimentos.length} sessão(ões) registrada(s). Última com status "${statusMaisRecente}".`;
     }
 
     if (paciente.observacoes_gerais) {
@@ -103,9 +132,7 @@ export default async function PacienteDetailsPage({
       {/* TopAppBar */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/80 backdrop-blur-md p-4 rounded-xl shadow-sm border border-slate-100">
         <div className="flex items-center gap-4">
-          <Link href="/pacientes" className="p-2 hover:bg-slate-100 rounded-full transition-all text-slate-600">
-            <ArrowLeft size={24} />
-          </Link>
+          <BtnVoltar />
           <h2 className="text-2xl font-bold tracking-tight text-[#006b5a]">Prontuário Digital</h2>
         </div>
         
@@ -166,8 +193,8 @@ export default async function PacienteDetailsPage({
                   <span className="text-xs font-medium text-slate-600">Última Interação</span>
                 </div>
                 <span className="text-xs font-bold text-[#006b5a]">
-                  {todosEventos && todosEventos.length > 0 
-                    ? format(new Date(todosEventos[0].created_at), "dd/MM/yyyy") 
+                  {todosAtendimentos.length > 0
+                    ? format(new Date(todosAtendimentos[0].data_agendamento), "dd/MM/yyyy")
                     : 'Sem registros'}
                 </span>
               </div>
@@ -219,16 +246,21 @@ export default async function PacienteDetailsPage({
         <div className="col-span-1 lg:col-span-9">
           <div className="flex flex-col h-full bg-white p-6 md:p-8 rounded-xl shadow-sm border border-slate-100">
             
-            <FiltrosJornada />
+            <Suspense fallback={null}>
+              <FiltrosJornada />
+            </Suspense>
 
             <div className="relative pl-4 md:pl-8 mt-2">
               <div className="absolute left-[24px] md:left-[40px] top-4 bottom-4 w-px border-l-2 border-dashed border-slate-200"></div>
 
-              {(!eventosFiltrados || eventosFiltrados.length === 0) ? (
+              {gruposFiltrados.length === 0 ? (
                 <div className="text-sm text-slate-500 pl-8">Nenhum evento encontrado para estes filtros.</div>
               ) : (
-                eventosFiltrados.map((evento) => (
-                  <CartaoEvento key={evento.id} evento={evento} pacienteId={pacienteId} />
+                gruposFiltrados.map((grupo) => (
+                  <CartaoAgendamento
+                    key={grupo.agendamento_id ?? grupo.sessoes[0]?.id}
+                    grupo={grupo}
+                  />
                 ))
               )}
             </div>

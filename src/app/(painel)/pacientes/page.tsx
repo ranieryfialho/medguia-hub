@@ -4,6 +4,7 @@ import { Plus, Eye, Edit } from 'lucide-react'
 import { BtnWhatsApp } from '@/components/features/BtnWhatsApp'
 import { BtnArquivarPaciente } from '@/components/features/BtnArquivarPaciente'
 import { FiltrosPacientes } from '@/components/features/FiltrosPacientes'
+import { PaginacaoPacientes } from '@/components/features/PaginacaoPacientes'
 
 export default async function PacientesListPage({
   searchParams,
@@ -11,23 +12,33 @@ export default async function PacientesListPage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
   const supabase = await createClient()
-  
-  // 1. Resolve os parâmetros da URL para saber se a checkbox está marcada
+
   const resolvedParams = await searchParams
   const mostrarInativos = resolvedParams.inativos === 'true'
+  const busca = ((resolvedParams.busca as string) || '').trim()
+  const limite = Math.max(1, parseInt((resolvedParams.limite as string) || '50'))
+  const pagina = Math.max(1, parseInt((resolvedParams.pagina as string) || '1'))
+  const offset = (pagina - 1) * limite
 
-  // 2. Monta a Query do Supabase dinamicamente
   let query = supabase
     .from('pacientes')
-    .select('*')
-    .order('created_at', { ascending: false })
+    .select('*', { count: 'exact' })
+    .order('nome', { ascending: true })
 
-  // Se NÃO for para mostrar inativos, filtramos para trazer apenas os ativos
   if (!mostrarInativos) {
     query = query.or('ativo.eq.true,ativo.is.null')
   }
 
-  const { data: pacientes, error } = await query
+  if (busca) {
+    query = query.or(`nome.ilike.%${busca}%,cpf.ilike.%${busca}%,telefone.ilike.%${busca}%`)
+  }
+
+  query = query.range(offset, offset + limite - 1)
+
+  const { data: pacientes, count } = await query
+
+  const total = count ?? 0
+  const totalPaginas = Math.ceil(total / limite)
 
   return (
     <div className="space-y-6">
@@ -38,11 +49,11 @@ export default async function PacientesListPage({
           <span>/</span>
           <span className="text-text-primary font-medium">Listar Pacientes</span>
         </div>
-        
+
         <div className="flex items-center justify-between bg-surface p-4 rounded-t-lg border-b border-border">
           <h1 className="text-xl font-semibold text-text-primary">Listar Pacientes</h1>
-          <Link 
-            href="/pacientes/novo" 
+          <Link
+            href="/pacientes/novo"
             className="bg-[#0A4D68] hover:bg-[#083d53] text-white flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors"
           >
             <Plus size={16} />
@@ -52,8 +63,6 @@ export default async function PacientesListPage({
       </div>
 
       <div className="bg-surface rounded-b-lg shadow-sm border border-border -mt-6">
-        
-        {/* Renderiza o novo Componente Cliente com a Checkbox */}
         <FiltrosPacientes />
 
         {/* Tabela */}
@@ -72,14 +81,14 @@ export default async function PacientesListPage({
               {pacientes?.length === 0 && (
                 <tr>
                   <td colSpan={5} className="px-6 py-8 text-center text-sm text-text-secondary">
-                    Nenhum paciente encontrado.
+                    {busca ? `Nenhum paciente encontrado para "${busca}".` : 'Nenhum paciente encontrado.'}
                   </td>
                 </tr>
               )}
               {pacientes?.map((paciente) => {
                 const iniciais = paciente.nome.split(' ').slice(0, 2).map((n: string) => n[0]).join('').toUpperCase()
                 const numeroLimpo = paciente.telefone?.replace(/\D/g, '') || ''
-                const isAtivo = paciente.ativo !== false // default é true
+                const isAtivo = paciente.ativo !== false
 
                 return (
                   <tr key={paciente.id} className={`transition-colors group ${!isAtivo ? 'bg-page/40 opacity-75' : 'hover:bg-page/50'}`}>
@@ -90,7 +99,6 @@ export default async function PacientesListPage({
                         </div>
                         <div className="flex flex-col">
                           <span className="text-sm font-medium text-text-primary">{paciente.nome}</span>
-                          {/* BADGE DE STATUS */}
                           {!isAtivo ? (
                             <span className="text-[10px] font-bold text-error uppercase tracking-wider">Inativo</span>
                           ) : (
@@ -118,13 +126,10 @@ export default async function PacientesListPage({
                         <Link href={`/pacientes/${paciente.id}`} className="hover:text-primary-500 transition-colors" title="Visualizar">
                           <Eye size={18} />
                         </Link>
-                        
                         <Link href={`/pacientes/${paciente.id}/editar`} className="hover:text-primary-500 transition-colors" title="Editar">
                           <Edit size={18} />
                         </Link>
-
                         <BtnWhatsApp numero={numeroLimpo} />
-
                         {isAtivo && (
                           <BtnArquivarPaciente id={paciente.id} nome={paciente.nome} />
                         )}
@@ -136,6 +141,14 @@ export default async function PacientesListPage({
             </tbody>
           </table>
         </div>
+
+        <PaginacaoPacientes
+          paginaAtual={pagina}
+          totalPaginas={totalPaginas}
+          total={total}
+          limite={limite}
+          offset={offset}
+        />
       </div>
     </div>
   )

@@ -8,7 +8,8 @@ import {
   Phone, 
   Briefcase, 
   FileText,
-  ShieldCheck
+  ShieldCheck,
+  Lock
 } from 'lucide-react'
 
 export default function NovoMembroEquipePage() {
@@ -33,14 +34,14 @@ export default function NovoMembroEquipePage() {
         </div>
       </div>
 
-      {/* ÁREA DO FORMULÁRIO (Agora conectada com a Server Action) */}
+      {/* ÁREA DO FORMULÁRIO */}
       <div className="bg-white border border-[#bcc9c4]/30 rounded-3xl p-6 sm:p-8 shadow-sm">
         <form action={cadastrarColaborador} className="space-y-8">
           
           <div className="space-y-6">
             <h3 className="text-sm font-extrabold text-[#006b5a] uppercase tracking-widest border-b border-[#bcc9c4]/30 pb-2 flex items-center gap-2">
               <User size={18} />
-              Dados Pessoais
+              Dados Pessoais & Acesso
             </h3>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 xl:gap-8">
@@ -83,6 +84,28 @@ export default function NovoMembroEquipePage() {
                   <input type="tel" id="telefone" name="telefone" required placeholder="(00) 00000-0000" className="w-full bg-[#f0f5f4] border border-[#bcc9c4]/50 rounded-xl pl-11 pr-4 py-3 text-[#171d1c] placeholder:text-[#3d4945]/40 focus:outline-none focus:ring-2 focus:ring-[#006b5a]/50 focus:border-[#006b5a] transition-all font-medium" />
                 </div>
               </div>
+
+              {/* NOVO CAMPO: SENHA PROVISÓRIA */}
+              <div className="space-y-2">
+                <label htmlFor="senha" className="text-sm font-bold text-[#3d4945] block">Senha Provisória *</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#3d4945]/50">
+                    <Lock size={18} />
+                  </div>
+                  <input 
+                    type="text" 
+                    id="senha" 
+                    name="senha" 
+                    required 
+                    placeholder="Mínimo de 6 caracteres" 
+                    className="w-full bg-[#f0f5f4] border border-[#bcc9c4]/50 rounded-xl pl-11 pr-4 py-3 text-[#171d1c] placeholder:text-[#3d4945]/40 focus:outline-none focus:ring-2 focus:ring-[#006b5a]/50 focus:border-[#006b5a] transition-all font-medium" 
+                  />
+                </div>
+                <p className="text-xs font-medium text-[#3d4945]/60 mt-1">
+                  O colaborador será obrigado a trocar esta senha no 1º acesso.
+                </p>
+              </div>
+
             </div>
           </div>
 

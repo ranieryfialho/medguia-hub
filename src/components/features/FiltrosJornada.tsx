@@ -46,7 +46,7 @@ export function FiltrosJornada() {
       if (ordem && ordem !== 'desc') params.set('ordem', ordem)
       else params.delete('ordem')
 
-      router.push(`?${params.toString()}`, { scroll: false }) 
+      router.replace(`?${params.toString()}`, { scroll: false })
     }, 500)
 
     return () => clearTimeout(delayDebounceFn)

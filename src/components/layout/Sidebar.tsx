@@ -2,24 +2,34 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { 
-  HeartPulse, 
-  LayoutDashboard, 
-  CalendarDays, 
-  Users, 
-  FileText, 
+import { SlideNovoAgendamento } from '@/components/features/SlideNovoAgendamento'
+import {
+  HeartPulse,
+  LayoutDashboard,
+  CalendarDays,
+  Users,
+  FileText,
   Briefcase,
-  Settings, 
-  Plus, 
-  HelpCircle, 
-  LogOut 
+  Settings,
+  Plus,
+  HelpCircle,
+  LogOut,
+  PhoneCall,
+  ChevronDown
 } from 'lucide-react'
 
-export function Sidebar() {
+type Paciente = { id: string; nome: string }
+type Profissional = { id: string; nome: string; cargo: string }
+
+export function Sidebar({ pacientes, profissionais, userRole }: { pacientes: Paciente[]; profissionais: Profissional[]; userRole: string | null }) {
+  const isGestorOuMedico = userRole === 'gestor' || userRole === 'médico'
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
+  const [confirmacoesOpen, setConfirmacoesOpen] = useState(() => pathname?.startsWith('/confirmacoes') ?? false)
+  const [slideNovoAberto, setSlideNovoAberto] = useState(false)
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -30,7 +40,7 @@ export function Sidebar() {
   const isActive = (path: string) => pathname?.startsWith(path)
 
   return (
-    <aside className="h-screen w-64 fixed left-0 top-0 overflow-y-auto z-50 bg-[#f0f5f4] border-r border-[#dee3e3]/50 flex flex-col p-4 gap-2 hide-scrollbar">
+    <aside className="h-screen w-64 fixed left-0 top-0 overflow-y-auto z-[200] bg-[#f0f5f4] border-r border-[#dee3e3]/50 flex flex-col p-4 gap-2 hide-scrollbar">
       
       {/* Logo Area */}
       <div className="px-4 py-6 flex items-center gap-3">
@@ -56,11 +66,11 @@ export function Sidebar() {
           <span className="text-sm">Dashboard</span>
         </Link>
 
-        <Link 
+        <Link
           href="/agenda"
           className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
             isActive('/agenda')
-              ? 'bg-white text-[#006b5a] shadow-sm translate-x-1 font-semibold' 
+              ? 'bg-white text-[#006b5a] shadow-sm translate-x-1 font-semibold'
               : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
           }`}
         >
@@ -68,7 +78,51 @@ export function Sidebar() {
           <span className="text-sm">Agenda</span>
         </Link>
 
-        <Link 
+        {/* Grupo Confirmações */}
+        <div>
+          <button
+            onClick={() => setConfirmacoesOpen(v => !v)}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+              isActive('/confirmacoes')
+                ? 'bg-white text-[#006b5a] shadow-sm font-semibold'
+                : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
+            }`}
+          >
+            <PhoneCall size={20} />
+            <span className="text-sm flex-1 text-left">Confirmações</span>
+            <ChevronDown
+              size={16}
+              className={`transition-transform duration-200 ${confirmacoesOpen ? 'rotate-180' : ''}`}
+            />
+          </button>
+
+          {confirmacoesOpen && (
+            <div className="mt-1 ml-4 space-y-0.5 border-l-2 border-[#bcc9c4]/40 pl-3">
+              <Link
+                href="/confirmacoes/cards"
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
+                  isActive('/confirmacoes/cards')
+                    ? 'bg-white text-[#006b5a] shadow-sm font-semibold'
+                    : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
+                }`}
+              >
+                Cards
+              </Link>
+              <Link
+                href="/confirmacoes/mensagens"
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
+                  isActive('/confirmacoes/mensagens')
+                    ? 'bg-white text-[#006b5a] shadow-sm font-semibold'
+                    : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
+                }`}
+              >
+                Mensagens
+              </Link>
+            </div>
+          )}
+        </div>
+
+        <Link
           href="/pacientes"
           className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
             isActive('/pacientes')
@@ -80,54 +134,45 @@ export function Sidebar() {
           <span className="text-sm">Pacientes</span>
         </Link>
 
-        <Link 
-          href="/prontuarios"
-          className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-            isActive('/prontuarios')
-              ? 'bg-white text-[#006b5a] shadow-sm translate-x-1 font-semibold' 
-              : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
-          }`}
-        >
+        <span className="flex items-center gap-3 px-4 py-3 rounded-xl opacity-40 cursor-not-allowed text-[#3d4945] font-medium">
           <FileText size={20} />
           <span className="text-sm">Prontuários</span>
-        </Link>
+        </span>
 
-        <Link 
-          href="/equipe"
-          className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-            isActive('/equipe')
-              ? 'bg-white text-[#006b5a] shadow-sm translate-x-1 font-semibold' 
-              : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
-          }`}
-        >
-          <Briefcase size={20} />
-          <span className="text-sm">Equipe</span>
-        </Link>
+        {isGestorOuMedico && (
+          <Link
+            href="/equipe"
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+              isActive('/equipe')
+                ? 'bg-white text-[#006b5a] shadow-sm translate-x-1 font-semibold'
+                : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
+            }`}
+          >
+            <Briefcase size={20} />
+            <span className="text-sm">Equipe</span>
+          </Link>
+        )}
 
-        <Link 
-          href="/configuracoes"
-          className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-            isActive('/configuracoes')
-              ? 'bg-white text-[#006b5a] shadow-sm translate-x-1 font-semibold' 
-              : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
-          }`}
-        >
+        <span className="flex items-center gap-3 px-4 py-3 rounded-xl opacity-40 cursor-not-allowed text-[#3d4945] font-medium">
           <Settings size={20} />
           <span className="text-sm">Configurações</span>
-        </Link>
+        </span>
       </nav>
 
       {/* Footer Actions */}
       <div className="mt-auto pt-4 space-y-1 border-t border-[#bcc9c4]/30">
-        <button className="w-full bg-gradient-to-r from-[#006b5a] to-[#33a68f] text-white rounded-full py-3 mb-4 flex items-center justify-center gap-2 shadow-lg shadow-[#006b5a]/20 hover:scale-[0.98] transition-transform">
+        <button
+          onClick={() => setSlideNovoAberto(true)}
+          className="w-full bg-gradient-to-r from-[#006b5a] to-[#33a68f] text-white rounded-full py-3 mb-4 flex items-center justify-center gap-2 shadow-lg shadow-[#006b5a]/20 hover:scale-[0.98] transition-transform"
+        >
           <Plus size={18} strokeWidth={3} />
-          <span className="text-xs font-bold uppercase tracking-wider">Nova Consulta</span>
+          <span className="text-xs font-bold uppercase tracking-wider">Novo Agendamento</span>
         </button>
         
-        <Link href="/suporte" className="flex items-center gap-3 text-[#3d4945] px-4 py-3 hover:bg-[#dee3e3] rounded-xl transition-all font-medium">
+        <span className="flex items-center gap-3 text-[#3d4945] px-4 py-3 rounded-xl font-medium opacity-40 cursor-not-allowed">
           <HelpCircle size={20} />
           <span className="text-sm">Suporte</span>
-        </Link>
+        </span>
         
         <button 
           onClick={handleLogout}
@@ -137,6 +182,12 @@ export function Sidebar() {
           <span className="text-sm">Sair</span>
         </button>
       </div>
+      <SlideNovoAgendamento
+        pacientes={pacientes}
+        profissionais={profissionais}
+        controlledOpen={slideNovoAberto}
+        onControlledClose={() => setSlideNovoAberto(false)}
+      />
     </aside>
   )
 }

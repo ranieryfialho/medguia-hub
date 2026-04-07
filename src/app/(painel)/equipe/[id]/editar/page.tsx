@@ -59,7 +59,7 @@ export default async function EditarColaboradorPage({ params }: { params: Promis
           </div>
         </div>
       </div>
-
+    
       {/* ÁREA DO FORMULÁRIO (Conectada com editarColaborador) */}
       <div className="bg-white border border-[#bcc9c4]/30 rounded-3xl p-6 sm:p-8 shadow-sm">
         <form action={editarColaborador} className="space-y-8">
