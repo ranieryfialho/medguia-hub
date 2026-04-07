@@ -4,23 +4,43 @@ import { PhoneCall } from 'lucide-react'
 
 function periodoParaContatarHoje(): Array<{ dataInicio: string; dataFim: string; label: string }> {
   const agora = new Date()
-  const hojeString = agora.toISOString().split('T')[0]
+  const TZ = 'America/Sao_Paulo'
 
-  const amanha = new Date(agora)
-  amanha.setUTCDate(agora.getUTCDate() + 1)
-  const amanhaString = amanha.toISOString().split('T')[0]
+  // Retorna a data no calendário de Brasília (YYYY-MM-DD)
+  const dateBRT = (d: Date) =>
+    new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(d)
+
+  // Hora atual formatada em Brasília
+  const horaAtualBRT = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: TZ,
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(agora)
+
+  const hojeString = dateBRT(agora)
+
+  // "Amanhã em BRT" = agora + 24h, depois pegar a data BRT
+  const amanha = new Date(agora.getTime() + 24 * 60 * 60 * 1000)
+  const amanhaString = dateBRT(amanha)
+
+  // "Depois de amanhã em BRT" para o fim do período de amanhã
+  const depoisDeAmanha = new Date(agora.getTime() + 48 * 60 * 60 * 1000)
+  const depoisDeAmanhaString = dateBRT(depoisDeAmanha)
+
+  // Meia-noite de BRT equivale a 03:00 UTC (UTC-3, sem horário de verão desde 2019)
+  const MIDNIGHT_BRT_IN_UTC = 'T03:00:00Z'
 
   return [
-    // Hoje: apenas atendimentos que ainda não passaram (≥ agora)
+    // Hoje: atendimentos que ainda não passaram (≥ agora em UTC)
     {
       dataInicio: agora.toISOString(),
-      dataFim: `${hojeString}T23:59:59Z`,
-      label: `hoje (a partir de ${agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })})`,
+      dataFim: `${amanhaString}${MIDNIGHT_BRT_IN_UTC}`, // 23:59:59 BRT = 03:00 UTC do dia seguinte
+      label: `hoje (a partir de ${horaAtualBRT})`,
     },
-    // Amanhã: todos os atendimentos do dia
+    // Amanhã: todos os atendimentos do dia inteiro
     {
-      dataInicio: `${amanhaString}T00:00:00Z`,
-      dataFim: `${amanhaString}T23:59:59Z`,
+      dataInicio: `${amanhaString}${MIDNIGHT_BRT_IN_UTC}`,        // 00:00 BRT = 03:00 UTC
+      dataFim: `${depoisDeAmanhaString}${MIDNIGHT_BRT_IN_UTC}`,   // 23:59 BRT = 03:00 UTC do dia seguinte
       label: 'amanhã (todos)',
     },
   ]
