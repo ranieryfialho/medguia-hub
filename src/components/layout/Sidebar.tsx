@@ -1,12 +1,12 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { SlideNovoAgendamento } from '@/components/features/SlideNovoAgendamento'
 import {
-  HeartPulse,
   LayoutDashboard,
   CalendarDays,
   Users,
@@ -44,9 +44,7 @@ export function Sidebar({ pacientes, profissionais, userRole }: { pacientes: Pac
       
       {/* Logo Area */}
       <div className="px-4 py-6 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#006b5a] to-[#33a68f] flex items-center justify-center text-white shadow-md">
-          <HeartPulse size={24} strokeWidth={2.5} />
-        </div>
+        <Image src="/logo.png" alt="MedGuia Hub" width={32} height={32} className="object-contain" />
         <div>
           <h1 className="text-lg font-bold text-[#006b5a] tracking-tight leading-none">MedGuia Hub</h1>
         </div>

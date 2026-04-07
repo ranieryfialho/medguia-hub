@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { Plus, Search, User, Mail } from 'lucide-react'
+import { Plus, User, Mail } from 'lucide-react'
 import { MenuAcoesColaborador } from '@/components/features/MenuAcoesColaborador'
+import { FiltrosEquipe } from '@/components/features/FiltrosEquipe'
 
 // Mapeamento de estilos para cada cargo
 const getCargoConfig = (cargo: string) => {
@@ -15,8 +16,14 @@ const getCargoConfig = (cargo: string) => {
   return configs[cargo?.toLowerCase()] || configs['default']
 }
 
-export default async function EquipePage() {
+export default async function EquipePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
   const supabase = await createClient()
+  const resolvedParams = await searchParams
+  const busca = ((resolvedParams.busca as string) || '').trim().toLowerCase()
 
   // Busca os usuários na tabela profiles
   const { data: perfis, error } = await supabase
@@ -27,13 +34,21 @@ export default async function EquipePage() {
     console.error('Erro ao buscar equipe na tabela profiles:', error.message)
   }
 
-  // Ordena os membros por ordem alfabética
-  const listaEquipe = (perfis || []).sort((a, b) => {
-    const nomeA = a.nome || a.full_name || ''
-    const nomeB = b.nome || b.full_name || ''
-    return nomeA.localeCompare(nomeB)
-  })
-  
+  // Filtra e ordena os membros
+  const listaEquipe = (perfis || [])
+    .filter(m => {
+      if (!busca) return true
+      const nome = (m.full_name || m.nome || '').toLowerCase()
+      const email = (m.email || '').toLowerCase()
+      const cargo = (m.role || m.cargo || '').toLowerCase()
+      return nome.includes(busca) || email.includes(busca) || cargo.includes(busca)
+    })
+    .sort((a, b) => {
+      const nomeA = a.nome || a.full_name || ''
+      const nomeB = b.nome || b.full_name || ''
+      return nomeA.localeCompare(nomeB)
+    })
+
   const totalEquipe = listaEquipe.length
 
   return (
@@ -59,21 +74,7 @@ export default async function EquipePage() {
 
       {/* BARRA DE PESQUISA E FILTROS */}
       <div className="bg-white p-4 rounded-2xl border border-[#bcc9c4]/30 shadow-sm flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#3d4945]/50">
-            <Search size={18} />
-          </div>
-          <input 
-            type="text" 
-            placeholder="Buscar por nome, e-mail ou cargo..."
-            className="w-full bg-[#f0f5f4] border-transparent rounded-xl pl-11 pr-4 py-3 text-[#171d1c] placeholder:text-[#3d4945]/50 focus:outline-none focus:ring-2 focus:ring-[#006b5a]/50 transition-all font-medium"
-          />
-        </div>
-        <div className="flex gap-2">
-          <button className="px-6 py-3 bg-[#f0f5f4] text-[#3d4945] font-bold rounded-xl hover:bg-[#dee3e3] transition-colors text-sm">
-            Filtrar Cargo
-          </button>
-        </div>
+        <FiltrosEquipe />
       </div>
 
       {/* LISTA DE COLABORADORES */}
@@ -152,7 +153,7 @@ export default async function EquipePage() {
             </div>
             <h3 className="text-lg font-bold text-[#171d1c] mb-1">Nenhum colaborador encontrado</h3>
             <p className="text-sm font-medium text-[#3d4945]/70 max-w-md mx-auto mb-6">
-              Você ainda não cadastrou nenhum membro na equipe ou os perfis não possuem dados públicos.
+              {busca ? `Nenhum resultado para "${busca}".` : 'Você ainda não cadastrou nenhum membro na equipe ou os perfis não possuem dados públicos.'}
             </p>
             <Link 
               href="/equipe/novo" 
