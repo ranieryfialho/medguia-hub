@@ -1,45 +1,29 @@
 import { createClient } from '@/lib/supabase/server'
 import { CardConfirmacaoPaciente } from '@/components/features/CardConfirmacaoPaciente'
 import { PhoneCall } from 'lucide-react'
-import { format } from 'date-fns'
 
-function periodoParaContatarHoje(): Array<{ dataInicio: string; dataFim: string; corteHora: string }> {
-  const hoje = new Date()
-  const periodos: Array<{ dataInicio: string; dataFim: string; corteHora: string }> = []
+function periodoParaContatarHoje(): Array<{ dataInicio: string; dataFim: string; label: string }> {
+  const agora = new Date()
+  const hojeString = agora.toISOString().split('T')[0]
 
-  // Regra: consultas de tarde (≥13:00) são contatadas HOJE a partir das 13:00
-  const hojeString = hoje.toISOString().split('T')[0]
-  periodos.push({
-    dataInicio: `${hojeString}T13:00:00Z`,
-    dataFim: `${hojeString}T23:59:59Z`,
-    corteHora: '13:00',
-  })
-
-  // Regra: consultas de manhã (<13:00) amanhã são contatadas HOJE a partir das 00:00
-  const amanha = new Date(hoje)
-  amanha.setDate(hoje.getDate() + 1)
+  const amanha = new Date(agora)
+  amanha.setUTCDate(agora.getUTCDate() + 1)
   const amanhaString = amanha.toISOString().split('T')[0]
-  if (amanha.getDay() !== 0) { // ignora se amanhã for domingo
-    periodos.push({
+
+  return [
+    // Hoje: apenas atendimentos que ainda não passaram (≥ agora)
+    {
+      dataInicio: agora.toISOString(),
+      dataFim: `${hojeString}T23:59:59Z`,
+      label: `hoje (a partir de ${agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })})`,
+    },
+    // Amanhã: todos os atendimentos do dia
+    {
       dataInicio: `${amanhaString}T00:00:00Z`,
-      dataFim: `${amanhaString}T12:59:59Z`,
-      corteHora: '12:59',
-    })
-  }
-
-  // Exceção: se hoje é sexta (5), contatar para segunda
-  if (hoje.getDay() === 5) {
-    const proxSegunda = new Date(hoje)
-    proxSegunda.setDate(hoje.getDate() + 3)
-    const segundaString = proxSegunda.toISOString().split('T')[0]
-    periodos.push({
-      dataInicio: `${segundaString}T00:00:00Z`,
-      dataFim: `${segundaString}T23:59:59Z`,
-      corteHora: '00:00',
-    })
-  }
-
-  return periodos
+      dataFim: `${amanhaString}T23:59:59Z`,
+      label: 'amanhã (todos)',
+    },
+  ]
 }
 
 export default async function CardsPage() {
@@ -134,16 +118,12 @@ export default async function CardsPage() {
           📞 Confirmações de consultas de hoje
         </p>
         <p className="text-xs text-slate-600 mt-1">
-          {periodos.map((p, idx) => {
-            const data = p.dataInicio.split('T')[0]
-            const horaInfo = p.corteHora === '00:00' ? 'todas' : `a partir de ${p.corteHora}`
-            return (
-              <span key={idx}>
-                {idx > 0 && ' • '}
-                {format(new Date(`${data}T00:00:00`), "dd/MM")} ({horaInfo})
-              </span>
-            )
-          })}
+          {periodos.map((p, idx) => (
+            <span key={idx}>
+              {idx > 0 && ' • '}
+              {p.label}
+            </span>
+          ))}
         </p>
       </div>
 
