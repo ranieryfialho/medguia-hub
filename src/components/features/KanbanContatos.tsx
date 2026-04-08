@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Search, X, MessageCircle, ChevronLeft, ChevronRight,
   Send, Clock, Calendar, UserCircle2, StickyNote, ChevronDown,
@@ -14,7 +15,6 @@ import {
 } from '@/actions/contatos'
 import type { StatusContato } from '@/actions/contatos'
 import type { ContatoPaciente, ProfileSimples } from '@/app/(painel)/contatos/page'
-import { createClient } from '@/lib/supabase/client'
 import { format, differenceInCalendarDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -113,7 +113,7 @@ type ColunaConfig = {
 const COLUNAS: ColunaConfig[] = [
   {
     status: 'a_contactar',
-    label: 'A Contactar',
+    label: 'A Contatar',
     cor: '#6d7a75',
     corBg: '#f0f5f4',
     corBadgeBg: '#dee3e3',
@@ -175,25 +175,20 @@ const [notas, setNotas] = useState<Nota[]>([])
   const [templatePickerOpen, setTemplatePickerOpen] = useState(true)
   const [, startTransition] = useTransition()
 
-  // Realtime: sincroniza mudanças de status/responsavel feitas por outros usuários
+  const router = useRouter()
+
+  // Sincroniza estado local quando o servidor retorna dados novos (após router.refresh)
   useEffect(() => {
-    const supabase = createClient()
-    const channel = supabase
-      .channel('contatos_base_realtime')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'contatos_base' }, (payload) => {
-        console.log('[Realtime contatos_base] payload recebido:', payload)
-        const { paciente_id, status, responsavel_id } = payload.new as { paciente_id: string; status: StatusContato; responsavel_id: string | null }
-        const responsavel_nome = responsavel_id ? profiles.find(p => p.id === responsavel_id)?.full_name ?? null : null
-        setContatos(prev => prev.map(c =>
-          c.id === paciente_id ? { ...c, status, responsavel_id, responsavel_nome } : c
-        ))
-        setSelected(prev => prev?.id === paciente_id ? { ...prev, status, responsavel_id, responsavel_nome } : prev)
-      })
-      .subscribe((status) => {
-        console.log('[Realtime contatos_base] status:', status)
-      })
-    return () => { supabase.removeChannel(channel) }
-  }, [profiles])
+    setContatos(initialContatos)
+  }, [initialContatos])
+
+  // Refresh silencioso a cada 30s para evitar dois usuários atendendo o mesmo card
+  useEffect(() => {
+    const interval = setInterval(() => {
+      router.refresh()
+    }, 5_000)
+    return () => clearInterval(interval)
+  }, [router])
 
   // Carrega notas quando abre modal
   useEffect(() => {
