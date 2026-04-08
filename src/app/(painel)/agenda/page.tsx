@@ -162,6 +162,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
     .from('profiles')
     .select('id, full_name, role')
     .eq('ativo', true)
+    .neq('role', 'master')
     .order('full_name')
 
   const profissionaisFormatados = listaProfissionais?.map(p => ({

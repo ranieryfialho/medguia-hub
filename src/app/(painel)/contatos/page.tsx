@@ -30,7 +30,7 @@ export default async function ContatosPage() {
   ] = await Promise.all([
     supabase.from('pacientes').select('id, nome, telefone, email').eq('ativo', true).order('nome'),
     supabase.from('contatos_base').select('paciente_id, status, responsavel_id'),
-    supabase.from('profiles').select('id, full_name').eq('ativo', true).order('full_name'),
+    supabase.from('profiles').select('id, full_name').eq('ativo', true).neq('role', 'master').order('full_name'),
     supabase.from('atendimentos').select('paciente_id, data_agendamento, tipo').order('data_agendamento', { ascending: false }),
     listarTemplates('reativacao'),
   ])

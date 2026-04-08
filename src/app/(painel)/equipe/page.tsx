@@ -38,7 +38,7 @@ export default async function EquipePage({
   const listaEquipe = (perfis || [])
     .filter(m => {
       const nome = (m.full_name || m.nome || '')
-      if (nome === 'Raniery Fialho') return false
+      if ((m.role || m.cargo || '').toLowerCase() === 'master') return false
       if (!busca) return true
       const email = (m.email || '').toLowerCase()
       const cargo = (m.role || m.cargo || '').toLowerCase()
