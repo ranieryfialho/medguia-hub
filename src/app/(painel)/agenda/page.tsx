@@ -294,9 +294,10 @@ export default async function AgendaPage({ searchParams }: PageProps) {
             )}
 
             {view === 'semana' && (
-              <div className="flex-1 min-h-0 overflow-auto pb-2">
-                <div className="min-w-[800px]">
-                  <div className="grid grid-cols-[60px_repeat(7,1fr)] gap-2 mb-3 border-b border-[#bcc9c4]/30 pb-3">
+              <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                {/* Header fixo — scroll horizontal sincronizado via overflow-x-auto no pai */}
+                <div className="flex-shrink-0 overflow-x-auto scrollbar-none">
+                  <div className="min-w-[800px] grid grid-cols-[60px_repeat(7,1fr)] gap-2 mb-3 border-b border-[#bcc9c4]/30 pb-3">
                     <div></div>
                     {diasDaSemana.map((dia) => {
                        const isSelecionado = isSameDay(dia, dataSelecionada)
@@ -312,8 +313,11 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                        )
                     })}
                   </div>
+                </div>
 
-                  <div className="space-y-0">
+                {/* Grade de horas — scroll interno vertical */}
+                <div className="overflow-auto pb-2" style={{ maxHeight: 'calc(100vh - 280px)' }}>
+                  <div className="min-w-[800px] space-y-0">
                     {HORAS_DIA.map((horaStr) => {
                       const horaNum = parseInt(horaStr.split(':')[0])
                       return (
@@ -499,6 +503,13 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 )
               })}
             </div>
+
+            <Link
+              href={`?view=${view}&data=${format(new Date(), 'yyyy-MM-dd')}`}
+              className="flex-shrink-0 mt-1 w-full text-center text-xs font-bold py-2 rounded-xl bg-[#006b5a]/10 text-[#006b5a] hover:bg-[#006b5a]/20 transition-colors"
+            >
+              Hoje
+            </Link>
           </div>
 
         </div>
