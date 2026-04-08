@@ -51,13 +51,14 @@ export default async function PacientesListPage({
         </div>
 
         <div className="flex items-center justify-between bg-surface p-4 rounded-t-lg border-b border-border">
-          <h1 className="text-xl font-semibold text-text-primary">Listar Pacientes</h1>
+          <h1 className="text-lg lg:text-xl font-semibold text-text-primary">Listar Pacientes</h1>
           <Link
             href="/pacientes/novo"
-            className="bg-[#0A4D68] hover:bg-[#083d53] text-white flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors"
+            className="bg-[#0A4D68] hover:bg-[#083d53] text-white flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 rounded-md text-sm font-medium transition-colors"
           >
             <Plus size={16} />
-            Adicionar
+            <span className="hidden sm:inline">Adicionar</span>
+            <span className="sm:hidden">Novo</span>
           </Link>
         </div>
       </div>
@@ -65,9 +66,9 @@ export default async function PacientesListPage({
       <div className="bg-surface rounded-b-lg shadow-sm border border-border -mt-6">
         <FiltrosPacientes />
 
-        {/* Tabela */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[800px]">
+        {/* Tabela — desktop */}
+        <div className="hidden md:block overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[700px]">
             <thead>
               <tr className="border-b border-border">
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Nome</th>
@@ -140,6 +141,46 @@ export default async function PacientesListPage({
               })}
             </tbody>
           </table>
+        </div>
+
+        {/* Cards — mobile */}
+        <div className="md:hidden divide-y divide-border">
+          {pacientes?.length === 0 && (
+            <p className="px-4 py-8 text-center text-sm text-text-secondary">
+              {busca ? `Nenhum paciente encontrado para "${busca}".` : 'Nenhum paciente encontrado.'}
+            </p>
+          )}
+          {pacientes?.map((paciente) => {
+            const iniciais = paciente.nome.split(' ').slice(0, 2).map((n: string) => n[0]).join('').toUpperCase()
+            const numeroLimpo = paciente.telefone?.replace(/\D/g, '') || ''
+            const isAtivo = paciente.ativo !== false
+
+            return (
+              <div key={paciente.id} className={`px-4 py-3 flex items-center gap-3 ${!isAtivo ? 'opacity-60' : ''}`}>
+                <div className="w-10 h-10 rounded-full bg-border flex items-center justify-center text-xs font-medium text-text-secondary shrink-0">
+                  {iniciais}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-text-primary truncate">{paciente.nome}</p>
+                  <p className="text-xs text-text-secondary truncate">{paciente.telefone || paciente.email || 'Sem contato'}</p>
+                  {paciente.convenio && (
+                    <span className="inline-block mt-1 px-2 py-0.5 bg-[#E8F0FE] text-[#1A73E8] text-[10px] font-semibold rounded-full">
+                      {paciente.convenio}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0 text-text-tertiary">
+                  <Link href={`/pacientes/${paciente.id}`} title="Visualizar">
+                    <Eye size={17} />
+                  </Link>
+                  <Link href={`/pacientes/${paciente.id}/editar`} title="Editar">
+                    <Edit size={17} />
+                  </Link>
+                  <BtnWhatsApp numero={numeroLimpo} />
+                </div>
+              </div>
+            )
+          })}
         </div>
 
         <PaginacaoPacientes

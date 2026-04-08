@@ -3,18 +3,24 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
-export async function listarTemplates() {
+export async function listarTemplates(categoria?: 'confirmacao' | 'reativacao') {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) return []
 
   // Retorna templates globais (criado_por IS NULL) + os do próprio usuário
-  const { data, error } = await supabase
+  let query = supabase
     .from('templates_mensagem')
-    .select('id, nome, conteudo, criado_em, criado_por')
+    .select('id, nome, conteudo, criado_em, criado_por, categoria')
     .or(`criado_por.is.null,criado_por.eq.${user.id}`)
-    .order('criado_em', { ascending: true })
+
+  // Filtra por categoria se especificada
+  if (categoria) {
+    query = query.eq('categoria', categoria)
+  }
+
+  const { data, error } = await query.order('criado_em', { ascending: true })
 
   if (error) {
     console.error('Erro ao listar templates:', error)
@@ -24,7 +30,7 @@ export async function listarTemplates() {
   return data ?? []
 }
 
-export async function salvarTemplate(nome: string, conteudo: string) {
+export async function salvarTemplate(nome: string, conteudo: string, categoria: 'confirmacao' | 'reativacao' = 'confirmacao') {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -32,7 +38,7 @@ export async function salvarTemplate(nome: string, conteudo: string) {
 
   const { data, error } = await supabase
     .from('templates_mensagem')
-    .insert({ nome, conteudo, criado_por: user.id })
+    .insert({ nome, conteudo, categoria, criado_por: user.id })
     .select('id')
     .single()
 

@@ -25,7 +25,7 @@ export async function Header() {
   const avatarUrl = profile?.avatar_url || avatarFallback
 
   return (
-    <header className="sticky top-0 z-40 bg-[#f5faf9]/90 backdrop-blur-md flex justify-between items-center w-full px-8 py-4 border-b border-[#dee3e3]/50">
+    <header className="hidden lg:flex sticky top-0 z-40 bg-[#f5faf9]/90 backdrop-blur-md justify-between items-center w-full px-8 py-4 border-b border-[#dee3e3]/50">
       
       <div className="flex-1 flex items-center">
         <div className="relative group w-full max-w-md hidden sm:block">

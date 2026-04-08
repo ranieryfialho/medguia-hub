@@ -1,5 +1,5 @@
-import { Sidebar } from '@/components/layout/Sidebar'
 import { Header } from '@/components/layout/Header'
+import { AppShell } from '@/components/layout/AppShell'
 import { createClient } from '@/lib/supabase/server'
 import { ModalPrimeiroAcesso } from '@/components/features/ModalPrimeiroAcesso'
 import { Toaster } from 'react-hot-toast'
@@ -14,19 +14,26 @@ export default async function DashboardLayout({
 
   let primeiroAcesso = false
   let userRole: string | null = null
+  let profile = null
 
   if (user) {
     const { data, error } = await supabase
       .from('profiles')
-      .select('primeiro_acesso, role')
+      .select('primeiro_acesso, role, full_name, avatar_url, especialidade')
       .eq('id', user.id)
       .single()
 
     if (!error && data) {
       if (data.primeiro_acesso === true) primeiroAcesso = true
       userRole = data.role ?? null
+      profile = data
     }
   }
+
+  const nomeUsuario = profile?.full_name || user?.email?.split('@')[0] || 'Usuário'
+  const cargoUsuario = profile?.role || profile?.especialidade || 'Gestor'
+  const avatarUrl = profile?.avatar_url ||
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(nomeUsuario)}&background=cce2da&color=006b5a&bold=true`
 
   const [{ data: pacientes }, { data: listaProfissionais }] = await Promise.all([
     supabase.from('pacientes').select('id, nome').order('nome'),
@@ -40,17 +47,19 @@ export default async function DashboardLayout({
   }))
 
   return (
-    <div className="flex min-h-screen bg-[#f5faf9]">
-      <Sidebar pacientes={pacientes ?? []} profissionais={profissionais} userRole={userRole} />
-      <div className="flex-1 ml-64 flex flex-col h-screen relative">
-        <Header />
-        <main className="flex-1 p-6 md:p-8 overflow-y-auto min-h-0">
-          {children}
-        </main>
-      </div>
+    <AppShell
+      pacientes={pacientes ?? []}
+      profissionais={profissionais}
+      userRole={userRole}
+      headerData={{ nomeUsuario, cargoUsuario, avatarUrl }}
+    >
+      <Header />
+      <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto min-h-0">
+        {children}
+      </main>
 
       {primeiroAcesso && <ModalPrimeiroAcesso />}
       <Toaster position="top-right" />
-    </div>
+    </AppShell>
   )
 }

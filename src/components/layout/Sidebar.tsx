@@ -5,7 +5,6 @@ import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { SlideNovoAgendamento } from '@/components/features/SlideNovoAgendamento'
 import {
   LayoutDashboard,
   CalendarDays,
@@ -17,19 +16,16 @@ import {
   HelpCircle,
   LogOut,
   PhoneCall,
-  ChevronDown
+  ChevronDown,
+  Target,
 } from 'lucide-react'
 
-type Paciente = { id: string; nome: string }
-type Profissional = { id: string; nome: string; cargo: string }
-
-export function Sidebar({ pacientes, profissionais, userRole }: { pacientes: Paciente[]; profissionais: Profissional[]; userRole: string | null }) {
+export function Sidebar({ userRole, onMobileClose, onOpenNovoAgendamento }: { userRole: string | null; onMobileClose?: () => void; onOpenNovoAgendamento?: () => void }) {
   const isGestorOuMedico = userRole === 'gestor' || userRole === 'médico'
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
   const [confirmacoesOpen, setConfirmacoesOpen] = useState(() => pathname?.startsWith('/confirmacoes') ?? false)
-  const [slideNovoAberto, setSlideNovoAberto] = useState(false)
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -39,24 +35,35 @@ export function Sidebar({ pacientes, profissionais, userRole }: { pacientes: Pac
   // Função auxiliar para verificar se o link está ativo
   const isActive = (path: string) => pathname?.startsWith(path)
 
+  const handleNavClick = () => onMobileClose?.()
+
   return (
-    <aside className="h-screen w-64 fixed left-0 top-0 overflow-y-auto z-[200] bg-[#f0f5f4] border-r border-[#dee3e3]/50 flex flex-col p-4 gap-2 hide-scrollbar">
-      
+    <aside className="h-screen w-64 overflow-y-auto z-[200] bg-[#f0f5f4] border-r border-[#dee3e3]/50 flex flex-col p-4 gap-2 hide-scrollbar">
+
       {/* Logo Area */}
       <div className="px-4 py-6 flex items-center gap-3">
         <Image src="/logo.png" alt="MedGuia Hub" width={32} height={32} className="object-contain" />
-        <div>
+        <div className="flex-1">
           <h1 className="text-lg font-bold text-[#006b5a] tracking-tight leading-none">MedGuia Hub</h1>
         </div>
+        {onMobileClose && (
+          <button
+            onClick={onMobileClose}
+            className="lg:hidden p-1.5 rounded-lg hover:bg-[#dee3e3] text-[#6d7a75] transition-colors"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        )}
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 space-y-1">
-        <Link 
+        <Link
           href="/dashboard"
+          onClick={handleNavClick}
           className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-            pathname === '/dashboard' 
-              ? 'bg-white text-[#006b5a] shadow-sm translate-x-1 font-semibold' 
+            pathname === '/dashboard'
+              ? 'bg-white text-[#006b5a] shadow-sm translate-x-1 font-semibold'
               : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
           }`}
         >
@@ -66,6 +73,7 @@ export function Sidebar({ pacientes, profissionais, userRole }: { pacientes: Pac
 
         <Link
           href="/agenda"
+          onClick={handleNavClick}
           className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
             isActive('/agenda')
               ? 'bg-white text-[#006b5a] shadow-sm translate-x-1 font-semibold'
@@ -98,6 +106,7 @@ export function Sidebar({ pacientes, profissionais, userRole }: { pacientes: Pac
             <div className="mt-1 ml-4 space-y-0.5 border-l-2 border-[#bcc9c4]/40 pl-3">
               <Link
                 href="/confirmacoes/cards"
+                onClick={handleNavClick}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
                   isActive('/confirmacoes/cards')
                     ? 'bg-white text-[#006b5a] shadow-sm font-semibold'
@@ -108,6 +117,7 @@ export function Sidebar({ pacientes, profissionais, userRole }: { pacientes: Pac
               </Link>
               <Link
                 href="/confirmacoes/mensagens"
+                onClick={handleNavClick}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
                   isActive('/confirmacoes/mensagens')
                     ? 'bg-white text-[#006b5a] shadow-sm font-semibold'
@@ -121,10 +131,24 @@ export function Sidebar({ pacientes, profissionais, userRole }: { pacientes: Pac
         </div>
 
         <Link
+          href="/contatos"
+          onClick={handleNavClick}
+          className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+            isActive('/contatos')
+              ? 'bg-white text-[#006b5a] shadow-sm translate-x-1 font-semibold'
+              : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
+          }`}
+        >
+          <Target size={20} />
+          <span className="text-sm">Contatos</span>
+        </Link>
+
+        <Link
           href="/pacientes"
+          onClick={handleNavClick}
           className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
             isActive('/pacientes')
-              ? 'bg-white text-[#006b5a] shadow-sm translate-x-1 font-semibold' 
+              ? 'bg-white text-[#006b5a] shadow-sm translate-x-1 font-semibold'
               : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
           }`}
         >
@@ -140,6 +164,7 @@ export function Sidebar({ pacientes, profissionais, userRole }: { pacientes: Pac
         {isGestorOuMedico && (
           <Link
             href="/equipe"
+            onClick={handleNavClick}
             className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
               isActive('/equipe')
                 ? 'bg-white text-[#006b5a] shadow-sm translate-x-1 font-semibold'
@@ -160,7 +185,7 @@ export function Sidebar({ pacientes, profissionais, userRole }: { pacientes: Pac
       {/* Footer Actions */}
       <div className="mt-auto pt-4 space-y-1 border-t border-[#bcc9c4]/30">
         <button
-          onClick={() => setSlideNovoAberto(true)}
+          onClick={onOpenNovoAgendamento}
           className="w-full bg-gradient-to-r from-[#006b5a] to-[#33a68f] text-white rounded-full py-3 mb-4 flex items-center justify-center gap-2 shadow-lg shadow-[#006b5a]/20 hover:scale-[0.98] transition-transform"
         >
           <Plus size={18} strokeWidth={3} />
@@ -180,12 +205,6 @@ export function Sidebar({ pacientes, profissionais, userRole }: { pacientes: Pac
           <span className="text-sm">Sair</span>
         </button>
       </div>
-      <SlideNovoAgendamento
-        pacientes={pacientes}
-        profissionais={profissionais}
-        controlledOpen={slideNovoAberto}
-        onControlledClose={() => setSlideNovoAberto(false)}
-      />
     </aside>
   )
 }

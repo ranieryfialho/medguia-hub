@@ -176,46 +176,46 @@ export default async function AgendaPage({ searchParams }: PageProps) {
   const pendentes = totalAgendamentos - atendidos
 
   return (
-    <div className="h-full overflow-hidden flex flex-col gap-4">
+    <div className="h-full overflow-hidden flex flex-col gap-3 lg:gap-4">
 
-      <h2 className="font-bold text-2xl text-[#171d1c] flex-shrink-0">Agenda de Atendimento</h2>
+      <h2 className="font-bold text-xl lg:text-2xl text-[#171d1c] flex-shrink-0">Agenda de Atendimento</h2>
 
       {/* GRID PRINCIPAL (DUAS COLUNAS) */}
-      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-6 overflow-hidden">
+      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-6 overflow-hidden">
 
         {/* COLUNA ESQUERDA (CALENDÁRIO PRINCIPAL) */}
-        <div className="col-span-1 lg:col-span-8 flex flex-col gap-4 min-h-0 overflow-hidden">
+        <div className="col-span-1 lg:col-span-8 flex flex-col gap-3 lg:gap-4 min-h-0 overflow-hidden">
 
           {/* Barra de navegação */}
-          <div className="flex-shrink-0 bg-[#f0f5f4] rounded-3xl px-5 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <Link href={prevUrl} className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-[#dee3e3] transition-colors text-[#171d1c]">
-                <ChevronLeft size={22} />
+          <div className="flex-shrink-0 bg-[#f0f5f4] rounded-2xl lg:rounded-3xl px-4 lg:px-5 py-2.5 lg:py-3 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Link href={prevUrl} className="w-8 h-8 lg:w-9 lg:h-9 rounded-full flex items-center justify-center hover:bg-[#dee3e3] transition-colors text-[#171d1c]">
+                <ChevronLeft size={20} />
               </Link>
-              <h3 className="font-extrabold text-xl text-[#006b5a] tracking-tight capitalize w-44 text-center">
+              <h3 className="font-extrabold text-base lg:text-xl text-[#006b5a] tracking-tight capitalize w-32 lg:w-44 text-center">
                 {mesAnoAtual}
               </h3>
-              <Link href={nextUrl} className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-[#dee3e3] transition-colors text-[#171d1c]">
-                <ChevronRight size={22} />
+              <Link href={nextUrl} className="w-8 h-8 lg:w-9 lg:h-9 rounded-full flex items-center justify-center hover:bg-[#dee3e3] transition-colors text-[#171d1c]">
+                <ChevronRight size={20} />
               </Link>
             </div>
 
             <div className="flex bg-[#dee3e3] p-1 rounded-full">
               <Link
                 href={`?view=dia&data=${dataString}`}
-                className={`px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${view === 'dia' ? 'bg-white shadow-sm text-[#006b5a]' : 'text-[#3d4945] hover:text-[#171d1c]'}`}
+                className={`px-3 lg:px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${view === 'dia' ? 'bg-white shadow-sm text-[#006b5a]' : 'text-[#3d4945] hover:text-[#171d1c]'}`}
               >
                 Dia
               </Link>
               <Link
                 href={`?view=semana&data=${dataString}`}
-                className={`px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${view === 'semana' ? 'bg-white shadow-sm text-[#006b5a]' : 'text-[#3d4945] hover:text-[#171d1c]'}`}
+                className={`hidden sm:block px-3 lg:px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${view === 'semana' ? 'bg-white shadow-sm text-[#006b5a]' : 'text-[#3d4945] hover:text-[#171d1c]'}`}
               >
                 Semana
               </Link>
               <Link
                 href={`?view=mes&data=${dataString}`}
-                className={`px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${view === 'mes' ? 'bg-white shadow-sm text-[#006b5a]' : 'text-[#3d4945] hover:text-[#171d1c]'}`}
+                className={`px-3 lg:px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${view === 'mes' ? 'bg-white shadow-sm text-[#006b5a]' : 'text-[#3d4945] hover:text-[#171d1c]'}`}
               >
                 Mês
               </Link>
@@ -235,8 +235,8 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                     const isSelecionado = isSameDay(dia, dataSelecionada)
                     return (
                       <Link href={`?view=dia&data=${format(dia, 'yyyy-MM-dd')}`} key={dia.toString()} className="text-center group cursor-pointer block">
-                        <p className="text-[10px] font-bold text-[#3d4945] uppercase tracking-tighter mb-1">{diaNome.replace('.', '')}</p>
-                        <div className={`w-9 h-9 flex items-center justify-center mx-auto rounded-xl text-base font-bold transition-colors ${
+                        <p className="text-[9px] lg:text-[10px] font-bold text-[#3d4945] uppercase tracking-tighter mb-1">{diaNome.replace('.', '').slice(0, 3)}</p>
+                        <div className={`w-7 h-7 lg:w-9 lg:h-9 flex items-center justify-center mx-auto rounded-xl text-sm lg:text-base font-bold transition-colors ${
                           isSelecionado ? 'bg-[#006b5a] text-white shadow-lg shadow-[#006b5a]/30' : 'text-[#bcc9c4] group-hover:bg-[#f0f5f4] group-hover:text-[#171d1c]'
                         }`}>
                           {diaNumero}
@@ -320,9 +320,18 @@ export default async function AgendaPage({ searchParams }: PageProps) {
             {view === 'mes' && (
               <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
                 <div className="flex-shrink-0 grid grid-cols-7 mb-2">
-                  {['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'].map(dia => (
-                    <div key={dia} className="text-center text-xs font-bold text-[#3d4945] uppercase tracking-wider py-2">
-                      {dia}
+                  {[
+                    { full: 'Domingo', short: 'Dom' },
+                    { full: 'Segunda', short: 'Seg' },
+                    { full: 'Terça', short: 'Ter' },
+                    { full: 'Quarta', short: 'Qua' },
+                    { full: 'Quinta', short: 'Qui' },
+                    { full: 'Sexta', short: 'Sex' },
+                    { full: 'Sábado', short: 'Sáb' },
+                  ].map(dia => (
+                    <div key={dia.full} className="text-center text-[10px] lg:text-xs font-bold text-[#3d4945] uppercase tracking-wider py-2">
+                      <span className="hidden sm:inline">{dia.full}</span>
+                      <span className="sm:hidden">{dia.short}</span>
                     </div>
                   ))}
                 </div>
@@ -338,8 +347,8 @@ export default async function AgendaPage({ searchParams }: PageProps) {
 
                     if (!isMesmoMes) {
                       return (
-                        <div key={`vazio-${idx}`} className="min-h-[80px] bg-[#f0f5f4]/50 rounded-2xl p-2 opacity-40">
-                          <span className="text-sm font-bold text-[#3d4945]">{format(dia, 'd')}</span>
+                        <div key={`vazio-${idx}`} className="min-h-[48px] lg:min-h-[80px] bg-[#f0f5f4]/50 rounded-xl lg:rounded-2xl p-1 lg:p-2 opacity-40">
+                          <span className="text-xs lg:text-sm font-bold text-[#3d4945]">{format(dia, 'd')}</span>
                         </div>
                       )
                     }
@@ -348,7 +357,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                       <Link
                         href={`?view=dia&data=${format(dia, 'yyyy-MM-dd')}`}
                         key={`dia-${idx}`}
-                        className={`min-h-[80px] border border-[#bcc9c4]/30 rounded-2xl p-2 flex flex-col transition-all hover:border-[#006b5a] hover:shadow-md cursor-pointer ${
+                        className={`min-h-[48px] lg:min-h-[80px] border border-[#bcc9c4]/30 rounded-xl lg:rounded-2xl p-1 lg:p-2 flex flex-col transition-all hover:border-[#006b5a] hover:shadow-md cursor-pointer ${
                           isSelecionado ? 'bg-[#cce2da] border-[#006b5a]/50' : 'bg-white'
                         }`}
                       >
@@ -385,7 +394,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
         </div>
 
         {/* COLUNA DIREITA (RESUMO E MINI CALENDÁRIO) */}
-        <div className="col-span-1 lg:col-span-4 flex flex-col gap-4 min-h-0 overflow-hidden">
+        <div className="col-span-1 lg:col-span-4 flex flex-col gap-4 min-h-0 overflow-hidden overflow-y-auto lg:overflow-hidden">
 
           {/* Card de resumo */}
           <div className="flex-shrink-0 bg-gradient-to-br from-[#006b5a] to-[#33a68f] p-5 rounded-3xl shadow-xl shadow-[#006b5a]/20 text-white">
