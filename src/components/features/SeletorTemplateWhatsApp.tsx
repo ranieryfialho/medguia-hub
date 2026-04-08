@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { format } from 'date-fns'
+import { format, differenceInCalendarDays } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 import { X, Send } from 'lucide-react'
 import { registrarEnvioWhatsApp } from '@/actions/confirmacoes'
 import toast from 'react-hot-toast'
@@ -25,12 +26,23 @@ interface Paciente {
 }
 
 const substituirShortcodes = (text: string, paciente: Paciente) => {
-  const dataFormatada = format(new Date(paciente.data_agendamento), 'dd/MM/yyyy')
-  const horaFormatada = format(new Date(paciente.data_agendamento), 'HH:mm')
+  const dataConsulta = new Date(paciente.data_agendamento)
+  const dataFormatada = format(dataConsulta, 'dd/MM/yyyy')
+  const horaFormatada = format(dataConsulta, 'HH:mm')
   const profissionalNome = paciente.profissional_nome || 'Profissional'
   const sessaoInfo = paciente.total_sessoes && paciente.total_sessoes > 1
     ? `${paciente.numero_sessao}/${paciente.total_sessoes}`
     : ''
+
+  const diffDias = differenceInCalendarDays(dataConsulta, new Date())
+  let diaReferencia: string
+  if (diffDias === 0) {
+    diaReferencia = 'hoje'
+  } else if (diffDias === 1) {
+    diaReferencia = 'amanhã'
+  } else {
+    diaReferencia = format(dataConsulta, 'EEEE', { locale: ptBR })
+  }
 
   return text
     .replace(/{{nome}}/g, paciente.nome)
@@ -39,6 +51,7 @@ const substituirShortcodes = (text: string, paciente: Paciente) => {
     .replace(/{{tipo}}/g, paciente.tipo)
     .replace(/{{profissional}}/g, profissionalNome)
     .replace(/{{sessao}}/g, sessaoInfo)
+    .replace(/{{dia_referencia}}/g, diaReferencia)
 }
 
 export function SeletorTemplateWhatsApp({
@@ -75,8 +88,9 @@ export function SeletorTemplateWhatsApp({
       await registrarEnvioWhatsApp(paciente.atendimento_id, selectedTemplate.id)
 
       // Abrir WhatsApp com a mensagem
+      const telefoneLimpo = paciente.telefone.replace(/\D/g, '')
       const mensagemEncoded = encodeURIComponent(mensagemFinal)
-      const linkWhatsApp = `https://wa.me/55${paciente.telefone}?text=${mensagemEncoded}`
+      const linkWhatsApp = `https://wa.me/55${telefoneLimpo}?text=${mensagemEncoded}`
       window.open(linkWhatsApp, '_blank')
 
       toast.success('Mensagem enviada!')
@@ -140,7 +154,7 @@ export function SeletorTemplateWhatsApp({
             <label className="block text-sm font-medium text-[#171d1c] mb-2">
               Selecione um template
             </label>
-            <div className="space-y-2 max-h-72 overflow-y-auto">
+            <div className="space-y-2 max-h-[420px] overflow-y-auto">
               {templates.map(template => (
                 <button
                   key={template.id}

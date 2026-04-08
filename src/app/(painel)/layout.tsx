@@ -13,7 +13,6 @@ export default async function DashboardLayout({
   const { data: { user } } = await supabase.auth.getUser()
 
   let primeiroAcesso = false
-  let userRole: string | null = null
   let profile = null
 
   if (user) {
@@ -25,7 +24,6 @@ export default async function DashboardLayout({
 
     if (!error && data) {
       if (data.primeiro_acesso === true) primeiroAcesso = true
-      userRole = data.role ?? null
       profile = data
     }
   }
@@ -50,7 +48,6 @@ export default async function DashboardLayout({
     <AppShell
       pacientes={pacientes ?? []}
       profissionais={profissionais}
-      userRole={userRole}
       headerData={{ nomeUsuario, cargoUsuario, avatarUrl }}
     >
       <Header />

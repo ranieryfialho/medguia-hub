@@ -18,13 +18,11 @@ export function AppShell({
   children,
   pacientes,
   profissionais,
-  userRole,
   headerData,
 }: {
   children: React.ReactNode
   pacientes: Paciente[]
   profissionais: Profissional[]
-  userRole: string | null
   headerData: HeaderData
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -50,7 +48,6 @@ export function AppShell({
         `}
       >
         <Sidebar
-          userRole={userRole}
           onMobileClose={() => setSidebarOpen(false)}
           onOpenNovoAgendamento={() => setSlideNovoAberto(true)}
         />

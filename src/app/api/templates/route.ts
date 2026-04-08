@@ -7,6 +7,7 @@ export async function GET() {
     const { data: templates, error } = await supabase
       .from('templates_mensagem')
       .select('id, nome, conteudo')
+      .eq('categoria', 'confirmacao')
       .order('criado_em', { ascending: false })
 
     if (error) {

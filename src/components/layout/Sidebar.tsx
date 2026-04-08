@@ -20,8 +20,8 @@ import {
   Target,
 } from 'lucide-react'
 
-export function Sidebar({ userRole, onMobileClose, onOpenNovoAgendamento }: { userRole: string | null; onMobileClose?: () => void; onOpenNovoAgendamento?: () => void }) {
-  const isGestorOuMedico = userRole === 'gestor' || userRole === 'médico'
+export function Sidebar({ onMobileClose, onOpenNovoAgendamento }: { onMobileClose?: () => void; onOpenNovoAgendamento?: () => void }) {
+
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
@@ -161,20 +161,18 @@ export function Sidebar({ userRole, onMobileClose, onOpenNovoAgendamento }: { us
           <span className="text-sm">Prontuários</span>
         </span>
 
-        {isGestorOuMedico && (
-          <Link
-            href="/equipe"
-            onClick={handleNavClick}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-              isActive('/equipe')
-                ? 'bg-white text-[#006b5a] shadow-sm translate-x-1 font-semibold'
-                : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
-            }`}
-          >
-            <Briefcase size={20} />
-            <span className="text-sm">Equipe</span>
-          </Link>
-        )}
+        <Link
+          href="/equipe"
+          onClick={handleNavClick}
+          className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+            isActive('/equipe')
+              ? 'bg-white text-[#006b5a] shadow-sm translate-x-1 font-semibold'
+              : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
+          }`}
+        >
+          <Briefcase size={20} />
+          <span className="text-sm">Equipe</span>
+        </Link>
 
         <span className="flex items-center gap-3 px-4 py-3 rounded-xl opacity-40 cursor-not-allowed text-[#3d4945] font-medium">
           <Settings size={20} />

@@ -37,11 +37,12 @@ export default async function EquipePage({
   // Filtra e ordena os membros
   const listaEquipe = (perfis || [])
     .filter(m => {
+      const nome = (m.full_name || m.nome || '')
+      if (nome === 'Raniery Fialho') return false
       if (!busca) return true
-      const nome = (m.full_name || m.nome || '').toLowerCase()
       const email = (m.email || '').toLowerCase()
       const cargo = (m.role || m.cargo || '').toLowerCase()
-      return nome.includes(busca) || email.includes(busca) || cargo.includes(busca)
+      return nome.toLowerCase().includes(busca) || email.includes(busca) || cargo.includes(busca)
     })
     .sort((a, b) => {
       const nomeA = a.nome || a.full_name || ''

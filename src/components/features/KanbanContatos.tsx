@@ -14,7 +14,8 @@ import {
 } from '@/actions/contatos'
 import type { StatusContato } from '@/actions/contatos'
 import type { ContatoPaciente, ProfileSimples } from '@/app/(painel)/contatos/page'
-import { format } from 'date-fns'
+import { createClient } from '@/lib/supabase/client'
+import { format, differenceInCalendarDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -54,7 +55,14 @@ function getAvatarColor(name: string): string {
 
 function diasDesde(dateStr: string | null): number | null {
   if (!dateStr) return null
-  return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000)
+  const diff = differenceInCalendarDays(new Date(), new Date(dateStr))
+  return Math.max(0, diff)
+}
+
+function labelDias(dias: number): string {
+  if (dias === 0) return 'Hoje'
+  if (dias === 1) return 'Ontem'
+  return `${dias}d`
 }
 
 function whatsappLink(tel: string): string {
@@ -161,11 +169,31 @@ export function KanbanContatos({
   const [responsavelFilter, setResponsavelFilter] = useState<string | null>(null)
   const [activeColuna, setActiveColuna] = useState<StatusContato>('a_contactar')
   const [selected, setSelected] = useState<ContatoPaciente | null>(null)
-  const [notas, setNotas] = useState<Nota[]>([])
+const [notas, setNotas] = useState<Nota[]>([])
   const [loadingNotas, setLoadingNotas] = useState(false)
   const [novaNotaTexto, setNovaNotaTexto] = useState('')
   const [templatePickerOpen, setTemplatePickerOpen] = useState(true)
   const [, startTransition] = useTransition()
+
+  // Realtime: sincroniza mudanças de status/responsavel feitas por outros usuários
+  useEffect(() => {
+    const supabase = createClient()
+    const channel = supabase
+      .channel('contatos_base_realtime')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'contatos_base' }, (payload) => {
+        console.log('[Realtime contatos_base] payload recebido:', payload)
+        const { paciente_id, status, responsavel_id } = payload.new as { paciente_id: string; status: StatusContato; responsavel_id: string | null }
+        const responsavel_nome = responsavel_id ? profiles.find(p => p.id === responsavel_id)?.full_name ?? null : null
+        setContatos(prev => prev.map(c =>
+          c.id === paciente_id ? { ...c, status, responsavel_id, responsavel_nome } : c
+        ))
+        setSelected(prev => prev?.id === paciente_id ? { ...prev, status, responsavel_id, responsavel_nome } : prev)
+      })
+      .subscribe((status) => {
+        console.log('[Realtime contatos_base] status:', status)
+      })
+    return () => { supabase.removeChannel(channel) }
+  }, [profiles])
 
   // Carrega notas quando abre modal
   useEffect(() => {
@@ -461,7 +489,7 @@ export function KanbanContatos({
                               style={{ color: cor, backgroundColor: cor + '18' }}
                             >
                               <Clock size={10} />
-                              <span>{dias}d</span>
+                              <span>{labelDias(dias)}</span>
                             </div>
                           )}
                         </div>
