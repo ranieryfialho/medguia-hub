@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { CardConfirmacaoPaciente } from '@/components/features/CardConfirmacaoPaciente'
+import { buildSessaoEfetivaMap } from '@/lib/sessoes'
 import { PhoneCall } from 'lucide-react'
 
 function periodoParaContatarHoje(): Array<{ dataInicio: string; dataFim: string; label: string }> {
@@ -67,57 +68,61 @@ export default async function CardsPage() {
     )
   }
 
-  // Buscar atendimentos + pacientes e profissionais para o slide de reagendamento
-  const [
-    { data: atendimentos },
-    { data: pacientesLista },
-    { data: profissionaisLista },
-  ] = await Promise.all([
-    supabase
+  const { data: atendimentos } = await supabase
+    .from('atendimentos')
+    .select(`
+      id,
+      agendamento_id,
+      data_agendamento,
+      tipo,
+      numero_sessao,
+      total_sessoes,
+      contato_confirmacao,
+      paciente:pacientes(id, nome, telefone),
+      profissional:profiles!profissional_id(id, full_name, role)
+    `)
+    .eq('status', 'Aguardando')
+    .or('contato_confirmacao.is.null,contato_confirmacao.eq.nao_atendeu')
+    .or(
+      periodos
+        .map(p => `and(data_agendamento.gte.${p.dataInicio},data_agendamento.lte.${p.dataFim})`)
+        .join(',')
+    )
+    .order('data_agendamento', { ascending: true })
+
+  // Buscar todas as sessões dos agendamentos relevantes para calcular números efetivos
+  const agendamentoIds = [...new Set(
+    (atendimentos ?? []).map(a => a.agendamento_id).filter(Boolean) as string[]
+  )]
+  let sessaoEfetivaMap = new Map<string, { sessao_efetiva: number; total_efetivo: number }>()
+  if (agendamentoIds.length > 0) {
+    const { data: todasSessoes } = await supabase
       .from('atendimentos')
-      .select(`
-        id,
-        data_agendamento,
-        tipo,
-        numero_sessao,
-        total_sessoes,
-        contato_confirmacao,
-        paciente:pacientes(id, nome, telefone),
-        profissional:profiles!profissional_id(id, full_name, role)
-      `)
-      .eq('status', 'Aguardando')
-      .or('contato_confirmacao.is.null,contato_confirmacao.eq.nao_atendeu')
-      .or(
-        periodos
-          .map(p => `and(data_agendamento.gte.${p.dataInicio},data_agendamento.lte.${p.dataFim})`)
-          .join(',')
-      )
-      .order('data_agendamento', { ascending: true }),
-    supabase.from('pacientes').select('id, nome').order('nome'),
-    supabase.from('profiles').select('id, full_name, role').order('full_name'),
-  ])
+      .select('id, agendamento_id, data_agendamento, status')
+      .in('agendamento_id', agendamentoIds)
+    if (todasSessoes) {
+      sessaoEfetivaMap = buildSessaoEfetivaMap(todasSessoes)
+    }
+  }
 
   const pacientesAContatar = (atendimentos ?? [])
     .filter(a => a.paciente)
-    .map(a => ({
-      id: (a.paciente as any).id,
-      atendimento_id: a.id,
-      nome: (a.paciente as any).nome,
-      telefone: (a.paciente as any).telefone,
-      data_agendamento: a.data_agendamento,
-      tipo: a.tipo,
-      profissional_nome: (a.profissional as any)?.full_name || 'Profissional',
-      numero_sessao: a.numero_sessao || 1,
-      total_sessoes: a.total_sessoes || 1,
-      contato_confirmacao: a.contato_confirmacao as string | null,
-    }))
-
-  const pacientesSlide = (pacientesLista ?? []).map(p => ({ id: p.id, nome: p.nome }))
-  const profissionaisSlide = (profissionaisLista ?? []).map(p => ({
-    id: p.id,
-    nome: p.full_name || '',
-    cargo: p.role || '',
-  }))
+    .map(a => {
+      const efetivo = sessaoEfetivaMap.get(a.id)
+      return {
+        id: (a.paciente as any).id,
+        atendimento_id: a.id,
+        agendamento_id: a.agendamento_id as string | null,
+        nome: (a.paciente as any).nome,
+        telefone: (a.paciente as any).telefone,
+        data_agendamento: a.data_agendamento,
+        tipo: a.tipo,
+        profissional_nome: (a.profissional as any)?.full_name || 'Profissional',
+        numero_sessao: efetivo?.sessao_efetiva ?? a.numero_sessao ?? 1,
+        total_sessoes: efetivo?.total_efetivo ?? a.total_sessoes ?? 1,
+        contato_confirmacao: a.contato_confirmacao as string | null,
+      }
+    })
 
   return (
     <div className="w-full space-y-6">
@@ -160,8 +165,6 @@ export default async function CardsPage() {
             <CardConfirmacaoPaciente
               key={idx}
               paciente={paciente}
-              pacientesSlide={pacientesSlide}
-              profissionaisSlide={profissionaisSlide}
             />
           ))}
         </div>

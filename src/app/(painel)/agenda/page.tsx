@@ -20,6 +20,7 @@ import { ptBR } from 'date-fns/locale'
 
 import { SlideNovoAgendamento } from '@/components/features/SlideNovoAgendamento'
 import { AgendamentoItemDia, AgendamentoItemSemana } from '@/components/features/AgendamentoItem'
+import { buildSessaoEfetivaMap } from '@/lib/sessoes'
 
 const getStatusConfig = (status: string) => {
   const configs: Record<string, any> = {
@@ -143,6 +144,30 @@ export default async function AgendaPage({ searchParams }: PageProps) {
     .lte('data_agendamento', fetchFim.toISOString())
     .order('data_agendamento', { ascending: true })
 
+  // Calcula numeração efetiva excluindo Falta/Cancelado
+  const agendamentoIds = [...new Set(
+    (agendamentos ?? []).map(a => a.agendamento_id).filter(Boolean) as string[]
+  )]
+  let sessaoEfetivaMap = new Map<string, { sessao_efetiva: number; total_efetivo: number }>()
+  if (agendamentoIds.length > 0) {
+    const { data: todasSessoes } = await supabase
+      .from('atendimentos')
+      .select('id, agendamento_id, data_agendamento, status')
+      .in('agendamento_id', agendamentoIds)
+    if (todasSessoes) {
+      sessaoEfetivaMap = buildSessaoEfetivaMap(todasSessoes)
+    }
+  }
+
+  const agendamentosComEfetivo = (agendamentos ?? []).map(a => {
+    const efetivo = sessaoEfetivaMap.get(a.id)
+    return {
+      ...a,
+      numero_sessao: efetivo?.sessao_efetiva ?? a.numero_sessao,
+      total_sessoes: efetivo?.total_efetivo ?? a.total_sessoes,
+    }
+  })
+
   const { data: agendamentosMes } = await supabase
     .from('atendimentos')
     .select('data_agendamento')
@@ -171,7 +196,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
     cargo: p.role || 'Profissional'
   })) || []
 
-  const agendamentosHoje = agendamentos?.filter(a => isSameDay(new Date(a.data_agendamento), dataSelecionada)) || []
+  const agendamentosHoje = agendamentosComEfetivo.filter(a => isSameDay(new Date(a.data_agendamento), dataSelecionada))
   const totalAgendamentos = agendamentosHoje.length
   const atendidos = agendamentosHoje.filter(a => a.status?.toLowerCase() === 'concluído').length
   const pendentes = totalAgendamentos - atendidos
@@ -297,7 +322,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                             {horaStr}
                           </div>
                           {diasDaSemana.map((dia) => {
-                            const agendamentosNestaHora = agendamentos?.filter(a => {
+                            const agendamentosNestaHora = agendamentosComEfetivo.filter(a => {
                               const dataAgendamento = new Date(a.data_agendamento)
                               return isSameDay(dataAgendamento, dia) && dataAgendamento.getHours() === horaNum
                             }) || []
@@ -343,7 +368,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                     const isSelecionado = isSameDay(dia, dataSelecionada)
                     const isHoje = isSameDay(dia, new Date())
 
-                    const agendamentosDoDia = agendamentos?.filter(a => isSameDay(new Date(a.data_agendamento), dia)) || []
+                    const agendamentosDoDia = agendamentosComEfetivo.filter(a => isSameDay(new Date(a.data_agendamento), dia))
                     const qtdAgendamentos = agendamentosDoDia.length
 
                     if (!isMesmoMes) {

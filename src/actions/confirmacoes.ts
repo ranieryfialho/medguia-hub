@@ -51,6 +51,47 @@ function calcularProximaData(
   return null
 }
 
+/**
+ * Apenas calcula a próxima data de uma recorrência sem salvar nada no DB.
+ * Usado para pré-preencher o slide antes de abrir.
+ */
+export async function obterProximaData(atendimentoId: string): Promise<{ data: string } | null> {
+  const supabase = await createClient()
+
+  const { data: atual } = await supabase
+    .from('atendimentos')
+    .select('agendamento_id, data_agendamento')
+    .eq('id', atendimentoId)
+    .single()
+
+  if (!atual?.agendamento_id) return null
+
+  const { data: agendamento } = await supabase
+    .from('agendamentos')
+    .select('frequencia, dias_semana, data_inicio, is_recorrente')
+    .eq('id', atual.agendamento_id)
+    .single()
+
+  const { data: ultimaSessao } = await supabase
+    .from('atendimentos')
+    .select('data_agendamento')
+    .eq('agendamento_id', atual.agendamento_id)
+    .order('data_agendamento', { ascending: false })
+    .limit(1)
+    .single()
+
+  if (!agendamento?.is_recorrente || !agendamento?.frequencia || !ultimaSessao) return null
+
+  const proximaDataStr = calcularProximaData(
+    ultimaSessao.data_agendamento,
+    agendamento.data_inicio,
+    agendamento.dias_semana,
+    agendamento.frequencia
+  )
+
+  return proximaDataStr ? { data: proximaDataStr } : null
+}
+
 export async function registrarContato(
   atendimentoId: string,
   resultado: 'confirmou' | 'vai_faltar' | 'nao_atendeu' | 'reagendou'
@@ -62,6 +103,8 @@ export async function registrarContato(
     novoStatus = 'Confirmado'
   } else if (resultado === 'vai_faltar') {
     novoStatus = 'Falta'
+  } else if (resultado === 'reagendou') {
+    novoStatus = 'Cancelado'
   }
 
   const updateData: any = { contato_confirmacao: resultado }
@@ -79,84 +122,64 @@ export async function registrarContato(
     return { error: 'Não foi possível registrar o contato.' }
   }
 
-  // Para "vai_faltar": criar nova sessão ao final da recorrência
-  let proxima: { data: string; numero: number } | null = null
-
-  if (resultado === 'vai_faltar') {
-    const { data: atual } = await supabase
-      .from('atendimentos')
-      .select('agendamento_id, data_agendamento')
-      .eq('id', atendimentoId)
-      .single()
-
-    if (atual?.agendamento_id) {
-      // Buscar configuração de recorrência do agendamento pai
-      const { data: agendamento } = await supabase
-        .from('agendamentos')
-        .select('frequencia, dias_semana, data_inicio, hora_inicio, hora_fim, duracao_minutos, paciente_id, profissional_id, tipo, observacoes, gerou_venda, marcou_retorno, is_recorrente')
-        .eq('id', atual.agendamento_id)
-        .single()
-
-      // Buscar última sessão da recorrência (maior data_agendamento)
-      const { data: ultimaSessao } = await supabase
-        .from('atendimentos')
-        .select('data_agendamento, numero_sessao, total_sessoes')
-        .eq('agendamento_id', atual.agendamento_id)
-        .order('data_agendamento', { ascending: false })
-        .limit(1)
-        .single()
-
-      if (agendamento?.is_recorrente && agendamento?.frequencia && ultimaSessao) {
-        const proximaDataStr = calcularProximaData(
-          ultimaSessao.data_agendamento,
-          agendamento.data_inicio,
-          agendamento.dias_semana,
-          agendamento.frequencia
-        )
-
-        if (proximaDataStr) {
-          // Preservar o mesmo horário das sessões existentes
-          const timeStr = ultimaSessao.data_agendamento.includes('T')
-            ? ultimaSessao.data_agendamento.split('T')[1]
-            : '00:00:00+00:00'
-          const novaDataISO = `${proximaDataStr}T${timeStr}`
-
-          const novoNumero = (ultimaSessao.numero_sessao ?? 1) + 1
-          const novoTotal = (ultimaSessao.total_sessoes ?? novoNumero - 1) + 1
-
-          // Inserir nova sessão
-          const { error: insertError } = await supabase.from('atendimentos').insert({
-            paciente_id: agendamento.paciente_id,
-            profissional_id: agendamento.profissional_id,
-            data_agendamento: novaDataISO,
-            tipo: agendamento.tipo,
-            duracao_minutos: agendamento.duracao_minutos,
-            observacoes: agendamento.observacoes,
-            status: 'Aguardando',
-            agendamento_id: atual.agendamento_id,
-            numero_sessao: novoNumero,
-            total_sessoes: novoTotal,
-            gerou_venda: agendamento.gerou_venda ?? false,
-            marcou_retorno: agendamento.marcou_retorno ?? false,
-          })
-
-          if (!insertError) {
-            // Atualizar total_sessoes em todas as sessões da recorrência
-            await supabase
-              .from('atendimentos')
-              .update({ total_sessoes: novoTotal })
-              .eq('agendamento_id', atual.agendamento_id)
-
-            proxima = { data: novaDataISO, numero: novoNumero }
-          }
-        }
-      }
-    }
-  }
-
   revalidatePath('/confirmacoes')
   revalidatePath('/agenda')
-  return { success: true, proxima }
+  return { success: true }
+}
+
+/**
+ * Adiciona uma sessão de reposição ao agendamento existente do paciente.
+ * Não cria um novo agendamento — insere um atendimento no bloco já existente.
+ */
+export async function adicionarSessaoReposicao(
+  agendamentoId: string,
+  data: string, // 'yyyy-MM-dd'
+  hora: string  // 'HH:mm'
+): Promise<{ success?: boolean; error?: string }> {
+  const supabase = await createClient()
+
+  const { data: agendamento } = await supabase
+    .from('agendamentos')
+    .select('paciente_id, profissional_id, tipo, duracao_minutos, observacoes')
+    .eq('id', agendamentoId)
+    .single()
+
+  if (!agendamento) return { error: 'Agendamento não encontrado.' }
+
+  const { count } = await supabase
+    .from('atendimentos')
+    .select('id', { count: 'exact', head: true })
+    .eq('agendamento_id', agendamentoId)
+
+  const novoNumero = (count ?? 0) + 1
+
+  const { error } = await supabase.from('atendimentos').insert({
+    paciente_id: agendamento.paciente_id,
+    profissional_id: agendamento.profissional_id,
+    data_agendamento: new Date(`${data}T${hora}:00`).toISOString(),
+    tipo: agendamento.tipo,
+    duracao_minutos: agendamento.duracao_minutos ?? 30,
+    observacoes: agendamento.observacoes,
+    status: 'Aguardando',
+    agendamento_id: agendamentoId,
+    numero_sessao: novoNumero,
+    total_sessoes: novoNumero,
+  })
+
+  if (error) {
+    console.error('Erro ao adicionar sessão de reposição:', error.message)
+    return { error: 'Não foi possível agendar a reposição.' }
+  }
+
+  // Atualiza total_sessoes em todos os atendimentos do bloco
+  await supabase
+    .from('atendimentos')
+    .update({ total_sessoes: novoNumero })
+    .eq('agendamento_id', agendamentoId)
+
+  revalidatePath('/agenda')
+  revalidatePath('/confirmacoes')
+  return { success: true }
 }
 
 export async function registrarEnvioWhatsApp(

@@ -24,6 +24,8 @@ interface SlideProps {
   controlledOpen?: boolean
   onControlledClose?: () => void
   defaultPacienteId?: string
+  defaultData?: string // 'yyyy-MM-dd' — pré-preenche a data e o campo de hora se combinado com defaultHora
+  defaultHora?: string // 'HH:mm' — pré-preenche o horário de início
   atendimentoParaEditar?: AtendimentoParaEditar
 }
 
@@ -32,7 +34,7 @@ const DIAS_SEMANA = [
   { val: 4, label: 'Qui' }, { val: 5, label: 'Sex' }, { val: 6, label: 'Sáb' }, { val: 0, label: 'Dom' },
 ]
 
-export function SlideNovoAgendamento({ pacientes, profissionais, controlledOpen, onControlledClose, defaultPacienteId, atendimentoParaEditar }: SlideProps) {
+export function SlideNovoAgendamento({ pacientes, profissionais, controlledOpen, onControlledClose, defaultPacienteId, defaultData, defaultHora, atendimentoParaEditar }: SlideProps) {
   const isControlled = controlledOpen !== undefined
   const modoEdicao = !!atendimentoParaEditar
   const formId = useId()
@@ -82,13 +84,17 @@ export function SlideNovoAgendamento({ pacientes, profissionais, controlledOpen,
   useEffect(() => {
     if (isControlled) {
       setIsOpen(controlledOpen!)
-      if (controlledOpen && defaultPacienteId) {
-        setSelectedPacienteId(defaultPacienteId)
-        const p = pacientes.find(p => p.id === defaultPacienteId)
-        if (p) setPacienteSearch(p.nome)
+      if (controlledOpen) {
+        if (defaultPacienteId) {
+          setSelectedPacienteId(defaultPacienteId)
+          const p = pacientes.find(p => p.id === defaultPacienteId)
+          if (p) setPacienteSearch(p.nome)
+        }
+        if (defaultData) setDataAgendamento(defaultData)
+        if (defaultHora) setHoraInicioValue(defaultHora)
       }
     }
-  }, [isControlled, controlledOpen, defaultPacienteId, pacientes])
+  }, [isControlled, controlledOpen, defaultPacienteId, defaultData, defaultHora, pacientes])
 
   // Fecha dropdown ao clicar fora
   useEffect(() => {

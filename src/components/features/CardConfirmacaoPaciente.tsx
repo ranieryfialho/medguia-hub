@@ -2,11 +2,10 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
 import { MoreVertical, CheckCircle, XCircle, Phone, RefreshCw, AlertCircle } from 'lucide-react'
 import { BtnWhatsApp } from './BtnWhatsApp'
-import { SlideNovoAgendamento } from './SlideNovoAgendamento'
-import { registrarContato } from '@/actions/confirmacoes'
+import { ModalSessaoReposicao } from './ModalSessaoReposicao'
+import { registrarContato, obterProximaData } from '@/actions/confirmacoes'
 import toast from 'react-hot-toast'
 
 type Paciente = {
@@ -16,14 +15,12 @@ type Paciente = {
   data_agendamento: string
   tipo: string
   atendimento_id: string
+  agendamento_id?: string | null
   profissional_nome?: string
   numero_sessao?: number
   total_sessoes?: number
   contato_confirmacao?: string | null
 }
-
-type PacienteSlide = { id: string; nome: string }
-type ProfissionalSlide = { id: string; nome: string; cargo: string }
 
 const OPCOES_CONTATO = [
   { valor: 'confirmou', label: 'Confirmou presença', Icon: CheckCircle, cor: 'text-[#006b5a]' },
@@ -37,17 +34,15 @@ const MENU_HEIGHT = 180
 
 export function CardConfirmacaoPaciente({
   paciente,
-  pacientesSlide = [],
-  profissionaisSlide = [],
 }: {
   paciente: Paciente
-  pacientesSlide?: PacienteSlide[]
-  profissionaisSlide?: ProfissionalSlide[]
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
-  const [reagendamentoAberto, setReagendamentoAberto] = useState(false)
+  const [modalAberto, setModalAberto] = useState<'vai_faltar' | 'reagendou' | null>(null)
+  const [proximaData, setProximaData] = useState<string | undefined>()
+  const [proximaHora, setProximaHora] = useState<string | undefined>()
   const buttonRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -90,9 +85,15 @@ export function CardConfirmacaoPaciente({
   async function handleRegistrarContato(resultado: 'confirmou' | 'vai_faltar' | 'nao_atendeu' | 'reagendou') {
     setIsOpen(false)
 
-    // "Reagendou": abre o slide primeiro, marca no DB ao fechar
-    if (resultado === 'reagendou') {
-      setReagendamentoAberto(true)
+    const horaAtual = format(new Date(paciente.data_agendamento), 'HH:mm')
+
+    if (resultado === 'vai_faltar' || resultado === 'reagendou') {
+      setIsUpdating(true)
+      const proxima = await obterProximaData(paciente.atendimento_id)
+      setIsUpdating(false)
+      setProximaData(proxima?.data ?? undefined)
+      setProximaHora(horaAtual)
+      setModalAberto(resultado)
       return
     }
 
@@ -105,28 +106,32 @@ export function CardConfirmacaoPaciente({
       return
     }
 
-    const opcao = OPCOES_CONTATO.find(o => o.valor === resultado)
-
-    if (resultado === 'vai_faltar' && res.proxima) {
-      const dataProxima = format(new Date(res.proxima.data), "EEE, dd/MM", { locale: ptBR })
-      toast.success(
-        `${paciente.nome} — Vai faltar\nSessão ${res.proxima.numero} adicionada: ${dataProxima}`,
-        { duration: 5000 }
-      )
-    } else if (resultado === 'nao_atendeu') {
+    if (resultado === 'nao_atendeu') {
       toast(`${paciente.nome} — Não atendeu. Card mantido como prioridade.`, {
         icon: '📵',
         duration: 4000,
       })
     } else {
+      const opcao = OPCOES_CONTATO.find(o => o.valor === resultado)
       toast.success(`${paciente.nome} — ${opcao?.label ?? resultado}`)
     }
   }
 
-  async function handleReagendamentoClose() {
-    setReagendamentoAberto(false)
-    // Marca como reagendou no DB ao fechar o slide
-    await registrarContato(paciente.atendimento_id, 'reagendou')
+  async function handleModalClose(agendado: boolean) {
+    const tipo = modalAberto
+    setModalAberto(null)
+    setProximaData(undefined)
+    setProximaHora(undefined)
+
+    if (!tipo) return
+
+    const res = await registrarContato(paciente.atendimento_id, tipo)
+    if (res.error) {
+      toast.error(res.error)
+    } else if (agendado) {
+      const label = tipo === 'vai_faltar' ? 'Falta registrada' : 'Reagendamento registrado'
+      toast.success(`${paciente.nome} — ${label}`)
+    }
   }
 
   const iniciais = paciente.nome.split(' ').slice(0, 2).map((n: string) => n[0]).join('').toUpperCase()
@@ -218,14 +223,15 @@ export function CardConfirmacaoPaciente({
         </div>
       )}
 
-      {/* Slide de reagendamento */}
-      {reagendamentoAberto && (
-        <SlideNovoAgendamento
-          pacientes={pacientesSlide}
-          profissionais={profissionaisSlide}
-          controlledOpen={reagendamentoAberto}
-          onControlledClose={handleReagendamentoClose}
-          defaultPacienteId={paciente.id}
+      {/* Modal de sessão de reposição */}
+      {modalAberto && paciente.agendamento_id && (
+        <ModalSessaoReposicao
+          agendamentoId={paciente.agendamento_id}
+          pacienteNome={paciente.nome}
+          defaultData={proximaData}
+          defaultHora={proximaHora}
+          onClose={() => handleModalClose(false)}
+          onSaved={() => handleModalClose(true)}
         />
       )}
     </>
