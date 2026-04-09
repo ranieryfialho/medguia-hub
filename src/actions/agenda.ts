@@ -3,6 +3,22 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
+function buildLocalDateTime(data: string, hora: string) {
+  return `${data}T${hora}:00`
+}
+
+function formatDateOnlyLocal(date: Date) {
+  const ano = date.getFullYear()
+  const mes = String(date.getMonth() + 1).padStart(2, '0')
+  const dia = String(date.getDate()).padStart(2, '0')
+  return `${ano}-${mes}-${dia}`
+}
+
+function extractTimePart(dateTime: string) {
+  const [, timePart = '00:00:00'] = dateTime.split('T')
+  return timePart.replace(/([+-]\d{2}:\d{2}|Z)$/, '')
+}
+
 export async function criarAgendamento(formData: FormData) {
   const supabase = await createClient()
 
@@ -75,7 +91,7 @@ export async function criarAgendamento(formData: FormData) {
     atendimentosParaInserir.push({
       paciente_id,
       profissional_id,
-      data_agendamento: new Date(`${dataStr}T${horaInicio}:00`).toISOString(),
+      data_agendamento: buildLocalDateTime(dataStr, horaInicio),
       tipo,
       duracao_minutos: duracao,
       observacoes,
@@ -124,11 +140,11 @@ export async function criarAgendamento(formData: FormData) {
 
         if (dataBase > limiteData) break;
 
-        const dataFormatada = dataBase.toISOString().split('T')[0]
+        const dataFormatada = formatDateOnlyLocal(dataBase)
         atendimentosParaInserir.push({
           paciente_id, profissional_id, tipo, duracao_minutos: duracao, observacoes, status: 'Aguardando',
           criado_por: user?.id ?? null, gerou_venda, marcou_retorno, agendamento_id: agendamentoId,
-          data_agendamento: new Date(`${dataFormatada}T${horaInicio}:00`).toISOString()
+          data_agendamento: buildLocalDateTime(dataFormatada, horaInicio)
         })
 
         count++
@@ -144,7 +160,7 @@ export async function criarAgendamento(formData: FormData) {
       const inicioDaSemanaBase = new Date(dataInicio)
       inicioDaSemanaBase.setDate(inicioDaSemanaBase.getDate() - dataInicio.getDay())
 
-      let dataAtual = new Date(dataInicio)
+      const dataAtual = new Date(dataInicio)
 
       while (count < limiteOcorrencias && dataAtual <= limiteData) {
         if (diasArray.includes(dataAtual.getDay())) {
@@ -153,11 +169,11 @@ export async function criarAgendamento(formData: FormData) {
           const diffSemanas = Math.floor(Math.floor(diffTime / (1000 * 60 * 60 * 24)) / 7)
 
           if (diffSemanas % semanasPulo === 0) {
-            const dataFormatada = dataAtual.toISOString().split('T')[0]
+            const dataFormatada = formatDateOnlyLocal(dataAtual)
             atendimentosParaInserir.push({
               paciente_id, profissional_id, tipo, duracao_minutos: duracao, observacoes, status: 'Aguardando',
               criado_por: user?.id ?? null, gerou_venda, marcou_retorno, agendamento_id: agendamentoId,
-              data_agendamento: new Date(`${dataFormatada}T${horaInicio}:00`).toISOString()
+              data_agendamento: buildLocalDateTime(dataFormatada, horaInicio)
             })
             count++
           }
@@ -302,8 +318,8 @@ export async function deletarAtendimentoPontualDaRecorrencia(id: string) {
 
       if (proximaDataStr) {
         const timeStr = ultimaSessao.data_agendamento.includes('T')
-          ? ultimaSessao.data_agendamento.split('T')[1]
-          : '00:00:00+00:00'
+          ? extractTimePart(ultimaSessao.data_agendamento)
+          : '00:00:00'
         const novaDataISO = `${proximaDataStr}T${timeStr}`
         const novoNumero = (ultimaSessao.numero_sessao ?? 1) + 1
         const novoTotal = (ultimaSessao.total_sessoes ?? novoNumero - 1) + 1
@@ -380,7 +396,7 @@ export async function editarAtendimento(id: string, formData: FormData) {
     .from('atendimentos')
     .update({
       profissional_id: profissional_id || null,
-      data_agendamento: new Date(`${dataStr}T${horaInicio}:00`).toISOString(),
+      data_agendamento: buildLocalDateTime(dataStr, horaInicio),
       tipo: tipo || 'Sessão',
       duracao_minutos: duracao,
       observacoes: observacoes || null,
