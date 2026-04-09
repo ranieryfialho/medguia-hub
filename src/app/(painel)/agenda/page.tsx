@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import {
   format, startOfWeek, endOfWeek, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths,
-  isSameDay, parseISO, isValid, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameMonth
+  isSameDay, parseISO, isValid, isSameMonth
 } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -97,11 +97,22 @@ export default async function AgendaPage({ searchParams }: PageProps) {
   const diaFormatadoSelecionado = format(dataSelecionada, "dd MMM", { locale: ptBR })
   const mesAnoLateral = format(dataSelecionada, "MMMM yyyy", { locale: ptBR })
 
-  const inicioDoMes = startOfMonth(dataSelecionada)
-  const fimDoMes = endOfMonth(dataSelecionada)
-  const diasDoMes = eachDayOfInterval({ start: inicioDoMes, end: fimDoMes })
-  const diaDaSemanaInicio = getDay(inicioDoMes)
-  const diasVaziosInicio = Array.from({ length: diaDaSemanaInicio }, (_, i) => subDays(inicioDoMes, diaDaSemanaInicio - i)).reverse()
+  // Gerar dias do mês via parseAppDate (12:00 BRT = 15:00 UTC) para evitar
+  // problema de fuso em servidores UTC onde date-fns gera 00:00 UTC = 21:00 BRT do dia anterior
+  const anoMes = dataString.slice(0, 7) // 'yyyy-MM'
+  const totalDiasNoMes = new Date(parseInt(anoMes.slice(0, 4)), parseInt(anoMes.slice(5, 7)), 0).getDate()
+  const diasDoMes = Array.from({ length: totalDiasNoMes }, (_, i) =>
+    parseAppDate(`${anoMes}-${(i + 1).toString().padStart(2, '0')}`)
+  )
+  const inicioDoMes = diasDoMes[0]
+  const fimDoMes = diasDoMes[diasDoMes.length - 1]
+  // getUTCDay de 15:00 UTC = dia correto em BRT (UTC-3 = 12:00 do mesmo dia)
+  const diaDaSemanaInicio = inicioDoMes.getUTCDay()
+  const diasVaziosInicio = Array.from({ length: diaDaSemanaInicio }, (_, i) => {
+    const prevDate = new Date(inicioDoMes)
+    prevDate.setUTCDate(prevDate.getUTCDate() - (diaDaSemanaInicio - i))
+    return prevDate
+  }).reverse()
   const todosDiasMes = [...diasVaziosInicio, ...diasDoMes]
 
   let { start: fetchInicio, end: fetchFim } = getAppDayRangeUTC(dataString)
