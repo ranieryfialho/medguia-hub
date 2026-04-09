@@ -68,7 +68,7 @@ export function DisponibilidadeEditor({
   }
 
   function handleProfissionalChange(profId: string) {
-    router.push(`/configuracoes/disponibilidade?profissional=${profId}`)
+    router.push(`/configuracoes/jornada?profissional=${profId}`)
   }
 
   return (

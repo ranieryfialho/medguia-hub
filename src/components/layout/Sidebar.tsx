@@ -208,6 +208,17 @@ export function Sidebar({ onMobileClose, onOpenNovoAgendamento, userRole: userRo
           {configOpen && (
             <div className="mt-1 ml-4 space-y-0.5 border-l-2 border-[#bcc9c4]/40 pl-3">
               <Link
+                href="/configuracoes/jornada"
+                onClick={handleNavClick}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
+                  isActive('/configuracoes/jornada')
+                    ? 'bg-white text-[#006b5a] shadow-sm font-semibold'
+                    : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
+                }`}
+              >
+                Jornada de Trabalho
+              </Link>
+              <Link
                 href="/configuracoes/disponibilidade"
                 onClick={handleNavClick}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
