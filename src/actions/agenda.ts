@@ -95,7 +95,7 @@ export async function criarAgendamento(formData: FormData) {
     })
   } else {
     // AGENDAMENTO RECORRENTE
-    const dataInicio = new Date(`${dataStr}T00:00:00`)
+    const dataInicio = new Date(`${dataStr}T00:00:00-03:00`)
     
     // Regra de Ouro: Nunca passar de 12 meses para evitar sobrecarga no banco
     const limiteMaximoSeguranca = new Date(dataInicio)
@@ -107,7 +107,7 @@ export async function criarAgendamento(formData: FormData) {
     if (terminaEm === 'sem_fim') {
       limiteData = limiteMaximoSeguranca
     } else if (terminaEm === 'data' && dataFimStr) {
-      limiteData = new Date(`${dataFimStr}T23:59:59`)
+      limiteData = new Date(`${dataFimStr}T23:59:59-03:00`)
       if (limiteData > limiteMaximoSeguranca) limiteData = limiteMaximoSeguranca
     } else if (terminaEm === 'ocorrencias') {
       limiteOcorrencias = Math.min(ocorrencias, 365)
@@ -147,10 +147,10 @@ export async function criarAgendamento(formData: FormData) {
       if (diasArray.length === 0) return { error: 'Selecione ao menos um dia da semana.' }
 
       const semanasPulo = parseInt(frequencia)
-      const inicioDaSemanaBase = new Date(dataInicio)
-      inicioDaSemanaBase.setDate(inicioDaSemanaBase.getDate() - dataInicio.getDay())
+      const inicioDaSemanaBase = new Date(`${dataStr}T00:00:00-03:00`)
+      inicioDaSemanaBase.setDate(inicioDaSemanaBase.getDate() - inicioDaSemanaBase.getDay())
 
-      const dataAtual = new Date(dataInicio)
+      const dataAtual = new Date(`${dataStr}T00:00:00-03:00`)
 
       while (count < limiteOcorrencias && dataAtual <= limiteData) {
         if (diasArray.includes(dataAtual.getDay())) {
