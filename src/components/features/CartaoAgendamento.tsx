@@ -5,7 +5,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
   CalendarDays, ChevronDown, ChevronUp, RefreshCw, Calendar,
-  CheckCircle, Hourglass, Stethoscope, CheckCheck, XCircle, UserX
+  CheckCircle, Hourglass, Stethoscope, CheckCheck, XCircle, UserX, CalendarClock
 } from 'lucide-react'
 
 type Sessao = {
@@ -24,13 +24,14 @@ type AgendamentoComSessoes = {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; cor: string; bg: string; Icon: any }> = {
-  'Confirmado':      { label: 'Confirmado',      cor: 'text-[#006b5a]',  bg: 'bg-[#006b5a]/10',  Icon: CheckCircle },
-  'Aguardando':      { label: 'Aguardando',       cor: 'text-slate-500',  bg: 'bg-slate-100',      Icon: Hourglass },
-  'Em Atendimento':  { label: 'Em Atendimento',   cor: 'text-[#406375]',  bg: 'bg-[#406375]/10',  Icon: Stethoscope },
-  'Concluído':       { label: 'Concluído',        cor: 'text-[#4f625d]',  bg: 'bg-[#4f625d]/10',  Icon: CheckCheck },
-  'Cancelado':       { label: 'Cancelado',        cor: 'text-red-500',    bg: 'bg-red-50',         Icon: XCircle },
-  'Falta':           { label: 'Falta',            cor: 'text-[#3d4945]',  bg: 'bg-slate-100',      Icon: UserX },
-  'Reposição':       { label: 'Reposição',        cor: 'text-[#779aad]',  bg: 'bg-[#779aad]/10',  Icon: RefreshCw },
+  'Confirmado':      { label: 'Confirmado',      cor: 'text-green-700',   bg: 'bg-green-50',   Icon: CheckCircle },
+  'Aguardando':      { label: 'Aguardando',      cor: 'text-amber-600',   bg: 'bg-amber-50',   Icon: Hourglass },
+  'Em Atendimento':  { label: 'Em Atendimento',  cor: 'text-blue-600',    bg: 'bg-blue-50',    Icon: Stethoscope },
+  'Concluído':       { label: 'Concluído',       cor: 'text-violet-600',  bg: 'bg-violet-50',  Icon: CheckCheck },
+  'Cancelado':       { label: 'Cancelado',       cor: 'text-red-600',     bg: 'bg-red-50',     Icon: XCircle },
+  'Falta':           { label: 'Falta',           cor: 'text-gray-500',    bg: 'bg-gray-100',   Icon: UserX },
+  'Reposição':       { label: 'Reposição',       cor: 'text-cyan-600',    bg: 'bg-cyan-50',    Icon: RefreshCw },
+  'Reagendado':      { label: 'Reagendado',      cor: 'text-orange-600',  bg: 'bg-orange-50',  Icon: CalendarClock },
 }
 
 function getStatusConfig(status: string) {
@@ -42,7 +43,7 @@ function calcularStatusGeral(sessoes: Sessao[]): string {
   for (const s of sessoes) {
     contagem[s.status] = (contagem[s.status] || 0) + 1
   }
-  const ordem = ['Em Atendimento', 'Aguardando', 'Confirmado', 'Reposição', 'Concluído', 'Falta', 'Cancelado']
+  const ordem = ['Em Atendimento', 'Aguardando', 'Confirmado', 'Reposição', 'Concluído', 'Falta', 'Reagendado', 'Cancelado']
   for (const status of ordem) {
     if (contagem[status]) return status
   }
@@ -55,7 +56,6 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
   const { sessoes, tipo, is_recorrente } = grupo
   const statusGeral = calcularStatusGeral(sessoes)
   const config = getStatusConfig(statusGeral)
-  const Icone = config.Icon
 
   const sessoesOrdenadas = [...sessoes].sort(
     (a, b) => new Date(a.data_agendamento).getTime() - new Date(b.data_agendamento).getTime()
@@ -64,7 +64,7 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
   const ultimaSessao = sessoesOrdenadas[sessoesOrdenadas.length - 1]
 
   const concluidas = sessoes.filter(s => s.status === 'Concluído').length
-  const canceladas = sessoes.filter(s => s.status === 'Cancelado' || s.status === 'Falta').length
+  const canceladas = sessoes.filter(s => s.status === 'Cancelado' || s.status === 'Falta' || s.status === 'Reagendado').length
   const pendentes = sessoes.length - concluidas - canceladas
 
   return (
@@ -124,15 +124,20 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
                 <span className="text-[11px] text-slate-500 font-semibold uppercase tracking-wide">{sessoes.length} sessões</span>
                 <div className="flex items-center gap-3 text-[11px] font-semibold">
                   <span className="text-[#006b5a]">{concluidas} concluídas</span>
-                  {canceladas > 0 && <span className="text-red-500">{canceladas} faltas/canceladas</span>}
+                  {canceladas > 0 && <span className="text-red-500">{canceladas} faltas/canceladas/reagendadas</span>}
                   {pendentes > 0 && <span className="text-slate-400">{pendentes} pendentes</span>}
                 </div>
               </div>
               <div className="flex gap-1 h-2 rounded-full overflow-hidden bg-slate-100/80">
                 {sessoesOrdenadas.map((s) => {
                   const c = getStatusConfig(s.status)
-                  const bgBar = s.status === 'Concluído' ? 'bg-[#006b5a]'
-                    : s.status === 'Cancelado' || s.status === 'Falta' ? 'bg-red-400'
+                  const bgBar = s.status === 'Concluído' ? 'bg-violet-500'
+                    : s.status === 'Cancelado' ? 'bg-red-500'
+                    : s.status === 'Falta' ? 'bg-gray-400'
+                    : s.status === 'Confirmado' ? 'bg-green-500'
+                    : s.status === 'Em Atendimento' ? 'bg-blue-500'
+                    : s.status === 'Reposição' ? 'bg-cyan-500'
+                    : s.status === 'Reagendado' ? 'bg-orange-500'
                     : 'bg-slate-200'
                   return <div key={s.id} className={`flex-1 ${bgBar} rounded-full transition-colors`} title={`${format(new Date(s.data_agendamento), "dd/MM/yyyy")} — ${c.label}`} />
                 })}
@@ -158,10 +163,10 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
               const sc = getStatusConfig(sessao.status)
               const SessaoIcon = sc.Icon
               return (
-                <div key={sessao.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-50 border border-slate-100">
-                  <span className="text-[11px] font-bold text-slate-400 w-5 text-center">{idx + 1}</span>
-                  <SessaoIcon size={14} className={sc.cor} />
-                  <div className="flex-1">
+                <div key={sessao.id} className={`flex items-center gap-3 p-2.5 rounded-lg border border-current/10 ${sc.bg}`}>
+                  <span className="text-[11px] font-bold text-slate-400 w-5 text-center shrink-0">{idx + 1}</span>
+                  <SessaoIcon size={14} className={`${sc.cor} shrink-0`} />
+                  <div className="flex-1 min-w-0">
                     <span className="text-xs font-semibold text-slate-700">
                       {format(new Date(sessao.data_agendamento), "EEEE, dd MMM yyyy • HH:mm", { locale: ptBR })}
                     </span>
@@ -169,7 +174,7 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
                       <p className="text-[11px] text-slate-500 mt-0.5 truncate">{sessao.observacoes}</p>
                     )}
                   </div>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${sc.bg} ${sc.cor}`}>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded shrink-0 ${sc.bg} ${sc.cor} border border-current/20`}>
                     {sc.label}
                   </span>
                 </div>

@@ -1,14 +1,7 @@
 import {
   ChevronLeft,
   ChevronRight,
-  User,
-  Stethoscope,
-  Hourglass,
   CalendarCheck,
-  CheckCheck,
-  XCircle,
-  UserX,
-  RefreshCw,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
@@ -24,38 +17,15 @@ import { buildSessaoEfetivaMap } from '@/lib/sessoes'
 
 const getStatusConfig = (status: string) => {
   const configs: Record<string, any> = {
-    'confirmado': {
-      cardBg: 'bg-[#cce2da]', border: 'border-[#006b5a]', iconText: 'text-[#006b5a]',
-      titleText: 'text-[#00342b]', subText: 'text-[#00342b]/70', badgeBg: 'bg-[#006b5a]', label: 'Confirmado', Icon: User
-    },
-    'aguardando': {
-      cardBg: 'bg-[#dee3e3]', border: 'border-[#6d7a75]', iconText: 'text-[#6d7a75]',
-      titleText: 'text-[#171d1c]', subText: 'text-[#3d4945]', badgeBg: 'bg-[#6d7a75]', label: 'Aguardando', Icon: Hourglass
-    },
-    'em atendimento': {
-      cardBg: 'bg-[#c3e8fd]', border: 'border-[#406375]', iconText: 'text-[#406375]',
-      titleText: 'text-[#083142]', subText: 'text-[#083142]/70', badgeBg: 'bg-[#406375]', label: 'Em Atend.', Icon: Stethoscope
-    },
-    'concluído': {
-      cardBg: 'bg-[#d6e3df]', border: 'border-[#4f625d]', iconText: 'text-[#4f625d]',
-      titleText: 'text-[#1a2421]', subText: 'text-[#1a2421]/70', badgeBg: 'bg-[#4f625d]', label: 'Concluído', Icon: CheckCheck
-    },
-    'cancelado': {
-      cardBg: 'bg-[#fbeaea]', border: 'border-[#ba1a1a]', iconText: 'text-[#ba1a1a]',
-      titleText: 'text-[#410002]', subText: 'text-[#410002]/70', badgeBg: 'bg-[#ba1a1a]', label: 'Cancelado', Icon: XCircle
-    },
-    'falta': {
-      cardBg: 'bg-[#e9eceb]', border: 'border-[#3d4945]', iconText: 'text-[#3d4945]',
-      titleText: 'text-[#171d1c]', subText: 'text-[#3d4945]/70', badgeBg: 'bg-[#3d4945]', label: 'Falta', Icon: UserX
-    },
-    'reposição': {
-      cardBg: 'bg-[#e2eaf0]', border: 'border-[#779aad]', iconText: 'text-[#779aad]',
-      titleText: 'text-[#233540]', subText: 'text-[#233540]/70', badgeBg: 'bg-[#779aad]', label: 'Reposição', Icon: RefreshCw
-    },
-    'default': {
-      cardBg: 'bg-[#dee3e3]', border: 'border-[#3d4945]', iconText: 'text-[#3d4945]',
-      titleText: 'text-[#171d1c]', subText: 'text-[#3d4945]', badgeBg: 'bg-[#3d4945]', label: 'Agendado', Icon: CalendarCheck
-    }
+    'confirmado':     { badgeBg: 'bg-green-600',  label: 'Confirmado' },
+    'aguardando':     { badgeBg: 'bg-amber-500',  label: 'Aguardando' },
+    'em atendimento': { badgeBg: 'bg-blue-600',   label: 'Em Atend.' },
+    'concluído':      { badgeBg: 'bg-violet-600', label: 'Concluído' },
+    'cancelado':      { badgeBg: 'bg-red-600',    label: 'Cancelado' },
+    'falta':          { badgeBg: 'bg-gray-500',   label: 'Falta' },
+    'reposição':      { badgeBg: 'bg-cyan-600',   label: 'Reposição' },
+    'reagendado':     { badgeBg: 'bg-orange-500', label: 'Reagendado' },
+    'default':        { badgeBg: 'bg-gray-400',   label: 'Agendado' },
   }
   return configs[status?.toLowerCase()] || configs['default']
 }
@@ -519,13 +489,14 @@ export default async function AgendaPage({ searchParams }: PageProps) {
       <div className="flex-shrink-0 bg-white border border-[#bcc9c4]/30 rounded-3xl px-6 py-3 shadow-sm w-full">
         <ul className="flex flex-wrap gap-x-6 sm:gap-x-10 gap-y-2 items-center">
           {[
-            { cor: 'bg-[#006b5a]', label: 'Confirmado' },
-            { cor: 'bg-[#6d7a75]', label: 'Aguardando' },
-            { cor: 'bg-[#406375]', label: 'Em Atendimento' },
-            { cor: 'bg-[#4f625d]', label: 'Concluído' },
-            { cor: 'bg-[#ba1a1a]', label: 'Cancelado' },
-            { cor: 'bg-[#3d4945]', label: 'Falta' },
-            { cor: 'bg-[#779aad]', label: 'Reposição' },
+            { cor: 'bg-green-600',  label: 'Confirmado' },
+            { cor: 'bg-amber-500',  label: 'Aguardando' },
+            { cor: 'bg-blue-600',   label: 'Em Atendimento' },
+            { cor: 'bg-violet-600', label: 'Concluído' },
+            { cor: 'bg-red-600',    label: 'Cancelado' },
+            { cor: 'bg-gray-500',   label: 'Falta' },
+            { cor: 'bg-cyan-600',   label: 'Reposição' },
+            { cor: 'bg-orange-500', label: 'Reagendado' },
           ].map((item, i) => (
             <li key={`legenda-${i}`} className="flex items-center gap-2">
               <span className={`w-3 h-3 rounded-full ${item.cor} shadow-sm`}></span>

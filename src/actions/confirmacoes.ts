@@ -104,7 +104,7 @@ export async function registrarContato(
   } else if (resultado === 'vai_faltar') {
     novoStatus = 'Falta'
   } else if (resultado === 'reagendou') {
-    novoStatus = 'Cancelado'
+    novoStatus = 'Reagendado'
   }
 
   const updateData: any = { contato_confirmacao: resultado }
@@ -124,6 +124,7 @@ export async function registrarContato(
 
   revalidatePath('/confirmacoes')
   revalidatePath('/agenda')
+  revalidatePath('/pacientes', 'layout')
   return { success: true }
 }
 
@@ -179,6 +180,7 @@ export async function adicionarSessaoReposicao(
 
   revalidatePath('/agenda')
   revalidatePath('/confirmacoes')
+  revalidatePath('/pacientes', 'layout')
   return { success: true }
 }
 

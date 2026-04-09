@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   X, Phone, Mail, Calendar, Clock, ChevronDown,
-  CheckCircle, Hourglass, Stethoscope, CheckCheck, XCircle, UserX, RefreshCw, User,
+  CheckCircle, Hourglass, Stethoscope, CheckCheck, XCircle, UserX, RefreshCw, User, CalendarClock,
   MessageCircle, Pencil, Trash2, MapPin
 } from 'lucide-react'
 import { format } from 'date-fns'
@@ -39,15 +39,16 @@ export type AgendamentoDetalhe = {
 }
 
 const STATUS_CONFIG: Record<string, { cardBg: string; border: string; iconText: string; titleText: string; subText: string; badgeBg: string; label: string; Icon: React.ElementType }> = {
-  'confirmado': { cardBg: 'bg-[#cce2da]', border: 'border-[#006b5a]', iconText: 'text-[#006b5a]', titleText: 'text-[#00342b]', subText: 'text-[#00342b]/70', badgeBg: 'bg-[#006b5a]', label: 'Confirmado', Icon: User },
-  'aguardando': { cardBg: 'bg-[#dee3e3]', border: 'border-[#6d7a75]', iconText: 'text-[#6d7a75]', titleText: 'text-[#171d1c]', subText: 'text-[#3d4945]', badgeBg: 'bg-[#6d7a75]', label: 'Aguardando', Icon: Hourglass },
-  'em atendimento': { cardBg: 'bg-[#c3e8fd]', border: 'border-[#406375]', iconText: 'text-[#406375]', titleText: 'text-[#083142]', subText: 'text-[#083142]/70', badgeBg: 'bg-[#406375]', label: 'Em Atend.', Icon: Stethoscope },
-  'concluído': { cardBg: 'bg-[#d6e3df]', border: 'border-[#4f625d]', iconText: 'text-[#4f625d]', titleText: 'text-[#1a2421]', subText: 'text-[#1a2421]/70', badgeBg: 'bg-[#4f625d]', label: 'Concluído', Icon: CheckCheck },
-  'cancelado': { cardBg: 'bg-[#fbeaea]', border: 'border-[#ba1a1a]', iconText: 'text-[#ba1a1a]', titleText: 'text-[#410002]', subText: 'text-[#410002]/70', badgeBg: 'bg-[#ba1a1a]', label: 'Cancelado', Icon: XCircle },
-  'falta': { cardBg: 'bg-[#e9eceb]', border: 'border-[#3d4945]', iconText: 'text-[#3d4945]', titleText: 'text-[#171d1c]', subText: 'text-[#3d4945]/70', badgeBg: 'bg-[#3d4945]', label: 'Falta', Icon: UserX },
-  'reposição': { cardBg: 'bg-[#e2eaf0]', border: 'border-[#779aad]', iconText: 'text-[#779aad]', titleText: 'text-[#233540]', subText: 'text-[#233540]/70', badgeBg: 'bg-[#779aad]', label: 'Reposição', Icon: RefreshCw },
+  'confirmado':     { cardBg: 'bg-green-50',   border: 'border-green-600',  iconText: 'text-green-700',  titleText: 'text-green-900',  subText: 'text-green-800/70',  badgeBg: 'bg-green-600',  label: 'Confirmado',  Icon: User },
+  'aguardando':     { cardBg: 'bg-amber-50',   border: 'border-amber-500',  iconText: 'text-amber-600',  titleText: 'text-amber-900',  subText: 'text-amber-800/70',  badgeBg: 'bg-amber-500',  label: 'Aguardando',  Icon: Hourglass },
+  'em atendimento': { cardBg: 'bg-blue-50',    border: 'border-blue-600',   iconText: 'text-blue-600',   titleText: 'text-blue-900',   subText: 'text-blue-800/70',   badgeBg: 'bg-blue-600',   label: 'Em Atend.',   Icon: Stethoscope },
+  'concluído':      { cardBg: 'bg-violet-50',  border: 'border-violet-600', iconText: 'text-violet-600', titleText: 'text-violet-900', subText: 'text-violet-800/70', badgeBg: 'bg-violet-600', label: 'Concluído',   Icon: CheckCheck },
+  'cancelado':      { cardBg: 'bg-red-50',     border: 'border-red-600',    iconText: 'text-red-600',    titleText: 'text-red-900',    subText: 'text-red-800/70',    badgeBg: 'bg-red-600',    label: 'Cancelado',   Icon: XCircle },
+  'falta':          { cardBg: 'bg-gray-100',   border: 'border-gray-500',   iconText: 'text-gray-500',   titleText: 'text-gray-800',   subText: 'text-gray-600/70',   badgeBg: 'bg-gray-500',   label: 'Falta',       Icon: UserX },
+  'reposição':      { cardBg: 'bg-cyan-50',    border: 'border-cyan-600',   iconText: 'text-cyan-600',   titleText: 'text-cyan-900',   subText: 'text-cyan-800/70',   badgeBg: 'bg-cyan-600',   label: 'Reposição',   Icon: RefreshCw },
+  'reagendado':     { cardBg: 'bg-orange-50',  border: 'border-orange-500', iconText: 'text-orange-600', titleText: 'text-orange-900', subText: 'text-orange-800/70', badgeBg: 'bg-orange-500', label: 'Reagendado',  Icon: CalendarClock },
 }
-const CONFIG_DEFAULT = { cardBg: 'bg-[#dee3e3]', border: 'border-[#3d4945]', iconText: 'text-[#3d4945]', titleText: 'text-[#171d1c]', subText: 'text-[#3d4945]', badgeBg: 'bg-[#3d4945]', label: 'Agendado', Icon: CheckCircle }
+const CONFIG_DEFAULT = { cardBg: 'bg-gray-100', border: 'border-gray-400', iconText: 'text-gray-500', titleText: 'text-gray-800', subText: 'text-gray-600', badgeBg: 'bg-gray-400', label: 'Agendado', Icon: CheckCircle }
 
 const OPCOES_STATUS = [
   { valor: 'Confirmado', Icon: CheckCircle, cor: 'text-[#006b5a]' },
