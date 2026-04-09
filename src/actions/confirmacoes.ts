@@ -2,10 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-
-function buildLocalDateTime(data: string, hora: string) {
-  return `${data}T${hora}:00`
-}
+import { buildAppDateTimeISO } from '@/lib/datetime'
 
 /**
  * Dado a data da última sessão e o padrão de recorrência, calcula a próxima data
@@ -111,7 +108,7 @@ export async function registrarContato(
     novoStatus = 'Reagendado'
   }
 
-  const updateData: any = { contato_confirmacao: resultado }
+  const updateData: { contato_confirmacao: typeof resultado; status?: string } = { contato_confirmacao: resultado }
   if (novoStatus) {
     updateData.status = novoStatus
   }
@@ -161,7 +158,7 @@ export async function adicionarSessaoReposicao(
   const { error } = await supabase.from('atendimentos').insert({
     paciente_id: agendamento.paciente_id,
     profissional_id: agendamento.profissional_id,
-    data_agendamento: buildLocalDateTime(data, hora),
+    data_agendamento: buildAppDateTimeISO(data, hora),
     tipo: agendamento.tipo,
     duracao_minutos: agendamento.duracao_minutos ?? 30,
     observacoes: agendamento.observacoes,

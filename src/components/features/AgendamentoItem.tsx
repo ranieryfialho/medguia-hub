@@ -7,8 +7,6 @@ import {
   CheckCircle, Hourglass, Stethoscope, CheckCheck, XCircle, UserX, RefreshCw, User, CalendarClock,
   MessageCircle, Pencil, Trash2, MapPin
 } from 'lucide-react'
-import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
 import {
   mudarStatusAgendamento,
   contarAtendimentosPaciente,
@@ -18,6 +16,7 @@ import {
 } from '@/actions/agenda'
 import { MenuAcoesAgendamento } from './MenuAcoesAgendamento'
 import { SlideNovoAgendamento } from './SlideNovoAgendamento'
+import { formatAppDateLabel, formatAppTime } from '@/lib/datetime'
 
 type Paciente = { id: string; nome: string }
 type Profissional = { id: string; nome: string; cargo: string }
@@ -64,7 +63,7 @@ function getConfig(status: string) {
   return STATUS_CONFIG[status?.toLowerCase()] || CONFIG_DEFAULT
 }
 
-function Modal({ agendamento, onClose, onEditar, pacientes, profissionais }: { agendamento: AgendamentoDetalhe; onClose: () => void; onEditar: () => void; pacientes: Paciente[]; profissionais: Profissional[] }) {
+function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDetalhe; onClose: () => void; onEditar: () => void }) {
   const router = useRouter()
   const [status, setStatus] = useState(agendamento.status)
   const [showStatusMenu, setShowStatusMenu] = useState(false)
@@ -79,11 +78,11 @@ function Modal({ agendamento, onClose, onEditar, pacientes, profissionais }: { a
   const nomePaciente = agendamento.pacientes?.nome || 'Paciente'
   const inicial = nomePaciente.charAt(0).toUpperCase()
   const dataObj = new Date(agendamento.data_agendamento)
-  const horaInicio = format(dataObj, 'HH:mm')
+  const horaInicio = formatAppTime(dataObj)
   const horaFim = agendamento.duracao_minutos
-    ? format(new Date(dataObj.getTime() + agendamento.duracao_minutos * 60000), 'HH:mm')
+    ? formatAppTime(new Date(dataObj.getTime() + agendamento.duracao_minutos * 60000))
     : null
-  const dataFormatada = format(dataObj, "EEEE, d 'de' MMMM", { locale: ptBR })
+  const dataFormatada = formatAppDateLabel(dataObj)
 
   const telefone = agendamento.pacientes?.telefone
   const nomeProfissional = agendamento.profissional?.full_name
@@ -364,7 +363,7 @@ export function AgendamentoItemDia({ agendamento, pacientes, profissionais }: { 
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const config = getConfig(agendamento.status)
   const Icone = config.Icon
-  const hora = format(new Date(agendamento.data_agendamento), 'HH:mm')
+  const hora = formatAppTime(agendamento.data_agendamento)
   const nomePaciente = agendamento.pacientes?.nome || 'Paciente não identificado'
 
   return (
@@ -415,8 +414,6 @@ export function AgendamentoItemDia({ agendamento, pacientes, profissionais }: { 
           agendamento={agendamento}
           onClose={() => setModalAberto(false)}
           onEditar={() => { setModalAberto(false); setSlideEditarAberto(true) }}
-          pacientes={pacientes}
-          profissionais={profissionais}
         />
       )}
 
@@ -457,8 +454,6 @@ export function AgendamentoItemSemana({ agendamento, pacientes, profissionais }:
           agendamento={agendamento}
           onClose={() => setModalAberto(false)}
           onEditar={() => { setModalAberto(false); setSlideEditarAberto(true) }}
-          pacientes={pacientes}
-          profissionais={profissionais}
         />
       )}
 

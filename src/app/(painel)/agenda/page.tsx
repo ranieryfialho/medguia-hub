@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import {
   format, startOfWeek, endOfWeek, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths,
-  isSameDay, startOfDay, endOfDay, parseISO, isValid, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameMonth
+  isSameDay, parseISO, isValid, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameMonth
 } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -15,9 +15,12 @@ import { SlideNovoAgendamento } from '@/components/features/SlideNovoAgendamento
 import { AgendamentoItemDia, AgendamentoItemSemana } from '@/components/features/AgendamentoItem'
 import { buildSessaoEfetivaMap } from '@/lib/sessoes'
 import { listarTodasDisponibilidades } from '@/actions/disponibilidade'
+import { formatAppDateKey, getAppDayRangeUTC, getAppHour, parseAppDate } from '@/lib/datetime'
+
+type StatusConfig = { badgeBg: string; label: string }
 
 const getStatusConfig = (status: string) => {
-  const configs: Record<string, any> = {
+  const configs: Record<string, StatusConfig> = {
     'confirmado':     { badgeBg: 'bg-green-600',  label: 'Confirmado' },
     'aguardando':     { badgeBg: 'bg-amber-500',  label: 'Aguardando' },
     'em atendimento': { badgeBg: 'bg-blue-600',   label: 'Em Atend.' },
@@ -53,15 +56,16 @@ export default async function AgendaPage({ searchParams }: PageProps) {
   const view = typeof params.view === 'string' ? params.view : 'dia'
   const dataParam = typeof params.data === 'string' ? params.data : undefined
 
-  let dataSelecionada = new Date()
+  const hojeString = formatAppDateKey(new Date())
+  let dataSelecionada = parseAppDate(hojeString)
   if (dataParam) {
     const dataParseada = parseISO(dataParam)
     if (isValid(dataParseada)) {
-      dataSelecionada = dataParseada
+      dataSelecionada = parseAppDate(dataParam)
     }
   }
 
-  const dataString = format(dataSelecionada, 'yyyy-MM-dd')
+  const dataString = formatAppDateKey(dataSelecionada)
 
   let prevDate, nextDate
   if (view === 'mes') {
@@ -75,8 +79,8 @@ export default async function AgendaPage({ searchParams }: PageProps) {
     nextDate = addDays(dataSelecionada, 1)
   }
 
-  const prevUrl = `?view=${view}&data=${format(prevDate, 'yyyy-MM-dd')}`
-  const nextUrl = `?view=${view}&data=${format(nextDate, 'yyyy-MM-dd')}`
+  const prevUrl = `?view=${view}&data=${formatAppDateKey(prevDate)}`
+  const nextUrl = `?view=${view}&data=${formatAppDateKey(nextDate)}`
 
   const inicioDaSemana = startOfWeek(dataSelecionada, { weekStartsOn: 0 })
   const diasDaSemana = Array.from({ length: 7 }, (_, i) => addDays(inicioDaSemana, i))
@@ -92,15 +96,14 @@ export default async function AgendaPage({ searchParams }: PageProps) {
   const diasVaziosInicio = Array.from({ length: diaDaSemanaInicio }, (_, i) => subDays(inicioDoMes, diaDaSemanaInicio - i)).reverse()
   const todosDiasMes = [...diasVaziosInicio, ...diasDoMes]
 
-  let fetchInicio = startOfDay(dataSelecionada)
-  let fetchFim = endOfDay(dataSelecionada)
+  let { start: fetchInicio, end: fetchFim } = getAppDayRangeUTC(dataString)
 
   if (view === 'semana') {
-    fetchInicio = startOfDay(inicioDaSemana)
-    fetchFim = endOfDay(endOfWeek(dataSelecionada, { weekStartsOn: 0 }))
+    fetchInicio = getAppDayRangeUTC(formatAppDateKey(inicioDaSemana)).start
+    fetchFim = getAppDayRangeUTC(formatAppDateKey(endOfWeek(dataSelecionada, { weekStartsOn: 0 }))).end
   } else if (view === 'mes') {
-    fetchInicio = startOfDay(inicioDoMes)
-    fetchFim = endOfDay(fimDoMes)
+    fetchInicio = getAppDayRangeUTC(formatAppDateKey(inicioDoMes)).start
+    fetchFim = getAppDayRangeUTC(formatAppDateKey(fimDoMes)).end
   }
 
   let atendimentosQuery = supabase
@@ -120,8 +123,8 @@ export default async function AgendaPage({ searchParams }: PageProps) {
       pacientes (nome, telefone, email),
       profissional:profiles!profissional_id(full_name, role)
     `)
-    .gte('data_agendamento', fetchInicio.toISOString())
-    .lte('data_agendamento', fetchFim.toISOString())
+    .gte('data_agendamento', fetchInicio)
+    .lte('data_agendamento', fetchFim)
     .order('data_agendamento', { ascending: true })
 
   if (isFisioterapeuta) {
@@ -157,15 +160,15 @@ export default async function AgendaPage({ searchParams }: PageProps) {
   const agendamentosMesQuery = supabase
     .from('atendimentos')
     .select('data_agendamento')
-    .gte('data_agendamento', startOfDay(inicioDoMes).toISOString())
-    .lte('data_agendamento', endOfDay(fimDoMes).toISOString())
+    .gte('data_agendamento', getAppDayRangeUTC(formatAppDateKey(inicioDoMes)).start)
+    .lte('data_agendamento', getAppDayRangeUTC(formatAppDateKey(fimDoMes)).end)
 
   if (isFisioterapeuta) agendamentosMesQuery.eq('profissional_id', user!.id)
 
   const { data: agendamentosMes } = await agendamentosMesQuery
 
   const diasComAgendamento = new Set(
-    agendamentosMes?.map(a => format(new Date(a.data_agendamento), 'yyyy-MM-dd')) || []
+    agendamentosMes?.map(a => formatAppDateKey(a.data_agendamento)) || []
   )
 
   const { data: listaPacientes } = await supabase
@@ -202,7 +205,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
   // Disponibilidade do usuário logado (para highlight na semana)
   const dispLogado = disponibilidadesMap[user!.id] ?? null
 
-  const agendamentosHoje = agendamentosComEfetivo.filter(a => isSameDay(new Date(a.data_agendamento), dataSelecionada))
+  const agendamentosHoje = agendamentosComEfetivo.filter(a => formatAppDateKey(a.data_agendamento) === dataString)
   const totalAgendamentos = agendamentosHoje.length
   const atendidos = agendamentosHoje.filter(a => a.status?.toLowerCase() === 'concluído').length
   const pendentes = totalAgendamentos - atendidos
@@ -282,7 +285,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 <div className="flex-1 min-h-0 overflow-y-auto pr-2 space-y-3 scrollbar-thin scrollbar-thumb-slate-200">
                   {agendamentosHoje.length > 0 ? (
                     agendamentosHoje.map((agendamento) => (
-                      <AgendamentoItemDia key={agendamento.id} agendamento={agendamento as any} pacientes={listaPacientes || []} profissionais={profissionaisFormatados} />
+                      <AgendamentoItemDia key={agendamento.id} agendamento={agendamento} pacientes={listaPacientes || []} profissionais={profissionaisFormatados} />
                     ))
                   ) : (
                     <div className="py-8 text-center text-[#3d4945]/50 text-sm font-medium">Nenhum agendamento para este dia.</div>
@@ -333,8 +336,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                           </div>
                           {diasDaSemana.map((dia) => {
                             const agendamentosNestaHora = agendamentosComEfetivo.filter(a => {
-                              const dataAgendamento = new Date(a.data_agendamento)
-                              return isSameDay(dataAgendamento, dia) && dataAgendamento.getHours() === horaNum
+                              return formatAppDateKey(a.data_agendamento) === formatAppDateKey(dia) && getAppHour(a.data_agendamento) === horaNum
                             }) || []
 
                             const diaDisp = dispLogado?.[dia.getDay()]
@@ -345,7 +347,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                             return (
                               <div key={dia.toString()} className={`border-t border-l border-dashed border-[#bcc9c4]/30 p-1 relative transition-colors ${foraDisponibilidade ? 'bg-slate-100/70' : 'bg-[#f9fbfb]/50 group-hover:bg-[#f0f5f4]/50'}`}>
                                 {agendamentosNestaHora.map(agendamento => (
-                                  <AgendamentoItemSemana key={agendamento.id} agendamento={agendamento as any} pacientes={listaPacientes || []} profissionais={profissionaisFormatados} />
+                                  <AgendamentoItemSemana key={agendamento.id} agendamento={agendamento} pacientes={listaPacientes || []} profissionais={profissionaisFormatados} />
                                 ))}
                               </div>
                             )
@@ -381,9 +383,9 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                   {todosDiasMes.map((dia, idx) => {
                     const isMesmoMes = isSameMonth(dia, dataSelecionada)
                     const isSelecionado = isSameDay(dia, dataSelecionada)
-                    const isHoje = isSameDay(dia, new Date())
+                    const isHoje = formatAppDateKey(dia) === hojeString
 
-                    const agendamentosDoDia = agendamentosComEfetivo.filter(a => isSameDay(new Date(a.data_agendamento), dia))
+                    const agendamentosDoDia = agendamentosComEfetivo.filter(a => formatAppDateKey(a.data_agendamento) === formatAppDateKey(dia))
                     const qtdAgendamentos = agendamentosDoDia.length
 
                     if (!isMesmoMes) {
@@ -396,7 +398,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
 
                     return (
                       <Link
-                        href={`?view=dia&data=${format(dia, 'yyyy-MM-dd')}`}
+                        href={`?view=dia&data=${formatAppDateKey(dia)}`}
                         key={`dia-${idx}`}
                         className={`min-h-[48px] lg:min-h-[80px] border border-[#bcc9c4]/30 rounded-xl lg:rounded-2xl p-1 lg:p-2 flex flex-col transition-all hover:border-[#006b5a] hover:shadow-md cursor-pointer ${
                           isSelecionado ? 'bg-[#cce2da] border-[#006b5a]/50' : 'bg-white'
@@ -491,13 +493,13 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 const isMesmoMes = isSameMonth(dia, dataSelecionada)
                 const isSelecionado = isSameDay(dia, dataSelecionada)
                 const diaNumero = format(dia, 'd')
-                const linkUrl = `?view=${view}&data=${format(dia, 'yyyy-MM-dd')}`
+                const linkUrl = `?view=${view}&data=${formatAppDateKey(dia)}`
 
                 if (!isMesmoMes) {
                   return <span key={`vazio-${i}`} className="text-xs font-medium py-1.5 text-[#3d4945]/40">{diaNumero}</span>
                 }
 
-                const temAgendamento = diasComAgendamento.has(format(dia, 'yyyy-MM-dd'))
+                const temAgendamento = diasComAgendamento.has(formatAppDateKey(dia))
 
                 return (
                   <Link
@@ -517,7 +519,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
             </div>
 
             <Link
-              href={`?view=${view}&data=${format(new Date(), 'yyyy-MM-dd')}`}
+              href={`?view=${view}&data=${hojeString}`}
               className="flex-shrink-0 mt-1 w-full text-center text-xs font-bold py-2 rounded-xl bg-[#006b5a]/10 text-[#006b5a] hover:bg-[#006b5a]/20 transition-colors"
             >
               Hoje
