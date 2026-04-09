@@ -2,8 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { MoreVertical, Ban, Key, CheckCircle, Eye, EyeOff, X } from 'lucide-react'
-import { redefinirSenha } from '@/actions/equipe'
+import { MoreVertical, Ban, Key, CheckCircle, Eye, EyeOff, X, Clock } from 'lucide-react'
+import { redefinirSenha, alternarAtivoColaborador } from '@/actions/equipe'
 import toast from 'react-hot-toast'
 
 function ModalRedefinirSenha({ id, onClose }: { id: string; onClose: () => void }) {
@@ -124,6 +124,7 @@ function ModalRedefinirSenha({ id, onClose }: { id: string; onClose: () => void 
 export function MenuAcoesColaborador({ id, isAtivo }: { id: string, isAtivo: boolean }) {
   const [isOpen, setIsOpen] = useState(false)
   const [modalSenhaAberto, setModalSenhaAberto] = useState(false)
+  const [loadingAtivo, setLoadingAtivo] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -135,6 +136,18 @@ export function MenuAcoesColaborador({ id, isAtivo }: { id: string, isAtivo: boo
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  async function handleAlternarAtivo() {
+    setIsOpen(false)
+    setLoadingAtivo(true)
+    const res = await alternarAtivoColaborador(id, !isAtivo)
+    setLoadingAtivo(false)
+    if (res?.error) {
+      toast.error(res.error)
+    } else {
+      toast.success(isAtivo ? 'Acesso inativado com sucesso.' : 'Acesso reativado com sucesso.')
+    }
+  }
 
   return (
     <>
@@ -148,13 +161,23 @@ export function MenuAcoesColaborador({ id, isAtivo }: { id: string, isAtivo: boo
 
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors ${isOpen ? 'bg-[#dee3e3] text-[#171d1c]' : 'text-[#3d4945]/50 hover:text-[#171d1c] hover:bg-[#dee3e3]'}`}
+          disabled={loadingAtivo}
+          className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors ${isOpen ? 'bg-[#dee3e3] text-[#171d1c]' : 'text-[#3d4945]/50 hover:text-[#171d1c] hover:bg-[#dee3e3]'} disabled:opacity-50`}
         >
           <MoreVertical size={18} />
         </button>
 
         {isOpen && (
-          <div className="absolute right-0 top-12 w-48 bg-white border border-[#bcc9c4]/30 rounded-xl shadow-lg py-2 z-50 animate-in fade-in slide-in-from-top-2">
+          <div className="absolute right-0 top-12 w-56 bg-white border border-[#bcc9c4]/30 rounded-xl shadow-lg py-2 z-50 animate-in fade-in slide-in-from-top-2">
+            <Link
+              href={`/configuracoes/disponibilidade?profissional=${id}`}
+              onClick={() => setIsOpen(false)}
+              className="w-full px-4 py-2.5 flex items-center gap-3 text-sm font-medium text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
+            >
+              <Clock size={16} className="text-[#006b5a]" />
+              Ver Disponibilidade
+            </Link>
+
             <button
               onClick={() => { setIsOpen(false); setModalSenhaAberto(true) }}
               className="w-full px-4 py-2.5 flex items-center gap-3 text-sm font-medium text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
@@ -165,7 +188,10 @@ export function MenuAcoesColaborador({ id, isAtivo }: { id: string, isAtivo: boo
 
             <div className="h-px bg-[#bcc9c4]/30 my-1 mx-2"></div>
 
-            <button className={`w-full px-4 py-2.5 flex items-center gap-3 text-sm font-medium transition-colors ${isAtivo ? 'text-[#ba1a1a] hover:bg-[#ba1a1a]/10' : 'text-[#006b5a] hover:bg-[#006b5a]/10'}`}>
+            <button
+              onClick={handleAlternarAtivo}
+              className={`w-full px-4 py-2.5 flex items-center gap-3 text-sm font-medium transition-colors ${isAtivo ? 'text-[#ba1a1a] hover:bg-[#ba1a1a]/10' : 'text-[#006b5a] hover:bg-[#006b5a]/10'}`}
+            >
               {isAtivo ? (
                 <>
                   <Ban size={16} />

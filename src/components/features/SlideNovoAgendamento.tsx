@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useId, useRef } from 'react'
 import { criarAgendamento, editarAtendimento } from '@/actions/agenda'
-import { X, CalendarPlus, User, Minus, Plus, Search } from 'lucide-react'
+import { X, CalendarPlus, User, Minus, Plus, Search, Clock } from 'lucide-react'
 import { format } from 'date-fns'
 
 type Paciente = { id: string, nome: string }
@@ -21,6 +21,7 @@ interface AtendimentoParaEditar {
 interface SlideProps {
   pacientes: Paciente[]
   profissionais: Profissional[]
+  disponibilidades?: Record<string, Record<number, { hora_inicio: string; hora_fim: string }>>
   controlledOpen?: boolean
   onControlledClose?: () => void
   defaultPacienteId?: string
@@ -34,7 +35,7 @@ const DIAS_SEMANA = [
   { val: 4, label: 'Qui' }, { val: 5, label: 'Sex' }, { val: 6, label: 'Sáb' }, { val: 0, label: 'Dom' },
 ]
 
-export function SlideNovoAgendamento({ pacientes, profissionais, controlledOpen, onControlledClose, defaultPacienteId, defaultData, defaultHora, atendimentoParaEditar }: SlideProps) {
+export function SlideNovoAgendamento({ pacientes, profissionais, disponibilidades, controlledOpen, onControlledClose, defaultPacienteId, defaultData, defaultHora, atendimentoParaEditar }: SlideProps) {
   const isControlled = controlledOpen !== undefined
   const modoEdicao = !!atendimentoParaEditar
   const formId = useId()
@@ -312,6 +313,32 @@ export function SlideNovoAgendamento({ pacientes, profissionais, controlledOpen,
                 <input type="time" name="hora_fim" required value={horaFimValue} onChange={e => setHoraFimValue(e.target.value)} className="w-full bg-white border border-[#bcc9c4] rounded-lg px-3 py-3 text-[#171d1c] focus:ring-2 focus:ring-[#006b5a] transition-all font-medium shadow-sm" />
               </div>
             </div>
+
+            {/* Hint de disponibilidade do profissional */}
+            {(() => {
+              if (!disponibilidades || !selectedProfissionalId || !dataAgendamento) return null
+              const profDisp = disponibilidades[selectedProfissionalId]
+              // Profissional sem nenhuma disponibilidade cadastrada — silencioso
+              if (!profDisp || Object.keys(profDisp).length === 0) return null
+              const diaSemana = new Date(`${dataAgendamento}T00:00:00`).getDay()
+              const disp = profDisp[diaSemana]
+              const nomeProfissional = profissionais.find(p => p.id === selectedProfissionalId)?.nome ?? 'Profissional'
+              const NOMES_DIA = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado']
+              if (!disp) {
+                return (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-300 text-xs text-amber-700 font-semibold">
+                    <Clock size={13} />
+                    {nomeProfissional.split(' ')[0]} não atende às {NOMES_DIA[diaSemana]}s
+                  </div>
+                )
+              }
+              return (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#f0fcf9] border border-[#006b5a]/20 text-xs text-[#006b5a] font-semibold">
+                  <Clock size={13} />
+                  Disponível: {disp.hora_inicio} – {disp.hora_fim}
+                </div>
+              )
+            })()}
 
             {/* SEÇÃO DE RECORRÊNCIA */}
             {!modoEdicao && (

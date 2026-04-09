@@ -390,6 +390,12 @@ export function AgendamentoItemDia({ agendamento, pacientes, profissionais }: { 
                   )}
                 </div>
                 <p className={`text-[11px] ${config.subText} mt-1 font-medium italic`}>{agendamento.tipo}</p>
+                {agendamento.profissional?.full_name && (
+                  <p className={`text-[11px] ${config.subText} mt-0.5 font-medium flex items-center gap-1`}>
+                    <User size={10} className="shrink-0" />
+                    {agendamento.profissional.full_name}
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -439,6 +445,11 @@ export function AgendamentoItemSemana({ agendamento, pacientes, profissionais }:
       >
         <p className={`text-[10px] font-bold ${config.titleText} truncate`}>{primeiroNome}</p>
         <p className={`text-[9px] ${config.subText} truncate`}>{agendamento.tipo}</p>
+        {agendamento.profissional?.full_name && (
+          <p className={`text-[9px] ${config.subText} truncate opacity-80`}>
+            {agendamento.profissional.full_name.split(' ')[0]}
+          </p>
+        )}
       </div>
 
       {modalAberto && (

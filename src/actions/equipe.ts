@@ -4,8 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
-export async function cadastrarColaborador(formData: FormData) {
-  // 1. Extraindo os dados do formulário
+export async function cadastrarColaborador(_prevState: { error?: string } | null, formData: FormData) {
   const nome = formData.get('nome') as string
   const cpf = formData.get('cpf') as string
   const email = formData.get('email') as string
@@ -13,32 +12,28 @@ export async function cadastrarColaborador(formData: FormData) {
   const cargo = formData.get('cargo') as string
   const conselho = formData.get('conselho') as string
   const especialidade = formData.get('especialidade') as string
-  
-  // Extraindo a nova senha provisória definida pelo gestor no formulário
   const senhaProvisoria = formData.get('senha') as string
 
-  // 2. Iniciando o Supabase com a Chave de Administrador (Bypassa o RLS)
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // 3. Criando o usuário no Auth usando a senha provisória dinâmica
   const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
     email: email,
-    password: senhaProvisoria, 
+    password: senhaProvisoria,
     email_confirm: true,
-    user_metadata: { full_name: nome }
+    user_metadata: { full_name: nome, primeiro_acesso: true }
   })
 
   if (authError) {
     console.error('Erro ao criar no Auth:', authError.message)
-    throw new Error('Não foi possível criar as credenciais do usuário.')
+    const emailJaExiste = authError.message.toLowerCase().includes('already') || authError.message.toLowerCase().includes('registered')
+    return { error: emailJaExiste ? 'Este e-mail já está cadastrado no sistema.' : `Erro ao criar usuário: ${authError.message}` }
   }
 
   const userId = authData.user.id
 
-  // 4. UPSERT: Atualiza se existir, Cria se não existir.
   const { error: profileError } = await supabaseAdmin
     .from('profiles')
     .upsert({
@@ -51,15 +46,20 @@ export async function cadastrarColaborador(formData: FormData) {
       conselho: conselho || null,
       especialidade: especialidade || null,
       ativo: true,
-      primeiro_acesso: true // Garante que o usuário precisará trocar a senha no 1º login
+      primeiro_acesso: true,
     })
 
   if (profileError) {
     console.error('Erro ao fazer upsert em profiles:', profileError.message)
-    throw new Error('Usuário criado, mas houve um erro ao salvar os detalhes do perfil.')
+    return { error: 'Usuário criado, mas houve um erro ao salvar os detalhes do perfil.' }
   }
 
-  // 5. Atualiza a tela de listagem e redireciona de volta
+  // Garante que primeiro_acesso=true independente de triggers do banco
+  await supabaseAdmin
+    .from('profiles')
+    .update({ primeiro_acesso: true })
+    .eq('id', userId)
+
   revalidatePath('/equipe')
   redirect('/equipe')
 }
@@ -105,6 +105,34 @@ export async function editarColaborador(formData: FormData) {
   redirect('/equipe')
 }
 
+export async function alternarAtivoColaborador(id: string, ativarAgora: boolean) {
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
+  const { error: profileError } = await supabaseAdmin
+    .from('profiles')
+    .update({ ativo: ativarAgora })
+    .eq('id', id)
+
+  if (profileError) {
+    return { error: 'Erro ao atualizar o perfil.' }
+  }
+
+  // Bane ou desbane no Auth para bloquear/liberar o login
+  const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(id, {
+    ban_duration: ativarAgora ? 'none' : '876000h',
+  })
+
+  if (authError) {
+    return { error: 'Perfil atualizado, mas não foi possível alterar o acesso de login.' }
+  }
+
+  revalidatePath('/equipe')
+  return { success: true }
+}
+
 export async function redefinirSenha(id: string, novaSenha: string) {
   if (!novaSenha || novaSenha.length < 6) {
     return { error: 'A senha deve ter no mínimo 6 caracteres.' }
@@ -117,6 +145,7 @@ export async function redefinirSenha(id: string, novaSenha: string) {
 
   const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(id, {
     password: novaSenha,
+    user_metadata: { primeiro_acesso: true },
   })
 
   if (authError) {

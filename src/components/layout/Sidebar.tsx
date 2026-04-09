@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   LayoutDashboard,
@@ -20,12 +20,24 @@ import {
   Target,
 } from 'lucide-react'
 
-export function Sidebar({ onMobileClose, onOpenNovoAgendamento }: { onMobileClose?: () => void; onOpenNovoAgendamento?: () => void }) {
+export function Sidebar({ onMobileClose, onOpenNovoAgendamento, userRole: userRoleProp }: { onMobileClose?: () => void; onOpenNovoAgendamento?: () => void; userRole?: string }) {
 
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
   const [confirmacoesOpen, setConfirmacoesOpen] = useState(() => pathname?.startsWith('/confirmacoes') ?? false)
+  const [configOpen, setConfigOpen] = useState(() => pathname?.startsWith('/configuracoes') ?? false)
+  const [userRole, setUserRole] = useState(userRoleProp ?? '')
+
+  useEffect(() => {
+    async function fetchRole() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+      if (data?.role) setUserRole(data.role)
+    }
+    fetchRole()
+  }, [])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -161,23 +173,54 @@ export function Sidebar({ onMobileClose, onOpenNovoAgendamento }: { onMobileClos
           <span className="text-sm">Prontuários</span>
         </span>
 
-        <Link
-          href="/equipe"
-          onClick={handleNavClick}
-          className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-            isActive('/equipe')
-              ? 'bg-white text-[#006b5a] shadow-sm translate-x-1 font-semibold'
-              : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
-          }`}
-        >
-          <Briefcase size={20} />
-          <span className="text-sm">Equipe</span>
-        </Link>
+        {(userRole === 'gestor' || userRole === 'master') && (
+          <Link
+            href="/equipe"
+            onClick={handleNavClick}
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+              isActive('/equipe')
+                ? 'bg-white text-[#006b5a] shadow-sm translate-x-1 font-semibold'
+                : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
+            }`}
+          >
+            <Briefcase size={20} />
+            <span className="text-sm">Equipe</span>
+          </Link>
+        )}
 
-        <span className="flex items-center gap-3 px-4 py-3 rounded-xl opacity-40 cursor-not-allowed text-[#3d4945] font-medium">
-          <Settings size={20} />
-          <span className="text-sm">Configurações</span>
-        </span>
+        <div>
+          <button
+            onClick={() => setConfigOpen(v => !v)}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+              isActive('/configuracoes')
+                ? 'bg-white text-[#006b5a] shadow-sm font-semibold'
+                : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
+            }`}
+          >
+            <Settings size={20} />
+            <span className="text-sm flex-1 text-left">Configurações</span>
+            <ChevronDown
+              size={16}
+              className={`transition-transform duration-200 ${configOpen ? 'rotate-180' : ''}`}
+            />
+          </button>
+
+          {configOpen && (
+            <div className="mt-1 ml-4 space-y-0.5 border-l-2 border-[#bcc9c4]/40 pl-3">
+              <Link
+                href="/configuracoes/disponibilidade"
+                onClick={handleNavClick}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
+                  isActive('/configuracoes/disponibilidade')
+                    ? 'bg-white text-[#006b5a] shadow-sm font-semibold'
+                    : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
+                }`}
+              >
+                Disponibilidade
+              </Link>
+            </div>
+          )}
+        </div>
       </nav>
 
       {/* Footer Actions */}

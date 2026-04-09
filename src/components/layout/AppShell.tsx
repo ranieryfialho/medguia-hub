@@ -12,17 +12,20 @@ type HeaderData = {
   nomeUsuario: string
   cargoUsuario: string
   avatarUrl: string
+  userRole: string
 }
 
 export function AppShell({
   children,
   pacientes,
   profissionais,
+  disponibilidades,
   headerData,
 }: {
   children: React.ReactNode
   pacientes: Paciente[]
   profissionais: Profissional[]
+  disponibilidades?: Record<string, Record<number, { hora_inicio: string; hora_fim: string }>>
   headerData: HeaderData
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -50,6 +53,7 @@ export function AppShell({
         <Sidebar
           onMobileClose={() => setSidebarOpen(false)}
           onOpenNovoAgendamento={() => setSlideNovoAberto(true)}
+          userRole={headerData.userRole}
         />
       </div>
 
@@ -79,6 +83,7 @@ export function AppShell({
       <SlideNovoAgendamento
         pacientes={pacientes}
         profissionais={profissionais}
+        disponibilidades={disponibilidades}
         controlledOpen={slideNovoAberto}
         onControlledClose={() => setSlideNovoAberto(false)}
       />

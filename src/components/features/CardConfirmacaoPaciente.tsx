@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { format } from 'date-fns'
-import { MoreVertical, CheckCircle, XCircle, Phone, RefreshCw, AlertCircle } from 'lucide-react'
+import { MoreVertical, CheckCircle, XCircle, Phone, RefreshCw, AlertCircle, User } from 'lucide-react'
 import { BtnWhatsApp } from './BtnWhatsApp'
 import { ModalSessaoReposicao } from './ModalSessaoReposicao'
 import { registrarContato, obterProximaData } from '@/actions/confirmacoes'
@@ -171,6 +171,12 @@ export function CardConfirmacaoPaciente({
               <p className="text-xs text-slate-500 mt-0.5">
                 {paciente.tipo} • {format(new Date(paciente.data_agendamento), "HH:mm")}
               </p>
+              {paciente.profissional_nome && (
+                <p className="text-xs text-slate-500 mt-1 flex items-center gap-1.5 truncate">
+                  <User size={12} className="shrink-0" />
+                  <span className="truncate">{paciente.profissional_nome}</span>
+                </p>
+              )}
             </div>
           </div>
 

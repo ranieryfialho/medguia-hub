@@ -1,26 +1,32 @@
+'use client'
+
 import Link from 'next/link'
+import { useActionState } from 'react'
 import { cadastrarColaborador } from '@/actions/equipe'
-import { 
-  ChevronLeft, 
-  Save, 
-  User, 
-  Mail, 
-  Phone, 
-  Briefcase, 
+import {
+  ChevronLeft,
+  Save,
+  User,
+  Mail,
+  Phone,
+  Briefcase,
   FileText,
   ShieldCheck,
-  Lock
+  Lock,
+  AlertCircle,
 } from 'lucide-react'
 
 export default function NovoMembroEquipePage() {
+  const [state, formAction, isPending] = useActionState(cadastrarColaborador, null)
+
   return (
     <div className="space-y-6 w-full">
-      
+
       {/* CABEÇALHO */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link 
-            href="/equipe" 
+          <Link
+            href="/equipe"
             className="w-10 h-10 rounded-full flex items-center justify-center bg-[#f0f5f4] hover:bg-[#dee3e3] transition-colors text-[#171d1c]"
           >
             <ChevronLeft size={24} />
@@ -36,14 +42,21 @@ export default function NovoMembroEquipePage() {
 
       {/* ÁREA DO FORMULÁRIO */}
       <div className="bg-white border border-[#bcc9c4]/30 rounded-3xl p-6 sm:p-8 shadow-sm">
-        <form action={cadastrarColaborador} className="space-y-8">
-          
+        <form action={formAction} className="space-y-8">
+
+          {state?.error && (
+            <div className="flex items-center gap-3 p-4 rounded-xl bg-[#ba1a1a]/10 border border-[#ba1a1a]/20 text-[#ba1a1a]">
+              <AlertCircle size={18} className="shrink-0" />
+              <p className="text-sm font-bold">{state.error}</p>
+            </div>
+          )}
+
           <div className="space-y-6">
             <h3 className="text-sm font-extrabold text-[#006b5a] uppercase tracking-widest border-b border-[#bcc9c4]/30 pb-2 flex items-center gap-2">
               <User size={18} />
               Dados Pessoais & Acesso
             </h3>
-            
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 xl:gap-8">
               <div className="space-y-2">
                 <label htmlFor="nome" className="text-sm font-bold text-[#3d4945] block">Nome Completo *</label>
@@ -85,20 +98,19 @@ export default function NovoMembroEquipePage() {
                 </div>
               </div>
 
-              {/* NOVO CAMPO: SENHA PROVISÓRIA */}
               <div className="space-y-2">
                 <label htmlFor="senha" className="text-sm font-bold text-[#3d4945] block">Senha Provisória *</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#3d4945]/50">
                     <Lock size={18} />
                   </div>
-                  <input 
-                    type="text" 
-                    id="senha" 
-                    name="senha" 
-                    required 
-                    placeholder="Mínimo de 6 caracteres" 
-                    className="w-full bg-[#f0f5f4] border border-[#bcc9c4]/50 rounded-xl pl-11 pr-4 py-3 text-[#171d1c] placeholder:text-[#3d4945]/40 focus:outline-none focus:ring-2 focus:ring-[#006b5a]/50 focus:border-[#006b5a] transition-all font-medium" 
+                  <input
+                    type="text"
+                    id="senha"
+                    name="senha"
+                    required
+                    placeholder="Mínimo de 6 caracteres"
+                    className="w-full bg-[#f0f5f4] border border-[#bcc9c4]/50 rounded-xl pl-11 pr-4 py-3 text-[#171d1c] placeholder:text-[#3d4945]/40 focus:outline-none focus:ring-2 focus:ring-[#006b5a]/50 focus:border-[#006b5a] transition-all font-medium"
                   />
                 </div>
                 <p className="text-xs font-medium text-[#3d4945]/60 mt-1">
@@ -114,9 +126,9 @@ export default function NovoMembroEquipePage() {
               <Briefcase size={18} />
               Atuação Profissional
             </h3>
-            
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 xl:gap-8">
-              
+
               <div className="space-y-2 lg:col-span-2">
                 <label className="text-sm font-bold text-[#3d4945] block">Perfil de Acesso (Cargo) *</label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 xl:gap-6">
@@ -130,7 +142,7 @@ export default function NovoMembroEquipePage() {
                       <input type="radio" name="cargo" value={perfil.id} className="peer sr-only" required />
                       <div className="h-full border-2 border-[#bcc9c4]/50 rounded-xl p-5 hover:bg-[#f0f5f4] transition-all peer-checked:border-[#006b5a] peer-checked:bg-[#cce2da]/30">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="font-bold text-[#171d1c] group-hover:text-[#006b5a] peer-checked:text-[#006b5a]">{perfil.label}</span>
+                          <span className="font-bold text-[#171d1c] group-hover:text-[#006b5a]">{perfil.label}</span>
                           <ShieldCheck size={20} className="text-transparent peer-checked:text-[#006b5a]" />
                         </div>
                         <p className="text-xs font-medium text-[#3d4945]/60 leading-tight">{perfil.desc}</p>
@@ -163,9 +175,9 @@ export default function NovoMembroEquipePage() {
             <Link href="/equipe" className="w-full sm:w-auto px-8 py-3 rounded-xl font-bold text-[#3d4945] hover:bg-[#f0f5f4] transition-colors text-center">
               Cancelar
             </Link>
-            <button type="submit" className="w-full sm:w-auto bg-gradient-to-r from-[#006b5a] to-[#33a68f] text-white px-8 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity shadow-md shadow-[#006b5a]/20">
+            <button type="submit" disabled={isPending} className="w-full sm:w-auto bg-gradient-to-r from-[#006b5a] to-[#33a68f] text-white px-8 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity shadow-md shadow-[#006b5a]/20 disabled:opacity-70">
               <Save size={20} />
-              Cadastrar Colaborador
+              {isPending ? 'Cadastrando...' : 'Cadastrar Colaborador'}
             </button>
           </div>
 

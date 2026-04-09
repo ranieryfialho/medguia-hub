@@ -14,6 +14,7 @@ import { ptBR } from 'date-fns/locale'
 import { SlideNovoAgendamento } from '@/components/features/SlideNovoAgendamento'
 import { AgendamentoItemDia, AgendamentoItemSemana } from '@/components/features/AgendamentoItem'
 import { buildSessaoEfetivaMap } from '@/lib/sessoes'
+import { listarTodasDisponibilidades } from '@/actions/disponibilidade'
 
 const getStatusConfig = (status: string) => {
   const configs: Record<string, any> = {
@@ -38,6 +39,15 @@ type PageProps = {
 
 export default async function AgendaPage({ searchParams }: PageProps) {
   const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user!.id)
+    .single()
+
+  const isFisioterapeuta = profile?.role === 'fisioterapeuta'
 
   const params = await searchParams
   const view = typeof params.view === 'string' ? params.view : 'dia'
@@ -93,7 +103,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
     fetchFim = endOfDay(fimDoMes)
   }
 
-  const { data: agendamentos } = await supabase
+  let atendimentosQuery = supabase
     .from('atendimentos')
     .select(`
       id,
@@ -113,6 +123,12 @@ export default async function AgendaPage({ searchParams }: PageProps) {
     .gte('data_agendamento', fetchInicio.toISOString())
     .lte('data_agendamento', fetchFim.toISOString())
     .order('data_agendamento', { ascending: true })
+
+  if (isFisioterapeuta) {
+    atendimentosQuery = atendimentosQuery.eq('profissional_id', user!.id)
+  }
+
+  const { data: agendamentos } = await atendimentosQuery
 
   // Calcula numeração efetiva excluindo Falta/Cancelado
   const agendamentoIds = [...new Set(
@@ -138,11 +154,15 @@ export default async function AgendaPage({ searchParams }: PageProps) {
     }
   })
 
-  const { data: agendamentosMes } = await supabase
+  const agendamentosMesQuery = supabase
     .from('atendimentos')
     .select('data_agendamento')
     .gte('data_agendamento', startOfDay(inicioDoMes).toISOString())
     .lte('data_agendamento', endOfDay(fimDoMes).toISOString())
+
+  if (isFisioterapeuta) agendamentosMesQuery.eq('profissional_id', user!.id)
+
+  const { data: agendamentosMes } = await agendamentosMesQuery
 
   const diasComAgendamento = new Set(
     agendamentosMes?.map(a => format(new Date(a.data_agendamento), 'yyyy-MM-dd')) || []
@@ -165,6 +185,22 @@ export default async function AgendaPage({ searchParams }: PageProps) {
     nome: p.full_name || 'Sem nome',
     cargo: p.role || 'Profissional'
   })) || []
+
+  // Busca disponibilidades para o modal e para highlight na semana
+  const todasDisponibilidades = await listarTodasDisponibilidades()
+
+  // Record<profissionalId, Record<diaSemana, { hora_inicio, hora_fim }>>
+  const disponibilidadesMap: Record<string, Record<number, { hora_inicio: string; hora_fim: string }>> = {}
+  for (const d of todasDisponibilidades) {
+    if (!disponibilidadesMap[d.profissional_id]) disponibilidadesMap[d.profissional_id] = {}
+    disponibilidadesMap[d.profissional_id][d.dia_semana] = {
+      hora_inicio: d.hora_inicio.slice(0, 5),
+      hora_fim: d.hora_fim.slice(0, 5),
+    }
+  }
+
+  // Disponibilidade do usuário logado (para highlight na semana)
+  const dispLogado = disponibilidadesMap[user!.id] ?? null
 
   const agendamentosHoje = agendamentosComEfetivo.filter(a => isSameDay(new Date(a.data_agendamento), dataSelecionada))
   const totalAgendamentos = agendamentosHoje.length
@@ -301,8 +337,13 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                               return isSameDay(dataAgendamento, dia) && dataAgendamento.getHours() === horaNum
                             }) || []
 
+                            const diaDisp = dispLogado?.[dia.getDay()]
+                            const foraDisponibilidade = diaDisp
+                              ? horaNum < parseInt(diaDisp.hora_inicio) || horaNum >= parseInt(diaDisp.hora_fim)
+                              : false
+
                             return (
-                              <div key={dia.toString()} className="border-t border-l border-dashed border-[#bcc9c4]/30 p-1 relative bg-[#f9fbfb]/50 group-hover:bg-[#f0f5f4]/50 transition-colors">
+                              <div key={dia.toString()} className={`border-t border-l border-dashed border-[#bcc9c4]/30 p-1 relative transition-colors ${foraDisponibilidade ? 'bg-slate-100/70' : 'bg-[#f9fbfb]/50 group-hover:bg-[#f0f5f4]/50'}`}>
                                 {agendamentosNestaHora.map(agendamento => (
                                   <AgendamentoItemSemana key={agendamento.id} agendamento={agendamento as any} pacientes={listaPacientes || []} profissionais={profissionaisFormatados} />
                                 ))}
@@ -423,6 +464,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
             <SlideNovoAgendamento
               pacientes={listaPacientes || []}
               profissionais={profissionaisFormatados}
+              disponibilidades={disponibilidadesMap}
             />
           </div>
 

@@ -52,7 +52,8 @@ export async function trocarSenhaPrimeiroAcesso(formData: FormData) {
   if (!user) return { error: 'Sessão inválida. Faça login novamente.' }
 
   const { error: updateError } = await supabase.auth.updateUser({
-    password: senha
+    password: senha,
+    data: { primeiro_acesso: false },
   })
 
   if (updateError) {
