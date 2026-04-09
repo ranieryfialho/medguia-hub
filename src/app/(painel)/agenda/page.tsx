@@ -13,11 +13,19 @@ import { ptBR } from 'date-fns/locale'
 
 import { SlideNovoAgendamento } from '@/components/features/SlideNovoAgendamento'
 import { AgendamentoItemDia, AgendamentoItemSemana } from '@/components/features/AgendamentoItem'
+import type { AgendamentoDetalhe } from '@/components/features/AgendamentoItem'
 import { buildSessaoEfetivaMap } from '@/lib/sessoes'
 import { listarTodasDisponibilidades } from '@/actions/disponibilidade'
 import { formatAppDateKey, getAppDayRangeUTC, getAppHour, parseAppDate } from '@/lib/datetime'
 
 type StatusConfig = { badgeBg: string; label: string }
+type RelacaoPaciente = AgendamentoDetalhe['pacientes'] | AgendamentoDetalhe['pacientes'][]
+type RelacaoProfissional = AgendamentoDetalhe['profissional'] | AgendamentoDetalhe['profissional'][]
+
+function firstRelation<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) return value[0] ?? null
+  return value ?? null
+}
 
 const getStatusConfig = (status: string) => {
   const configs: Record<string, StatusConfig> = {
@@ -148,10 +156,12 @@ export default async function AgendaPage({ searchParams }: PageProps) {
     }
   }
 
-  const agendamentosComEfetivo = (agendamentos ?? []).map(a => {
+  const agendamentosComEfetivo: AgendamentoDetalhe[] = (agendamentos ?? []).map(a => {
     const efetivo = sessaoEfetivaMap.get(a.id)
     return {
       ...a,
+      pacientes: firstRelation(a.pacientes as RelacaoPaciente),
+      profissional: firstRelation(a.profissional as RelacaoProfissional) ?? undefined,
       numero_sessao: efetivo?.sessao_efetiva ?? a.numero_sessao,
       total_sessoes: efetivo?.total_efetivo ?? a.total_sessoes,
     }
