@@ -18,15 +18,17 @@ import {
   PhoneCall,
   ChevronDown,
   Target,
+  BarChart3,
 } from 'lucide-react'
 
 export function Sidebar({ onMobileClose, onOpenNovoAgendamento, userRole: userRoleProp }: { onMobileClose?: () => void; onOpenNovoAgendamento?: () => void; userRole?: string }) {
 
   const pathname = usePathname()
   const router = useRouter()
-  const supabase = createClient()
+  const [supabase] = useState(createClient)
   const [confirmacoesOpen, setConfirmacoesOpen] = useState(() => pathname?.startsWith('/confirmacoes') ?? false)
   const [configOpen, setConfigOpen] = useState(() => pathname?.startsWith('/configuracoes') ?? false)
+  const [equipeOpen, setEquipeOpen] = useState(() => (pathname?.startsWith('/equipe') || pathname?.startsWith('/relatorios')) ?? false)
   const [userRole, setUserRole] = useState(userRoleProp ?? '')
 
   useEffect(() => {
@@ -37,7 +39,7 @@ export function Sidebar({ onMobileClose, onOpenNovoAgendamento, userRole: userRo
       if (data?.role) setUserRole(data.role)
     }
     fetchRole()
-  }, [])
+  }, [supabase])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -174,18 +176,51 @@ export function Sidebar({ onMobileClose, onOpenNovoAgendamento, userRole: userRo
         </span>
 
         {(userRole === 'gestor' || userRole === 'master') && (
-          <Link
-            href="/equipe"
-            onClick={handleNavClick}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-              isActive('/equipe')
-                ? 'bg-white text-[#006b5a] shadow-sm translate-x-1 font-semibold'
-                : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
-            }`}
-          >
-            <Briefcase size={20} />
-            <span className="text-sm">Equipe</span>
-          </Link>
+          <div>
+            <button
+              onClick={() => setEquipeOpen(v => !v)}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+                isActive('/equipe') || isActive('/relatorios')
+                  ? 'bg-white text-[#006b5a] shadow-sm font-semibold'
+                  : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
+              }`}
+            >
+              <Briefcase size={20} />
+              <span className="text-sm flex-1 text-left">Equipe</span>
+              <ChevronDown
+                size={16}
+                className={`transition-transform duration-200 ${equipeOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+
+            {equipeOpen && (
+              <div className="mt-1 ml-4 space-y-0.5 border-l-2 border-[#bcc9c4]/40 pl-3">
+                <Link
+                  href="/equipe"
+                  onClick={handleNavClick}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
+                    isActive('/equipe') && !isActive('/relatorios')
+                      ? 'bg-white text-[#006b5a] shadow-sm font-semibold'
+                      : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
+                  }`}
+                >
+                  Membros
+                </Link>
+                <Link
+                  href="/relatorios/tempo-fabril"
+                  onClick={handleNavClick}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
+                    isActive('/relatorios')
+                      ? 'bg-white text-[#006b5a] shadow-sm font-semibold'
+                      : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
+                  }`}
+                >
+                  <BarChart3 size={14} />
+                  Tempo Fábril
+                </Link>
+              </div>
+            )}
+          </div>
         )}
 
         <div>

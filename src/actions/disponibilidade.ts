@@ -7,6 +7,8 @@ export type DiaDisponibilidade = {
   dia_semana: number
   hora_inicio: string
   hora_fim: string
+  almoco_inicio: string | null
+  almoco_fim: string | null
   ativo: boolean
 }
 
@@ -23,7 +25,7 @@ export async function listarDisponibilidade(profissionalId?: string): Promise<Di
 
   const { data } = await supabase
     .from('disponibilidade_profissional')
-    .select('dia_semana, hora_inicio, hora_fim, ativo')
+    .select('dia_semana, hora_inicio, hora_fim, almoco_inicio, almoco_fim, ativo')
     .eq('profissional_id', targetId)
     .order('dia_semana')
 
@@ -31,12 +33,20 @@ export async function listarDisponibilidade(profissionalId?: string): Promise<Di
 }
 
 export async function listarTodasDisponibilidades(): Promise<
-  { profissional_id: string; dia_semana: number; hora_inicio: string; hora_fim: string; ativo: boolean }[]
+  {
+    profissional_id: string
+    dia_semana: number
+    hora_inicio: string
+    hora_fim: string
+    almoco_inicio: string | null
+    almoco_fim: string | null
+    ativo: boolean
+  }[]
 > {
   const supabase = await createClient()
   const { data } = await supabase
     .from('disponibilidade_profissional')
-    .select('profissional_id, dia_semana, hora_inicio, hora_fim, ativo')
+    .select('profissional_id, dia_semana, hora_inicio, hora_fim, almoco_inicio, almoco_fim, ativo')
     .eq('ativo', true)
   return data ?? []
 }
@@ -59,6 +69,8 @@ export async function salvarDisponibilidade(
     dia_semana: d.dia_semana,
     hora_inicio: d.hora_inicio,
     hora_fim: d.hora_fim,
+    almoco_inicio: d.almoco_inicio,
+    almoco_fim: d.almoco_fim,
     ativo: d.ativo,
   }))
 

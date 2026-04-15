@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { ModalPrimeiroAcesso } from '@/components/features/ModalPrimeiroAcesso'
 import { Toaster } from 'react-hot-toast'
 import { listarTodasDisponibilidades } from '@/actions/disponibilidade'
+import { normalizarDisponibilidade, type DisponibilidadeDia } from '@/lib/disponibilidade'
+import { podeEntrarNaAgendaOuRelatorio } from '@/lib/profissionais'
 
 export default async function DashboardLayout({
   children,
@@ -43,20 +45,22 @@ export default async function DashboardLayout({
     listarTodasDisponibilidades(),
   ])
 
-  const profissionais = (listaProfissionais ?? []).map((p: { id: string; full_name: string; role: string }) => ({
-    id: p.id,
-    nome: p.full_name || 'Sem nome',
-    cargo: p.role || 'Profissional',
-  }))
-
-  const disponibilidadesMap: Record<string, Record<number, { hora_inicio: string; hora_fim: string }>> = {}
+  const disponibilidadesMap: Record<string, Record<number, DisponibilidadeDia>> = {}
   for (const d of todasDisponibilidades) {
     if (!disponibilidadesMap[d.profissional_id]) disponibilidadesMap[d.profissional_id] = {}
-    disponibilidadesMap[d.profissional_id][d.dia_semana] = {
-      hora_inicio: d.hora_inicio.slice(0, 5),
-      hora_fim: d.hora_fim.slice(0, 5),
-    }
+    disponibilidadesMap[d.profissional_id][d.dia_semana] = normalizarDisponibilidade(d)
   }
+
+  const profissionaisComJornada = new Set(todasDisponibilidades.map((d) => d.profissional_id))
+  const profissionais = (listaProfissionais ?? [])
+    .filter((p: { id: string; full_name: string; role: string }) =>
+      podeEntrarNaAgendaOuRelatorio(p, profissionaisComJornada),
+    )
+    .map((p: { id: string; full_name: string; role: string }) => ({
+      id: p.id,
+      nome: p.full_name || 'Sem nome',
+      cargo: p.role || 'Profissional',
+    }))
 
   return (
     <AppShell

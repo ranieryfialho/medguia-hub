@@ -17,6 +17,8 @@ import type { AgendamentoDetalhe } from '@/components/features/AgendamentoItem'
 import { buildSessaoEfetivaMap } from '@/lib/sessoes'
 import { listarTodasDisponibilidades } from '@/actions/disponibilidade'
 import { formatAppDateKey, getAppDayRangeUTC, getAppHour, parseAppDate } from '@/lib/datetime'
+import { normalizarDisponibilidade, type DisponibilidadeDia } from '@/lib/disponibilidade'
+import { podeEntrarNaAgendaOuRelatorio } from '@/lib/profissionais'
 
 type StatusConfig = { badgeBg: string; label: string }
 type RelacaoPaciente = AgendamentoDetalhe['pacientes'] | AgendamentoDetalhe['pacientes'][]
@@ -204,7 +206,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
     .neq('role', 'master')
     .order('full_name')
 
-  const profissionaisFormatados = listaProfissionais?.map(p => ({
+  const todosProfissionaisFormatados = listaProfissionais?.map(p => ({
     id: p.id,
     nome: p.full_name || 'Sem nome',
     cargo: p.role || 'Profissional'
@@ -213,15 +215,21 @@ export default async function AgendaPage({ searchParams }: PageProps) {
   // Busca disponibilidades para o modal e para highlight na semana
   const todasDisponibilidades = await listarTodasDisponibilidades()
 
-  // Record<profissionalId, Record<diaSemana, { hora_inicio, hora_fim }>>
-  const disponibilidadesMap: Record<string, Record<number, { hora_inicio: string; hora_fim: string }>> = {}
+  // Record<profissionalId, Record<diaSemana, disponibilidade>>
+  const disponibilidadesMap: Record<string, Record<number, DisponibilidadeDia>> = {}
   for (const d of todasDisponibilidades) {
     if (!disponibilidadesMap[d.profissional_id]) disponibilidadesMap[d.profissional_id] = {}
-    disponibilidadesMap[d.profissional_id][d.dia_semana] = {
-      hora_inicio: d.hora_inicio.slice(0, 5),
-      hora_fim: d.hora_fim.slice(0, 5),
-    }
+    disponibilidadesMap[d.profissional_id][d.dia_semana] = normalizarDisponibilidade(d)
   }
+
+  const profissionaisComJornada = new Set(todasDisponibilidades.map((d) => d.profissional_id))
+  const profissionaisElegiveisAgenda = listaProfissionais?.filter((p) =>
+    podeEntrarNaAgendaOuRelatorio(p, profissionaisComJornada),
+  ).map(p => ({
+    id: p.id,
+    nome: p.full_name || 'Sem nome',
+    cargo: p.role || 'Profissional'
+  })) || []
 
   // Disponibilidade do usuário logado (para highlight na semana)
   const dispLogado = disponibilidadesMap[user!.id] ?? null
@@ -306,7 +314,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 <div className="flex-1 min-h-0 overflow-y-auto pr-2 space-y-3 scrollbar-thin scrollbar-thumb-slate-200">
                   {agendamentosHoje.length > 0 ? (
                     agendamentosHoje.map((agendamento) => (
-                      <AgendamentoItemDia key={agendamento.id} agendamento={agendamento} pacientes={listaPacientes || []} profissionais={profissionaisFormatados} />
+                      <AgendamentoItemDia key={agendamento.id} agendamento={agendamento} pacientes={listaPacientes || []} profissionais={todosProfissionaisFormatados} />
                     ))
                   ) : (
                     <div className="py-8 text-center text-[#3d4945]/50 text-sm font-medium">Nenhum agendamento para este dia.</div>
@@ -368,7 +376,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                             return (
                               <div key={dia.toString()} className={`border-t border-l border-dashed border-[#bcc9c4]/30 p-1 relative transition-colors ${foraDisponibilidade ? 'bg-slate-100/70' : 'bg-[#f9fbfb]/50 group-hover:bg-[#f0f5f4]/50'}`}>
                                 {agendamentosNestaHora.map(agendamento => (
-                                  <AgendamentoItemSemana key={agendamento.id} agendamento={agendamento} pacientes={listaPacientes || []} profissionais={profissionaisFormatados} />
+                                  <AgendamentoItemSemana key={agendamento.id} agendamento={agendamento} pacientes={listaPacientes || []} profissionais={todosProfissionaisFormatados} />
                                 ))}
                               </div>
                             )
@@ -486,7 +494,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
 
             <SlideNovoAgendamento
               pacientes={listaPacientes || []}
-              profissionais={profissionaisFormatados}
+              profissionais={profissionaisElegiveisAgenda}
               disponibilidades={disponibilidadesMap}
             />
           </div>

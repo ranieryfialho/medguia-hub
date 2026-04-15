@@ -3,10 +3,74 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { buildAppDateTimeISO, formatAppDateKey } from '@/lib/datetime'
+import {
+  normalizarDisponibilidade,
+  validarHorarioDisponibilidade,
+  type DisponibilidadeDia,
+} from '@/lib/disponibilidade'
 
 function extractTimePart(dateTime: string) {
   const [, timePart = '00:00:00'] = dateTime.split('T')
   return timePart.replace(/([+-]\d{2}:\d{2}|Z)$/, '')
+}
+
+async function carregarDisponibilidadesProfissional(profissionalId: string) {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('disponibilidade_profissional')
+    .select('dia_semana, hora_inicio, hora_fim, almoco_inicio, almoco_fim')
+    .eq('profissional_id', profissionalId)
+    .eq('ativo', true)
+
+  const disponibilidades = new Map<number, DisponibilidadeDia>()
+  for (const item of data ?? []) {
+    disponibilidades.set(item.dia_semana, normalizarDisponibilidade(item))
+  }
+
+  return disponibilidades
+}
+
+function validarOcorrenciasNaDisponibilidade(
+  disponibilidades: Map<number, DisponibilidadeDia>,
+  ocorrencias: { data: string; hora_inicio: string; hora_fim: string }[],
+) {
+  for (const ocorrencia of ocorrencias) {
+    const validacao = validarHorarioDisponibilidade(
+      disponibilidades,
+      ocorrencia.data,
+      ocorrencia.hora_inicio,
+      ocorrencia.hora_fim,
+    )
+
+    if (!validacao.ok) {
+      if (validacao.motivo === 'sem_jornada') {
+        return {
+          error: `O profissional não possui disponibilidade cadastrada em ${ocorrencia.data}.`,
+        }
+      }
+
+      return {
+        error: `O horário ${ocorrencia.hora_inicio}–${ocorrencia.hora_fim} em ${ocorrencia.data} está fora da disponibilidade. Faixas permitidas: ${validacao.faixas}.`,
+      }
+    }
+  }
+
+  return null
+}
+
+function removerMetadadosDisponibilidade(atendimento: {
+  data: string
+  hora_inicio: string
+  hora_fim: string
+  [key: string]: boolean | number | string | null | undefined
+}) {
+  const {
+    data: _data,
+    hora_inicio: _horaInicio,
+    hora_fim: _horaFim,
+    ...semMetadados
+  } = atendimento
+  return semMetadados
 }
 
 export async function criarAgendamento(formData: FormData) {
@@ -35,6 +99,8 @@ export async function criarAgendamento(formData: FormData) {
   if (!paciente_id || !profissional_id || !dataStr || !horaInicio || !horaFim) {
     return { error: 'Preencha todos os campos obrigatórios.' }
   }
+
+  const disponibilidades = await carregarDisponibilidadesProfissional(profissional_id)
 
   // Calcula a duração em minutos
   const start = new Date(`1970-01-01T${horaInicio}:00`)
@@ -74,7 +140,24 @@ export async function criarAgendamento(formData: FormData) {
 
   const agendamentoId = agendamentoPai.id
 
-  let atendimentosParaInserir = []
+  let atendimentosParaInserir: Array<{
+    paciente_id: string
+    profissional_id: string
+    data_agendamento: string
+    tipo: string
+    duracao_minutos: number
+    observacoes: string
+    status: string
+    criado_por: string | null
+    gerou_venda: boolean
+    marcou_retorno: boolean
+    agendamento_id: string
+    numero_sessao?: number
+    total_sessoes?: number
+    data: string
+    hora_inicio: string
+    hora_fim: string
+  }> = []
 
   if (!isRecorrente) {
     // AGENDAMENTO ÚNICO
@@ -90,6 +173,9 @@ export async function criarAgendamento(formData: FormData) {
       gerou_venda,
       marcou_retorno,
       agendamento_id: agendamentoId,
+      data: dataStr,
+      hora_inicio: horaInicio,
+      hora_fim: horaFim,
       numero_sessao: 1,
       total_sessoes: 1,
     })
@@ -134,7 +220,10 @@ export async function criarAgendamento(formData: FormData) {
         atendimentosParaInserir.push({
           paciente_id, profissional_id, tipo, duracao_minutos: duracao, observacoes, status: 'Aguardando',
           criado_por: user?.id ?? null, gerou_venda, marcou_retorno, agendamento_id: agendamentoId,
-          data_agendamento: buildAppDateTimeISO(dataFormatada, horaInicio)
+          data_agendamento: buildAppDateTimeISO(dataFormatada, horaInicio),
+          data: dataFormatada,
+          hora_inicio: horaInicio,
+          hora_fim: horaFim,
         })
 
         count++
@@ -163,7 +252,10 @@ export async function criarAgendamento(formData: FormData) {
             atendimentosParaInserir.push({
               paciente_id, profissional_id, tipo, duracao_minutos: duracao, observacoes, status: 'Aguardando',
               criado_por: user?.id ?? null, gerou_venda, marcou_retorno, agendamento_id: agendamentoId,
-              data_agendamento: buildAppDateTimeISO(dataFormatada, horaInicio)
+              data_agendamento: buildAppDateTimeISO(dataFormatada, horaInicio),
+              data: dataFormatada,
+              hora_inicio: horaInicio,
+              hora_fim: horaFim,
             })
             count++
           }
@@ -183,7 +275,22 @@ export async function criarAgendamento(formData: FormData) {
     }))
   }
 
-  const { error } = await supabase.from('atendimentos').insert(atendimentosParaInserir)
+  const erroDisponibilidade = validarOcorrenciasNaDisponibilidade(
+    disponibilidades,
+    atendimentosParaInserir.map((a) => ({
+      data: a.data,
+      hora_inicio: a.hora_inicio,
+      hora_fim: a.hora_fim,
+    })),
+  )
+
+  if (erroDisponibilidade) {
+    return erroDisponibilidade
+  }
+
+  const { error } = await supabase.from('atendimentos').insert(
+    atendimentosParaInserir.map(removerMetadadosDisponibilidade),
+  )
 
   if (error) {
     console.error('Erro ao agendar:', error.message)
@@ -375,6 +482,19 @@ export async function editarAtendimento(id: string, formData: FormData) {
 
   if (!dataStr || !horaInicio || !horaFim) {
     return { error: 'Preencha todos os campos obrigatórios.' }
+  }
+
+  if (!profissional_id) {
+    return { error: 'Selecione um profissional.' }
+  }
+
+  const disponibilidades = await carregarDisponibilidadesProfissional(profissional_id)
+  const erroDisponibilidade = validarOcorrenciasNaDisponibilidade(disponibilidades, [
+    { data: dataStr, hora_inicio: horaInicio, hora_fim: horaFim },
+  ])
+
+  if (erroDisponibilidade) {
+    return erroDisponibilidade
   }
 
   const start = new Date(`1970-01-01T${horaInicio}:00`)

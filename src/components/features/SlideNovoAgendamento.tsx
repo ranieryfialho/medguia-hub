@@ -4,6 +4,12 @@ import { useState, useEffect, useId, useRef } from 'react'
 import { criarAgendamento, editarAtendimento } from '@/actions/agenda'
 import { X, CalendarPlus, User, Minus, Plus, Search, Clock } from 'lucide-react'
 import { format } from 'date-fns'
+import {
+  horarioDentroDaDisponibilidade,
+  obterDisponibilidadeDoDia,
+  type DisponibilidadeDia,
+} from '@/lib/disponibilidade'
+import { formatarFaixasJornada } from '@/lib/jornada'
 
 type Paciente = { id: string, nome: string }
 type Profissional = { id: string, nome: string, cargo: string }
@@ -21,7 +27,7 @@ interface AtendimentoParaEditar {
 interface SlideProps {
   pacientes: Paciente[]
   profissionais: Profissional[]
-  disponibilidades?: Record<string, Record<number, { hora_inicio: string; hora_fim: string }>>
+  disponibilidades?: Record<string, Record<number, DisponibilidadeDia>>
   controlledOpen?: boolean
   onControlledClose?: () => void
   defaultPacienteId?: string
@@ -179,7 +185,7 @@ export function SlideNovoAgendamento({ pacientes, profissionais, disponibilidade
       res = await criarAgendamento(formData)
     }
 
-    if (res?.error) {
+    if (res && 'error' in res) {
       setError(res.error)
       setLoading(false)
     } else {
@@ -188,6 +194,24 @@ export function SlideNovoAgendamento({ pacientes, profissionais, disponibilidade
       if (!modoEdicao) resetForm()
     }
   }
+
+  const disponibilidadeSelecionada = (() => {
+    if (!disponibilidades || !selectedProfissionalId || !dataAgendamento) return null
+    const profDisp = disponibilidades[selectedProfissionalId]
+    if (!profDisp || Object.keys(profDisp).length === 0) return null
+    return obterDisponibilidadeDoDia(new Map(Object.entries(profDisp).map(([dia, disp]) => [Number(dia), disp])), dataAgendamento)
+  })()
+
+  const horarioPreenchido = Boolean(horaInicioValue && horaFimValue)
+  const horarioValidoNaDisponibilidade = Boolean(
+    disponibilidadeSelecionada?.disponibilidade &&
+    horarioPreenchido &&
+    horarioDentroDaDisponibilidade(
+      disponibilidadeSelecionada.disponibilidade,
+      horaInicioValue,
+      horaFimValue,
+    ),
+  )
 
   return (
     <>
@@ -316,14 +340,13 @@ export function SlideNovoAgendamento({ pacientes, profissionais, disponibilidade
 
             {/* Hint de disponibilidade do profissional */}
             {(() => {
-              if (!disponibilidades || !selectedProfissionalId || !dataAgendamento) return null
-              const profDisp = disponibilidades[selectedProfissionalId]
-              // Profissional sem nenhuma disponibilidade cadastrada — silencioso
-              if (!profDisp || Object.keys(profDisp).length === 0) return null
-              const diaSemana = new Date(`${dataAgendamento}T00:00:00`).getDay()
-              const disp = profDisp[diaSemana]
+              if (!selectedProfissionalId || !dataAgendamento) return null
               const nomeProfissional = profissionais.find(p => p.id === selectedProfissionalId)?.nome ?? 'Profissional'
               const NOMES_DIA = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado']
+              const diaSemana = disponibilidadeSelecionada?.diaSemana ?? new Date(`${dataAgendamento}T00:00:00`).getDay()
+              const disp = disponibilidadeSelecionada?.disponibilidade ?? null
+
+              if (disponibilidadeSelecionada === null) return null
               if (!disp) {
                 return (
                   <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-300 text-xs text-amber-700 font-semibold">
@@ -332,10 +355,23 @@ export function SlideNovoAgendamento({ pacientes, profissionais, disponibilidade
                   </div>
                 )
               }
+
+              const faixas = formatarFaixasJornada(disp)
               return (
-                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#f0fcf9] border border-[#006b5a]/20 text-xs text-[#006b5a] font-semibold">
-                  <Clock size={13} />
-                  Disponível: {disp.hora_inicio} – {disp.hora_fim}
+                <div className={`px-3 py-2 rounded-lg border text-xs font-semibold ${
+                  horarioPreenchido && !horarioValidoNaDisponibilidade
+                    ? 'bg-red-50 border-red-300 text-red-700'
+                    : 'bg-[#f0fcf9] border-[#006b5a]/20 text-[#006b5a]'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <Clock size={13} />
+                    Disponível: {faixas}
+                  </div>
+                  {horarioPreenchido && !horarioValidoNaDisponibilidade && (
+                    <p className="mt-1">
+                      O horário escolhido cruza um período indisponível, como o almoço.
+                    </p>
+                  )}
                 </div>
               )
             })()}

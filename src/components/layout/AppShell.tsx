@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Sidebar } from './Sidebar'
 import { SlideNovoAgendamento } from '@/components/features/SlideNovoAgendamento'
 import { Menu } from 'lucide-react'
+import type { DisponibilidadeDia } from '@/lib/disponibilidade'
 
 type Paciente = { id: string; nome: string }
 type Profissional = { id: string; nome: string; cargo: string }
@@ -25,7 +26,7 @@ export function AppShell({
   children: React.ReactNode
   pacientes: Paciente[]
   profissionais: Profissional[]
-  disponibilidades?: Record<string, Record<number, { hora_inicio: string; hora_fim: string }>>
+  disponibilidades?: Record<string, Record<number, DisponibilidadeDia>>
   headerData: HeaderData
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)

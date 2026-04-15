@@ -18,7 +18,13 @@
   --color-text-tertiary: #9BB0AD;
   --color-text-link: #1AAF9A;
 
-  --font-family-sans: "DM Sans", sans-serif;
+  --font-family-sans:
+    "Segoe UI",
+    "Helvetica Neue",
+    Helvetica,
+    Arial,
+    system-ui,
+    sans-serif;
 
   --font-size-2xs: 11px;
   --font-size-xs: 13px;
@@ -44,4 +50,5 @@
 body {
   background-color: var(--color-page);
   color: var(--color-text-primary);
+  font-family: var(--font-family-sans);
 }

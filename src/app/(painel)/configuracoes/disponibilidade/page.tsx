@@ -9,44 +9,40 @@ import { ChevronLeft, ChevronRight, Clock, CheckCircle, XCircle } from 'lucide-r
 import Link from 'next/link'
 import { getAppHour } from '@/lib/datetime'
 import { BtnCopiarDisponibilidade } from '@/components/features/BtnCopiarDisponibilidade'
+import { normalizarDisponibilidade, type DisponibilidadeDia } from '@/lib/disponibilidade'
+import { obterIntervalosJornada, toHora } from '@/lib/jornada'
 
 const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
 type IntervaloBloqueado = { inicio: number; fim: number }
 type SlotLivre = { inicio: string; fim: string; duracaoMin: number }
 
-function toMin(hora: string): number {
-  const [hh, mm] = hora.slice(0, 5).split(':').map(Number)
-  return hh * 60 + mm
-}
-
-function toHora(min: number): string {
-  const hh = Math.floor(min / 60).toString().padStart(2, '0')
-  const mm = (min % 60).toString().padStart(2, '0')
-  return `${hh}:${mm}`
-}
-
 function calcularSlotsLivres(
-  jornadaInicio: string,
-  jornadaFim: string,
+  jornada: DisponibilidadeDia,
   ocupados: IntervaloBloqueado[],
 ): SlotLivre[] {
-  const inicio = toMin(jornadaInicio)
-  const fim = toMin(jornadaFim)
   const sorted = [...ocupados].sort((a, b) => a.inicio - b.inicio)
   const livres: SlotLivre[] = []
-  let cursor = inicio
-  for (const occ of sorted) {
-    const occInicio = Math.max(occ.inicio, inicio)
-    const occFim = Math.min(occ.fim, fim)
-    if (occInicio > cursor) {
-      livres.push({ inicio: toHora(cursor), fim: toHora(occInicio), duracaoMin: occInicio - cursor })
+
+  for (const intervalo of obterIntervalosJornada(jornada)) {
+    let cursor = intervalo.inicio
+
+    for (const occ of sorted) {
+      const occInicio = Math.max(occ.inicio, intervalo.inicio)
+      const occFim = Math.min(occ.fim, intervalo.fim)
+      if (occFim <= occInicio) continue
+
+      if (occInicio > cursor) {
+        livres.push({ inicio: toHora(cursor), fim: toHora(occInicio), duracaoMin: occInicio - cursor })
+      }
+      cursor = Math.max(cursor, occFim)
     }
-    cursor = Math.max(cursor, occFim)
+
+    if (cursor < intervalo.fim) {
+      livres.push({ inicio: toHora(cursor), fim: toHora(intervalo.fim), duracaoMin: intervalo.fim - cursor })
+    }
   }
-  if (cursor < fim) {
-    livres.push({ inicio: toHora(cursor), fim: toHora(fim), duracaoMin: fim - cursor })
-  }
+
   return livres
 }
 
@@ -94,12 +90,12 @@ async function ViewIndividual({
 
   const { data: jornada } = await supabase
     .from('disponibilidade_profissional')
-    .select('dia_semana, hora_inicio, hora_fim, ativo')
+    .select('dia_semana, hora_inicio, hora_fim, almoco_inicio, almoco_fim, ativo')
     .eq('profissional_id', targetId)
     .eq('ativo', true)
 
   const jornadaMap = new Map(
-    (jornada ?? []).map(j => [j.dia_semana, { inicio: j.hora_inicio, fim: j.hora_fim }])
+    (jornada ?? []).map(j => [j.dia_semana, normalizarDisponibilidade(j)])
   )
 
   const { data: agendamentos } = await supabase
@@ -115,6 +111,8 @@ async function ViewIndividual({
     trabalha: boolean
     jornadaInicio?: string
     jornadaFim?: string
+    almocoInicio?: string | null
+    almocoFim?: string | null
     livres: SlotLivre[]
     totalOcupado: number
     totalLivre: number
@@ -132,19 +130,24 @@ async function ViewIndividual({
       return { inicio: horaMin, fim: horaMin + (a.duracao_minutos ?? 60) }
     })
 
-    const livres = calcularSlotsLivres(jornDia.inicio, jornDia.fim, ocupados)
-    const totalJornada = toMin(jornDia.fim) - toMin(jornDia.inicio)
+    const livres = calcularSlotsLivres(jornDia, ocupados)
+    const intervalosJornada = obterIntervalosJornada(jornDia)
+    const totalJornada = intervalosJornada.reduce((acc, intervalo) => acc + (intervalo.fim - intervalo.inicio), 0)
     const totalOcupado = ocupados.reduce((acc, o) => {
-      const ci = Math.max(o.inicio, toMin(jornDia.inicio))
-      const cf = Math.min(o.fim, toMin(jornDia.fim))
-      return acc + Math.max(0, cf - ci)
+      return acc + intervalosJornada.reduce((subtotal, intervalo) => {
+        const ci = Math.max(o.inicio, intervalo.inicio)
+        const cf = Math.min(o.fim, intervalo.fim)
+        return subtotal + Math.max(0, cf - ci)
+      }, 0)
     }, 0)
 
     return {
       dia,
       trabalha: true,
-      jornadaInicio: jornDia.inicio.slice(0, 5),
-      jornadaFim: jornDia.fim.slice(0, 5),
+      jornadaInicio: jornDia.hora_inicio,
+      jornadaFim: jornDia.hora_fim,
+      almocoInicio: jornDia.almoco_inicio,
+      almocoFim: jornDia.almoco_fim,
       livres,
       totalOcupado,
       totalLivre: totalJornada - totalOcupado,
@@ -232,7 +235,7 @@ async function ViewIndividual({
 
       {/* Grade semanal */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
-        {dadosPorDia.map(({ dia, trabalha, jornadaInicio, jornadaFim, livres, totalLivre, totalOcupado }) => {
+        {dadosPorDia.map(({ dia, trabalha, jornadaInicio, jornadaFim, almocoInicio, almocoFim, livres, totalLivre, totalOcupado }) => {
           const isHoje = isSameDay(dia, new Date())
           return (
             <div
@@ -252,6 +255,12 @@ async function ViewIndividual({
                       <Clock size={9} />
                       <span>{jornadaInicio} – {jornadaFim}</span>
                     </div>
+                    {almocoInicio && almocoFim && (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5">
+                        <p className="text-[10px] font-bold text-amber-700 leading-none">Almoço</p>
+                        <p className="text-[9px] text-amber-600 mt-0.5">{almocoInicio} – {almocoFim}</p>
+                      </div>
+                    )}
                     {livres.length === 0 ? (
                       <p className="text-[10px] text-slate-400 italic text-center py-2">Sem horário livre</p>
                     ) : (
@@ -331,7 +340,7 @@ async function ViewGeral({
   const profIds = profissionais.map(p => p.id)
   const { data: todasJornadas } = await supabase
     .from('disponibilidade_profissional')
-    .select('profissional_id, dia_semana, hora_inicio, hora_fim, ativo')
+    .select('profissional_id, dia_semana, hora_inicio, hora_fim, almoco_inicio, almoco_fim, ativo')
     .in('profissional_id', profIds)
     .eq('ativo', true)
 
@@ -345,10 +354,10 @@ async function ViewGeral({
     .not('status', 'in', '("cancelado","Cancelado","falta","Falta")')
 
   // Montar mapa: profId → dia_semana → { inicio, fim }
-  const jornadaMap = new Map<string, Map<number, { inicio: string; fim: string }>>()
+  const jornadaMap = new Map<string, Map<number, DisponibilidadeDia>>()
   for (const j of todasJornadas ?? []) {
     if (!jornadaMap.has(j.profissional_id)) jornadaMap.set(j.profissional_id, new Map())
-    jornadaMap.get(j.profissional_id)!.set(j.dia_semana, { inicio: j.hora_inicio, fim: j.hora_fim })
+    jornadaMap.get(j.profissional_id)!.set(j.dia_semana, normalizarDisponibilidade(j))
   }
 
   // Calcular slots livres por profissional por dia
@@ -357,6 +366,8 @@ async function ViewGeral({
     nome: string
     dia: Date
     trabalha: boolean
+    almocoInicio?: string | null
+    almocoFim?: string | null
     livres: SlotLivre[]
   }
 
@@ -384,7 +395,9 @@ async function ViewGeral({
         nome: prof.nome,
         dia,
         trabalha: true,
-        livres: calcularSlotsLivres(jornDia.inicio, jornDia.fim, ocupados),
+        almocoInicio: jornDia.almoco_inicio,
+        almocoFim: jornDia.almoco_fim,
+        livres: calcularSlotsLivres(jornDia, ocupados),
       })
     }
   }
@@ -450,7 +463,7 @@ async function ViewGeral({
                 </div>
                 {/* Grid de dias */}
                 <div className="grid grid-cols-7 divide-x divide-slate-100">
-                  {diasProf.map(({ dia, trabalha, livres }) => {
+                  {diasProf.map(({ dia, trabalha, almocoInicio, almocoFim, livres }) => {
                     const isHoje = isSameDay(dia, new Date())
                     return (
                       <div key={dia.toISOString()} className={`p-3 min-h-[100px] ${isHoje ? 'bg-[#006b5a]/5' : ''}`}>
@@ -459,18 +472,26 @@ async function ViewGeral({
                         </p>
                         {!trabalha ? (
                           <p className="text-xs text-slate-300 italic">—</p>
-                        ) : livres.length === 0 ? (
-                          <p className="text-xs text-slate-400 italic">Sem livre</p>
                         ) : (
                           <div className="space-y-1.5">
-                            {livres.map((slot, i) => (
-                              <div key={i} className="bg-[#006b5a]/8 border border-[#006b5a]/20 rounded-lg px-2 py-1.5">
-                                <p className="text-xs font-bold text-[#006b5a] leading-tight">{slot.inicio}–{slot.fim}</p>
-                                <p className="text-[10px] text-[#006b5a]/60 mt-0.5">
-                                  {slot.duracaoMin >= 60 ? `${Math.floor(slot.duracaoMin / 60)}h${slot.duracaoMin % 60 > 0 ? `${slot.duracaoMin % 60}m` : ''}` : `${slot.duracaoMin}min`}
-                                </p>
+                            {almocoInicio && almocoFim && (
+                              <div className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5">
+                                <p className="text-[10px] font-bold text-amber-700 leading-tight">Almoço</p>
+                                <p className="text-[10px] text-amber-600 mt-0.5">{almocoInicio}–{almocoFim}</p>
                               </div>
-                            ))}
+                            )}
+                            {livres.length === 0 ? (
+                              <p className="text-xs text-slate-400 italic">Sem livre</p>
+                            ) : (
+                              livres.map((slot, i) => (
+                                <div key={i} className="bg-[#006b5a]/8 border border-[#006b5a]/20 rounded-lg px-2 py-1.5">
+                                  <p className="text-xs font-bold text-[#006b5a] leading-tight">{slot.inicio}–{slot.fim}</p>
+                                  <p className="text-[10px] text-[#006b5a]/60 mt-0.5">
+                                    {slot.duracaoMin >= 60 ? `${Math.floor(slot.duracaoMin / 60)}h${slot.duracaoMin % 60 > 0 ? `${slot.duracaoMin % 60}m` : ''}` : `${slot.duracaoMin}min`}
+                                  </p>
+                                </div>
+                              ))
+                            )}
                           </div>
                         )}
                       </div>
