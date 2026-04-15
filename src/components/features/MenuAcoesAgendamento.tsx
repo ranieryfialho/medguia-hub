@@ -1,8 +1,13 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { MoreVertical, CheckCircle, Hourglass, Stethoscope, CheckCheck, XCircle, UserX, RefreshCw } from 'lucide-react'
 import { mudarStatusAgendamento } from '@/actions/agenda'
+import { obterProximaData, registrarContato, criarAtendimentoReagendado } from '@/actions/confirmacoes'
+import { ModalSessaoReposicao } from './ModalSessaoReposicao'
+import { format } from 'date-fns'
+import toast from 'react-hot-toast'
 
 const OPCOES_STATUS = [
   { valor: 'Confirmado', label: 'Confirmado', Icon: CheckCircle, cor: 'text-[#006b5a]' },
@@ -11,25 +16,46 @@ const OPCOES_STATUS = [
   { valor: 'Concluído', label: 'Concluído', Icon: CheckCheck, cor: 'text-[#4f625d]' },
   { valor: 'Cancelado', label: 'Cancelado', Icon: XCircle, cor: 'text-[#ba1a1a]' },
   { valor: 'Falta', label: 'Falta', Icon: UserX, cor: 'text-[#3d4945]' },
-  { valor: 'Reposição', label: 'Reposição', Icon: RefreshCw, cor: 'text-[#779aad]' },
+  { valor: 'Reposição', label: 'Reagendamento', Icon: RefreshCw, cor: 'text-[#779aad]' },
 ]
 
 const MENU_WIDTH = 192  // w-48
 const MENU_HEIGHT = 310 // estimated: header + 7 items
 
-export function MenuAcoesAgendamento({ id, statusAtual, onOpenChange }: { id: string, statusAtual: string, onOpenChange?: (open: boolean) => void }) {
+interface MenuAcoesAgendamentoProps {
+  id: string
+  statusAtual: string
+  onOpenChange?: (open: boolean) => void
+  atendimentoId?: string
+  agendamentoId?: string
+  pacienteNome?: string
+  dataAgendamento?: string
+}
+
+export function MenuAcoesAgendamento({ id, statusAtual, onOpenChange, atendimentoId, agendamentoId, pacienteNome, dataAgendamento }: MenuAcoesAgendamentoProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  const [modalAberto, setModalAberto] = useState<'vai_faltar' | 'reagendamento' | null>(null)
+  const [proximaData, setProximaData] = useState<string | undefined>()
+  const [proximaHora, setProximaHora] = useState<string | undefined>()
+  const [mounted, setMounted] = useState(false)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   function setOpen(value: boolean) {
     setIsOpen(value)
     onOpenChange?.(value)
   }
 
+  // Fecha o menu ao clicar fora — desativado quando modal está aberto
   useEffect(() => {
+    if (modalAberto) return
+
     function handleClickOutside(event: MouseEvent) {
       if (
         menuRef.current && !menuRef.current.contains(event.target as Node) &&
@@ -40,7 +66,7 @@ export function MenuAcoesAgendamento({ id, statusAtual, onOpenChange }: { id: st
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+  }, [modalAberto])
 
   function handleOpen(e: React.MouseEvent) {
     e.preventDefault()
@@ -50,12 +76,10 @@ export function MenuAcoesAgendamento({ id, statusAtual, onOpenChange }: { id: st
       const vw = window.innerWidth
       const vh = window.innerHeight
 
-      // Vertical: open downward, flip upward if not enough space below
       const top = vh - rect.bottom > MENU_HEIGHT
         ? rect.bottom + 6
         : Math.max(8, rect.top - MENU_HEIGHT - 6)
 
-      // Horizontal: right-align with button, clamp within viewport
       const left = Math.min(
         Math.max(8, rect.right - MENU_WIDTH),
         vw - MENU_WIDTH - 8
@@ -71,58 +95,132 @@ export function MenuAcoesAgendamento({ id, statusAtual, onOpenChange }: { id: st
       setOpen(false)
       return
     }
+
+    // "Falta": abre modal para agendar reposição (recorrente ou único)
+    if (novoStatus === 'Falta' && atendimentoId && dataAgendamento) {
+      setIsUpdating(true)
+      const proxima = agendamentoId ? await obterProximaData(atendimentoId) : null
+      setIsUpdating(false)
+      const horaAtual = format(new Date(dataAgendamento), 'HH:mm')
+      setProximaData(proxima?.data ?? undefined)
+      setProximaHora(horaAtual)
+      setModalAberto('vai_faltar')
+      setOpen(false)
+      return
+    }
+
+    // "Reagendamento": abre modal para escolher nova data (recorrente ou único)
+    if (novoStatus === 'Reposição' && atendimentoId && dataAgendamento) {
+      const horaAtual = format(new Date(dataAgendamento), 'HH:mm')
+      setProximaData(undefined)
+      setProximaHora(horaAtual)
+      setModalAberto('reagendamento')
+      setOpen(false)
+      return
+    }
+
+    // Demais status: muda diretamente
     setIsUpdating(true)
     await mudarStatusAgendamento(id, novoStatus)
     setIsUpdating(false)
     setOpen(false)
   }
 
+  async function handleModalClose(agendado: boolean) {
+    const tipo = modalAberto
+    setModalAberto(null)
+    setProximaData(undefined)
+    setProximaHora(undefined)
+
+    if (!atendimentoId) return
+
+    if (tipo === 'vai_faltar') {
+      const res = await registrarContato(atendimentoId, 'vai_faltar')
+      if (res.error) {
+        toast.error(res.error)
+      } else if (agendado) {
+        toast.success(`${pacienteNome} — Falta registrada`)
+      }
+    } else if (tipo === 'reagendamento') {
+      if (agendado) {
+        const res = await registrarContato(atendimentoId, 'reagendou')
+        if (res.error) {
+          toast.error(res.error)
+        } else {
+          toast.success(`${pacienteNome} — Reagendado`)
+        }
+      }
+    }
+  }
+
   return (
-    <div className="flex items-center">
-      <button
-        ref={buttonRef}
-        onClick={handleOpen}
-        disabled={isUpdating}
-        className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${isOpen ? 'bg-[#dee3e3] text-[#171d1c]' : 'text-[#3d4945]/50 hover:text-[#171d1c] hover:bg-[#dee3e3]'} ${isUpdating ? 'opacity-50 cursor-wait' : ''}`}
-      >
-        <MoreVertical size={18} />
-      </button>
-
-      {isOpen && pos && (
-        <div
-          ref={menuRef}
-          style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}
-          className="w-48 bg-white border border-[#bcc9c4]/30 rounded-xl shadow-lg py-2"
+    <>
+      <div className="flex items-center">
+        <button
+          ref={buttonRef}
+          onClick={handleOpen}
+          disabled={isUpdating}
+          className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${isOpen ? 'bg-[#dee3e3] text-[#171d1c]' : 'text-[#3d4945]/50 hover:text-[#171d1c] hover:bg-[#dee3e3]'} ${isUpdating ? 'opacity-50 cursor-wait' : ''}`}
         >
-          <div className="px-3 py-1.5 mb-1 text-[10px] font-bold text-[#3d4945]/50 uppercase tracking-widest border-b border-[#bcc9c4]/20">
-            Alterar Status
+          <MoreVertical size={18} />
+        </button>
+
+        {isOpen && pos && (
+          <div
+            ref={menuRef}
+            style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}
+            className="w-48 bg-white border border-[#bcc9c4]/30 rounded-xl shadow-lg py-2"
+          >
+            <div className="px-3 py-1.5 mb-1 text-[10px] font-bold text-[#3d4945]/50 uppercase tracking-widest border-b border-[#bcc9c4]/20">
+              Alterar Status
+            </div>
+
+            {OPCOES_STATUS.map((opcao) => {
+              const isAtivo = statusAtual.toLowerCase() === opcao.valor.toLowerCase()
+              const Icone = opcao.Icon
+
+              return (
+                <button
+                  key={opcao.valor}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    handleMudarStatus(opcao.valor)
+                  }}
+                  disabled={isAtivo}
+                  className={`w-full px-3 py-2 flex items-center gap-2 text-xs font-bold transition-colors ${
+                    isAtivo
+                      ? 'bg-[#f0f5f4] text-[#171d1c] cursor-default'
+                      : `text-[#3d4945] hover:bg-[#f0f5f4] hover:${opcao.cor}`
+                  }`}
+                >
+                  <Icone size={14} className={isAtivo ? opcao.cor : 'opacity-70'} />
+                  {opcao.label}
+                </button>
+              )
+            })}
           </div>
+        )}
+      </div>
 
-          {OPCOES_STATUS.map((opcao) => {
-            const isAtivo = statusAtual.toLowerCase() === opcao.valor.toLowerCase()
-            const Icone = opcao.Icon
-
-            return (
-              <button
-                key={opcao.valor}
-                onClick={(e) => {
-                  e.preventDefault()
-                  handleMudarStatus(opcao.valor)
-                }}
-                disabled={isAtivo}
-                className={`w-full px-3 py-2 flex items-center gap-2 text-xs font-bold transition-colors ${
-                  isAtivo
-                    ? 'bg-[#f0f5f4] text-[#171d1c] cursor-default'
-                    : `text-[#3d4945] hover:bg-[#f0f5f4] hover:${opcao.cor}`
-                }`}
-              >
-                <Icone size={14} className={isAtivo ? opcao.cor : 'opacity-70'} />
-                {opcao.label}
-              </button>
-            )
-          })}
-        </div>
+      {/* Modal renderizado via portal para evitar conflito com click-outside */}
+      {mounted && modalAberto && atendimentoId && createPortal(
+        <ModalSessaoReposicao
+          agendamentoId={agendamentoId ?? ''}
+          pacienteNome={pacienteNome || 'Paciente'}
+          defaultData={proximaData}
+          defaultHora={proximaHora}
+          onClose={() => handleModalClose(false)}
+          onSaved={() => handleModalClose(true)}
+          onSalvarCustom={
+            // Recorrente + falta → adicionarSessaoReposicao (já vinculado ao agendamento_id, mantém contador)
+            // Único (sem agendamento_id) ou reagendamento → cria atendimento avulso
+            agendamentoId && modalAberto === 'vai_faltar'
+              ? undefined
+              : (data, hora) => criarAtendimentoReagendado(atendimentoId, data, hora)
+          }
+        />,
+        document.body
       )}
-    </div>
+    </>
   )
 }

@@ -19,6 +19,9 @@ import {
   ChevronDown,
   Target,
   BarChart3,
+  UserCheck,
+  Clock,
+  Calendar,
 } from 'lucide-react'
 
 export function Sidebar({ onMobileClose, onOpenNovoAgendamento, userRole: userRoleProp }: { onMobileClose?: () => void; onOpenNovoAgendamento?: () => void; userRole?: string }) {
@@ -204,6 +207,7 @@ export function Sidebar({ onMobileClose, onOpenNovoAgendamento, userRole: userRo
                       : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
                   }`}
                 >
+                  <UserCheck size={14} />
                   Membros
                 </Link>
                 <Link
@@ -251,6 +255,7 @@ export function Sidebar({ onMobileClose, onOpenNovoAgendamento, userRole: userRo
                     : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
                 }`}
               >
+                <Clock size={14} />
                 Jornada de Trabalho
               </Link>
               <Link
@@ -262,6 +267,7 @@ export function Sidebar({ onMobileClose, onOpenNovoAgendamento, userRole: userRo
                     : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
                 }`}
               >
+                <Calendar size={14} />
                 Disponibilidade
               </Link>
             </div>

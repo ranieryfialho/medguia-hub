@@ -12,6 +12,8 @@ interface ModalSessaoReposicaoProps {
   defaultHora?: string  // 'HH:mm'
   onClose: () => void
   onSaved: () => void
+  /** Se fornecido, substitui a lógica padrão de salvar */
+  onSalvarCustom?: (data: string, hora: string) => Promise<{ success?: boolean; error?: string }>
 }
 
 export function ModalSessaoReposicao({
@@ -21,6 +23,7 @@ export function ModalSessaoReposicao({
   defaultHora,
   onClose,
   onSaved,
+  onSalvarCustom,
 }: ModalSessaoReposicaoProps) {
   const [data, setData] = useState(defaultData ?? '')
   const [hora, setHora] = useState(defaultHora ?? '')
@@ -32,7 +35,9 @@ export function ModalSessaoReposicao({
       return
     }
     setSaving(true)
-    const res = await adicionarSessaoReposicao(agendamentoId, data, hora)
+    const res = onSalvarCustom
+      ? await onSalvarCustom(data, hora)
+      : await adicionarSessaoReposicao(agendamentoId, data, hora)
     setSaving(false)
     if (res.error) {
       toast.error(res.error)

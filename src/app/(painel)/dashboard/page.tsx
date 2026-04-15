@@ -97,22 +97,26 @@ export default async function DashboardPage() {
   const jornadas: Jornada[] = jornadasRes.data || []
   const pacientesNovos = pacientesNovosRes.data || []
 
-  // 4. Calcular KPIs usando função existente
+  // 4. Filtrar profissionais que têm jornada configurada
+  const profIdsComJornada = new Set(jornadas.map(j => j.profissional_id))
+  const profissionaisComJornada = profissionaisParaKPI.filter(p => profIdsComJornada.has(p.id))
+
+  // 5. Calcular KPIs usando função existente (apenas profissionais com jornada)
   const kpis = calcularKPIs(
-    profissionaisParaKPI,
+    profissionaisComJornada,
     atendimentos,
     jornadas,
     inicioMes,
     hoje
   )
 
-  // 5. Bloco 1: Produtividade / Fábril
+  // 6. Bloco 1: Produtividade / Fábril
   const totalJornadaMin = kpis.reduce((s, k) => s + k.jornadaContratadaMin, 0)
   const totalFabrilMin = kpis.reduce((s, k) => s + k.tempoFabrilMin, 0)
   const totalAtendimentos = kpis.reduce((s, k) => s + k.qtdAtendimentos, 0)
   const taxaOcupacaoGlobal = totalJornadaMin > 0 ? Math.round((totalFabrilMin / totalJornadaMin) * 100) : 0
 
-  // 6. Bloco 2: Volume de Atendimentos
+  // 7. Bloco 2: Volume de Atendimentos
   const totalAtend = atendimentos.length
   const concluidos = atendimentos.filter(a => a.status?.toLowerCase() === 'concluído').length
   const cancelados = atendimentos.filter(a => a.status?.toLowerCase() === 'cancelado').length
@@ -120,11 +124,11 @@ export default async function DashboardPage() {
   const emAberto = atendimentos.filter(a => ['confirmado', 'aguardando'].includes(a.status?.toLowerCase() ?? '')).length
   const taxaConclusao = totalAtend > 0 ? Math.round((concluidos / totalAtend) * 100) : 0
 
-  // 7. Bloco 3: Pacientes
+  // 8. Bloco 3: Pacientes
   const pacientesComAtendimento = new Set(atendimentos.map(a => a.paciente_id)).size
   const novosPacientes = pacientesNovos.length
 
-  // 8. Bloco 4: Tendência 7 dias
+  // 9. Bloco 4: Tendência 7 dias
   const tendencia7Dias = Array.from({ length: 7 }, (_, i) => {
     const dia = addDays(subDays(hoje, 6), i)
     const diaKey = formatAppDateKey(dia)
@@ -137,7 +141,7 @@ export default async function DashboardPage() {
 
   const maxTendencia = Math.max(...tendencia7Dias.map(d => d.count), 1)
 
-  // 9. Formatar período para display
+  // 10. Formatar período para display
   const mesAno = format(hoje, 'MMMM yyyy', { locale: ptBR })
 
   return (

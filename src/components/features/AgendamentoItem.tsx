@@ -402,7 +402,15 @@ export function AgendamentoItemDia({ agendamento, pacientes, profissionais }: { 
                 {config.label}
               </span>
               <div onClick={e => e.stopPropagation()}>
-                <MenuAcoesAgendamento id={agendamento.id} statusAtual={agendamento.status} onOpenChange={setIsMenuOpen} />
+                <MenuAcoesAgendamento
+                  id={agendamento.id}
+                  statusAtual={agendamento.status}
+                  onOpenChange={setIsMenuOpen}
+                  atendimentoId={agendamento.id}
+                  agendamentoId={agendamento.agendamento_id || undefined}
+                  pacienteNome={nomePaciente}
+                  dataAgendamento={agendamento.data_agendamento}
+                />
               </div>
             </div>
           </div>

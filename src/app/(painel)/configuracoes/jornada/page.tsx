@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { listarDisponibilidade } from '@/actions/disponibilidade'
-import { DisponibilidadeEditor } from '@/components/features/DisponibilidadeEditor'
+import { JornadaEditor } from '@/components/features/JornadaEditor'
 
 export default async function JornadaPage({
   searchParams,
@@ -45,7 +45,7 @@ export default async function JornadaPage({
 
   return (
     <div className="space-y-6 px-6">
-      <DisponibilidadeEditor
+      <JornadaEditor
         key={targetId}
         targetProfissionalId={targetId}
         disponibilidade={disponibilidade}

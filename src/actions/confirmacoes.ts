@@ -185,6 +185,46 @@ export async function adicionarSessaoReposicao(
   return { success: true }
 }
 
+/**
+ * Cria um novo atendimento avulso (sem recorrência) para reagendamento.
+ * O atendimento original deve ser marcado como "Reagendado" separadamente.
+ */
+export async function criarAtendimentoReagendado(
+  atendimentoOrigemId: string,
+  data: string, // 'yyyy-MM-dd'
+  hora: string  // 'HH:mm'
+): Promise<{ success?: boolean; error?: string }> {
+  const supabase = await createClient()
+
+  const { data: origem } = await supabase
+    .from('atendimentos')
+    .select('paciente_id, profissional_id, tipo, duracao_minutos, observacoes')
+    .eq('id', atendimentoOrigemId)
+    .single()
+
+  if (!origem) return { error: 'Atendimento não encontrado.' }
+
+  const { error } = await supabase.from('atendimentos').insert({
+    paciente_id: origem.paciente_id,
+    profissional_id: origem.profissional_id,
+    data_agendamento: buildAppDateTimeISO(data, hora),
+    tipo: origem.tipo,
+    duracao_minutos: origem.duracao_minutos ?? 30,
+    observacoes: origem.observacoes,
+    status: 'Aguardando',
+  })
+
+  if (error) {
+    console.error('Erro ao criar atendimento reagendado:', error.message)
+    return { error: 'Não foi possível criar o reagendamento.' }
+  }
+
+  revalidatePath('/agenda')
+  revalidatePath('/confirmacoes')
+  revalidatePath('/pacientes', 'layout')
+  return { success: true }
+}
+
 export async function registrarEnvioWhatsApp(
   atendimentoId: string,
   templateId: string
