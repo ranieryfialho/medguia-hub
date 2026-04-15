@@ -99,8 +99,6 @@ export default async function AgendaPage({ searchParams }: PageProps) {
   const diaFormatadoSelecionado = format(dataSelecionada, "dd MMM", { locale: ptBR })
   const mesAnoLateral = format(dataSelecionada, "MMMM yyyy", { locale: ptBR })
 
-  // Gerar dias do mês via parseAppDate (12:00 BRT = 15:00 UTC) para evitar
-  // problema de fuso em servidores UTC onde date-fns gera 00:00 UTC = 21:00 BRT do dia anterior
   const anoMes = dataString.slice(0, 7) // 'yyyy-MM'
   const totalDiasNoMes = new Date(parseInt(anoMes.slice(0, 4)), parseInt(anoMes.slice(5, 7)), 0).getDate()
   const diasDoMes = Array.from({ length: totalDiasNoMes }, (_, i) =>
@@ -108,7 +106,6 @@ export default async function AgendaPage({ searchParams }: PageProps) {
   )
   const inicioDoMes = diasDoMes[0]
   const fimDoMes = diasDoMes[diasDoMes.length - 1]
-  // getUTCDay de 15:00 UTC = dia correto em BRT (UTC-3 = 12:00 do mesmo dia)
   const diaDaSemanaInicio = inicioDoMes.getUTCDay()
   const diasVaziosInicio = Array.from({ length: diaDaSemanaInicio }, (_, i) => {
     const prevDate = new Date(inicioDoMes)
