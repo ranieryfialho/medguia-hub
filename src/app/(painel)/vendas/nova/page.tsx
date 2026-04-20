@@ -17,11 +17,9 @@ export default async function NovaVendaPage() {
       .select('id, nome, numero_atendimentos, preco_padrao')
       .eq('ativo', true)
       .order('nome'),
-    // Gestores/masters: apenas quem tem jornada cadastrada
     supabase
       .from('disponibilidade_profissional')
       .select('profissional_id'),
-    // Fisioterapeutas: todos, independente de jornada
     supabase
       .from('profiles')
       .select('id, full_name, role')
