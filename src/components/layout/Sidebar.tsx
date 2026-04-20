@@ -22,6 +22,8 @@ import {
   UserCheck,
   Clock,
   Calendar,
+  ShoppingCart,
+  Package,
 } from 'lucide-react'
 
 export function Sidebar({ onMobileClose, onOpenNovoAgendamento, userRole: userRoleProp }: { onMobileClose?: () => void; onOpenNovoAgendamento?: () => void; userRole?: string }) {
@@ -31,7 +33,8 @@ export function Sidebar({ onMobileClose, onOpenNovoAgendamento, userRole: userRo
   const [supabase] = useState(createClient)
   const [confirmacoesOpen, setConfirmacoesOpen] = useState(() => pathname?.startsWith('/confirmacoes') ?? false)
   const [configOpen, setConfigOpen] = useState(() => pathname?.startsWith('/configuracoes') ?? false)
-  const [equipeOpen, setEquipeOpen] = useState(() => (pathname?.startsWith('/equipe') || pathname?.startsWith('/relatorios')) ?? false)
+  const [equipeOpen, setEquipeOpen] = useState(() => (pathname?.startsWith('/equipe') || pathname?.startsWith('/relatorios/tempo-fabril')) ?? false)
+  const [comercialOpen, setComercialOpen] = useState(() => (pathname?.startsWith('/vendas') || pathname?.startsWith('/produtos') || pathname?.startsWith('/relatorios/vendas')) ?? false)
   const [userRole, setUserRole] = useState(userRoleProp ?? '')
 
   useEffect(() => {
@@ -178,6 +181,68 @@ export function Sidebar({ onMobileClose, onOpenNovoAgendamento, userRole: userRo
           <span className="text-sm">Prontuários</span>
         </span>
 
+        {/* Grupo Comercial */}
+        <div>
+          <button
+            onClick={() => setComercialOpen(v => !v)}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+              isActive('/vendas') || isActive('/produtos') || isActive('/relatorios/vendas')
+                ? 'bg-white text-[#006b5a] shadow-sm font-semibold'
+                : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
+            }`}
+          >
+            <ShoppingCart size={20} />
+            <span className="text-sm flex-1 text-left">Comercial</span>
+            <ChevronDown
+              size={16}
+              className={`transition-transform duration-200 ${comercialOpen ? 'rotate-180' : ''}`}
+            />
+          </button>
+
+          {comercialOpen && (
+            <div className="mt-1 ml-4 space-y-0.5 border-l-2 border-[#bcc9c4]/40 pl-3">
+              <Link
+                href="/vendas"
+                onClick={handleNavClick}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
+                  isActive('/vendas')
+                    ? 'bg-white text-[#006b5a] shadow-sm font-semibold'
+                    : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
+                }`}
+              >
+                <ShoppingCart size={14} />
+                Vendas
+              </Link>
+              <Link
+                href="/produtos"
+                onClick={handleNavClick}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
+                  isActive('/produtos')
+                    ? 'bg-white text-[#006b5a] shadow-sm font-semibold'
+                    : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
+                }`}
+              >
+                <Package size={14} />
+                Produtos
+              </Link>
+              {(userRole === 'gestor' || userRole === 'master') && (
+                <Link
+                  href="/relatorios/vendas"
+                  onClick={handleNavClick}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
+                    isActive('/relatorios/vendas')
+                      ? 'bg-white text-[#006b5a] shadow-sm font-semibold'
+                      : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
+                  }`}
+                >
+                  <BarChart3 size={14} />
+                  Relatório de Vendas
+                </Link>
+              )}
+            </div>
+          )}
+        </div>
+
         {(userRole === 'gestor' || userRole === 'master') && (
           <div>
             <button
@@ -214,7 +279,7 @@ export function Sidebar({ onMobileClose, onOpenNovoAgendamento, userRole: userRo
                   href="/relatorios/tempo-fabril"
                   onClick={handleNavClick}
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
-                    isActive('/relatorios')
+                    isActive('/relatorios/tempo-fabril')
                       ? 'bg-white text-[#006b5a] shadow-sm font-semibold'
                       : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
                   }`}

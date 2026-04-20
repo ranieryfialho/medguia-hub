@@ -1,0 +1,374 @@
+'use server'
+
+import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
+
+export async function criarVenda(prevState: any, formData: FormData) {
+  const supabase = await createClient()
+
+  const paciente_id = formData.get('paciente_id') as string
+  const profissional_id = formData.get('profissional_id') as string
+  const origem = formData.get('origem') as string
+  const medico_referenciador_nome = origem === 'medico' ? (formData.get('medico_referenciador_nome') as string) : null
+  const data_venda = formData.get('data_venda') as string
+  const observacoes = formData.get('observacoes') as string
+  const itensJson = formData.get('itens_venda_json') as string
+
+  if (!paciente_id || !profissional_id || !origem) {
+    return { error: 'Paciente, profissional e origem são obrigatórios.' }
+  }
+
+  if (origem === 'medico' && !medico_referenciador_nome?.trim()) {
+    return { error: 'Nome do médico referenciador é obrigatório para origem "Médico".' }
+  }
+
+  let itens: any[] = []
+  try {
+    itens = itensJson ? JSON.parse(itensJson) : []
+  } catch (e) {
+    return { error: 'Erro ao processar itens de venda.' }
+  }
+
+  if (!itens || itens.length === 0) {
+    return { error: 'Adicione pelo menos um produto à venda.' }
+  }
+
+  // Validar que todos os itens têm produto_id e preco_unitario
+  for (const item of itens) {
+    if (!item.produto_id || item.preco_unitario === undefined) {
+      return { error: 'Todos os itens devem ter produto e preço.' }
+    }
+  }
+
+  const dadosVenda = {
+    paciente_id,
+    profissional_id,
+    origem,
+    medico_referenciador_nome,
+    data_venda: data_venda || new Date().toISOString(),
+    observacoes: observacoes || null,
+  }
+
+  // Inserir venda
+  const { data: vendaInserida, error: erroVenda } = await supabase
+    .from('vendas')
+    .insert(dadosVenda)
+    .select('id')
+    .single()
+
+  if (erroVenda || !vendaInserida) {
+    return { error: `Erro ao criar venda: ${erroVenda?.message || 'desconhecido'}` }
+  }
+
+  // Inserir itens de venda
+  const itensComVendaId = itens.map((item) => ({
+    venda_id: vendaInserida.id,
+    produto_id: item.produto_id,
+    quantidade: item.quantidade || 1,
+    preco_unitario: parseFloat(item.preco_unitario),
+  }))
+
+  const { error: erroItens } = await supabase
+    .from('itens_venda')
+    .insert(itensComVendaId)
+
+  if (erroItens) {
+    // Deletar venda se falhar inserir itens
+    await supabase.from('vendas').delete().eq('id', vendaInserida.id)
+    return { error: `Erro ao adicionar itens: ${erroItens.message}` }
+  }
+
+  revalidatePath('/vendas')
+  redirect(`/vendas/${vendaInserida.id}`)
+}
+
+export async function editarVenda(prevState: any, formData: FormData) {
+  const supabase = await createClient()
+
+  const id = formData.get('id') as string
+  const paciente_id = formData.get('paciente_id') as string
+  const origem = formData.get('origem') as string
+  const medico_referenciador_nome = origem === 'medico' ? (formData.get('medico_referenciador_nome') as string) : null
+  const data_venda = formData.get('data_venda') as string
+  const observacoes = formData.get('observacoes') as string
+  const itensJson = formData.get('itens_venda_json') as string
+
+  if (!paciente_id || !origem) {
+    return { error: 'Paciente e origem são obrigatórios.' }
+  }
+
+  if (origem === 'medico' && !medico_referenciador_nome?.trim()) {
+    return { error: 'Nome do médico referenciador é obrigatório para origem "Médico".' }
+  }
+
+  let itens: any[] = []
+  try {
+    itens = itensJson ? JSON.parse(itensJson) : []
+  } catch (e) {
+    return { error: 'Erro ao processar itens de venda.' }
+  }
+
+  if (!itens || itens.length === 0) {
+    return { error: 'Adicione pelo menos um produto à venda.' }
+  }
+
+  const dadosVenda = {
+    paciente_id,
+    origem,
+    medico_referenciador_nome,
+    data_venda,
+    observacoes: observacoes || null,
+    atualizado_em: new Date().toISOString(),
+  }
+
+  // Atualizar venda
+  const { error: erroVenda } = await supabase
+    .from('vendas')
+    .update(dadosVenda)
+    .eq('id', id)
+
+  if (erroVenda) {
+    return { error: `Erro ao editar venda: ${erroVenda.message}` }
+  }
+
+  // Deletar itens antigos
+  await supabase.from('itens_venda').delete().eq('venda_id', id)
+
+  // Inserir novos itens
+  const itensComVendaId = itens.map((item) => ({
+    venda_id: id,
+    produto_id: item.produto_id,
+    quantidade: item.quantidade || 1,
+    preco_unitario: parseFloat(item.preco_unitario),
+  }))
+
+  const { error: erroItens } = await supabase
+    .from('itens_venda')
+    .insert(itensComVendaId)
+
+  if (erroItens) {
+    return { error: `Erro ao atualizar itens: ${erroItens.message}` }
+  }
+
+  revalidatePath('/vendas')
+  redirect(`/vendas/${id}`)
+}
+
+export async function deletarVenda(id: string) {
+  const supabase = await createClient()
+
+  // Validar se tem agendamentos
+  const { data: agendamentos, error: erroQuery } = await supabase
+    .from('agendamentos')
+    .select('id', { count: 'exact' })
+    .eq('venda_id', id)
+    .limit(1)
+
+  if (erroQuery) {
+    return { error: 'Erro ao verificar agendamentos.' }
+  }
+
+  if (agendamentos && agendamentos.length > 0) {
+    return { error: 'Não é possível deletar uma venda que possui agendamentos associados.' }
+  }
+
+  // Deletar venda (cascata: itens_venda também serão deletados)
+  const { error } = await supabase
+    .from('vendas')
+    .delete()
+    .eq('id', id)
+
+  if (error) {
+    return { error: `Erro ao deletar venda: ${error.message}` }
+  }
+
+  revalidatePath('/vendas')
+  return { success: true }
+}
+
+interface FiltrosVendas {
+  origem?: string
+  paciente_id?: string
+  profissional_id?: string
+  data_inicio?: string
+  data_fim?: string
+  offset?: number
+  limit?: number
+}
+
+export async function listarVendas(filtros: FiltrosVendas = {}) {
+  const supabase = await createClient()
+
+  const {
+    origem,
+    paciente_id,
+    profissional_id,
+    data_inicio,
+    data_fim,
+    offset = 0,
+    limit = 20,
+  } = filtros
+
+  let query = supabase
+    .from('vendas')
+    .select(
+      `
+      id,
+      paciente_id,
+      pacientes(nome),
+      profissional_id,
+      profiles(nome),
+      origem,
+      medico_referenciador_nome,
+      data_venda,
+      observacoes,
+      criado_em,
+      atualizado_em
+    `,
+      { count: 'exact' }
+    )
+    .order('data_venda', { ascending: false })
+    .range(offset, offset + limit - 1)
+
+  if (origem) {
+    query = query.eq('origem', origem)
+  }
+
+  if (paciente_id) {
+    query = query.eq('paciente_id', paciente_id)
+  }
+
+  if (profissional_id) {
+    query = query.eq('profissional_id', profissional_id)
+  }
+
+  if (data_inicio) {
+    query = query.gte('data_venda', `${data_inicio}T00:00:00`)
+  }
+
+  if (data_fim) {
+    query = query.lte('data_venda', `${data_fim}T23:59:59`)
+  }
+
+  const { data, error, count } = await query
+
+  if (error) {
+    return { error: `Erro ao listar vendas: ${error.message}`, vendas: [], total: 0 }
+  }
+
+  // Calcular total de cada venda
+  const vendas = await Promise.all(
+    data.map(async (venda) => {
+      const { data: itens } = await supabase
+        .from('itens_venda')
+        .select('quantidade, preco_unitario')
+        .eq('venda_id', venda.id)
+
+      const total = itens?.reduce((sum, item) => sum + item.quantidade * item.preco_unitario, 0) || 0
+
+      return {
+        ...venda,
+        total,
+      }
+    })
+  )
+
+  return { vendas, total: count || 0, error: null }
+}
+
+interface FiltrosRelatorio {
+  data_inicio?: string
+  data_fim?: string
+  origem?: string
+}
+
+export async function gerarRelatorioVendas(filtros: FiltrosRelatorio = {}) {
+  const supabase = await createClient()
+
+  const { data_inicio, data_fim, origem } = filtros
+
+  let query = supabase
+    .from('vendas')
+    .select('id, origem, data_venda')
+
+  if (data_inicio) {
+    query = query.gte('data_venda', `${data_inicio}T00:00:00`)
+  }
+
+  if (data_fim) {
+    query = query.lte('data_venda', `${data_fim}T23:59:59`)
+  }
+
+  if (origem) {
+    query = query.eq('origem', origem)
+  }
+
+  const { data: vendas, error } = await query
+
+  if (error) {
+    return { error: `Erro ao gerar relatório: ${error.message}`, relatorio: null }
+  }
+
+  // Para cada venda, calcular total
+  const vendasComTotais = await Promise.all(
+    (vendas || []).map(async (venda) => {
+      const { data: itens } = await supabase
+        .from('itens_venda')
+        .select('quantidade, preco_unitario')
+        .eq('venda_id', venda.id)
+
+      const total = itens?.reduce((sum, item) => sum + item.quantidade * item.preco_unitario, 0) || 0
+
+      return {
+        id: venda.id,
+        origem: venda.origem,
+        data_venda: venda.data_venda,
+        total,
+      }
+    })
+  )
+
+  // Agregações
+  const totalFaturado = vendasComTotais.reduce((sum, v) => sum + v.total, 0)
+  const totalVendas = vendasComTotais.length
+  const vendaMedia = totalVendas > 0 ? totalFaturado / totalVendas : 0
+
+  // Por origem
+  const porOrigem: Record<string, { quantidade: number; faturamento: number }> = {}
+  vendasComTotais.forEach((venda) => {
+    if (!porOrigem[venda.origem]) {
+      porOrigem[venda.origem] = { quantidade: 0, faturamento: 0 }
+    }
+    porOrigem[venda.origem].quantidade += 1
+    porOrigem[venda.origem].faturamento += venda.total
+  })
+
+  // Por período (últimos 90 dias)
+  const agora = new Date()
+  const dias90 = new Date(agora.getTime() - 90 * 24 * 60 * 60 * 1000)
+
+  const porPeriodo: Record<string, number> = {}
+  vendasComTotais.forEach((venda) => {
+    if (new Date(venda.data_venda) >= dias90) {
+      const data = new Date(venda.data_venda).toISOString().split('T')[0]
+      if (!porPeriodo[data]) {
+        porPeriodo[data] = 0
+      }
+      porPeriodo[data] += venda.total
+    }
+  })
+
+  return {
+    relatorio: {
+      kpis: {
+        totalFaturado,
+        totalVendas,
+        vendaMedia,
+      },
+      porOrigem,
+      porPeriodo,
+    },
+    error: null,
+  }
+}
