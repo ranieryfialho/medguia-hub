@@ -227,10 +227,10 @@ export function SlideNovoAgendamento({ pacientes, profissionais, disponibilidade
       )}
 
       {isOpen && (
-        <div className="fixed inset-0 z-50 bg-[#171d1c]/40 backdrop-blur-sm transition-opacity" onClick={handleClose} />
+        <div className="fixed inset-0 z-[500] bg-[#171d1c]/40 backdrop-blur-sm transition-opacity" onClick={handleClose} />
       )}
 
-      <div className={`fixed inset-y-0 right-0 z-50 w-full max-w-lg bg-white shadow-2xl transform transition-transform duration-300 ease-in-out flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+      <div className={`fixed inset-y-0 right-0 z-[510] w-full max-w-lg bg-white shadow-2xl transform transition-transform duration-300 ease-in-out flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
 
         <div className="px-6 py-5 border-b border-[#bcc9c4]/30 flex items-center justify-between bg-white shrink-0">
           <h2 className="text-xl font-bold text-[#083142]">{modoEdicao ? 'Editar agendamento' : 'Novo agendamento'}</h2>
@@ -270,7 +270,7 @@ export function SlideNovoAgendamento({ pacientes, profissionais, disponibilidade
                 <input type="hidden" name="paciente_id" value={selectedPacienteId} />
 
                 {pacienteDropdownOpen && (
-                  <div className="absolute z-[60] w-full mt-1 bg-white border border-[#bcc9c4] rounded-lg shadow-xl max-h-56 overflow-y-auto">
+                  <div className="absolute z-[520] w-full mt-1 bg-white border border-[#bcc9c4] rounded-lg shadow-xl max-h-56 overflow-y-auto">
                     {pacientesFiltrados.length > 0 ? (
                       pacientesFiltrados.map(p => (
                         <button

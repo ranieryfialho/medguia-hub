@@ -3,6 +3,20 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { FormEditarVenda } from '@/components/features/FormEditarVenda'
 
+interface ProfileRow {
+  id: string
+  full_name: string | null
+  role: string
+}
+
+function formatProfile(profile: ProfileRow) {
+  return {
+    id: profile.id,
+    nome: profile.full_name || 'Sem nome',
+    role: profile.role,
+  }
+}
+
 export default async function EditarVendaPage({
   params,
 }: {
@@ -30,7 +44,7 @@ export default async function EditarVendaPage({
     .eq('venda_id', id)
 
   // Carregar dados de referência
-  const [{ data: pacientes }, { data: profiles }, { data: produtos }] = await Promise.all([
+  const [{ data: pacientes }, { data: profiles }, { data: produtos }, { data: medicos }] = await Promise.all([
     supabase
       .from('pacientes')
       .select('id, nome')
@@ -46,7 +60,13 @@ export default async function EditarVendaPage({
       .select('id, nome, numero_atendimentos, preco_padrao')
       .eq('ativo', true)
       .order('nome'),
+    supabase
+      .from('profiles')
+      .select('id, full_name, role')
+      .eq('role', 'medico'),
   ])
+
+  const medicosFormatados = ((medicos || []) as ProfileRow[]).map(formatProfile)
 
   if (!venda) {
     return (
@@ -66,7 +86,7 @@ export default async function EditarVendaPage({
   }
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6">
       {/* Breadcrumb */}
       <div>
         <Link
@@ -88,8 +108,9 @@ export default async function EditarVendaPage({
           vendaInicial={venda}
           itensInicial={itensVenda || []}
           pacientes={pacientes || []}
-          profissionais={(profiles || []).map((p: any) => ({ id: p.id, nome: p.full_name || 'Sem nome', role: p.role }))}
+          profissionais={((profiles || []) as ProfileRow[]).map(formatProfile)}
           produtos={produtos || []}
+          medicos={medicosFormatados}
         />
       </div>
     </div>

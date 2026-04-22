@@ -35,22 +35,15 @@ export function FiltrosJornada() {
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
-      const params = new URLSearchParams(searchParams.toString())
-      
-      if (searchTerm) params.set('q', searchTerm)
-      else params.delete('q')
-
-      if (statusFilter && statusFilter !== 'todos') params.set('status', statusFilter)
-      else params.delete('status')
-
-      if (ordem && ordem !== 'desc') params.set('ordem', ordem)
-      else params.delete('ordem')
-
-      router.replace(`?${params.toString()}`, { scroll: false })
+      const parts: string[] = []
+      if (searchTerm) parts.push(`q=${encodeURIComponent(searchTerm)}`)
+      if (statusFilter && statusFilter !== 'todos') parts.push(`status=${statusFilter}`)
+      if (ordem && ordem !== 'desc') parts.push(`ordem=${ordem}`)
+      router.replace(parts.length ? `?${parts.join('&')}` : '?', { scroll: false })
     }, 500)
 
     return () => clearTimeout(delayDebounceFn)
-  }, [searchTerm, statusFilter, ordem, router, searchParams])
+  }, [searchTerm, statusFilter, ordem, router])
 
   return (
     <div className="flex flex-col gap-5 mb-8">

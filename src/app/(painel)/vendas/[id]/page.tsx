@@ -81,7 +81,7 @@ export default async function VendaDetalhePage({
             : 'Campanha'
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6">
       {/* Breadcrumb */}
       <div>
         <Link

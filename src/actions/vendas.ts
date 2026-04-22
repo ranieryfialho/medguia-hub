@@ -4,13 +4,65 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
-export async function criarVenda(prevState: any, formData: FormData) {
+interface ItemVendaForm {
+  produto_id: string
+  quantidade: number
+  preco_unitario: number
+}
+
+function parseItensVenda(itensJson: string): { itens: ItemVendaForm[]; error: null } | { itens: null; error: string } {
+  let parsed: unknown
+
+  try {
+    parsed = itensJson ? JSON.parse(itensJson) : []
+  } catch {
+    return { itens: null, error: 'Erro ao processar itens de venda.' }
+  }
+
+  if (!Array.isArray(parsed) || parsed.length === 0) {
+    return { itens: null, error: 'Adicione pelo menos um produto à venda.' }
+  }
+
+  const itens: ItemVendaForm[] = []
+
+  for (const item of parsed) {
+    if (!item || typeof item !== 'object') {
+      return { itens: null, error: 'Todos os itens devem ter produto, quantidade e preço válidos.' }
+    }
+
+    const record = item as Record<string, unknown>
+    const produtoId = typeof record.produto_id === 'string' ? record.produto_id : ''
+    const quantidade = Number(record.quantidade)
+    const precoUnitario = Number(record.preco_unitario)
+
+    if (
+      !produtoId ||
+      !Number.isFinite(quantidade) ||
+      quantidade < 1 ||
+      !Number.isInteger(quantidade) ||
+      !Number.isFinite(precoUnitario) ||
+      precoUnitario < 0
+    ) {
+      return { itens: null, error: 'Todos os itens devem ter produto, quantidade e preço válidos.' }
+    }
+
+    itens.push({
+      produto_id: produtoId,
+      quantidade,
+      preco_unitario: precoUnitario,
+    })
+  }
+
+  return { itens, error: null }
+}
+
+export async function criarVenda(_prevState: unknown, formData: FormData) {
   const supabase = await createClient()
 
   const paciente_id = formData.get('paciente_id') as string
   const profissional_id = formData.get('profissional_id') as string
   const origem = formData.get('origem') as string
-  const medico_referenciador_nome = origem === 'medico' ? (formData.get('medico_referenciador_nome') as string) : null
+  const medico_referenciador_id = origem === 'medico' ? (formData.get('medico_referenciador_id') as string) : null
   const data_venda = formData.get('data_venda') as string
   const observacoes = formData.get('observacoes') as string
   const itensJson = formData.get('itens_venda_json') as string
@@ -19,25 +71,55 @@ export async function criarVenda(prevState: any, formData: FormData) {
     return { error: 'Paciente, profissional e origem são obrigatórios.' }
   }
 
-  if (origem === 'medico' && !medico_referenciador_nome?.trim()) {
-    return { error: 'Nome do médico referenciador é obrigatório para origem "Médico".' }
+  if (origem === 'medico' && !medico_referenciador_id?.trim()) {
+    return { error: 'Médico referenciador é obrigatório para origem "Médico".' }
   }
 
-  let itens: any[] = []
-  try {
-    itens = itensJson ? JSON.parse(itensJson) : []
-  } catch (e) {
-    return { error: 'Erro ao processar itens de venda.' }
+  let medico_referenciador_nome = null
+  if (origem === 'medico' && medico_referenciador_id) {
+    const { data: medico } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', medico_referenciador_id)
+      .eq('role', 'medico')
+      .single()
+
+    if (!medico) {
+      return { error: 'Médico referenciador não encontrado.' }
+    }
+    medico_referenciador_nome = medico.full_name
   }
 
-  if (!itens || itens.length === 0) {
-    return { error: 'Adicione pelo menos um produto à venda.' }
+  const itensResult = parseItensVenda(itensJson)
+  if (!itensResult.itens) {
+    return { error: itensResult.error }
+  }
+  const itens = itensResult.itens
+
+  const total = itens.reduce((sum, item) => sum + item.quantidade * item.preco_unitario, 0)
+
+  if (total >= 999999.99) {
+    return { error: 'O valor da venda não pode ser maior ou igual a R$ 999.999,99.' }
   }
 
-  // Validar que todos os itens têm produto_id e preco_unitario
-  for (const item of itens) {
-    if (!item.produto_id || item.preco_unitario === undefined) {
-      return { error: 'Todos os itens devem ter produto e preço.' }
+  if (total === 0) {
+    const senhaConfirmacao = formData.get('senha_confirmacao') as string
+    if (!senhaConfirmacao) {
+      return { needsPasswordConfirmation: true }
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (!user || userError) {
+      return { error: 'Usuário não autenticado.' }
+    }
+
+    const { error: senhaError } = await supabase.auth.signInWithPassword({
+      email: user.email!,
+      password: senhaConfirmacao,
+    })
+
+    if (senhaError) {
+      return { error: 'Senha incorreta.' }
     }
   }
 
@@ -66,7 +148,7 @@ export async function criarVenda(prevState: any, formData: FormData) {
     venda_id: vendaInserida.id,
     produto_id: item.produto_id,
     quantidade: item.quantidade || 1,
-    preco_unitario: parseFloat(item.preco_unitario),
+    preco_unitario: item.preco_unitario,
   }))
 
   const { error: erroItens } = await supabase
@@ -83,13 +165,13 @@ export async function criarVenda(prevState: any, formData: FormData) {
   redirect(`/vendas/${vendaInserida.id}`)
 }
 
-export async function editarVenda(prevState: any, formData: FormData) {
+export async function editarVenda(_prevState: unknown, formData: FormData) {
   const supabase = await createClient()
 
   const id = formData.get('id') as string
   const paciente_id = formData.get('paciente_id') as string
   const origem = formData.get('origem') as string
-  const medico_referenciador_nome = origem === 'medico' ? (formData.get('medico_referenciador_nome') as string) : null
+  const medico_referenciador_id = origem === 'medico' ? (formData.get('medico_referenciador_id') as string) : null
   const data_venda = formData.get('data_venda') as string
   const observacoes = formData.get('observacoes') as string
   const itensJson = formData.get('itens_venda_json') as string
@@ -98,19 +180,56 @@ export async function editarVenda(prevState: any, formData: FormData) {
     return { error: 'Paciente e origem são obrigatórios.' }
   }
 
-  if (origem === 'medico' && !medico_referenciador_nome?.trim()) {
-    return { error: 'Nome do médico referenciador é obrigatório para origem "Médico".' }
+  if (origem === 'medico' && !medico_referenciador_id?.trim()) {
+    return { error: 'Médico referenciador é obrigatório para origem "Médico".' }
   }
 
-  let itens: any[] = []
-  try {
-    itens = itensJson ? JSON.parse(itensJson) : []
-  } catch (e) {
-    return { error: 'Erro ao processar itens de venda.' }
+  let medico_referenciador_nome = null
+  if (origem === 'medico' && medico_referenciador_id) {
+    const { data: medico } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', medico_referenciador_id)
+      .eq('role', 'medico')
+      .single()
+
+    if (!medico) {
+      return { error: 'Médico referenciador não encontrado.' }
+    }
+    medico_referenciador_nome = medico.full_name
   }
 
-  if (!itens || itens.length === 0) {
-    return { error: 'Adicione pelo menos um produto à venda.' }
+  const itensResult = parseItensVenda(itensJson)
+  if (!itensResult.itens) {
+    return { error: itensResult.error }
+  }
+  const itens = itensResult.itens
+
+  const total = itens.reduce((sum, item) => sum + item.quantidade * item.preco_unitario, 0)
+
+  if (total >= 999999.99) {
+    return { error: 'O valor da venda não pode ser maior ou igual a R$ 999.999,99.' }
+  }
+
+  if (total === 0) {
+    const senhaConfirmacao = formData.get('senha_confirmacao') as string
+    if (!senhaConfirmacao) {
+      return { needsPasswordConfirmation: true }
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (!user || userError) {
+      return { error: 'Usuário não autenticado.' }
+    }
+
+    const { error: senhaError } = await supabase.auth.signInWithPassword({
+      email: user.email!,
+      password: senhaConfirmacao,
+    })
+
+    if (senhaError) {
+      return { error: 'Senha incorreta.' }
+    }
   }
 
   const dadosVenda = {
@@ -140,7 +259,7 @@ export async function editarVenda(prevState: any, formData: FormData) {
     venda_id: id,
     produto_id: item.produto_id,
     quantidade: item.quantidade || 1,
-    preco_unitario: parseFloat(item.preco_unitario),
+    preco_unitario: item.preco_unitario,
   }))
 
   const { error: erroItens } = await supabase

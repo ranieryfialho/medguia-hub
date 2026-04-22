@@ -1,16 +1,16 @@
 import { BtnVoltar } from '@/components/features/BtnVoltar'
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
-import { FormNovoEvento } from '@/components/features/FormNovoEvento'
-import { FormRegistrarAvaliacao } from '@/components/features/FormRegistrarAvaliacao'
 import { FormNovaObservacao } from '@/components/features/FormNovaObservacao'
 import { FiltrosJornada } from '@/components/features/FiltrosJornada'
 import { CartaoAgendamento } from '@/components/features/CartaoAgendamento'
+import { CartaoVenda, type VendaTimeline } from '@/components/features/CartaoVenda'
+import { BtnGerarPdfProntuario } from '@/components/features/BtnGerarPdfProntuario'
 import { Suspense } from 'react'
 import { format } from 'date-fns'
-import { 
-  AlertTriangle, 
-  FileText, 
+import {
+  AlertTriangle,
+  FileText,
   CalendarClock,
   Megaphone
 } from 'lucide-react'
@@ -44,6 +44,20 @@ export default async function PacienteDetailsPage({
     .select(`*, agendamento:agendamentos(tipo, is_recorrente)`)
     .eq('paciente_id', pacienteId)
     .order('data_agendamento', { ascending: false })
+
+  const { data: vendasRaw } = await supabase
+    .from('vendas')
+    .select(`
+      id,
+      origem,
+      medico_referenciador_nome,
+      data_venda,
+      observacoes,
+      profiles:profissional_id(full_name),
+      itens_venda(id, quantidade, preco_unitario, produtos(nome))
+    `)
+    .eq('paciente_id', pacienteId)
+    .order('data_venda', { ascending: false })
 
   // Agrupar atendimentos por agendamento_id
   const gruposMap = new Map<string, { agendamento_id: string | null; tipo: string; is_recorrente: boolean; sessoes: any[] }>()
@@ -85,9 +99,38 @@ export default async function PacienteDetailsPage({
     return matchesBusca && matchesStatus
   })
 
-  if (ordemFiltro === 'asc') {
-    gruposFiltrados = [...gruposFiltrados].reverse()
-  }
+  // Filtrar vendas — ocultar quando há filtro de status de agendamento ativo
+  const vendas = (vendasRaw ?? []) as unknown as VendaTimeline[]
+  const mostrarVendas = !statusFiltro || statusFiltro === 'todos'
+  const vendasFiltradas = mostrarVendas
+    ? termoBusca
+      ? vendas.filter(v =>
+          v.origem?.toLowerCase().includes(termoBusca.toLowerCase()) ||
+          v.observacoes?.toLowerCase().includes(termoBusca.toLowerCase())
+        )
+      : vendas
+    : []
+
+  type EventoUnificado =
+    | { tipo: 'agendamento'; dataRef: number; grupo: (typeof gruposFiltrados)[0] }
+    | { tipo: 'venda'; dataRef: number; venda: VendaTimeline }
+
+  const eventosUnificados: EventoUnificado[] = [
+    ...gruposFiltrados.map(grupo => ({
+      tipo: 'agendamento' as const,
+      dataRef: Math.max(...grupo.sessoes.map(s => new Date(s.data_agendamento).getTime())),
+      grupo,
+    })),
+    ...vendasFiltradas.map(venda => ({
+      tipo: 'venda' as const,
+      dataRef: new Date(venda.data_venda).getTime(),
+      venda,
+    })),
+  ]
+
+  eventosUnificados.sort((a, b) =>
+    ordemFiltro === 'asc' ? a.dataRef - b.dataRef : b.dataRef - a.dataRef
+  )
 
   // Para o resumo clínico e última interação, usar atendimentos flat
   const todosAtendimentos = atendimentos ?? []
@@ -126,20 +169,50 @@ export default async function PacienteDetailsPage({
   const iniciais = paciente.nome.split(' ').slice(0, 2).map((n: string) => n[0]).join('').toUpperCase()
   const isAtivo = paciente.ativo !== false
 
+  const pdfInput = {
+    paciente: {
+      nome: paciente.nome,
+      cpf: paciente.cpf ?? null,
+      data_nascimento: paciente.data_nascimento ?? null,
+      convenio: paciente.convenio ?? null,
+      origem: paciente.origem ?? null,
+      observacoes_gerais: paciente.observacoes_gerais ?? null,
+      ativo: isAtivo,
+    },
+    sessoesParaPdf: todosAtendimentos.map((a: any) => ({
+      id: a.id,
+      data_agendamento: a.data_agendamento,
+      status: a.status,
+      tipo: a.agendamento?.tipo ?? a.tipo ?? 'Sessão',
+      is_recorrente: a.agendamento?.is_recorrente ?? false,
+      observacoes: a.observacoes ?? null,
+    })),
+    vendasParaPdf: vendas.map((v) => ({
+      id: v.id,
+      data_venda: v.data_venda,
+      origem: v.origem ?? '',
+      medico_referenciador_nome: v.medico_referenciador_nome ?? null,
+      observacoes: v.observacoes ?? null,
+      profissional_nome: v.profiles?.full_name ?? null,
+      itens: v.itens_venda.map((item) => ({
+        nome: item.produtos?.nome ?? 'Produto',
+        quantidade: item.quantidade,
+        preco_unitario: item.preco_unitario,
+      })),
+    })),
+  }
+
   return (
     <div className="w-full space-y-6">
-      
+
       {/* TopAppBar */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/80 backdrop-blur-md p-4 rounded-xl shadow-sm border border-slate-100">
         <div className="flex items-center gap-4">
           <BtnVoltar />
           <h2 className="text-2xl font-bold tracking-tight text-[#006b5a]">Prontuário Digital</h2>
         </div>
-        
-        <div className="flex items-center gap-2">
-           <FormRegistrarAvaliacao pacienteId={paciente.id} />
-           <FormNovoEvento pacienteId={paciente.id} />
-        </div>
+
+        <BtnGerarPdfProntuario {...pdfInput} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
@@ -253,15 +326,22 @@ export default async function PacienteDetailsPage({
             <div className="relative pl-4 md:pl-8 mt-2">
               <div className="absolute left-[24px] md:left-[40px] top-4 bottom-4 w-px border-l-2 border-dashed border-slate-200"></div>
 
-              {gruposFiltrados.length === 0 ? (
+              {eventosUnificados.length === 0 ? (
                 <div className="text-sm text-slate-500 pl-8">Nenhum evento encontrado para estes filtros.</div>
               ) : (
-                gruposFiltrados.map((grupo) => (
-                  <CartaoAgendamento
-                    key={grupo.agendamento_id ?? grupo.sessoes[0]?.id}
-                    grupo={grupo}
-                  />
-                ))
+                eventosUnificados.map(evento =>
+                  evento.tipo === 'agendamento' ? (
+                    <CartaoAgendamento
+                      key={evento.grupo.agendamento_id ?? evento.grupo.sessoes[0]?.id}
+                      grupo={evento.grupo}
+                    />
+                  ) : (
+                    <CartaoVenda
+                      key={evento.venda.id}
+                      venda={evento.venda}
+                    />
+                  )
+                )
               )}
             </div>
           </div>

@@ -201,6 +201,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
     .select('id, full_name, role')
     .eq('ativo', true)
     .neq('role', 'master')
+    .neq('role', 'medico')
     .order('full_name')
 
   const todosProfissionaisFormatados = listaProfissionais?.map(p => ({

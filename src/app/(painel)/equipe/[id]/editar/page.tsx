@@ -160,7 +160,7 @@ export default async function EditarColaboradorPage({ params }: { params: Promis
                   {[
                     { id: 'fisioterapeuta', label: 'Fisioterapeuta', desc: 'Atendimentos e prontuários' },
                     { id: 'recepcionista', label: 'Recepcionista', desc: 'Agenda e pacientes' },
-                    { id: 'medico', label: 'Médico Parceiro', desc: 'Acompanhamento' },
+                    { id: 'medico', label: 'Médico', desc: 'Médicos parceiros' },
                     { id: 'gestor', label: 'Gestor', desc: 'Acesso total e métricas' },
                   ].map((perfil) => (
                     <label key={perfil.id} className="relative cursor-pointer group">

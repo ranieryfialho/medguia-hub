@@ -9,7 +9,7 @@ const getCargoConfig = (cargo: string) => {
   const configs: Record<string, any> = {
     'fisioterapeuta': { bg: 'bg-[#cce2da]', text: 'text-[#006b5a]', label: 'Fisioterapeuta' },
     'recepcionista': { bg: 'bg-[#c3e8fd]', text: 'text-[#406375]', label: 'Recepcionista' },
-    'medico': { bg: 'bg-[#dee3e3]', text: 'text-[#6d7a75]', label: 'Médico Parceiro' },
+    'medico': { bg: 'bg-[#dee3e3]', text: 'text-[#6d7a75]', label: 'Médico' },
     'gestor': { bg: 'bg-[#3d4945]', text: 'text-white', label: 'Gestor' },
     'default': { bg: 'bg-[#f0f5f4]', text: 'text-[#3d4945]', label: 'Colaborador' }
   }

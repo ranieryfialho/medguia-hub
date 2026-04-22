@@ -3,10 +3,28 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { FormNovaVenda } from '@/components/features/FormNovaVenda'
 
+interface JornadaRow {
+  profissional_id: string | null
+}
+
+interface ProfileRow {
+  id: string
+  full_name: string | null
+  role: string
+}
+
+function formatProfile(profile: ProfileRow) {
+  return {
+    id: profile.id,
+    nome: profile.full_name || 'Sem nome',
+    role: profile.role,
+  }
+}
+
 export default async function NovaVendaPage() {
   const supabase = await createClient()
 
-  const [{ data: pacientes }, { data: produtos }, { data: comJornada }, { data: fisioterapeutas }] = await Promise.all([
+  const [{ data: pacientes }, { data: produtos }, { data: comJornada }, { data: fisioterapeutas }, { data: medicos }] = await Promise.all([
     supabase
       .from('pacientes')
       .select('id, nome, cpf, telefone')
@@ -24,9 +42,15 @@ export default async function NovaVendaPage() {
       .from('profiles')
       .select('id, full_name, role')
       .eq('role', 'fisioterapeuta'),
+    supabase
+      .from('profiles')
+      .select('id, full_name, role')
+      .eq('role', 'medico'),
   ])
 
-  const idsComJornada = [...new Set((comJornada || []).map((d: any) => d.profissional_id))]
+  const idsComJornada = [
+    ...new Set(((comJornada || []) as JornadaRow[]).map((d) => d.profissional_id).filter(Boolean)),
+  ] as string[]
 
   // Gestores com jornada cadastrada (master é admin, não aparece como profissional)
   const { data: gestoresRaw } = await supabase
@@ -36,11 +60,15 @@ export default async function NovaVendaPage() {
     .in('id', idsComJornada.length > 0 ? idsComJornada : [''])
 
   const profissionais = [
-    ...(fisioterapeutas || []),
-    ...(gestoresRaw || []),
+    ...((fisioterapeutas || []) as ProfileRow[]),
+    ...((gestoresRaw || []) as ProfileRow[]),
   ]
-    .map((p: any) => ({ id: p.id, nome: p.full_name || 'Sem nome', role: p.role }))
-    .sort((a: any, b: any) => a.nome.localeCompare(b.nome))
+    .map(formatProfile)
+    .sort((a, b) => a.nome.localeCompare(b.nome))
+
+  const medicosFormatados = ((medicos || []) as ProfileRow[])
+    .map(formatProfile)
+    .sort((a, b) => a.nome.localeCompare(b.nome))
 
   return (
     <div className="space-y-6">
@@ -64,6 +92,7 @@ export default async function NovaVendaPage() {
           pacientes={pacientes || []}
           profissionais={profissionais}
           produtos={produtos || []}
+          medicos={medicosFormatados}
         />
       </div>
     </div>

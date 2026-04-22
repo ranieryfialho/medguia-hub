@@ -1,8 +1,8 @@
 'use client'
 
 import { editarVenda } from '@/actions/vendas'
-import { useActionState, useEffect, useState } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import { useActionState, useState, startTransition, useRef, useTransition } from 'react'
+import { LoaderCircle, Plus, Trash2 } from 'lucide-react'
 
 interface Paciente {
   id: string
@@ -46,6 +46,7 @@ interface FormEditarVendaProps {
   pacientes: Paciente[]
   profissionais: Profissional[]
   produtos: Produto[]
+  medicos?: Profissional[]
 }
 
 const OPCOES_ORIGEM = [
@@ -63,18 +64,30 @@ export function FormEditarVenda({
   pacientes,
   profissionais,
   produtos,
+  medicos = [],
 }: FormEditarVendaProps) {
   const [state, formAction] = useActionState(editarVenda, null)
 
-  const [showError, setShowError] = useState(false)
-
   // Form state
   const [pacienteId, setPacienteId] = useState(vendaInicial.paciente_id)
-  const [profissionalId, setProfissionalId] = useState(vendaInicial.profissional_id)
+  const [profissionalId] = useState(vendaInicial.profissional_id)
   const [origem, setOrigem] = useState(vendaInicial.origem)
-  const [medicoReferenciador, setMedicoReferenciador] = useState(vendaInicial.medico_referenciador_nome || '')
+
+  // Encontrar ID do médico baseado no nome
+  const medicoInicialId = medicos.find(
+    (p) => p.nome === vendaInicial.medico_referenciador_nome
+  )?.id || ''
+
+  const [medicoReferenciadorId, setMedicoReferenciadorId] = useState(medicoInicialId)
+  const [buscaMedico, setBuscaMedico] = useState('')
   const [dataVenda, setDataVenda] = useState(vendaInicial.data_venda)
   const [observacoes, setObservacoes] = useState(vendaInicial.observacoes || '')
+
+  const medicosFiltrados = buscaMedico.trim()
+    ? medicos.filter((p) => p.nome.toLowerCase().includes(buscaMedico.toLowerCase()))
+    : medicos
+
+  const medicoSelecionado = medicos.find((p) => p.id === medicoReferenciadorId)
 
   // Produtos
   const [itens, setItens] = useState<ItemVenda[]>(itensInicial)
@@ -82,24 +95,17 @@ export function FormEditarVenda({
   const [quantidadeSelecionada, setQuantidadeSelecionada] = useState(1)
   const [precoUnitario, setPrecoUnitario] = useState<number>(0)
 
-  // Feedback
-  useEffect(() => {
-    if (state?.error) {
-      setShowError(true)
-      const timer = setTimeout(() => setShowError(false), 3000)
-      return () => clearTimeout(timer)
-    }
-  }, [state?.error])
+  const [showModalConfirmacao, setShowModalConfirmacao] = useState(false)
+  const [senhaConfirmacao, setSenhaConfirmacao] = useState('')
+  const [senhaError, setSenhaError] = useState('')
+  const [ocultarErroSenhaAction, setOcultarErroSenhaAction] = useState(false)
+  const [isConfirmandoSenha, startConfirmacaoSenhaTransition] = useTransition()
+  const formRef = useRef<HTMLFormElement>(null)
 
-  // Atualizar preço quando produto muda
-  useEffect(() => {
-    if (produtoSelecionado) {
-      const prod = produtos.find((p) => p.id === produtoSelecionado)
-      if (prod) {
-        setPrecoUnitario(prod.preco_padrao)
-      }
-    }
-  }, [produtoSelecionado, produtos])
+  const calcularTotal = () => {
+    return itens.reduce((sum, item) => sum + item.quantidade * item.preco_unitario, 0)
+  }
+  const total = calcularTotal()
 
   const adicionarProduto = () => {
     if (!produtoSelecionado || precoUnitario < 0) {
@@ -123,14 +129,42 @@ export function FormEditarVenda({
     setItens(itens.filter((_, i) => i !== index))
   }
 
-  const calcularTotal = () => {
-    return itens.reduce((sum, item) => sum + item.quantidade * item.preco_unitario, 0)
-  }
-
   const produtoAtual = produtos.find((p) => p.id === produtoSelecionado)
 
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (total === 0) {
+      setShowModalConfirmacao(true)
+      return
+    }
+
+    const formData = new FormData(e.currentTarget)
+    startTransition(() => formAction(formData))
+  }
+
+  const handleConfirmarValorZero = (senha: string) => {
+    if (!senha.trim()) {
+      setSenhaError('Digite sua senha para confirmar')
+      return
+    }
+
+    if (!formRef.current) {
+      setSenhaError('Não foi possível localizar o formulário.')
+      return
+    }
+
+    const formData = new FormData(formRef.current)
+    formData.set('senha_confirmacao', senha.trim())
+    setSenhaError('')
+    setOcultarErroSenhaAction(false)
+    startConfirmacaoSenhaTransition(() => formAction(formData))
+  }
+
+  const erroSenhaConfirmacao = senhaError || (!ocultarErroSenhaAction && !isConfirmandoSenha ? state?.error : '')
+
   return (
-    <form action={formAction} className="space-y-6">
+    <>
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
       {/* Paciente e Profissional */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
@@ -189,15 +223,47 @@ export function FormEditarVenda({
 
       {/* Médico Referenciador */}
       {origem === 'medico' && (
-        <div>
-          <label className="block text-sm font-medium text-text-primary mb-2">Nome do Médico Referenciador</label>
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-text-primary">
+            Médico Referenciador *
+          </label>
+
           <input
             type="text"
-            value={medicoReferenciador}
-            onChange={(e) => setMedicoReferenciador(e.target.value)}
-            placeholder="Ex: Dr. João Silva"
+            value={buscaMedico}
+            onChange={(e) => setBuscaMedico(e.target.value)}
+            placeholder={medicoSelecionado ? medicoSelecionado.nome : "Buscar médico..."}
             className="w-full px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
           />
+
+          {buscaMedico && (
+            <div className="border border-border rounded-md overflow-hidden">
+              <div className="max-h-32 overflow-y-auto">
+                {medicosFiltrados.length === 0 ? (
+                  <p className="px-3 py-2 text-xs text-text-secondary">Nenhum médico encontrado.</p>
+                ) : (
+                  medicosFiltrados.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => { setMedicoReferenciadorId(m.id); setBuscaMedico('') }}
+                      className={`w-full px-3 py-2 text-left text-sm border-b border-border last:border-0 transition-colors ${
+                        medicoReferenciadorId === m.id
+                          ? 'bg-primary-500 text-white'
+                          : 'hover:bg-page text-text-primary'
+                      }`}
+                    >
+                      {m.nome}
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {medicoSelecionado && !buscaMedico && (
+            <div className="text-xs text-green-600 font-medium">✓ {medicoSelecionado.nome} selecionado</div>
+          )}
         </div>
       )}
 
@@ -233,7 +299,13 @@ export function FormEditarVenda({
           <label className="block text-sm font-medium text-text-primary mb-2">Adicionar Produto</label>
           <select
             value={produtoSelecionado}
-            onChange={(e) => setProdutoSelecionado(e.target.value)}
+            onChange={(e) => {
+              const nextProdutoId = e.target.value
+              const prod = produtos.find((p) => p.id === nextProdutoId)
+
+              setProdutoSelecionado(nextProdutoId)
+              setPrecoUnitario(prod?.preco_padrao ?? 0)
+            }}
             className="w-full px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
           >
             <option value="">Selecione um produto...</option>
@@ -324,7 +396,7 @@ export function FormEditarVenda({
       <input type="hidden" name="paciente_id" value={pacienteId} />
       <input type="hidden" name="profissional_id" value={profissionalId} />
       <input type="hidden" name="origem" value={origem} />
-      <input type="hidden" name="medico_referenciador_nome" value={medicoReferenciador} />
+      <input type="hidden" name="medico_referenciador_id" value={medicoReferenciadorId} />
       <input type="hidden" name="data_venda" value={dataVenda} />
       <input type="hidden" name="observacoes" value={observacoes} />
       <input type="hidden" name="itens_venda_json" value={JSON.stringify(itens)} />
@@ -333,18 +405,78 @@ export function FormEditarVenda({
       <div className="flex items-center justify-end gap-4 pt-4 border-t border-border">
         <button
           type="submit"
-          className="px-6 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-md font-medium transition-colors"
+          disabled={total >= 999999.99}
+          title={total >= 999999.99 ? 'Valor máximo é R$ 999.999,99' : ''}
+          className="px-6 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-md font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          Salvar Alterações
+          {total >= 999999.99 ? 'Valor muito alto' : 'Salvar Alterações'}
         </button>
       </div>
 
       {/* Erro */}
-      {showError && state?.error && (
+      {!showModalConfirmacao && state?.error && (
         <div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-800 text-sm">
           {state.error}
         </div>
       )}
     </form>
+
+    {/* Modal de confirmação para valor zero */}
+    {showModalConfirmacao && (
+      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
+          <h3 className="text-lg font-semibold text-text-primary">Confirmar Venda com Valor Zero</h3>
+          <p className="text-sm text-text-secondary">
+            A venda está com valor total de R$ 0,00. Isso pode ser intencional (brinde, cortesia, etc)?
+          </p>
+          <p className="text-sm text-text-secondary">
+            Digite sua senha para confirmar a alteração com este valor.
+          </p>
+          <input
+            type="password"
+            placeholder="Sua senha"
+            value={senhaConfirmacao}
+            disabled={isConfirmandoSenha}
+            onChange={(e) => {
+              setSenhaConfirmacao(e.target.value)
+              setSenhaError('')
+              setOcultarErroSenhaAction(true)
+            }}
+            className="w-full px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500 disabled:opacity-60 disabled:cursor-wait"
+          />
+          {isConfirmandoSenha && (
+            <div className="flex items-center gap-2 rounded-md border border-primary-200 bg-primary-50 px-3 py-2 text-sm text-primary-800">
+              <LoaderCircle size={16} className="animate-spin" />
+              Validando senha e salvando alterações...
+            </div>
+          )}
+          {erroSenhaConfirmacao && (
+            <div className="p-2 rounded-md bg-red-50 border border-red-200 text-red-800 text-sm">
+              {erroSenhaConfirmacao}
+            </div>
+          )}
+          <div className="flex items-center gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => { setShowModalConfirmacao(false); setSenhaConfirmacao(''); setSenhaError('') }}
+              disabled={isConfirmandoSenha}
+              className="flex-1 px-4 py-2 rounded-md border border-border text-sm font-medium text-text-primary hover:bg-page transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={() => handleConfirmarValorZero(senhaConfirmacao)}
+              disabled={isConfirmandoSenha}
+              className="flex-1 px-4 py-2 rounded-md bg-primary-500 hover:bg-primary-600 text-white text-sm font-medium transition-colors disabled:opacity-70 disabled:cursor-wait inline-flex items-center justify-center gap-2"
+            >
+              {isConfirmandoSenha && <LoaderCircle size={16} className="animate-spin" />}
+              {isConfirmandoSenha ? 'Validando...' : 'Confirmar'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }

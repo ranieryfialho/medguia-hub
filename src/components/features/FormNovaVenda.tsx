@@ -1,8 +1,8 @@
 'use client'
 
 import { criarVenda } from '@/actions/vendas'
-import { useActionState, useEffect, useState } from 'react'
-import { ChevronRight, ChevronLeft, Plus, Trash2 } from 'lucide-react'
+import { useActionState, useState, startTransition, useRef, useTransition } from 'react'
+import { ChevronRight, ChevronLeft, LoaderCircle, Plus, Trash2 } from 'lucide-react'
 
 interface Paciente {
   id: string
@@ -34,6 +34,7 @@ interface FormNovaVendaProps {
   pacientes: Paciente[]
   profissionais: Profissional[]
   produtos: Produto[]
+  medicos?: Profissional[]
 }
 
 const OPCOES_ORIGEM = [
@@ -52,7 +53,7 @@ const ROLE_LABEL: Record<string, string> = {
 
 const ABAS = ['Paciente & Profissional', 'Origem da Venda', 'Produtos']
 
-export function FormNovaVenda({ pacientes, profissionais, produtos }: FormNovaVendaProps) {
+export function FormNovaVenda({ pacientes, profissionais, produtos, medicos = [] }: FormNovaVendaProps) {
   const [state, formAction] = useActionState(criarVenda, null)
 
   const [abaAtual, setAbaAtual] = useState(0)
@@ -65,7 +66,8 @@ export function FormNovaVenda({ pacientes, profissionais, produtos }: FormNovaVe
 
   // Aba 1
   const [origem, setOrigem] = useState('')
-  const [medicoReferenciador, setMedicoReferenciador] = useState('')
+  const [medicoReferenciadorId, setMedicoReferenciadorId] = useState('')
+  const [buscaMedico, setBuscaMedico] = useState('')
   const [dataVenda, setDataVenda] = useState(new Date().toISOString().split('T')[0])
   const [observacoes, setObservacoes] = useState('')
 
@@ -76,7 +78,15 @@ export function FormNovaVenda({ pacientes, profissionais, produtos }: FormNovaVe
   const [precoUnitario, setPrecoUnitario] = useState<number>(0)
   const [descontoPercent, setDescontoPercent] = useState<number>(0)
 
-  const [showError, setShowError] = useState(false)
+  const [showModalConfirmacao, setShowModalConfirmacao] = useState(false)
+  const [senhaConfirmacao, setSenhaConfirmacao] = useState('')
+  const [senhaError, setSenhaError] = useState('')
+  const [ocultarErroSenhaAction, setOcultarErroSenhaAction] = useState(false)
+  const [isConfirmandoSenha, startConfirmacaoSenhaTransition] = useTransition()
+  const formRef = useRef<HTMLFormElement>(null)
+
+  const calcularTotal = () => itens.reduce((s, i) => s + i.quantidade * i.preco_unitario, 0)
+  const total = calcularTotal()
 
   const pacientesFiltrados = buscaPaciente.trim()
     ? pacientes.filter(
@@ -96,16 +106,6 @@ export function FormNovaVenda({ pacientes, profissionais, produtos }: FormNovaVe
   const profissionalSelecionado = profissionais.find((p) => p.id === profissionalId)
   const produtoAtual = produtos.find((p) => p.id === produtoSelecionado)
 
-  useEffect(() => {
-    if (produtoSelecionado) {
-      const prod = produtos.find((p) => p.id === produtoSelecionado)
-      if (prod) {
-        setPrecoUnitario(prod.preco_padrao)
-        setDescontoPercent(0)
-      }
-    }
-  }, [produtoSelecionado, produtos])
-
   const handleDescontoChange = (valor: number) => {
     const desconto = Math.min(100, Math.max(0, valor))
     setDescontoPercent(desconto)
@@ -122,16 +122,14 @@ export function FormNovaVenda({ pacientes, profissionais, produtos }: FormNovaVe
     }
   }
 
-  useEffect(() => {
-    if (state?.error) {
-      setShowError(true)
-      const t = setTimeout(() => setShowError(false), 4000)
-      return () => clearTimeout(t)
-    }
-  }, [state?.error])
-
   const podeAvancar0 = !!pacienteId && !!profissionalId
-  const podeAvancar1 = !!origem && (origem !== 'medico' || medicoReferenciador.trim() !== '')
+  const podeAvancar1 = !!origem && (origem !== 'medico' || !!medicoReferenciadorId)
+
+  const medicosFiltrados = buscaMedico.trim()
+    ? medicos.filter((p) => p.nome.toLowerCase().includes(buscaMedico.toLowerCase()))
+    : medicos
+
+  const medicoSelecionado = medicos.find((p) => p.id === medicoReferenciadorId)
 
   const adicionarProduto = () => {
     if (!produtoSelecionado) return
@@ -144,10 +142,40 @@ export function FormNovaVenda({ pacientes, profissionais, produtos }: FormNovaVe
 
   const removerItem = (idx: number) => setItens(itens.filter((_, i) => i !== idx))
 
-  const calcularTotal = () => itens.reduce((s, i) => s + i.quantidade * i.preco_unitario, 0)
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (total === 0) {
+      setShowModalConfirmacao(true)
+      return
+    }
+
+    const formData = new FormData(e.currentTarget)
+    startTransition(() => formAction(formData))
+  }
+
+  const handleConfirmarValorZero = (senha: string) => {
+    if (!senha.trim()) {
+      setSenhaError('Digite sua senha para confirmar')
+      return
+    }
+
+    if (!formRef.current) {
+      setSenhaError('Não foi possível localizar o formulário.')
+      return
+    }
+
+    const formData = new FormData(formRef.current)
+    formData.set('senha_confirmacao', senha.trim())
+    setSenhaError('')
+    setOcultarErroSenhaAction(false)
+    startConfirmacaoSenhaTransition(() => formAction(formData))
+  }
+
+  const erroSenhaConfirmacao = senhaError || (!ocultarErroSenhaAction && !isConfirmandoSenha ? state?.error : '')
 
   return (
-    <form action={formAction} className="space-y-6">
+    <>
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
 
       {/* Indicador de abas */}
       <div className="flex items-center gap-0">
@@ -306,17 +334,47 @@ export function FormNovaVenda({ pacientes, profissionais, produtos }: FormNovaVe
             </div>
 
             {origem === 'medico' && (
-              <div>
-                <label className="block text-sm font-medium text-text-primary mb-2">
-                  Nome do Médico Referenciador *
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-text-primary">
+                  Médico Referenciador *
                 </label>
+
                 <input
                   type="text"
-                  value={medicoReferenciador}
-                  onChange={(e) => setMedicoReferenciador(e.target.value)}
-                  placeholder="Ex: Dr. João Silva"
+                  value={buscaMedico}
+                  onChange={(e) => setBuscaMedico(e.target.value)}
+                  placeholder={medicoSelecionado ? medicoSelecionado.nome : "Buscar médico..."}
                   className="w-full px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
                 />
+
+                {buscaMedico && (
+                  <div className="border border-border rounded-md overflow-hidden">
+                    <div className="max-h-32 overflow-y-auto">
+                      {medicosFiltrados.length === 0 ? (
+                        <p className="px-3 py-2 text-xs text-text-secondary">Nenhum médico encontrado.</p>
+                      ) : (
+                        medicosFiltrados.map((m) => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => { setMedicoReferenciadorId(m.id); setBuscaMedico('') }}
+                            className={`w-full px-3 py-2 text-left text-sm border-b border-border last:border-0 transition-colors ${
+                              medicoReferenciadorId === m.id
+                                ? 'bg-primary-500 text-white'
+                                : 'hover:bg-page text-text-primary'
+                            }`}
+                          >
+                            {m.nome}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {medicoSelecionado && !buscaMedico && (
+                  <div className="text-xs text-green-600 font-medium">✓ {medicoSelecionado.nome} selecionado</div>
+                )}
               </div>
             )}
           </div>
@@ -359,7 +417,14 @@ export function FormNovaVenda({ pacientes, profissionais, produtos }: FormNovaVe
               <label className="block text-sm font-medium text-text-primary mb-2">Produto</label>
               <select
                 value={produtoSelecionado}
-                onChange={(e) => setProdutoSelecionado(e.target.value)}
+                onChange={(e) => {
+                  const nextProdutoId = e.target.value
+                  const prod = produtos.find((p) => p.id === nextProdutoId)
+
+                  setProdutoSelecionado(nextProdutoId)
+                  setPrecoUnitario(prod?.preco_padrao ?? 0)
+                  setDescontoPercent(0)
+                }}
                 className="w-full px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
               >
                 <option value="">Selecione um produto...</option>
@@ -505,7 +570,7 @@ export function FormNovaVenda({ pacientes, profissionais, produtos }: FormNovaVe
       <input type="hidden" name="paciente_id" value={pacienteId} />
       <input type="hidden" name="profissional_id" value={profissionalId} />
       <input type="hidden" name="origem" value={origem} />
-      <input type="hidden" name="medico_referenciador_nome" value={medicoReferenciador} />
+      <input type="hidden" name="medico_referenciador_id" value={medicoReferenciadorId} />
       <input type="hidden" name="data_venda" value={dataVenda} />
       <input type="hidden" name="observacoes" value={observacoes} />
       <input type="hidden" name="itens_venda_json" value={JSON.stringify(itens)} />
@@ -538,19 +603,78 @@ export function FormNovaVenda({ pacientes, profissionais, produtos }: FormNovaVe
         ) : (
           <button
             type="submit"
-            disabled={itens.length === 0}
+            disabled={itens.length === 0 || total >= 999999.99}
+            title={total >= 999999.99 ? 'Valor máximo é R$ 999.999,99' : ''}
             className="px-6 py-2.5 rounded-md bg-green-600 hover:bg-green-700 text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            Criar Venda
+            {total >= 999999.99 ? 'Valor muito alto' : 'Criar Venda'}
           </button>
         )}
       </div>
 
-      {showError && state?.error && (
+      {!showModalConfirmacao && state?.error && (
         <div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-800 text-sm">
           {state.error}
         </div>
       )}
     </form>
+
+    {/* Modal de confirmação para valor zero */}
+    {showModalConfirmacao && (
+      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
+          <h3 className="text-lg font-semibold text-text-primary">Confirmar Venda com Valor Zero</h3>
+          <p className="text-sm text-text-secondary">
+            A venda está com valor total de R$ 0,00. Isso pode ser intencional (brinde, cortesia, etc)?
+          </p>
+          <p className="text-sm text-text-secondary">
+            Digite sua senha para confirmar a venda com este valor.
+          </p>
+          <input
+            type="password"
+            placeholder="Sua senha"
+            value={senhaConfirmacao}
+            disabled={isConfirmandoSenha}
+            onChange={(e) => {
+              setSenhaConfirmacao(e.target.value)
+              setSenhaError('')
+              setOcultarErroSenhaAction(true)
+            }}
+            className="w-full px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500 disabled:opacity-60 disabled:cursor-wait"
+          />
+          {isConfirmandoSenha && (
+            <div className="flex items-center gap-2 rounded-md border border-primary-200 bg-primary-50 px-3 py-2 text-sm text-primary-800">
+              <LoaderCircle size={16} className="animate-spin" />
+              Validando senha e finalizando venda...
+            </div>
+          )}
+          {erroSenhaConfirmacao && (
+            <div className="p-2 rounded-md bg-red-50 border border-red-200 text-red-800 text-sm">
+              {erroSenhaConfirmacao}
+            </div>
+          )}
+          <div className="flex items-center gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => { setShowModalConfirmacao(false); setSenhaConfirmacao(''); setSenhaError('') }}
+              disabled={isConfirmandoSenha}
+              className="flex-1 px-4 py-2 rounded-md border border-border text-sm font-medium text-text-primary hover:bg-page transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={() => handleConfirmarValorZero(senhaConfirmacao)}
+              disabled={isConfirmandoSenha}
+              className="flex-1 px-4 py-2 rounded-md bg-primary-500 hover:bg-primary-600 text-white text-sm font-medium transition-colors disabled:opacity-70 disabled:cursor-wait inline-flex items-center justify-center gap-2"
+            >
+              {isConfirmandoSenha && <LoaderCircle size={16} className="animate-spin" />}
+              {isConfirmandoSenha ? 'Validando...' : 'Confirmar'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }

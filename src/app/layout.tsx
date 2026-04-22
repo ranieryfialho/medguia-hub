@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { PageTransitionLoader } from '@/components/layout/PageTransitionLoader'
 
 export const metadata: Metadata = {
   title: 'MedGuia Hub',
@@ -13,7 +14,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body>{children}</body>
+      <body>
+        <PageTransitionLoader />
+        {children}
+      </body>
     </html>
   )
 }
