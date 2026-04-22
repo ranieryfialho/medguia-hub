@@ -96,7 +96,6 @@ export default async function VendasListPage({
       <div className="bg-surface rounded-b-lg shadow-sm border border-border -mt-6">
         <FiltrosVendas />
 
-        {/* Tabela — Desktop */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[900px]">
             <thead>
