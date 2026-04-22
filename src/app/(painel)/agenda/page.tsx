@@ -210,10 +210,8 @@ export default async function AgendaPage({ searchParams }: PageProps) {
     cargo: p.role || 'Profissional'
   })) || []
 
-  // Busca disponibilidades para o modal e para highlight na semana
   const todasDisponibilidades = await listarTodasDisponibilidades()
 
-  // Record<profissionalId, Record<diaSemana, disponibilidade>>
   const disponibilidadesMap: Record<string, Record<number, DisponibilidadeDia>> = {}
   for (const d of todasDisponibilidades) {
     if (!disponibilidadesMap[d.profissional_id]) disponibilidadesMap[d.profissional_id] = {}
