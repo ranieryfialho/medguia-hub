@@ -5,7 +5,7 @@ import { format } from 'date-fns'
 import { MoreVertical, CheckCircle, XCircle, Phone, RefreshCw, AlertCircle, User } from 'lucide-react'
 import { BtnWhatsApp } from './BtnWhatsApp'
 import { ModalSessaoReposicao } from './ModalSessaoReposicao'
-import { registrarContato, obterProximaData } from '@/actions/confirmacoes'
+import { registrarContato, obterProximaData, adicionarSessaoReposicao, criarAtendimentoReagendado } from '@/actions/confirmacoes'
 import toast from 'react-hot-toast'
 
 type Paciente = {
@@ -123,12 +123,12 @@ export function CardConfirmacaoPaciente({
     setProximaData(undefined)
     setProximaHora(undefined)
 
-    if (!tipo) return
+    if (!tipo || !agendado) return
 
     const res = await registrarContato(paciente.atendimento_id, tipo)
     if (res.error) {
       toast.error(res.error)
-    } else if (agendado) {
+    } else {
       const label = tipo === 'vai_faltar' ? 'Falta registrada' : 'Reagendamento registrado'
       toast.success(`${paciente.nome} — ${label}`)
     }
@@ -232,12 +232,16 @@ export function CardConfirmacaoPaciente({
       {/* Modal de sessão de reposição */}
       {modalAberto && paciente.agendamento_id && (
         <ModalSessaoReposicao
-          agendamentoId={paciente.agendamento_id}
           pacienteNome={paciente.nome}
           defaultData={proximaData}
           defaultHora={proximaHora}
           onClose={() => handleModalClose(false)}
           onSaved={() => handleModalClose(true)}
+          onSalvarCustom={
+            paciente.agendamento_id
+              ? (data, hora) => adicionarSessaoReposicao(paciente.agendamento_id!, paciente.atendimento_id, data, hora)
+              : (data, hora) => criarAtendimentoReagendado(paciente.atendimento_id, data, hora)
+          }
         />
       )}
     </>

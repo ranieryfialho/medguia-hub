@@ -205,7 +205,6 @@ export function MenuAcoesAgendamento({ id, statusAtual, onOpenChange, atendiment
       {/* Modal renderizado via portal para evitar conflito com click-outside */}
       {mounted && modalAberto && atendimentoId && createPortal(
         <ModalSessaoReposicao
-          agendamentoId={agendamentoId ?? ''}
           pacienteNome={pacienteNome || 'Paciente'}
           defaultData={proximaData}
           defaultHora={proximaHora}

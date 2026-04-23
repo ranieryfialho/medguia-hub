@@ -2,11 +2,9 @@
 
 import { useState } from 'react'
 import { X } from 'lucide-react'
-import { adicionarSessaoReposicao } from '@/actions/confirmacoes'
 import toast from 'react-hot-toast'
 
 interface ModalSessaoReposicaoProps {
-  agendamentoId: string
   pacienteNome: string
   defaultData?: string  // 'yyyy-MM-dd'
   defaultHora?: string  // 'HH:mm'
@@ -17,7 +15,6 @@ interface ModalSessaoReposicaoProps {
 }
 
 export function ModalSessaoReposicao({
-  agendamentoId,
   pacienteNome,
   defaultData,
   defaultHora,
@@ -35,9 +32,8 @@ export function ModalSessaoReposicao({
       return
     }
     setSaving(true)
-    const res = onSalvarCustom
-      ? await onSalvarCustom(data, hora)
-      : await adicionarSessaoReposicao(agendamentoId, data, hora)
+    if (!onSalvarCustom) return
+    const res = await onSalvarCustom(data, hora)
     setSaving(false)
     if (res.error) {
       toast.error(res.error)
