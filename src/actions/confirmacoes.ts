@@ -135,25 +135,27 @@ export async function registrarContato(
  */
 export async function adicionarSessaoReposicao(
   agendamentoId: string,
+  atendimentoOrigemId: string,
   data: string, // 'yyyy-MM-dd'
   hora: string  // 'HH:mm'
 ): Promise<{ success?: boolean; error?: string }> {
   const supabase = await createClient()
 
-  const { data: agendamento } = await supabase
-    .from('agendamentos')
-    .select('paciente_id, profissional_id, tipo, duracao_minutos, observacoes')
-    .eq('id', agendamentoId)
-    .single()
+  const [{ data: agendamento }, { data: origem }] = await Promise.all([
+    supabase
+      .from('agendamentos')
+      .select('paciente_id, profissional_id, tipo, duracao_minutos, observacoes')
+      .eq('id', agendamentoId)
+      .single(),
+    supabase
+      .from('atendimentos')
+      .select('numero_sessao, total_sessoes')
+      .eq('id', atendimentoOrigemId)
+      .single(),
+  ])
 
   if (!agendamento) return { error: 'Agendamento não encontrado.' }
-
-  const { count } = await supabase
-    .from('atendimentos')
-    .select('id', { count: 'exact', head: true })
-    .eq('agendamento_id', agendamentoId)
-
-  const novoNumero = (count ?? 0) + 1
+  if (!origem) return { error: 'Sessão de origem não encontrada.' }
 
   const { error } = await supabase.from('atendimentos').insert({
     paciente_id: agendamento.paciente_id,
@@ -164,20 +166,14 @@ export async function adicionarSessaoReposicao(
     observacoes: agendamento.observacoes,
     status: 'Aguardando',
     agendamento_id: agendamentoId,
-    numero_sessao: novoNumero,
-    total_sessoes: novoNumero,
+    numero_sessao: origem.numero_sessao,
+    total_sessoes: origem.total_sessoes,
   })
 
   if (error) {
     console.error('Erro ao adicionar sessão de reposição:', error.message)
     return { error: 'Não foi possível agendar a reposição.' }
   }
-
-  // Atualiza total_sessoes em todos os atendimentos do bloco
-  await supabase
-    .from('atendimentos')
-    .update({ total_sessoes: novoNumero })
-    .eq('agendamento_id', agendamentoId)
 
   revalidatePath('/agenda')
   revalidatePath('/confirmacoes')

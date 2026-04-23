@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { MoreVertical, CheckCircle, Hourglass, Stethoscope, CheckCheck, XCircle, UserX, RefreshCw } from 'lucide-react'
 import { mudarStatusAgendamento } from '@/actions/agenda'
-import { obterProximaData, registrarContato, criarAtendimentoReagendado } from '@/actions/confirmacoes'
+import { obterProximaData, registrarContato, criarAtendimentoReagendado, adicionarSessaoReposicao } from '@/actions/confirmacoes'
 import { ModalSessaoReposicao } from './ModalSessaoReposicao'
 import { format } from 'date-fns'
 import toast from 'react-hot-toast'
@@ -134,11 +134,11 @@ export function MenuAcoesAgendamento({ id, statusAtual, onOpenChange, atendiment
 
     if (!atendimentoId) return
 
-    if (tipo === 'vai_faltar') {
+    if (tipo === 'vai_faltar' && agendado) {
       const res = await registrarContato(atendimentoId, 'vai_faltar')
       if (res.error) {
         toast.error(res.error)
-      } else if (agendado) {
+      } else {
         toast.success(`${pacienteNome} — Falta registrada`)
       }
     } else if (tipo === 'reagendamento') {
@@ -212,11 +212,9 @@ export function MenuAcoesAgendamento({ id, statusAtual, onOpenChange, atendiment
           onClose={() => handleModalClose(false)}
           onSaved={() => handleModalClose(true)}
           onSalvarCustom={
-            // Recorrente + falta → adicionarSessaoReposicao (já vinculado ao agendamento_id, mantém contador)
-            // Único (sem agendamento_id) ou reagendamento → cria atendimento avulso
-            agendamentoId && modalAberto === 'vai_faltar'
-              ? undefined
-              : (data, hora) => criarAtendimentoReagendado(atendimentoId, data, hora)
+            agendamentoId && atendimentoId
+              ? (data, hora) => adicionarSessaoReposicao(agendamentoId, atendimentoId, data, hora)
+              : (data, hora) => criarAtendimentoReagendado(atendimentoId ?? '', data, hora)
           }
         />,
         document.body
