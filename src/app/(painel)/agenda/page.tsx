@@ -286,7 +286,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
           <div className="flex-1 min-h-0 bg-white rounded-3xl p-4 shadow-sm border border-[#bcc9c4]/30 overflow-hidden flex flex-col">
 
             {view === 'dia' && (
-              <>
+              <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
                 {/* Cabeçalho dos dias da semana */}
                 <div className="flex-shrink-0 grid grid-cols-7 border-b border-[#bcc9c4]/30 mb-3 pb-3">
                   {diasDaSemana.map((dia) => {
@@ -307,7 +307,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 </div>
 
                 {/* Lista de agendamentos — scroll interno */}
-                <div className="flex-1 min-h-0 overflow-y-auto pr-2 space-y-3 scrollbar-thin scrollbar-thumb-slate-200">
+                <div className="overflow-y-auto pb-2 space-y-3 scrollbar-thin scrollbar-thumb-slate-200" style={{ maxHeight: 'calc(100vh - 280px)' }}>
                   {agendamentosHoje.length > 0 ? (
                     agendamentosHoje.map((agendamento) => (
                       <AgendamentoItemDia key={agendamento.id} agendamento={agendamento} pacientes={listaPacientes || []} profissionais={todosProfissionaisFormatados} />
@@ -324,7 +324,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                     </div>
                   </div>
                 </div>
-              </>
+              </div>
             )}
 
             {view === 'semana' && (
@@ -465,7 +465,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
         <div className="col-span-1 lg:col-span-4 flex flex-col gap-4 min-h-0 overflow-hidden overflow-y-auto lg:overflow-hidden">
 
           {/* Card de resumo */}
-          <div className="flex-shrink-0 bg-gradient-to-br from-[#006b5a] to-[#33a68f] p-5 rounded-3xl shadow-xl shadow-[#006b5a]/20 text-white">
+          <div className="flex-shrink-0 bg-gradient-to-br from-[#006b5a] to-[#33a68f] p-5 rounded-3xl text-white">
             <div className="flex justify-between items-start mb-4">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-widest opacity-80">
