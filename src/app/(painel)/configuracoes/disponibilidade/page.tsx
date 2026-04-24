@@ -104,7 +104,7 @@ async function ViewIndividual({
     .eq('profissional_id', targetId)
     .gte('data_agendamento', inicioDaSemana.toISOString())
     .lte('data_agendamento', fimDaSemana.toISOString())
-    .not('status', 'in', '("cancelado","Cancelado","falta","Falta")')
+    .not('status', 'in', '("cancelado","Cancelado","falta","Falta","reagendado","Reagendado")')
 
   type DiaDados = {
     dia: Date
@@ -351,7 +351,7 @@ async function ViewGeral({
     .in('profissional_id', profIds)
     .gte('data_agendamento', inicioDaSemana.toISOString())
     .lte('data_agendamento', fimDaSemana.toISOString())
-    .not('status', 'in', '("cancelado","Cancelado","falta","Falta")')
+    .not('status', 'in', '("cancelado","Cancelado","falta","Falta","reagendado","Reagendado")')
 
   // Montar mapa: profId → dia_semana → { inicio, fim }
   const jornadaMap = new Map<string, Map<number, DisponibilidadeDia>>()
