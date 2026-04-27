@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  X, Phone, Mail, Calendar, Clock, ChevronDown,
+  Phone, Mail, Calendar, Clock, ChevronDown,
   CheckCircle, Hourglass, Stethoscope, CheckCheck, XCircle, UserX, RefreshCw, User, CalendarClock,
   MessageCircle, Pencil, Trash2, MapPin
 } from 'lucide-react'
@@ -171,28 +171,22 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
                 </p>
               )}
             </div>
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-lg hover:bg-[#f0f5f4] text-[#3d4945] transition-colors shrink-0"
-            >
-              <X size={18} />
-            </button>
           </div>
 
           {/* Ações rápidas */}
           <div className="flex items-center gap-3 mt-4">
             <button
               onClick={() => { router.push('/confirmacoes/cards'); onClose() }}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#bcc9c4] text-sm font-semibold text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-[#bcc9c4] text-xs font-semibold text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
             >
-              <MessageCircle size={15} className="text-[#25d366]" />
-              Enviar lembrete – WhatsApp
+              <MessageCircle size={14} className="text-[#25d366]" />
+              Enviar Lembrete
             </button>
 
-            <div className="relative ml-auto" ref={opcoesRef}>
+            <div className="relative flex-1" ref={opcoesRef}>
               <button
                 onClick={() => { setShowOpcoes(prev => !prev); setConfirmandoExclusao(false) }}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-[#bcc9c4] text-sm font-semibold text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
+                className="w-full flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl border border-[#bcc9c4] text-sm font-semibold text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
               >
                 Opções
                 <ChevronDown size={14} />
@@ -311,10 +305,11 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
 
           {/* Status */}
           <div className="relative">
+            <label className="block text-xs font-bold text-[#6d7a75] mb-2">Status</label>
             <button
               onClick={() => setShowStatusMenu(prev => !prev)}
               disabled={loading}
-              className="flex items-center gap-2 border border-[#bcc9c4] rounded-xl px-4 py-2 text-sm font-semibold text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
+              className="w-full flex items-center justify-between border border-[#bcc9c4] rounded-xl px-4 py-2 text-sm font-semibold text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
             >
               <span>{status || 'Agendado'}</span>
               <ChevronDown size={14} />
@@ -337,19 +332,12 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-[#bcc9c4]/30 bg-[#f5faf9] flex justify-end gap-3 rounded-b-2xl">
+        <div className="px-6 py-4 border-t border-[#bcc9c4]/30 bg-[#f5faf9] flex justify-end rounded-b-2xl">
           <button
             onClick={onClose}
             className="px-5 py-2.5 rounded-xl font-bold text-[#3d4945] bg-white border border-[#bcc9c4] hover:bg-[#dee3e3] transition-colors text-sm"
           >
             Fechar
-          </button>
-          <button
-            onClick={() => handleStatusChange('Confirmado')}
-            disabled={loading || status?.toLowerCase() === 'confirmado'}
-            className="px-5 py-2.5 rounded-xl font-bold text-white bg-[#006b5a] hover:bg-[#004f43] transition-colors text-sm disabled:opacity-50"
-          >
-            Confirmar paciente
           </button>
         </div>
       </div>
@@ -368,8 +356,8 @@ export function AgendamentoItemDia({ agendamento, pacientes, profissionais }: { 
 
   return (
     <>
-      <div className="grid grid-cols-[72px_1fr] gap-3 group">
-        <div className="text-sm font-bold text-[#3d4945]/60 flex items-start justify-end pt-2">{hora}</div>
+      <div className="grid grid-cols-[50px_1fr] sm:grid-cols-[72px_1fr] gap-2 sm:gap-3 group">
+        <div className="text-xs sm:text-sm font-bold text-[#3d4945]/60 flex items-start justify-end pt-2">{hora}</div>
         <div className="relative py-3 border-t border-dashed border-[#bcc9c4]/50 flex items-center">
           <div
             onClick={() => setModalAberto(true)}
@@ -397,8 +385,8 @@ export function AgendamentoItemDia({ agendamento, pacientes, profissionais }: { 
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <span className={`px-3 py-1 ${config.badgeBg} text-white text-[10px] font-bold rounded-full uppercase tracking-widest`}>
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              <span className={`hidden sm:inline-block px-3 py-1 ${config.badgeBg} text-white text-[10px] font-bold rounded-full uppercase tracking-widest`}>
                 {config.label}
               </span>
               <div onClick={e => e.stopPropagation()}>
