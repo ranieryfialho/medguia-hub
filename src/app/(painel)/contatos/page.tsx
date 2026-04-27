@@ -18,34 +18,50 @@ export type ContatoPaciente = {
 
 export type ProfileSimples = { id: string; full_name: string }
 
+async function fetchAll<T>(
+  fetcher: (from: number, to: number) => PromiseLike<{ data: T[] | null }>
+): Promise<T[]> {
+  const SIZE = 1000
+  const acc: T[] = []
+  let page = 0
+  while (true) {
+    const { data } = await fetcher(page * SIZE, (page + 1) * SIZE - 1)
+    if (!data?.length) break
+    acc.push(...data)
+    if (data.length < SIZE) break
+    page++
+  }
+  return acc
+}
+
 export default async function ContatosPage() {
   const supabase = await createClient()
 
-  const [
-    { data: pacientes },
-    { data: contatos },
-    { data: profiles },
-    { data: atendimentos },
-    templates,
-  ] = await Promise.all([
-    supabase.from('pacientes').select('id, nome, telefone, email').eq('ativo', true).order('nome'),
-    supabase.from('contatos_base').select('paciente_id, status, responsavel_id'),
+  const [pacientes, contatos, { data: profiles }, atendimentos, templates] = await Promise.all([
+    fetchAll((from, to) =>
+      supabase.from('pacientes').select('id, nome, telefone, email').eq('ativo', true).order('nome').range(from, to)
+    ),
+    fetchAll((from, to) =>
+      supabase.from('contatos_base').select('paciente_id, status, responsavel_id').range(from, to)
+    ),
     supabase.from('profiles').select('id, full_name').eq('ativo', true).neq('role', 'master').neq('role', 'medico').order('full_name'),
-    supabase.from('atendimentos').select('paciente_id, data_agendamento, tipo').order('data_agendamento', { ascending: false }),
+    fetchAll((from, to) =>
+      supabase.from('atendimentos').select('paciente_id, data_agendamento, tipo').order('data_agendamento', { ascending: false }).range(from, to)
+    ),
     listarTemplates('reativacao'),
   ])
 
-  const contatosMap = new Map((contatos ?? []).map(c => [c.paciente_id, c]))
+  const contatosMap = new Map(contatos.map(c => [c.paciente_id, c]))
   const profilesMap = new Map((profiles ?? []).map(p => [p.id, p]))
 
   const ultimoAtendimentoMap = new Map<string, { data: string; tipo: string }>()
-  for (const a of atendimentos ?? []) {
+  for (const a of atendimentos) {
     if (!ultimoAtendimentoMap.has(a.paciente_id)) {
       ultimoAtendimentoMap.set(a.paciente_id, { data: a.data_agendamento, tipo: a.tipo })
     }
   }
 
-  const data: ContatoPaciente[] = (pacientes ?? []).map(p => {
+  const data: ContatoPaciente[] = pacientes.map(p => {
     const c = contatosMap.get(p.id)
     const ua = ultimoAtendimentoMap.get(p.id)
     const responsavelNome = c?.responsavel_id ? profilesMap.get(c.responsavel_id)?.full_name ?? null : null

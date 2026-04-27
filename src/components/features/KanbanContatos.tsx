@@ -99,6 +99,8 @@ function interpolarTemplate(conteudo: string, contato: ContatoPaciente): string 
     .replace(/\{\{sessao\}\}/g, '')
 }
 
+const INITIAL_PER_COLUMN = 50
+
 // ─── Column config ───────────────────────────────────────────────────────────
 
 type ColunaConfig = {
@@ -168,6 +170,9 @@ export function KanbanContatos({
   const [search, setSearch] = useState('')
   const [responsavelFilter, setResponsavelFilter] = useState<string | null>(null)
   const [activeColuna, setActiveColuna] = useState<StatusContato>('a_contactar')
+  const [visibleCount, setVisibleCount] = useState<Record<StatusContato, number>>(
+    () => Object.fromEntries(COLUNAS.map(c => [c.status, INITIAL_PER_COLUMN])) as Record<StatusContato, number>
+  )
   const [selected, setSelected] = useState<ContatoPaciente | null>(null)
 const [notas, setNotas] = useState<Nota[]>([])
   const [loadingNotas, setLoadingNotas] = useState(false)
@@ -201,6 +206,11 @@ const [notas, setNotas] = useState<Nota[]>([])
       setLoadingNotas(false)
     })
   }, [selected?.id])
+
+  // Reset visible count when filters change
+  useEffect(() => {
+    setVisibleCount(Object.fromEntries(COLUNAS.map(c => [c.status, INITIAL_PER_COLUMN])) as Record<StatusContato, number>)
+  }, [search, responsavelFilter])
 
   // Filtragem
   const filtered = contatos.filter(c => {
@@ -382,6 +392,9 @@ const [notas, setNotas] = useState<Nota[]>([])
       <div className="flex gap-3 overflow-x-auto pb-4 items-start">
         {COLUNAS.map((col, colIdx) => {
           const cards = filtered.filter(c => c.status === col.status)
+          const limit = search || responsavelFilter ? cards.length : visibleCount[col.status]
+          const visibleCards = cards.slice(0, limit)
+          const hiddenCount = cards.length - visibleCards.length
           const isMobileHidden = col.status !== activeColuna
 
           return (
@@ -424,7 +437,7 @@ const [notas, setNotas] = useState<Nota[]>([])
                     Vazio
                   </div>
                 ) : (
-                  cards.map(contato => {
+                  visibleCards.map(contato => {
                     const dias = diasDesde(contato.ultimo_atendimento_data)
                     const cor = dias !== null ? diasCor(dias) : '#9BB0AD'
 
@@ -534,6 +547,15 @@ const [notas, setNotas] = useState<Nota[]>([])
                       </div>
                     )
                   })
+                )}
+                {hiddenCount > 0 && (
+                  <button
+                    onClick={() => setVisibleCount(prev => ({ ...prev, [col.status]: prev[col.status] + INITIAL_PER_COLUMN }))}
+                    className="w-full mt-1 py-2 text-xs font-semibold rounded-lg border border-dashed transition-colors"
+                    style={{ borderColor: col.cor + '60', color: col.cor, backgroundColor: col.corBg }}
+                  >
+                    Ver mais {hiddenCount} →
+                  </button>
                 )}
               </div>
             </div>
