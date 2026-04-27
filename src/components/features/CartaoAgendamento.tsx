@@ -5,8 +5,14 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
   CalendarDays, ChevronDown, ChevronUp, RefreshCw, Calendar,
-  CheckCircle, Hourglass, Stethoscope, CheckCheck, XCircle, UserX, CalendarClock
+  CheckCircle, Hourglass, Stethoscope, CheckCheck, XCircle, UserX, CalendarClock, ClipboardList
 } from 'lucide-react'
+
+type ProntuarioResumo = {
+  evolucao: string | null
+  escala_dor: number | null
+  queixa_principal: string | null
+}
 
 type Sessao = {
   id: string
@@ -14,6 +20,7 @@ type Sessao = {
   status: string
   observacoes?: string | null
   duracao_minutos?: number | null
+  prontuario?: ProntuarioResumo | null
 }
 
 type AgendamentoComSessoes = {
@@ -36,6 +43,13 @@ const STATUS_CONFIG: Record<string, { label: string; cor: string; bg: string; Ic
 
 function getStatusConfig(status: string) {
   return STATUS_CONFIG[status] ?? { label: status, cor: 'text-slate-500', bg: 'bg-slate-100', Icon: CheckCircle }
+}
+
+function dorBadgeClass(n: number): string {
+  if (n === 0)  return 'bg-emerald-100 text-emerald-700'
+  if (n <= 3)   return 'bg-lime-100    text-lime-700'
+  if (n <= 6)   return 'bg-amber-100   text-amber-700'
+  return              'bg-red-100     text-red-700'
 }
 
 function calcularStatusGeral(sessoes: Sessao[]): string {
@@ -162,21 +176,52 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
             {sessoesOrdenadas.map((sessao, idx) => {
               const sc = getStatusConfig(sessao.status)
               const SessaoIcon = sc.Icon
+              const p = sessao.prontuario
+              const temProntuario = p && (p.evolucao || p.escala_dor !== null || p.queixa_principal)
               return (
-                <div key={sessao.id} className={`flex items-center gap-3 p-2.5 rounded-lg border border-current/10 ${sc.bg}`}>
-                  <span className="text-[11px] font-bold text-slate-400 w-5 text-center shrink-0">{idx + 1}</span>
-                  <SessaoIcon size={14} className={`${sc.cor} shrink-0`} />
-                  <div className="flex-1 min-w-0">
-                    <span className="text-xs font-semibold text-slate-700">
-                      {format(new Date(sessao.data_agendamento), "EEEE, dd MMM yyyy • HH:mm", { locale: ptBR })}
-                    </span>
-                    {sessao.observacoes && (
-                      <p className="text-[11px] text-slate-500 mt-0.5 truncate">{sessao.observacoes}</p>
-                    )}
+                <div key={sessao.id} className={`rounded-lg border border-current/10 overflow-hidden ${sc.bg}`}>
+                  <div className="flex items-center gap-3 p-2.5">
+                    <span className="text-[11px] font-bold text-slate-400 w-5 text-center shrink-0">{idx + 1}</span>
+                    <SessaoIcon size={14} className={`${sc.cor} shrink-0`} />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-semibold text-slate-700">
+                        {format(new Date(sessao.data_agendamento), "EEEE, dd MMM yyyy • HH:mm", { locale: ptBR })}
+                      </span>
+                      {sessao.observacoes && (
+                        <p className="text-[11px] text-slate-500 mt-0.5 truncate">{sessao.observacoes}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {temProntuario && (
+                        <ClipboardList size={12} className="text-[#006b5a]" />
+                      )}
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${sc.bg} ${sc.cor} border border-current/20`}>
+                        {sc.label}
+                      </span>
+                    </div>
                   </div>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded shrink-0 ${sc.bg} ${sc.cor} border border-current/20`}>
-                    {sc.label}
-                  </span>
+                  {temProntuario && (
+                    <div className="px-3 pb-2.5 pt-0 space-y-1">
+                      <div className="h-px bg-current/10 mb-2" />
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <ClipboardList size={11} className="text-[#006b5a] shrink-0" />
+                        <span className="text-[10px] font-bold text-[#006b5a] uppercase tracking-wide">Evolução</span>
+                        {p!.escala_dor !== null && (
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${dorBadgeClass(p!.escala_dor!)}`}>
+                            EVA {p!.escala_dor}
+                          </span>
+                        )}
+                      </div>
+                      {p!.queixa_principal && (
+                        <p className="text-[11px] text-slate-600 leading-relaxed">
+                          <span className="font-semibold">Queixa: </span>{p!.queixa_principal}
+                        </p>
+                      )}
+                      {p!.evolucao && (
+                        <p className="text-[11px] text-slate-600 leading-relaxed line-clamp-3">{p!.evolucao}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )
             })}

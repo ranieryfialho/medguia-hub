@@ -176,10 +176,18 @@ export function Sidebar({ onMobileClose, onOpenNovoAgendamento, userRole: userRo
           <span className="text-sm">Pacientes</span>
         </Link>
 
-        <span className="flex items-center gap-3 px-4 py-3 rounded-xl opacity-40 cursor-not-allowed text-[#3d4945] font-medium">
+        <Link
+          href="/prontuarios"
+          onClick={handleNavClick}
+          className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+            isActive('/prontuarios')
+              ? 'bg-white text-[#006b5a] shadow-sm translate-x-1 font-semibold'
+              : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
+          }`}
+        >
           <FileText size={20} />
           <span className="text-sm">Prontuários</span>
-        </span>
+        </Link>
 
         {/* Grupo Comercial */}
         <div>

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   Phone, Mail, Calendar, Clock, ChevronDown,
   CheckCircle, Hourglass, Stethoscope, CheckCheck, XCircle, UserX, RefreshCw, User, CalendarClock,
-  MessageCircle, Pencil, Trash2, MapPin
+  MessageCircle, Pencil, Trash2, MapPin, ClipboardList
 } from 'lucide-react'
 import {
   mudarStatusAgendamento,
@@ -16,6 +16,7 @@ import {
 } from '@/actions/agenda'
 import { MenuAcoesAgendamento } from './MenuAcoesAgendamento'
 import { SlideNovoAgendamento } from './SlideNovoAgendamento'
+import { ProntuarioEvolucao } from './ProntuarioEvolucao'
 import { formatAppDateLabel, formatAppTime } from '@/lib/datetime'
 
 type Paciente = { id: string; nome: string }
@@ -66,6 +67,7 @@ function getConfig(status: string) {
 function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDetalhe; onClose: () => void; onEditar: () => void }) {
   const router = useRouter()
   const [status, setStatus] = useState(agendamento.status)
+  const [activeTab, setActiveTab] = useState<'detalhes' | 'evolucao'>('detalhes')
   const [showStatusMenu, setShowStatusMenu] = useState(false)
   const [showOpcoes, setShowOpcoes] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -139,7 +141,7 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       <div
-        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md z-10"
+        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md z-10 flex flex-col max-h-[90dvh]"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -250,10 +252,39 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
           </div>
         </div>
 
-        <div className="h-px bg-[#bcc9c4]/30 mx-6" />
+        {/* Tabs */}
+        <div className="flex border-y border-[#bcc9c4]/30 bg-[#f5faf9] shrink-0">
+          <button
+            onClick={() => setActiveTab('detalhes')}
+            className={`flex-1 py-2.5 text-xs font-bold transition-colors ${
+              activeTab === 'detalhes'
+                ? 'text-[#006b5a] border-b-2 border-[#006b5a] bg-white'
+                : 'text-[#6d7a75] hover:text-[#3d4945]'
+            }`}
+          >
+            Detalhes
+          </button>
+          <button
+            onClick={() => setActiveTab('evolucao')}
+            className={`flex-1 py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${
+              activeTab === 'evolucao'
+                ? 'text-[#006b5a] border-b-2 border-[#006b5a] bg-white'
+                : 'text-[#6d7a75] hover:text-[#3d4945]'
+            }`}
+          >
+            <ClipboardList size={13} />
+            Evolução
+          </button>
+        </div>
 
         {/* Body */}
-        <div className="px-6 py-5 space-y-4">
+        <div className="px-6 py-5 space-y-4 overflow-y-auto flex-1">
+          {activeTab === 'evolucao' ? (
+            <ProntuarioEvolucao
+              atendimentoId={agendamento.id}
+              pacienteId={agendamento.paciente_id}
+            />
+          ) : (<>
           {/* Tipo + Sessão */}
           <div className="flex items-center gap-3">
             <MapPin size={16} className="text-[#006b5a] shrink-0" />
@@ -329,6 +360,8 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
               </div>
             )}
           </div>
+          </>
+          )}
         </div>
 
         {/* Footer */}

@@ -6,6 +6,7 @@ import { FiltrosJornada } from '@/components/features/FiltrosJornada'
 import { CartaoAgendamento } from '@/components/features/CartaoAgendamento'
 import { CartaoVenda, type VendaTimeline } from '@/components/features/CartaoVenda'
 import { BtnGerarPdfProntuario } from '@/components/features/BtnGerarPdfProntuario'
+import { buscarProntuariosPorPaciente } from '@/actions/prontuarios'
 import { Suspense } from 'react'
 import { format } from 'date-fns'
 import {
@@ -39,11 +40,22 @@ export default async function PacienteDetailsPage({
 
   if (error || !paciente) notFound()
 
-  const { data: atendimentos } = await supabase
-    .from('atendimentos')
-    .select(`*, agendamento:agendamentos(tipo, is_recorrente)`)
-    .eq('paciente_id', pacienteId)
-    .order('data_agendamento', { ascending: false })
+  const [{ data: atendimentos }, prontuarios] = await Promise.all([
+    supabase
+      .from('atendimentos')
+      .select(`*, agendamento:agendamentos(tipo, is_recorrente)`)
+      .eq('paciente_id', pacienteId)
+      .order('data_agendamento', { ascending: false }),
+    buscarProntuariosPorPaciente(pacienteId),
+  ])
+
+  const prontuariosMap = new Map(
+    prontuarios.map(p => [p.atendimento_id, {
+      evolucao: p.evolucao,
+      escala_dor: p.escala_dor,
+      queixa_principal: p.queixa_principal,
+    }])
+  )
 
   const { data: vendasRaw } = await supabase
     .from('vendas')
@@ -72,7 +84,10 @@ export default async function PacienteDetailsPage({
         sessoes: [],
       })
     }
-    gruposMap.get(chave)!.sessoes.push(atend)
+    gruposMap.get(chave)!.sessoes.push({
+      ...atend,
+      prontuario: prontuariosMap.get(atend.id) ?? null,
+    })
   }
 
   // Ordenar grupos pela data da sessão mais recente
