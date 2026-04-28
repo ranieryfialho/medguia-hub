@@ -118,9 +118,15 @@ export default async function PacientesListPage({
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="inline-block px-3 py-1 bg-[#E8F0FE] text-[#1A73E8] text-xs font-semibold rounded-full">
-                        {paciente.convenio || 'Sem tags'}
-                      </span>
+                      {paciente.recuperacao_base ? (
+                        <span className="inline-block px-3 py-1 bg-[#f5f3ff] text-[#4f46e5] text-xs font-semibold rounded-full border border-[#ddd6fe]">
+                          Recuperação de Base
+                        </span>
+                      ) : (
+                        <span className="inline-block px-3 py-1 bg-[#E8F0FE] text-[#1A73E8] text-xs font-semibold rounded-full">
+                          {paciente.convenio || 'Sem tags'}
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-center gap-3 text-text-tertiary">
@@ -163,10 +169,16 @@ export default async function PacientesListPage({
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-text-primary truncate">{paciente.nome}</p>
                   <p className="text-xs text-text-secondary truncate">{paciente.telefone || paciente.email || 'Sem contato'}</p>
-                  {paciente.convenio && (
-                    <span className="inline-block mt-1 px-2 py-0.5 bg-[#E8F0FE] text-[#1A73E8] text-[10px] font-semibold rounded-full">
-                      {paciente.convenio}
+                  {paciente.recuperacao_base ? (
+                    <span className="inline-block mt-1 px-2 py-0.5 bg-[#f5f3ff] text-[#4f46e5] text-[10px] font-semibold rounded-full border border-[#ddd6fe]">
+                      Recuperação de Base
                     </span>
+                  ) : (
+                    paciente.convenio && (
+                      <span className="inline-block mt-1 px-2 py-0.5 bg-[#E8F0FE] text-[#1A73E8] text-[10px] font-semibold rounded-full">
+                        {paciente.convenio}
+                      </span>
+                    )
                   )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0 text-text-tertiary">

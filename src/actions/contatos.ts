@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 
-export type StatusContato = 'a_contactar' | 'tentativa' | 'em_conversa' | 'sem_interesse' | 'agendou'
+export type StatusContato = 'recuperacao_base' | 'a_contactar' | 'tentativa' | 'em_conversa' | 'sem_interesse' | 'agendou'
 
 async function upsertContato(pacienteId: string, updates: Record<string, unknown>) {
   const supabase = await createClient()
@@ -32,6 +32,7 @@ export async function atualizarStatusContato(pacienteId: string, status: StatusC
   const { data: { user } } = await supabase.auth.getUser()
 
   const statusLabels: Record<StatusContato, string> = {
+    recuperacao_base: 'Recuperação de Base',
     a_contactar: 'A Contatar',
     tentativa: 'Tentativa',
     em_conversa: 'Em Conversa',

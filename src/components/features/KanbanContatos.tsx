@@ -122,6 +122,14 @@ const COLUNAS: ColunaConfig[] = [
     corBadgeText: '#3d4945',
   },
   {
+    status: 'recuperacao_base',
+    label: 'Recuperação de Base',
+    cor: '#4f46e5',
+    corBg: '#f5f3ff',
+    corBadgeBg: '#ddd6fe',
+    corBadgeText: '#3730a3',
+  },
+  {
     status: 'tentativa',
     label: 'Tentativa',
     cor: '#b45309',

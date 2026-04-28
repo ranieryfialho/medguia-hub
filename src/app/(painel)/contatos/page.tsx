@@ -39,7 +39,7 @@ export default async function ContatosPage() {
 
   const [pacientes, contatos, { data: profiles }, atendimentos, templates] = await Promise.all([
     fetchAll((from, to) =>
-      supabase.from('pacientes').select('id, nome, telefone, email').eq('ativo', true).order('nome').range(from, to)
+      supabase.from('pacientes').select('id, nome, telefone, email, recuperacao_base').eq('ativo', true).order('nome').range(from, to)
     ),
     fetchAll((from, to) =>
       supabase.from('contatos_base').select('paciente_id, status, responsavel_id').range(from, to)
@@ -70,7 +70,7 @@ export default async function ContatosPage() {
       nome: p.nome,
       telefone: p.telefone,
       email: p.email,
-      status: (c?.status ?? 'a_contactar') as StatusContato,
+      status: (c?.status ?? (p.recuperacao_base ? 'recuperacao_base' : 'a_contactar')) as StatusContato,
       responsavel_id: c?.responsavel_id ?? null,
       responsavel_nome: responsavelNome,
       ultimo_atendimento_data: ua?.data ?? null,
