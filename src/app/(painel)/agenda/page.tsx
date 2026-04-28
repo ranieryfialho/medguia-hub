@@ -504,7 +504,6 @@ export default async function AgendaPage({ searchParams }: PageProps) {
             </div>
 
             <SlideNovoAgendamento
-              pacientes={listaPacientes || []}
               profissionais={profissionaisElegiveisAgenda}
               disponibilidades={disponibilidadesMap}
             />

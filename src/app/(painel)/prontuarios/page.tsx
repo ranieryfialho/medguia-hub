@@ -23,7 +23,7 @@ export default async function ProntuariosPendentesPage() {
   const role = profile?.role ?? ''
   const isFisio = role !== 'gestor' && role !== 'master'
 
-  const [{ data: comProntuario }, { data: atendimentosRaw }] = await Promise.all([
+  const [{ data: comProntuario }, atendimentosRes, { data: profissionais }] = await Promise.all([
     supabase.from('prontuarios').select('atendimento_id'),
     (() => {
       const q = supabase
@@ -42,7 +42,16 @@ export default async function ProntuariosPendentesPage() {
         .limit(300)
       return isFisio ? q.eq('profissional_id', user.id) : q
     })(),
+    supabase.from('profiles').select('id, full_name'),
   ])
+
+  const { data: atendimentosRaw, error: atendimentosError } = atendimentosRes
+  if (atendimentosError) {
+    console.error('Erro ao buscar atendimentos:', atendimentosError)
+  }
+
+  // Mapear profissionais por ID
+  const profissionaisMap = new Map((profissionais ?? []).map(p => [p.id, p.full_name]))
 
   const idsComProntuario = new Set(comProntuario?.map(p => p.atendimento_id) ?? [])
   const pendentes = (atendimentosRaw ?? []).filter(a => !idsComProntuario.has(a.id))
@@ -89,6 +98,7 @@ export default async function ProntuariosPendentesPage() {
               ?? atendimento.tipo
               ?? 'Sessão'
             const nome = paciente?.nome ?? 'Paciente'
+            const profissionalNome = profissionaisMap.get(atendimento.profissional_id) ?? 'Sem responsável'
             const data = new Date(atendimento.data_agendamento)
 
             return (
@@ -114,6 +124,7 @@ export default async function ProntuariosPendentesPage() {
                       {tipo}
                     </span>
                   </div>
+                  <p className="text-xs text-slate-400 mt-1.5">{profissionalNome}</p>
                 </div>
 
                 {/* CTA */}

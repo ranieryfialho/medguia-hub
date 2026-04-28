@@ -6,7 +6,6 @@ import { SlideNovoAgendamento } from '@/components/features/SlideNovoAgendamento
 import { Menu } from 'lucide-react'
 import type { DisponibilidadeDia } from '@/lib/disponibilidade'
 
-type Paciente = { id: string; nome: string }
 type Profissional = { id: string; nome: string; cargo: string }
 
 type HeaderData = {
@@ -18,13 +17,11 @@ type HeaderData = {
 
 export function AppShell({
   children,
-  pacientes,
   profissionais,
   disponibilidades,
   headerData,
 }: {
   children: React.ReactNode
-  pacientes: Paciente[]
   profissionais: Profissional[]
   disponibilidades?: Record<string, Record<number, DisponibilidadeDia>>
   headerData: HeaderData
@@ -82,7 +79,6 @@ export function AppShell({
 
       {/* SlideNovoAgendamento fora da div com transform para fixed funcionar corretamente */}
       <SlideNovoAgendamento
-        pacientes={pacientes}
         profissionais={profissionais}
         disponibilidades={disponibilidades}
         controlledOpen={slideNovoAberto}

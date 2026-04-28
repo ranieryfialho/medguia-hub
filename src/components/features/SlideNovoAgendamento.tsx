@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useId, useRef } from 'react'
 import { criarAgendamento, editarAtendimento } from '@/actions/agenda'
+import { createClient } from '@/lib/supabase/client'
 import { X, CalendarPlus, User, Minus, Plus, Search, Clock } from 'lucide-react'
 import { format } from 'date-fns'
 import {
@@ -14,6 +15,27 @@ import { formatarFaixasJornada } from '@/lib/jornada'
 type Paciente = { id: string, nome: string }
 type Profissional = { id: string, nome: string, cargo: string }
 
+async function fetchAllPacientes(
+  supabase: ReturnType<typeof createClient>,
+): Promise<Paciente[]> {
+  const SIZE = 1000
+  const acc: Paciente[] = []
+  let page = 0
+  while (true) {
+    const { data } = await supabase
+      .from('pacientes')
+      .select('id, nome')
+      .eq('ativo', true)
+      .order('nome')
+      .range(page * SIZE, (page + 1) * SIZE - 1)
+    if (!data?.length) break
+    acc.push(...data)
+    if (data.length < SIZE) break
+    page++
+  }
+  return acc
+}
+
 interface AtendimentoParaEditar {
   id: string
   paciente_id: string
@@ -25,7 +47,7 @@ interface AtendimentoParaEditar {
 }
 
 interface SlideProps {
-  pacientes: Paciente[]
+  pacientes?: Paciente[]
   profissionais: Profissional[]
   disponibilidades?: Record<string, Record<number, DisponibilidadeDia>>
   controlledOpen?: boolean
@@ -41,13 +63,16 @@ const DIAS_SEMANA = [
   { val: 4, label: 'Qui' }, { val: 5, label: 'Sex' }, { val: 6, label: 'Sáb' }, { val: 0, label: 'Dom' },
 ]
 
-export function SlideNovoAgendamento({ pacientes, profissionais, disponibilidades, controlledOpen, onControlledClose, defaultPacienteId, defaultData, defaultHora, atendimentoParaEditar }: SlideProps) {
+export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionais, disponibilidades, controlledOpen, onControlledClose, defaultPacienteId, defaultData, defaultHora, atendimentoParaEditar }: SlideProps) {
   const isControlled = controlledOpen !== undefined
   const modoEdicao = !!atendimentoParaEditar
   const formId = useId()
+  const [supabase] = useState(createClient)
   const [isOpen, setIsOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [loadingPacientes, setLoadingPacientes] = useState(false)
   const [error, setError] = useState('')
+  const [pacientes, setPacientes] = useState<Paciente[]>(pacientesInicial ?? [])
 
   const [dataAgendamento, setDataAgendamento] = useState('')
   const diaDoMes = dataAgendamento ? dataAgendamento.split('-')[2] : '--'
@@ -86,6 +111,17 @@ export function SlideNovoAgendamento({ pacientes, profissionais, disponibilidade
       setObservacoesValue(atendimentoParaEditar.observacoes ?? '')
     }
   }, [atendimentoParaEditar, pacientes])
+
+  // Fetch de pacientes quando o modal abre (modo controlado ou autônomo)
+  useEffect(() => {
+    const isOpening = isControlled ? !!controlledOpen : isOpen
+    if (!isOpening || pacientes.length > 0) return
+
+    setLoadingPacientes(true)
+    fetchAllPacientes(supabase)
+      .then(setPacientes)
+      .finally(() => setLoadingPacientes(false))
+  }, [isControlled, controlledOpen, isOpen, pacientes.length, supabase])
 
   // Sincroniza estado aberto com prop controlada
   useEffect(() => {

@@ -37,6 +37,7 @@ export function Sidebar({ onMobileClose, onOpenNovoAgendamento, userRole: userRo
   const [equipeOpen, setEquipeOpen] = useState(() => (pathname?.startsWith('/equipe') || pathname?.startsWith('/relatorios/tempo-fabril')) ?? false)
   const [comercialOpen, setComercialOpen] = useState(() => (pathname?.startsWith('/vendas') || pathname?.startsWith('/produtos') || pathname?.startsWith('/relatorios/vendas')) ?? false)
   const [userRole, setUserRole] = useState(userRoleProp ?? '')
+  const [prontuariosPendentes, setProntuariosPendentes] = useState(0)
 
   useEffect(() => {
     async function fetchRole() {
@@ -46,6 +47,52 @@ export function Sidebar({ onMobileClose, onOpenNovoAgendamento, userRole: userRo
       if (data?.role) setUserRole(data.role)
     }
     fetchRole()
+  }, [supabase])
+
+  useEffect(() => {
+    async function fetchProntuariosPendentes() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+      const isFisio = profile?.role && profile.role !== 'gestor' && profile.role !== 'master'
+
+      // Buscar IDs dos atendimentos concluídos
+      let qAtendimentos = supabase
+        .from('atendimentos')
+        .select('id')
+        .eq('status', 'Concluído')
+
+      if (isFisio) {
+        qAtendimentos = qAtendimentos.eq('profissional_id', user.id)
+      }
+
+      const { data: atendimentos } = await qAtendimentos
+      const idsAtendimentos = (atendimentos ?? []).map(a => a.id)
+
+      // Buscar prontuários já feitos
+      let qProntuarios = supabase
+        .from('prontuarios')
+        .select('atendimento_id')
+
+      if (idsAtendimentos.length > 0) {
+        qProntuarios = qProntuarios.in('atendimento_id', idsAtendimentos)
+      }
+
+      const { data: comProntuario } = await qProntuarios
+      const idsComProntuario = new Set(comProntuario?.map(p => p.atendimento_id) ?? [])
+
+      // Contar pendentes
+      const totalPendentes = idsAtendimentos.length - idsComProntuario.size
+      setProntuariosPendentes(Math.max(0, totalPendentes))
+    }
+
+    fetchProntuariosPendentes()
   }, [supabase])
 
   const handleLogout = async () => {
@@ -222,7 +269,12 @@ export function Sidebar({ onMobileClose, onOpenNovoAgendamento, userRole: userRo
           }`}
         >
           <FileText size={20} />
-          <span className="text-sm">Prontuários</span>
+          <span className="text-sm flex-1">Prontuários</span>
+          {prontuariosPendentes > 0 && (
+            <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+              {prontuariosPendentes}
+            </span>
+          )}
         </Link>
 
         {/* Grupo Comercial */}

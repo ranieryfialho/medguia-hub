@@ -39,8 +39,7 @@ export default async function DashboardLayout({
   const avatarUrl = profile?.avatar_url ||
     `https://ui-avatars.com/api/?name=${encodeURIComponent(nomeUsuario)}&background=cce2da&color=006b5a&bold=true`
 
-  const [{ data: pacientes }, { data: listaProfissionais }, todasDisponibilidades] = await Promise.all([
-    supabase.from('pacientes').select('id, nome').order('nome'),
+  const [{ data: listaProfissionais }, todasDisponibilidades] = await Promise.all([
     supabase.from('profiles').select('id, full_name, role').eq('ativo', true).neq('role', 'master').neq('role', 'medico').order('full_name'),
     listarTodasDisponibilidades(),
   ])
@@ -64,7 +63,6 @@ export default async function DashboardLayout({
 
   return (
     <AppShell
-      pacientes={pacientes ?? []}
       profissionais={profissionais}
       disponibilidades={disponibilidadesMap}
       headerData={{ nomeUsuario, cargoUsuario, avatarUrl, userRole }}
