@@ -123,28 +123,28 @@ export function RelatorioContatosClient({
   return (
     <div className="space-y-6">
       {/* Abas */}
-      <div className="flex gap-2 border-b border-[#bcc9c4]/30 bg-white p-1 rounded-lg">
+      <div className="flex gap-2 border-b border-[#bcc9c4]/30">
         <button
           onClick={() => setAbaAtiva('performance')}
-          className={`px-6 py-3 font-semibold text-sm transition-all rounded-lg ${
+          className={`px-5 py-3 font-semibold text-sm transition-all border-b-2 ${
             abaAtiva === 'performance'
-              ? 'bg-[#f0fcf9] text-[#006b5a] border-b-2 border-[#006b5a]'
-              : 'text-[#3d4945] hover:bg-[#f9faf8]'
+              ? 'text-[#006b5a] border-b-[#006b5a]'
+              : 'text-[#3d4945] border-b-transparent hover:text-[#006b5a]'
           }`}
         >
           Performance Geral
         </button>
         <button
           onClick={() => setAbaAtiva('risco')}
-          className={`px-6 py-3 font-semibold text-sm transition-all rounded-lg relative ${
+          className={`px-5 py-3 font-semibold text-sm transition-all border-b-2 relative ${
             abaAtiva === 'risco'
-              ? 'bg-[#f0fcf9] text-[#006b5a] border-b-2 border-[#006b5a]'
-              : 'text-[#3d4945] hover:bg-[#f9faf8]'
+              ? 'text-[#006b5a] border-b-[#006b5a]'
+              : 'text-[#3d4945] border-b-transparent hover:text-[#006b5a]'
           }`}
         >
           Contatos em Risco
           {contatosEmRisco.length > 0 && (
-            <span className="absolute top-1 right-1 bg-red-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
+            <span className="absolute -top-1 -right-2 bg-red-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
               {contatosEmRisco.length}
             </span>
           )}
