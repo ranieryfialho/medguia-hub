@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { format, startOfMonth, addDays, subDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { TrendingUp, Users, BarChart3 } from 'lucide-react'
+import { TrendingUp, Users, BarChart3, Target, ArrowRight } from 'lucide-react'
+import Link from 'next/link'
 import { calcularKPIs } from '@/lib/relatorios/kpis-tempo-fabril'
 import { formatAppDateKey, getAppDayRangeUTC } from '@/lib/datetime'
 
@@ -29,6 +30,11 @@ type Profissional = {
   id: string
   full_name: string | null
   role: string | null
+}
+
+type Contato = {
+  status: string
+  responsavel_id: string | null
 }
 
 export default async function DashboardPage() {
@@ -73,7 +79,7 @@ export default async function DashboardPage() {
   const inicioMes_UTC = getAppDayRangeUTC(formatAppDateKey(inicioMes)).start
   const hoje_UTC = getAppDayRangeUTC(formatAppDateKey(hoje)).end
 
-  const [atendimentosRes, jornadasRes, pacientesNovosRes] = await Promise.all([
+  const [atendimentosRes, jornadasRes, pacientesNovosRes, contatosRes] = await Promise.all([
     supabase
       .from('atendimentos')
       .select('id, profissional_id, data_agendamento, duracao_minutos, status, tipo, numero_sessao, paciente_id')
@@ -91,11 +97,15 @@ export default async function DashboardPage() {
       .select('id, created_at')
       .gte('created_at', inicioMes_UTC)
       .lte('created_at', hoje_UTC),
+    isGestorOuMaster
+      ? supabase.from('contatos_base').select('status, responsavel_id')
+      : supabase.from('contatos_base').select('status, responsavel_id').eq('responsavel_id', user!.id),
   ])
 
   const atendimentos: Atendimento[] = atendimentosRes.data || []
   const jornadas: Jornada[] = jornadasRes.data || []
   const pacientesNovos = pacientesNovosRes.data || []
+  const contatos: Contato[] = contatosRes.data || []
 
   // 4. Filtrar profissionais que têm jornada configurada
   const profIdsComJornada = new Set(jornadas.map(j => j.profissional_id))
@@ -127,6 +137,19 @@ export default async function DashboardPage() {
   // 8. Bloco 3: Pacientes
   const pacientesComAtendimento = new Set(atendimentos.map(a => a.paciente_id)).size
   const novosPacientes = pacientesNovos.length
+
+  // 8b. Bloco Contatos: Funil de Conversão
+  const contagemPorStatus = {
+    a_contactar: contatos.filter(c => c.status === 'a_contactar').length,
+    tentativa: contatos.filter(c => c.status === 'tentativa').length,
+    em_conversa: contatos.filter(c => c.status === 'em_conversa').length,
+    sem_interesse: contatos.filter(c => c.status === 'sem_interesse').length,
+    agendou: contatos.filter(c => c.status === 'agendou').length,
+  }
+  const totalContatos = contatos.length
+  const contatosPipeline = totalContatos - contagemPorStatus.sem_interesse
+  const taxaConversao = contatosPipeline > 0 ? Math.round((contagemPorStatus.agendou / contatosPipeline) * 100) : 0
+  const semResponsavel = contatos.filter(c => !c.responsavel_id).length
 
   // 9. Bloco 4: Tendência 7 dias
   const tendencia7Dias = Array.from({ length: 7 }, (_, i) => {
@@ -186,6 +209,53 @@ export default async function DashboardPage() {
           <p className="text-xs mt-2 text-[#3d4945]/70">{novosPacientes} novos este mês</p>
         </div>
       </div>
+
+      {/* BLOCO 1B: FUNIL DE CONTATOS (Apenas Gestor/Master) */}
+      {isGestorOuMaster && totalContatos > 0 && (
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#bcc9c4]/30">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="bg-[#f0fcf9] p-2.5 rounded-lg">
+                <Target size={18} className="text-[#006b5a]" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-[#171d1c] uppercase tracking-widest">Funil de Contatos</h3>
+                <p className="text-xs text-[#3d4945]/60 mt-0.5">{totalContatos} contatos em base</p>
+              </div>
+            </div>
+            <Link
+              href="/contatos/relatorio"
+              className="flex items-center gap-2 px-4 py-2 bg-[#f0fcf9] hover:bg-[#e0f9f5] text-[#006b5a] rounded-lg text-xs font-semibold transition-colors"
+            >
+              Ver relatório
+              <ArrowRight size={14} />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+            {[
+              { label: 'A Contatar', value: contagemPorStatus.a_contactar, cor: 'bg-gray-100 text-gray-700' },
+              { label: 'Tentativa', value: contagemPorStatus.tentativa, cor: 'bg-amber-100 text-amber-700' },
+              { label: 'Em Conversa', value: contagemPorStatus.em_conversa, cor: 'bg-teal-100 text-teal-700' },
+              { label: 'Sem Interesse', value: contagemPorStatus.sem_interesse, cor: 'bg-red-100 text-red-700' },
+              { label: 'Agendou', value: contagemPorStatus.agendou, cor: 'bg-green-100 text-green-700' },
+            ].map((item) => (
+              <div key={item.label} className={`p-3 rounded-lg ${item.cor} text-center`}>
+                <p className="text-lg font-bold">{item.value}</p>
+                <p className="text-xs font-medium mt-1 opacity-80">{item.label}</p>
+              </div>
+            ))}
+          </div>
+
+          {semResponsavel > 0 && (
+            <div className="bg-orange-50 border-l-4 border-orange-500 p-3 rounded-lg">
+              <p className="text-sm font-semibold text-orange-700">
+                ⚠️ {semResponsavel} contato(s) sem responsável atribuído
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* BLOCO 2: DISTRIBUIÇÃO DE STATUS + TENDÊNCIA */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

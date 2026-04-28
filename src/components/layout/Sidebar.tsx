@@ -32,6 +32,7 @@ export function Sidebar({ onMobileClose, onOpenNovoAgendamento, userRole: userRo
   const router = useRouter()
   const [supabase] = useState(createClient)
   const [confirmacoesOpen, setConfirmacoesOpen] = useState(() => pathname?.startsWith('/confirmacoes') ?? false)
+  const [contatosOpen, setContatosOpen] = useState(() => pathname?.startsWith('/contatos') ?? false)
   const [configOpen, setConfigOpen] = useState(() => pathname?.startsWith('/configuracoes') ?? false)
   const [equipeOpen, setEquipeOpen] = useState(() => (pathname?.startsWith('/equipe') || pathname?.startsWith('/relatorios/tempo-fabril')) ?? false)
   const [comercialOpen, setComercialOpen] = useState(() => (pathname?.startsWith('/vendas') || pathname?.startsWith('/produtos') || pathname?.startsWith('/relatorios/vendas')) ?? false)
@@ -150,18 +151,53 @@ export function Sidebar({ onMobileClose, onOpenNovoAgendamento, userRole: userRo
           )}
         </div>
 
-        <Link
-          href="/contatos"
-          onClick={handleNavClick}
-          className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-            isActive('/contatos')
-              ? 'bg-white text-[#006b5a] shadow-sm translate-x-1 font-semibold'
-              : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
-          }`}
-        >
-          <Target size={20} />
-          <span className="text-sm">Contatos</span>
-        </Link>
+        {/* Grupo Contatos */}
+        <div>
+          <button
+            onClick={() => setContatosOpen(v => !v)}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+              isActive('/contatos')
+                ? 'bg-white text-[#006b5a] shadow-sm font-semibold'
+                : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
+            }`}
+          >
+            <Target size={20} />
+            <span className="text-sm flex-1 text-left">Contatos</span>
+            <ChevronDown
+              size={16}
+              className={`transition-transform duration-200 ${contatosOpen ? 'rotate-180' : ''}`}
+            />
+          </button>
+
+          {contatosOpen && (
+            <div className="mt-1 ml-4 space-y-0.5 border-l-2 border-[#bcc9c4]/40 pl-3">
+              <Link
+                href="/contatos"
+                onClick={handleNavClick}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
+                  isActive('/contatos') && !isActive('/contatos/relatorio')
+                    ? 'bg-white text-[#006b5a] shadow-sm font-semibold'
+                    : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
+                }`}
+              >
+                <Target size={14} />
+                Base de Contatos
+              </Link>
+              <Link
+                href="/contatos/relatorio"
+                onClick={handleNavClick}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
+                  isActive('/contatos/relatorio')
+                    ? 'bg-white text-[#006b5a] shadow-sm font-semibold'
+                    : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
+                }`}
+              >
+                <BarChart3 size={14} />
+                Relatório
+              </Link>
+            </div>
+          )}
+        </div>
 
         <Link
           href="/pacientes"

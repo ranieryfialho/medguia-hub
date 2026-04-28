@@ -28,7 +28,31 @@ async function upsertContato(pacienteId: string, updates: Record<string, unknown
 }
 
 export async function atualizarStatusContato(pacienteId: string, status: StatusContato) {
-  return upsertContato(pacienteId, { status })
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const statusLabels: Record<StatusContato, string> = {
+    a_contactar: 'A Contatar',
+    tentativa: 'Tentativa',
+    em_conversa: 'Em Conversa',
+    sem_interesse: 'Sem Interesse',
+    agendou: 'Agendou',
+  }
+
+  const result = await upsertContato(pacienteId, { status })
+
+  if (result.success) {
+    // Criar nota registrando a mudança de status
+    await supabase
+      .from('notas_contato')
+      .insert({
+        paciente_id: pacienteId,
+        texto: `Status alterado para: ${statusLabels[status]}`,
+        autor_id: user?.id ?? null,
+      })
+  }
+
+  return result
 }
 
 export async function atualizarResponsavelContato(pacienteId: string, responsavelId: string | null) {
