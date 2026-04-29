@@ -1,0 +1,327 @@
+===============================================================
+PROMPT PRONTO PARA COPIAR E COLAR NO CLAUDE DESIGN
+===============================================================
+
+Contexto do Projeto
+==================
+
+Estou desenvolvendo MEDGUIA HUB, uma plataforma de gestão para clínicas de fisioterapia.
+
+Sistema: Next.js 16 + React 19 + Supabase
+Usuário Principal: Fisioterapeutas (profissionais)
+Contexto de Uso: Consultório, ambiente acelerado
+Stack Visual: Tailwind CSS, Lucide React, Recharts
+
+Jornada Principal do Fisioterapeuta
+===================================
+
+1. Login → Dashboard (vê KPIs do mês)
+2. Clica "Agenda" (confirma atendimentos do dia)
+3. Clica "Confirmações" (confirma com pacientes via WhatsApp)
+4. Executa atendimentos (marca como "Em atendimento" → "Concluído")
+5. Clica "Prontuários" (preenche notas clínicas)
+6. Clica "Contatos" (reativa pacientes via kanban)
+7. Volta ao Dashboard para acompanhar KPIs
+
+Estrutura de Navegação (Sidebar)
+================================
+
+Dashboard
+Agenda
+Pacientes
+Prontuários
+Contatos
+Confirmações (submenu: Cartões, Mensagens)
+Equipe (submenu, GESTOR ONLY)
+Comercial (submenu, GESTOR ONLY)
+Configurações (submenu: Disponibilidade, Jornada)
+Logout
+
+
+PROBLEMA #1: Prontuários Pendentes Não São Óbvios
+==================================================
+
+Situação Atual:
+- Fisio termina atendimento, marca como "Concluído" na agenda
+- Sai da agenda, vai fazer outra coisa
+- Depois esquece de preencher prontuário (fica pendente indefinidamente)
+
+Por Quê:
+- Prontuários é um menu separado (não conectado à Agenda)
+- Badge "Prontuários pendentes: X" fica pequena na sidebar
+- Não há fluxo guiado: Agenda → Concluído → [Preencher Prontuário agora?]
+- Nenhuma notificação de "ei, você tem 3 prontuários pendentes há 2 dias"
+
+Impacto:
+- Taxa de incompleção de prontuários (métrica desconhecida)
+- Falta de documentação clínica para compliance legal
+- Perda de informação histórica do paciente
+
+Minha Solução Proposta:
+- Ao marcar atendimento como "Concluído", abrir MODAL automático:
+  "📋 Prontuário Pendente
+   Quer preencher as notas clínicas agora?"
+   [Preencher Agora] [Depois] [Lembrança em 1h]
+
+- Badge de prontuários pendentes vira acionável (clica → vai para lista)
+- Se houver > 3 prontuários pendentes há > 3 dias, notificação no login
+
+Prioridade: 🔴 P0 — CRÍTICA (compliance, documentação)
+Esforço: Médio (1-2 semanas)
+
+
+PROBLEMA #2: Sidebar Confusa e Desordenada
+============================================
+
+Situação Atual:
+- ~15 itens na sidebar
+- Priorização não clara (qual clico primeiro após login?)
+- Menus de GESTOR ("Equipe", "Comercial") aparecem para FISIO, confundindo
+- Tarefas relacionadas estão separadas (Agenda vs. Confirmações vs. Prontuários)
+
+Sintoma:
+- Novo usuário chega ao login e não sabe pra onde ir
+- Fisio clica em "Equipe" achando que é para ver seus dados
+- Fluxo não reflete sequência real de trabalho
+
+Minha Solução Proposta:
+Reorganizar por frequência de uso e fluxo lógico:
+
+PARA FISIO:
+📊 Dashboard
+📅 Agenda (principal)
+✅ Confirmações (relacionada à agenda)
+   ├── Cartões
+   └── Mensagens
+📄 Prontuários (pós-agenda)
+💬 Contatos (reativação)
+👥 Pacientes (referência)
+⚙️  Configurações
+   ├── Disponibilidade
+   └── Jornada
+
+[Menus de GESTOR: ESCONDIDOS para fisio, visíveis apenas para gestor/master]
+
+Prioridade: 🟡 P1 — ALTA (descobribilidade, fluxo)
+Esforço: Baixo (3-4 dias, UI only)
+
+
+PROBLEMA #3: Confirmar Atendimento É Confuso
+==============================================
+
+Situação Atual:
+- "Confirmações" é um menu separado (confirmar com PACIENTE)
+- "Agenda" é outro menu (mudar STATUS no sistema)
+- Fisio fica confuso: já confirmei? Com quem? Qual é a diferença?
+
+Fluxo Atual (confuso):
+1. Agenda → vê atendimento Aguardando
+2. Vai para Confirmações → Cartões → clica no paciente → envia WhatsApp
+3. Volta para Agenda → clica no mesmo atendimento → muda status para Confirmado
+4. ???
+
+Por Quê:
+- Conceitos misturados: "confirmação com paciente" (external) vs. "status do sistema" (internal)
+
+Minha Solução Proposta:
+Integrar confirmação à Agenda. Card de atendimento exibe:
+
+┌─────────────────────────────┐
+│ João Silva (Paciente)       │
+│ 14:00 - 15:00              │
+│ Avaliação Postural         │
+│                            │
+│ Status: ⏳ Aguardando      │
+│ [Confirmar com Paciente]   │
+│ [Alterar Horário]          │
+│ [Marcar Falta]             │
+└─────────────────────────────┘
+
+[Confirmar com Paciente] → abre modal:
+   Mensagem pré-preenchida (template)
+   [Enviar WhatsApp]
+   ☐ Paciente confirmou? Marcar como confirmado
+   [Salvar]
+
+Prioridade: 🟡 P1 — ALTA (clareza, reduz cliques)
+Esforço: Médio (2-3 semanas, envolve refactor)
+
+
+PROBLEMA #4: Kanban de Contatos Pode Ser Pouco Intuitivo
+=========================================================
+
+Situação Atual:
+- 4 colunas: "Recuperação Base" → "Aguardando Retorno" → "Confirmado Retorno" → "Finalizado"
+- Drag-and-drop, mas nem todo user entende isso
+- Colunas não têm indicação clara do que fazer em cada uma
+
+Por Quê:
+- Kanban é um padrão moderno, mas requer onboarding
+- Não há dica em-app
+
+Sintoma:
+- Usuários veem kanban e ficam confusos
+- Feature de reativação é subutilizada
+
+Minha Solução Proposta:
+- Adicionar **helptext** em cada coluna:
+  🔄 Recuperação Base
+     "Pacientes que ainda não responderam ao contato"
+
+  ⏳ Aguardando Retorno
+     "Agendamento marcado, aguardando confirmação"
+
+  ✅ Confirmado Retorno
+     "Agendamento confirmado para retornar"
+
+  🎯 Finalizado
+     "Reativado com sucesso ou descartado"
+
+- Primeiro acesso → mostrar tour (3 passos):
+  1. "Arraste pacientes entre colunas"
+  2. "Atualize status conforme progresso"
+  3. "Conclua quando reativado"
+
+- Empty state quando coluna vazia:
+  "Nenhum paciente aqui. Parabéns! 🎉"
+
+Prioridade: 🟡 P1 — MÉDIA (depende de uso)
+Esforço: Médio (1-2 semanas)
+
+
+PROBLEMA #5: Dashboard Tem KPIs Bonitos Mas Sem Contexto
+=========================================================
+
+Situação Atual:
+- Card com "Taxa de Ocupação: 73%"
+- Fisio vê o número e... e aí?
+- Não há contexto: é bom? É ruim? Devo fazer algo?
+
+Faltam:
+- Benchmarks ("meta é 80%, você está em 73%")
+- Insights acionáveis ("você teve 2 cancelamentos — considere confirmar com 24h antes")
+- Tendência ("semana passada era 68%")
+
+Impacto:
+- KPIs se tornam "números bonitos" sem significado
+- Fisio não sabe como melhorar
+
+Minha Solução Proposta:
+- Adicionar **micro-insights** abaixo de cada KPI:
+  Taxa de Ocupação: 73%
+  📈 +5% vs. semana passada
+  🎯 Meta: 80%
+  💡 Dica: Você teve 2 cancelamentos. Enviar confirmação com 24h reduz isso.
+
+- Adicionar **seção "Ações Recomendadas"**:
+  ⚠️ 3 prontuários pendentes há > 3 dias
+  🔄 2 pacientes sem atendimento há > 3 meses — considere reativar
+  📅 Você tem 1 slot vago amanhã
+
+- Adicionar **minigráfico** de tendência (7 dias)
+
+Prioridade: 🟡 P2 — MÉDIA (nice-to-have, após P0 e P1)
+Esforço: Médio (dados + UI, 2-3 semanas)
+
+
+PERGUNTAS ESPECÍFICAS PARA ANALYSE
+===================================
+
+1. Qual é a tarefa MAIS importante para um fisioterapeuta em um dia típico?
+   (Agenda? Confirmações? Prontuários?)
+
+2. A sidebar atual está bem organizada por frequência de uso?
+
+3. Faz sentido terem 2 fluxos separados para "confirmar" (Confirmações + Agenda)?
+
+4. Para fisio iniciante, qual é o maior ponto de confusão?
+
+5. Kanban é o padrão certo para "Contatos", ou seria melhor um list-view?
+
+6. Dashboard: qual KPI fisio se importa MAIS? (Taxa Ocupação? Atendimentos hoje?)
+
+7. Como melhorar descobribilidade de "Prontuários pendentes"?
+
+8. Mobile: como a navegação deveria adaptar?
+
+9. Há onboarding para novos fisios? Se não, recomenda criar um?
+
+10. Como medir sucesso após implementar essas mudanças?
+
+
+INFORMAÇÕES TÉCNICAS (para implementação)
+==========================================
+
+Framework: Next.js 16 (App Router)
+Componentes: React functional + hooks
+Styling: Tailwind CSS (utility-first)
+Ícones: Lucide React
+Database: Supabase (queries diretas)
+State: React hooks (sem Redux/Zustand)
+Charts: Recharts (barras, linhas)
+Notificações: react-hot-toast
+PDF: html2canvas + jsPDF
+Auth: Supabase Auth
+
+Restrições:
+- Sem bibliotecas UI pesadas (Material-UI, shadcn, etc.)
+- Componentes simples, reutilizáveis
+- Mobile-first responsive design
+
+Padrões já usados:
+- Cards com badges de status
+- Modais para criar/editar
+- Filtros em dropdowns
+- Sidebar colapsável em mobile
+- Tailwind grid responsivo
+
+
+DADOS PARA ANÁLISE (se tiver)
+=============================
+
+[INCLUIR SE TIVER:]
+- Quantos fisioterapeutas usam o sistema? X
+- Taxa de adoção de "Contatos/Kanban"? X%
+- Quantas vezes fisio acessa Prontuários? X vezes/mês
+- Qual é a taxa de conclusão de prontuário? X%
+- Qual é o feedback mais comum de usuários? "..."
+- Há analytics/heatmap de cliques? [link/attachment]
+
+
+ENTREGA ESPERADA
+================
+
+Gostaria que você entregasse uma análise com:
+
+1. Ranking dos painpoints por impacto
+2. Para cada painpoint:
+   - Problema específico
+   - Por que é um problema
+   - Solução recomendada (com exemplo visual/textual)
+   - Prioridade (P0/P1/P2)
+   - Esforço estimado
+
+3. Roadmap de implementação (em fases)
+
+4. Padrões de design a usar (Progressive Disclosure, Inline Guidance, etc.)
+
+5. Métricas de sucesso (KPIs para medir melhoria)
+
+6. Recomendações de componentes a refatorar/criar
+
+7. Mock-ups textuais ou ASCII de mudanças propostas
+
+
+CONTEXTO FINAL
+==============
+
+- Foco: Fisioterapeutas (não gestores)
+- Objetivo: Aumentar adoção, reduzir confusão, acelerar fluxo de trabalho
+- Timeline: Idealmente fases de 2 semanas cada
+- Restrição: Manter design simples, sem overengineering
+
+Obrigado!
+
+===============================================================
+FIM DO PROMPT — PRONTO PARA COPIAR E COLAR NO CLAUDE DESIGN
+===============================================================
