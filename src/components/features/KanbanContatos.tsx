@@ -7,6 +7,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   ExternalLink,
   MessageCircle,
   Pencil,
@@ -173,6 +174,7 @@ export function KanbanContatos({
   const [mobileModalTab, setMobileModalTab] = useState<'detalhes' | 'notas'>('detalhes')
   const [teamFilterOpen, setTeamFilterOpen] = useState(false)
   const [columnModalTab, setColumnModalTab] = useState<'lista' | 'form'>('lista')
+  const [localTemplates, setLocalTemplates] = useState<Template[]>(templates)
   const [, startTransition] = useTransition()
 
   const router = useRouter()
@@ -226,6 +228,40 @@ export function KanbanContatos({
   useEffect(() => {
     setVisibleCount(createVisibleCount(columns))
   }, [search, responsavelFilter, columns])
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('medguia_template_order')
+      if (!stored) return
+      const order: string[] = JSON.parse(stored)
+      setLocalTemplates(prev => {
+        const sorted = [...prev].sort((a, b) => {
+          const ai = order.indexOf(a.id)
+          const bi = order.indexOf(b.id)
+          if (ai === -1 && bi === -1) return 0
+          if (ai === -1) return 1
+          if (bi === -1) return -1
+          return ai - bi
+        })
+        return sorted
+      })
+    } catch {}
+  }, [])
+
+  function moveTemplate(id: string, dir: 'up' | 'down') {
+    setLocalTemplates(prev => {
+      const idx = prev.findIndex(t => t.id === id)
+      if (idx === -1) return prev
+      const newIdx = dir === 'up' ? idx - 1 : idx + 1
+      if (newIdx < 0 || newIdx >= prev.length) return prev
+      const next = [...prev]
+      ;[next[idx], next[newIdx]] = [next[newIdx], next[idx]]
+      try {
+        localStorage.setItem('medguia_template_order', JSON.stringify(next.map(t => t.id)))
+      } catch {}
+      return next
+    })
+  }
 
   const filtered = contatos.filter((c) => {
     if (search && !c.nome.toLowerCase().includes(search.toLowerCase())) return false
@@ -690,7 +726,7 @@ export function KanbanContatos({
             <div
               id={`col-${column.chave}`}
               key={column.chave}
-              className="w-[85vw] sm:w-[360px] lg:w-[320px] flex-none snap-center lg:snap-align-none flex flex-col h-full max-h-full"
+              className="group/col w-[85vw] sm:w-[360px] lg:w-[320px] flex-none snap-center lg:snap-align-none flex flex-col h-full max-h-full"
             >
               <div
                 className="flex items-center gap-2 px-4 py-3 rounded-t-2xl border border-b-0 shadow-sm z-10"
@@ -721,37 +757,40 @@ export function KanbanContatos({
                 }}
               >
                 {canManageColumns && (
-                  <div className="flex items-center justify-end gap-1 pb-1">
-                    <button
-                      onClick={() => void handleMoveColumn(column, 'left')}
-                      className="w-7 h-7 rounded bg-white/80 hover:bg-white text-[#6d7a75] flex items-center justify-center"
-                      title="Mover coluna para a esquerda"
-                    >
-                      <ChevronLeft size={12} />
-                    </button>
-                    <button
-                      onClick={() => void handleMoveColumn(column, 'right')}
-                      className="w-7 h-7 rounded bg-white/80 hover:bg-white text-[#6d7a75] flex items-center justify-center"
-                      title="Mover coluna para a direita"
-                    >
-                      <ChevronRight size={12} />
-                    </button>
+                  <div className="flex items-center justify-end gap-1.5 pb-2 lg:opacity-0 lg:group-hover/col:opacity-100 transition-opacity duration-150">
+                    <div className="flex items-center rounded-full border border-[#e2e8e6] bg-white shadow-sm overflow-hidden">
+                      <button
+                        onClick={() => void handleMoveColumn(column, 'left')}
+                        className="w-6 h-6 flex items-center justify-center text-[#b0bfbb] hover:bg-[#f0f5f4] hover:text-[#006b5a] transition-colors"
+                        title="Mover coluna para a esquerda"
+                      >
+                        <ChevronLeft size={11} />
+                      </button>
+                      <div className="w-px h-3 bg-[#e2e8e6]" />
+                      <button
+                        onClick={() => void handleMoveColumn(column, 'right')}
+                        className="w-6 h-6 flex items-center justify-center text-[#b0bfbb] hover:bg-[#f0f5f4] hover:text-[#006b5a] transition-colors"
+                        title="Mover coluna para a direita"
+                      >
+                        <ChevronRight size={11} />
+                      </button>
+                    </div>
                     {column.tipo === 'custom' && (
                       <>
                         <button
                           onClick={() => openEditColumnModal(column)}
-                          className="w-7 h-7 rounded bg-white/80 hover:bg-white text-[#6d7a75] flex items-center justify-center"
+                          className="w-6 h-6 rounded-full border border-[#e2e8e6] bg-white shadow-sm text-[#b0bfbb] hover:bg-[#f0f5f4] hover:text-[#406375] hover:border-[#c3d0cd] transition-all flex items-center justify-center"
                           title="Editar coluna"
                         >
-                          <Pencil size={12} />
+                          <Pencil size={11} />
                         </button>
                         <button
                           onClick={() => void handleDeleteColumn(column)}
                           disabled={getColumnCardCount(column.chave) > 0}
-                          className="w-7 h-7 rounded bg-white/80 hover:bg-white text-[#ba1a1a] flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="w-6 h-6 rounded-full border border-[#e2e8e6] bg-white shadow-sm text-[#b0bfbb] hover:bg-red-50 hover:text-[#ba1a1a] hover:border-red-200 transition-all flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
                           title={getColumnCardCount(column.chave) > 0 ? 'Esvazie a coluna antes de excluir' : 'Excluir coluna'}
                         >
-                          <Trash2 size={12} />
+                          <Trash2 size={11} />
                         </button>
                       </>
                     )}
@@ -1156,17 +1195,33 @@ export function KanbanContatos({
 
                     {templatePickerOpen && selected.telefone && (
                       <div className="space-y-2 max-h-60 overflow-y-auto">
-                        {templates.map((t) => (
+                        {localTemplates.map((t, idx) => (
                           <div
                             key={t.id}
-                            className="bg-white border border-[#dee3e3] rounded-lg p-3 hover:border-[#25D366]/50 hover:bg-[#f0fdf9] transition-colors cursor-pointer"
+                            className="bg-white border border-[#dee3e3] rounded-lg p-3 hover:border-[#25D366]/50 hover:bg-[#f0fdf9] transition-colors flex items-start gap-2"
                           >
+                            <div className="flex flex-col shrink-0 mt-0.5 -ml-0.5">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); moveTemplate(t.id, 'up') }}
+                                disabled={idx === 0}
+                                className="p-0.5 text-[#c3d0ce] hover:text-[#006b5a] disabled:opacity-25 disabled:cursor-default transition-colors"
+                              >
+                                <ChevronUp size={12} />
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); moveTemplate(t.id, 'down') }}
+                                disabled={idx === localTemplates.length - 1}
+                                className="p-0.5 text-[#c3d0ce] hover:text-[#006b5a] disabled:opacity-25 disabled:cursor-default transition-colors"
+                              >
+                                <ChevronDown size={12} />
+                              </button>
+                            </div>
                             <a
                               href={whatsappLinkComMsg(selected.telefone, interpolarTemplate(t.conteudo, selected))}
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={(e) => e.stopPropagation()}
-                              className="flex items-start gap-2"
+                              className="flex items-start gap-2 flex-1 min-w-0"
                             >
                               <MessageCircle size={14} className="shrink-0 mt-1 text-[#25D366]" />
                               <div className="min-w-0 flex-1">
