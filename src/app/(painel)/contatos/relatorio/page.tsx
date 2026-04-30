@@ -2,13 +2,22 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { RelatorioContatosClient } from '@/components/features/RelatorioContatosClient'
 import { BtnVoltar } from '@/components/features/BtnVoltar'
+import {
+  criarContagemStatusContato,
+  normalizarColunasContato,
+  type KanbanColunaContato,
+  type StatusContatoPadrao,
+} from '@/lib/contatos-kanban'
 
-type StatusContato = 'a_contactar' | 'tentativa' | 'em_conversa' | 'sem_interesse' | 'agendou'
+type StatusContato = StatusContatoPadrao
 
 type ContatoComDados = {
   paciente_id: string
   paciente_nome: string
   status: StatusContato
+  kanban_coluna_chave: string
+  kanban_coluna_nome: string
+  kanban_coluna_cor_chave: KanbanColunaContato['cor_chave']
   responsavel_id: string | null
   responsavel_nome: string | null
   ultimo_atendimento_data: string | null
@@ -38,6 +47,7 @@ export default async function RelatorioContatosPage() {
     .select(`
       paciente_id,
       status,
+      kanban_coluna_chave,
       responsavel_id,
       atualizado_em,
       pacientes!inner(nome),
@@ -55,6 +65,14 @@ export default async function RelatorioContatosPage() {
     console.error('Erro ao buscar contatos:', error)
     notFound()
   }
+
+  const { data: kanbanColumnsRaw } = await supabase
+    .from('kanban_colunas_contatos')
+    .select('chave, nome, tipo, status_base, cor_chave, ordem')
+    .order('ordem', { ascending: true })
+
+  const kanbanColumns = normalizarColunasContato((kanbanColumnsRaw ?? null) as KanbanColunaContato[] | null)
+  const kanbanColumnMap = new Map(kanbanColumns.map((column) => [column.chave, column]))
 
   // Buscar notas para calcular última atividade
   let notasQuery = supabase
@@ -110,6 +128,9 @@ export default async function RelatorioContatosPage() {
       paciente_id: c.paciente_id,
       paciente_nome: paciente?.nome ?? 'Sem nome',
       status: c.status as StatusContato,
+      kanban_coluna_chave: c.kanban_coluna_chave ?? c.status,
+      kanban_coluna_nome: kanbanColumnMap.get(c.kanban_coluna_chave ?? c.status)?.nome ?? 'Sem coluna',
+      kanban_coluna_cor_chave: kanbanColumnMap.get(c.kanban_coluna_chave ?? c.status)?.cor_chave ?? (c.status as StatusContato),
       responsavel_id: c.responsavel_id,
       responsavel_nome: profile?.full_name ?? null,
       ultimo_atendimento_data: ultimoAtendimento?.data_agendamento ?? null,
@@ -119,13 +140,7 @@ export default async function RelatorioContatosPage() {
   })
 
   // Calcular agregações
-  const contagemPorStatus: Record<StatusContato, number> = {
-    a_contactar: 0,
-    tentativa: 0,
-    em_conversa: 0,
-    sem_interesse: 0,
-    agendou: 0,
-  }
+  const contagemPorStatus: Record<StatusContato, number> = criarContagemStatusContato()
 
   for (const c of contatos) {
     contagemPorStatus[c.status]++
@@ -156,13 +171,7 @@ export default async function RelatorioContatosPage() {
   }
 
   for (const [key, conts] of responsavelMap.entries()) {
-    const statusCount: Record<StatusContato, number> = {
-      a_contactar: 0,
-      tentativa: 0,
-      em_conversa: 0,
-      sem_interesse: 0,
-      agendou: 0,
-    }
+    const statusCount: Record<StatusContato, number> = criarContagemStatusContato()
 
     for (const c of conts) {
       statusCount[c.status]++
@@ -197,6 +206,12 @@ export default async function RelatorioContatosPage() {
   })
 
   const contatosSemResponsavel = contatos.filter(c => !c.responsavel_id)
+  const contagemPorColuna = kanbanColumns.map((column) => ({
+    chave: column.chave,
+    nome: column.nome,
+    corChave: column.cor_chave,
+    total: contatos.filter((contato) => contato.kanban_coluna_chave === column.chave).length,
+  }))
 
   return (
     <div className="space-y-6">
@@ -218,6 +233,7 @@ export default async function RelatorioContatosPage() {
         contatosPorResponsavel={contatosPorResponsavel}
         contatosEmRisco={contatosEmRisco}
         contatosSemResponsavel={contatosSemResponsavel}
+        contagemPorColuna={contagemPorColuna}
         taxaConversaoGeral={taxaConversaoGeral}
         totalContatos={totalContatos}
         isGestorOuMaster={isGestorOuMaster}

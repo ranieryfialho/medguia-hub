@@ -2,6 +2,10 @@ import { createClient } from '@/lib/supabase/server'
 import { KanbanContatos } from '@/components/features/KanbanContatos'
 import { listarTemplates } from '@/actions/templates'
 import type { StatusContato } from '@/actions/contatos'
+import {
+  normalizarColunasContato,
+  type KanbanColunaContato,
+} from '@/lib/contatos-kanban'
 import { Target } from 'lucide-react'
 
 export type ContatoPaciente = {
@@ -10,6 +14,7 @@ export type ContatoPaciente = {
   telefone: string
   email: string | null
   status: StatusContato
+  kanban_coluna_chave: string
   responsavel_id: string | null
   responsavel_nome: string | null
   ultimo_atendimento_data: string | null
@@ -36,23 +41,32 @@ async function fetchAll<T>(
 
 export default async function ContatosPage() {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
-  const [pacientes, contatos, { data: profiles }, atendimentos, templates] = await Promise.all([
+  const [pacientes, contatos, { data: profiles }, atendimentos, templates, { data: profile }, { data: kanbanColumnsRaw }] = await Promise.all([
     fetchAll((from, to) =>
       supabase.from('pacientes').select('id, nome, telefone, email, recuperacao_base').eq('ativo', true).order('nome').range(from, to)
     ),
     fetchAll((from, to) =>
-      supabase.from('contatos_base').select('paciente_id, status, responsavel_id').range(from, to)
+      supabase.from('contatos_base').select('paciente_id, status, kanban_coluna_chave, responsavel_id').range(from, to)
     ),
     supabase.from('profiles').select('id, full_name').eq('ativo', true).neq('role', 'master').neq('role', 'medico').order('full_name'),
     fetchAll((from, to) =>
       supabase.from('atendimentos').select('paciente_id, data_agendamento, tipo').order('data_agendamento', { ascending: false }).range(from, to)
     ),
     listarTemplates('reativacao'),
+    user
+      ? supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    supabase
+      .from('kanban_colunas_contatos')
+      .select('chave, nome, tipo, status_base, cor_chave, ordem')
+      .order('ordem', { ascending: true }),
   ])
 
   const contatosMap = new Map(contatos.map(c => [c.paciente_id, c]))
   const profilesMap = new Map((profiles ?? []).map(p => [p.id, p]))
+  const kanbanColumns = normalizarColunasContato((kanbanColumnsRaw ?? null) as KanbanColunaContato[] | null)
 
   const ultimoAtendimentoMap = new Map<string, { data: string; tipo: string }>()
   for (const a of atendimentos) {
@@ -71,6 +85,7 @@ export default async function ContatosPage() {
       telefone: p.telefone,
       email: p.email,
       status: (c?.status ?? (p.recuperacao_base ? 'recuperacao_base' : 'a_contactar')) as StatusContato,
+      kanban_coluna_chave: c?.kanban_coluna_chave ?? c?.status ?? (p.recuperacao_base ? 'recuperacao_base' : 'a_contactar'),
       responsavel_id: c?.responsavel_id ?? null,
       responsavel_nome: responsavelNome,
       ultimo_atendimento_data: ua?.data ?? null,
@@ -81,21 +96,30 @@ export default async function ContatosPage() {
   const totalPacientes = data.length
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <div className="p-2.5 bg-[#f0fcf9] border border-[#c3ede6] rounded-xl">
-          <Target size={20} className="text-[#006b5a]" />
+    <div className="space-y-6 sm:space-y-8 pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="p-3 bg-gradient-to-br from-[#f0fcf9] to-[#e6f9f5] border border-[#c3ede6] rounded-2xl shadow-sm shrink-0">
+            <Target size={24} className="text-[#006b5a]" />
+          </div>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#083142] tracking-tight">Base de Contatos</h1>
+            <p className="text-sm sm:text-base text-[#6d7a75] mt-0.5">Gerencie o relacionamento com os pacientes</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-xl font-bold text-[#083142]">Base de Contatos</h1>
-          <p className="text-sm text-[#6d7a75]">Gerencie o contato com todos os pacientes ativos</p>
-        </div>
-        <div className="ml-auto text-sm text-[#6d7a75] bg-white border border-[#dee3e3] px-3 py-1.5 rounded-lg font-medium">
-          {totalPacientes} pacientes
+        <div className="sm:ml-auto inline-flex items-center self-start sm:self-auto text-sm text-[#083142] bg-white border border-[#dee3e3] px-4 py-2 rounded-xl font-semibold shadow-sm">
+          <span className="w-2 h-2 rounded-full bg-[#006b5a] mr-2 animate-pulse"></span>
+          {totalPacientes} pacientes ativos
         </div>
       </div>
 
-      <KanbanContatos contatos={data} profiles={profiles ?? []} templates={templates} />
+      <KanbanContatos
+        contatos={data}
+        profiles={profiles ?? []}
+        templates={templates}
+        columns={kanbanColumns}
+        userRole={profile?.role ?? ''}
+      />
     </div>
   )
 }

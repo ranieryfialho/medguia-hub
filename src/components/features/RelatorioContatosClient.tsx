@@ -5,16 +5,25 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
-  CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
-import { AlertCircle, CheckCircle2, TrendingUp, Users, Eye, EyeOff } from 'lucide-react'
+import { AlertCircle, CheckCircle2, TrendingUp, Users } from 'lucide-react'
+import {
+  LABEL_POR_STATUS_CONTATO,
+  getVisualColunaContato,
+  type ColunaCorContato,
+  type StatusContatoPadrao,
+} from '@/lib/contatos-kanban'
 
-type StatusContato = 'a_contactar' | 'tentativa' | 'em_conversa' | 'sem_interesse' | 'agendou'
+type StatusContato = StatusContatoPadrao
 
 type ContatoComDados = {
   paciente_id: string
   paciente_nome: string
   status: StatusContato
+  kanban_coluna_chave: string
+  kanban_coluna_nome: string
+  kanban_coluna_cor_chave: ColunaCorContato
   responsavel_id: string | null
   responsavel_nome: string | null
   ultimo_atendimento_data: string | null
@@ -34,6 +43,12 @@ interface RelatorioContatosClientProps {
   }>
   contatosEmRisco: ContatoComDados[]
   contatosSemResponsavel: ContatoComDados[]
+  contagemPorColuna: Array<{
+    chave: string
+    nome: string
+    corChave: ColunaCorContato
+    total: number
+  }>
   taxaConversaoGeral: number
   totalContatos: number
   isGestorOuMaster: boolean
@@ -41,20 +56,15 @@ interface RelatorioContatosClientProps {
 }
 
 const STATUS_COLORS: Record<StatusContato, string> = {
-  a_contactar: '#6d7a75',
-  tentativa: '#b45309',
-  em_conversa: '#006b5a',
-  sem_interesse: '#ba1a1a',
-  agendou: '#1AAF9A',
+  a_contactar: getVisualColunaContato('a_contactar').cor,
+  recuperacao_base: getVisualColunaContato('recuperacao_base').cor,
+  tentativa: getVisualColunaContato('tentativa').cor,
+  em_conversa: getVisualColunaContato('em_conversa').cor,
+  sem_interesse: getVisualColunaContato('sem_interesse').cor,
+  agendou: getVisualColunaContato('agendou').cor,
 }
 
-const STATUS_LABELS: Record<StatusContato, string> = {
-  a_contactar: 'A Contatar',
-  tentativa: 'Tentativa',
-  em_conversa: 'Em Conversa',
-  sem_interesse: 'Sem Interesse',
-  agendou: 'Agendou',
-}
+const STATUS_LABELS: Record<StatusContato, string> = LABEL_POR_STATUS_CONTATO
 
 function calcularDiasSdeUltimaAtividade(ultimaNota: string | null, ultimoAtendimento: string | null): number {
   const ultimaAtividade = ultimaNota ?? ultimoAtendimento
@@ -79,33 +89,38 @@ function labelRiscoPorDias(dias: number): string {
 }
 
 export function RelatorioContatosClient({
-  contatos,
+  contatos: _contatos,
   contagemPorStatus,
   contatosPorResponsavel,
   contatosEmRisco,
   contatosSemResponsavel,
+  contagemPorColuna,
   taxaConversaoGeral,
   totalContatos,
   isGestorOuMaster,
-  userNome,
+  userNome: _userNome,
 }: RelatorioContatosClientProps) {
+  void _contatos
+  void _userNome
   const [abaAtiva, setAbaAtiva] = useState<'performance' | 'risco'>('performance')
   const [filtroResponsavel, setFiltroResponsavel] = useState<string | null>(null)
 
   // Dados para gráfico de pizza
-  const pieData = [
-    { name: STATUS_LABELS.a_contactar, value: contagemPorStatus.a_contactar },
-    { name: STATUS_LABELS.tentativa, value: contagemPorStatus.tentativa },
-    { name: STATUS_LABELS.em_conversa, value: contagemPorStatus.em_conversa },
-    { name: STATUS_LABELS.agendou, value: contagemPorStatus.agendou },
-    { name: STATUS_LABELS.sem_interesse, value: contagemPorStatus.sem_interesse },
-  ].filter(d => d.value > 0)
+  const pieData = ([
+    { key: 'a_contactar', name: STATUS_LABELS.a_contactar, value: contagemPorStatus.a_contactar },
+    { key: 'recuperacao_base', name: STATUS_LABELS.recuperacao_base, value: contagemPorStatus.recuperacao_base },
+    { key: 'tentativa', name: STATUS_LABELS.tentativa, value: contagemPorStatus.tentativa },
+    { key: 'em_conversa', name: STATUS_LABELS.em_conversa, value: contagemPorStatus.em_conversa },
+    { key: 'agendou', name: STATUS_LABELS.agendou, value: contagemPorStatus.agendou },
+    { key: 'sem_interesse', name: STATUS_LABELS.sem_interesse, value: contagemPorStatus.sem_interesse },
+  ] satisfies Array<{ key: StatusContato; name: string; value: number }>).filter((d) => d.value > 0)
 
   // Dados para gráfico de barras (por responsável)
   const barData = contatosPorResponsavel.map(r => ({
     nome: r.nome,
     total: r.total,
     a_contactar: r.contagemPorStatus.a_contactar,
+    recuperacao_base: r.contagemPorStatus.recuperacao_base,
     tentativa: r.contagemPorStatus.tentativa,
     em_conversa: r.contagemPorStatus.em_conversa,
     agendou: r.contagemPorStatus.agendou,
@@ -119,6 +134,7 @@ export function RelatorioContatosClient({
   const contagemRiscoFiltrados = filtroResponsavel
     ? contatosSemResponsavel.filter(c => c.responsavel_id === (filtroResponsavel === 'sem_responsavel' ? null : filtroResponsavel))
     : contatosSemResponsavel
+  const etapasKanban = contagemPorColuna.filter((item) => item.total > 0)
 
   return (
     <div className="space-y-6">
@@ -212,7 +228,7 @@ export function RelatorioContatosClient({
                     dataKey="value"
                   >
                     {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={STATUS_COLORS[entry.name as StatusContato] || '#999'} />
+                      <Cell key={`cell-${index}`} fill={STATUS_COLORS[entry.key]} />
                     ))}
                   </Pie>
                   <Tooltip
@@ -240,6 +256,7 @@ export function RelatorioContatosClient({
                     contentStyle={{ borderRadius: '8px', border: '1px solid #bcc9c4' }}
                   />
                   <Bar dataKey="a_contactar" stackId="status" fill={STATUS_COLORS.a_contactar} />
+                  <Bar dataKey="recuperacao_base" stackId="status" fill={STATUS_COLORS.recuperacao_base} />
                   <Bar dataKey="tentativa" stackId="status" fill={STATUS_COLORS.tentativa} />
                   <Bar dataKey="em_conversa" stackId="status" fill={STATUS_COLORS.em_conversa} />
                   <Bar dataKey="agendou" stackId="status" fill={STATUS_COLORS.agendou} />
@@ -254,6 +271,7 @@ export function RelatorioContatosClient({
             <div className="space-y-4">
               {[
                 { label: STATUS_LABELS.a_contactar, value: contagemPorStatus.a_contactar, color: STATUS_COLORS.a_contactar },
+                { label: STATUS_LABELS.recuperacao_base, value: contagemPorStatus.recuperacao_base, color: STATUS_COLORS.recuperacao_base },
                 { label: STATUS_LABELS.tentativa, value: contagemPorStatus.tentativa, color: STATUS_COLORS.tentativa },
                 { label: STATUS_LABELS.em_conversa, value: contagemPorStatus.em_conversa, color: STATUS_COLORS.em_conversa },
                 { label: STATUS_LABELS.agendou, value: contagemPorStatus.agendou, color: STATUS_COLORS.agendou },
@@ -272,6 +290,32 @@ export function RelatorioContatosClient({
                         className="h-3 rounded-full transition-all"
                         style={{ width: `${pct}%`, backgroundColor: item.color }}
                       />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-[#bcc9c4]/30">
+            <h3 className="text-sm font-bold text-[#171d1c] uppercase tracking-widest mb-6">Etapas do Kanban</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              {etapasKanban.map((item) => {
+                const visual = getVisualColunaContato(item.corChave)
+                const pct = totalContatos > 0 ? Math.round((item.total / totalContatos) * 100) : 0
+                return (
+                  <div key={item.chave} className="rounded-xl border p-4" style={{ borderColor: visual.cor + '30', backgroundColor: visual.corBg }}>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-[#171d1c] truncate">{item.nome}</p>
+                        <p className="text-[11px] mt-1" style={{ color: visual.cor }}>{pct}% da base</p>
+                      </div>
+                      <div
+                        className="min-w-[42px] h-9 px-2 rounded-full flex items-center justify-center text-sm font-bold"
+                        style={{ backgroundColor: visual.corBadgeBg, color: visual.corBadgeText }}
+                      >
+                        {item.total}
+                      </div>
                     </div>
                   </div>
                 )
@@ -339,7 +383,7 @@ export function RelatorioContatosClient({
                   <thead className="bg-[#f9faf8] border-b border-[#bcc9c4]/30">
                     <tr>
                       <th className="px-4 py-3 text-left font-semibold text-[#3d4945]">Paciente</th>
-                      <th className="px-4 py-3 text-left font-semibold text-[#3d4945]">Status</th>
+                      <th className="px-4 py-3 text-left font-semibold text-[#3d4945]">Etapa</th>
                       <th className="px-4 py-3 text-left font-semibold text-[#3d4945]">Última Atividade</th>
                       <th className="px-4 py-3 text-left font-semibold text-[#3d4945]">Responsável</th>
                     </tr>
@@ -353,9 +397,9 @@ export function RelatorioContatosClient({
                           <td className="px-4 py-3">
                             <span
                               className="px-2 py-1 rounded-full text-xs font-semibold text-white"
-                              style={{ backgroundColor: STATUS_COLORS[c.status] }}
+                              style={{ backgroundColor: getVisualColunaContato(c.kanban_coluna_cor_chave).cor }}
                             >
-                              {STATUS_LABELS[c.status]}
+                              {c.kanban_coluna_nome}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-[#3d4945]/80">
