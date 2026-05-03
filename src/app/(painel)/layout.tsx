@@ -6,6 +6,8 @@ import { Toaster } from 'react-hot-toast'
 import { listarTodasDisponibilidades } from '@/actions/disponibilidade'
 import { normalizarDisponibilidade, type DisponibilidadeDia } from '@/lib/disponibilidade'
 import { podeEntrarNaAgendaOuRelatorio } from '@/lib/profissionais'
+import { WidgetDisponibilidade } from '@/components/features/WidgetDisponibilidade'
+import { listarStatusDisponibilidade } from '@/actions/status-disponibilidade'
 
 export default async function DashboardLayout({
   children,
@@ -61,6 +63,8 @@ export default async function DashboardLayout({
       cargo: p.role || 'Profissional',
     }))
 
+  const statusDisponibilidade = await listarStatusDisponibilidade(profissionais.map(p => p.id))
+
   return (
     <AppShell
       profissionais={profissionais}
@@ -74,6 +78,13 @@ export default async function DashboardLayout({
 
       {primeiroAcesso && <ModalPrimeiroAcesso />}
       <Toaster position="top-right" />
+      {user && (
+        <WidgetDisponibilidade
+          profissionais={profissionais}
+          initialStatuses={statusDisponibilidade}
+          currentUserId={user.id}
+        />
+      )}
     </AppShell>
   )
 }

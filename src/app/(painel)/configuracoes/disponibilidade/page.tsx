@@ -11,6 +11,8 @@ import { getAppHour } from '@/lib/datetime'
 import { BtnCopiarDisponibilidade } from '@/components/features/BtnCopiarDisponibilidade'
 import { normalizarDisponibilidade, type DisponibilidadeDia } from '@/lib/disponibilidade'
 import { obterIntervalosJornada, toHora } from '@/lib/jornada'
+import { StatusEquipeRealtime } from '@/components/features/StatusEquipeRealtime'
+import { listarStatusDisponibilidade } from '@/actions/status-disponibilidade'
 
 const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
@@ -59,6 +61,7 @@ async function ViewIndividual({
   profissionais,
   paramProfId,
   dataParam,
+  initialStatuses,
 }: {
   targetId: string
   nomeProfissional: string
@@ -66,6 +69,7 @@ async function ViewIndividual({
   profissionais: { id: string; nome: string }[]
   paramProfId: string | null
   dataParam: string | undefined
+  initialStatuses: Awaited<ReturnType<typeof listarStatusDisponibilidade>>
 }) {
   const supabase = await createClient()
 
@@ -159,6 +163,11 @@ async function ViewIndividual({
 
   return (
     <div className="space-y-6 px-6">
+      {/* Status em tempo real */}
+      {isGestor && profissionais.length > 0 && (
+        <StatusEquipeRealtime profissionais={profissionais} initialStatuses={initialStatuses} />
+      )}
+
       {/* Header */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
         <div className="flex items-center justify-between flex-wrap gap-4">
@@ -309,10 +318,12 @@ async function ViewGeral({
   profissionais,
   dataParam,
   agrupamento,
+  initialStatuses,
 }: {
   profissionais: { id: string; nome: string }[]
   dataParam: string | undefined
   agrupamento: 'horario' | 'profissional'
+  initialStatuses: Awaited<ReturnType<typeof listarStatusDisponibilidade>>
 }) {
   const supabase = await createClient()
 
@@ -404,6 +415,9 @@ async function ViewGeral({
 
   return (
     <div className="space-y-6 px-6">
+      {/* Status em tempo real */}
+      <StatusEquipeRealtime profissionais={profissionais} initialStatuses={initialStatuses} />
+
       {/* Header */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
         <div className="flex items-center justify-between flex-wrap gap-4">
@@ -608,6 +622,9 @@ export default async function DisponibilidadePage({
   const paramProfId = typeof params.profissional === 'string' ? params.profissional : null
   const dataParam = typeof params.data === 'string' ? params.data : undefined
   const agrupamento = params.agrupamento === 'profissional' ? 'profissional' : 'horario'
+  const targetId = isGestor && paramProfId ? paramProfId : user.id
+  const statusIds = isGestor ? profissionais.map(p => p.id) : [targetId]
+  const initialStatuses = await listarStatusDisponibilidade(statusIds)
 
   // Gestor sem parâmetro → redirect para visão geral
   if (isGestor && !visao && !paramProfId) {
@@ -622,12 +639,12 @@ export default async function DisponibilidadePage({
         profissionais={profissionais}
         dataParam={dataParam}
         agrupamento={agrupamento as 'horario' | 'profissional'}
+        initialStatuses={initialStatuses}
       />
     )
   }
 
   // Individual (fisioterapeuta ou gestor com ?profissional=id)
-  const targetId = isGestor && paramProfId ? paramProfId : user.id
   const nomeProfissional = isGestor
     ? profissionais.find(p => p.id === targetId)?.nome ?? 'Profissional'
     : profile?.full_name ?? 'Você'
@@ -640,6 +657,7 @@ export default async function DisponibilidadePage({
       profissionais={profissionais}
       paramProfId={paramProfId}
       dataParam={dataParam}
+      initialStatuses={initialStatuses}
     />
   )
 }
