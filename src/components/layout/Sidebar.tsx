@@ -46,6 +46,7 @@ export function Sidebar({
   const [configOpen, setConfigOpen] = useState(() => pathname?.startsWith('/configuracoes') ?? false)
   const [equipeOpen, setEquipeOpen] = useState(() => (pathname?.startsWith('/equipe') || pathname?.startsWith('/relatorios/tempo-fabril')) ?? false)
   const [comercialOpen, setComercialOpen] = useState(() => (pathname?.startsWith('/vendas') || pathname?.startsWith('/produtos') || pathname?.startsWith('/relatorios/vendas')) ?? false)
+  const [pacientesOpen, setPacientesOpen] = useState(() => pathname?.startsWith('/pacientes') ?? false)
   const [modulos, setModulos] = useState<string[]>(modulosLiberadosProp ?? [])
   const [prontuariosPendentes, setProntuariosPendentes] = useState(0)
 
@@ -210,10 +211,28 @@ export function Sidebar({
         )}
 
         {pv('pacientes') && (
-          <Link href="/pacientes" onClick={handleNavClick} className={linkCls(!!isActive('/pacientes'))}>
-            <Users size={20} />
-            <span>Pacientes</span>
-          </Link>
+          <div>
+            <button
+              onClick={() => setPacientesOpen(v => !v)}
+              className={groupCls(!!isActive('/pacientes'))}
+            >
+              <Users size={20} />
+              <span className="flex-1 text-left">Pacientes</span>
+              <ChevronDown size={16} className={`transition-transform duration-200 ${pacientesOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {pacientesOpen && (
+              <div className="mt-1 ml-4 space-y-0.5 border-l-2 border-[#bcc9c4]/40 pl-3">
+                <Link href="/pacientes" onClick={handleNavClick} className={subLinkCls(!!isActive('/pacientes') && !isActive('/pacientes/origens'))}>
+                  <Users size={14} />
+                  Listar Pacientes
+                </Link>
+                <Link href="/pacientes/origens" onClick={handleNavClick} className={subLinkCls(!!isActive('/pacientes/origens'))}>
+                  <Target size={14} />
+                  Origens
+                </Link>
+              </div>
+            )}
+          </div>
         )}
 
         {pv('prontuarios') && (

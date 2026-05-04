@@ -1,11 +1,20 @@
 'use client'
 
-import { useActionState, useEffect } from 'react'
+import { useActionState, useEffect, useState } from 'react'
 import { editarPaciente } from '@/actions/pacientes'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
+import type { OrigemPaciente } from '@/actions/origens-paciente'
+import { ComboboxPaciente } from '@/components/features/ComboboxPaciente'
 
-export function FormEditarPaciente({ paciente }: { paciente: any }) {
+function tipoOrigem(nome: string) {
+  const n = nome.toLowerCase()
+  if (n.includes('médico') || n.includes('medico')) return 'medico'
+  if (n.includes('indicaç') || n.includes('indicac')) return 'indicacao'
+  return 'outro'
+}
+
+export function FormEditarPaciente({ paciente, origens = [] }: { paciente: any; origens?: OrigemPaciente[] }) {
   const [state, formAction, isPending] = useActionState<any, FormData>(editarPaciente, { error: '', fields: {} })
 
   useEffect(() => {
@@ -20,6 +29,9 @@ export function FormEditarPaciente({ paciente }: { paciente: any }) {
     }
     return paciente[field] || ''
   }
+
+  const [origemSelecionada, setOrigemSelecionada] = useState<string>(getValue('origem'))
+  const tipo = tipoOrigem(origemSelecionada)
 
   // Define se o paciente está ativo para marcar o select corretamente
   const isAtivo = state?.fields?.ativo !== undefined 
@@ -102,17 +114,31 @@ export function FormEditarPaciente({ paciente }: { paciente: any }) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium text-text-secondary mb-1">Como soube de nós? *</label>
-            <select name="origem" defaultValue={getValue('origem')} className="w-full bg-input border border-border-input rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-primary-500">
-              <option value="indicacao">Indicação</option>
-              <option value="instagram">Instagram</option>
-              <option value="google">Google</option>
-              <option value="medico">Médico Parceiro</option>
+            <select
+              name="origem"
+              defaultValue={getValue('origem')}
+              onChange={e => setOrigemSelecionada(e.target.value)}
+              className="w-full bg-input border border-border-input rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-primary-500"
+            >
+              <option value="">Selecione</option>
+              {origens.map(o => (
+                <option key={o.id} value={o.nome}>{o.nome}</option>
+              ))}
             </select>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-text-secondary mb-1">Indicado por</label>
-            <input type="text" name="indicado_por" defaultValue={getValue('indicado_por')} className="w-full bg-input border border-border-input rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-primary-500" />
-          </div>
+          {(tipo === 'medico' || tipo === 'indicacao') && (
+            <div>
+              <label className="block text-xs font-medium text-text-secondary mb-1">
+                {tipo === 'medico' ? 'Médico que indicou' : 'Indicado por'}
+              </label>
+              <ComboboxPaciente
+                name="indicado_por"
+                defaultValue={getValue('indicado_por')}
+                tipo={tipo === 'medico' ? 'medico' : 'paciente'}
+                placeholder={tipo === 'medico' ? 'Buscar médico parceiro...' : 'Buscar paciente que indicou...'}
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -155,7 +181,7 @@ export function FormEditarPaciente({ paciente }: { paciente: any }) {
         </div>
       </div>
 
-      <div className="fixed bottom-0 right-0 left-[220px] bg-surface border-t border-border p-4 flex justify-end gap-3 z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+      <div className="fixed bottom-0 right-0 left-55 bg-surface border-t border-border p-4 flex justify-end gap-3 z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
         <Link href="/pacientes" className="px-6 py-2 border border-border text-text-secondary rounded-md text-sm font-medium hover:bg-page transition-colors">
           Cancelar
         </Link>

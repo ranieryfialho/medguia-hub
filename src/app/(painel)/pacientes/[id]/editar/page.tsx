@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { FormEditarPaciente } from '@/components/features/FormEditarPaciente'
 import { requireModulo } from '@/lib/guard'
+import { listarOrigensAtivasPaciente } from '@/actions/origens-paciente'
 
 export default async function EditarPacientePage({ params }: { params: Promise<{ id: string }> }) {
   await requireModulo('pacientes')
@@ -12,11 +13,10 @@ export default async function EditarPacientePage({ params }: { params: Promise<{
   const resolvedParams = await params
   const pacienteId = resolvedParams.id
 
-  const { data: paciente, error } = await supabase
-    .from('pacientes')
-    .select('*')
-    .eq('id', pacienteId)
-    .single()
+  const [{ data: paciente, error }, origens] = await Promise.all([
+    supabase.from('pacientes').select('*').eq('id', pacienteId).single(),
+    listarOrigensAtivasPaciente(),
+  ])
 
   if (error || !paciente) {
     notFound()
@@ -37,7 +37,7 @@ export default async function EditarPacientePage({ params }: { params: Promise<{
       </div>
 
       <div className="bg-surface p-8 rounded-lg shadow-sm border border-border">
-        <FormEditarPaciente paciente={paciente} />
+        <FormEditarPaciente paciente={paciente} origens={origens} />
       </div>
     </div>
   )

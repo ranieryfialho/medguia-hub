@@ -151,6 +151,33 @@ export async function adicionarObservacao(prevState: any, formData: FormData) {
   return { success: true }
 }
 
+export async function buscarPacientesPorNome(termo: string): Promise<{ id: string; nome: string; detalhe?: string }[]> {
+  if (!termo.trim()) return []
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('pacientes')
+    .select('id, nome, telefone')
+    .ilike('nome', `%${termo.trim()}%`)
+    .or('ativo.eq.true,ativo.is.null')
+    .order('nome', { ascending: true })
+    .limit(8)
+  return (data ?? []).map(p => ({ id: p.id, nome: p.nome, detalhe: p.telefone ?? undefined }))
+}
+
+export async function buscarMedicosPorNome(termo: string): Promise<{ id: string; nome: string; detalhe?: string }[]> {
+  if (!termo.trim()) return []
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('profiles')
+    .select('id, full_name, especialidade')
+    .ilike('full_name', `%${termo.trim()}%`)
+    .eq('role', 'medico')
+    .eq('ativo', true)
+    .order('full_name', { ascending: true })
+    .limit(8)
+  return (data ?? []).map(p => ({ id: p.id, nome: p.full_name ?? '', detalhe: p.especialidade ?? undefined }))
+}
+
 export async function arquivarPaciente(id: string) {
   const supabase = await createClient()
 

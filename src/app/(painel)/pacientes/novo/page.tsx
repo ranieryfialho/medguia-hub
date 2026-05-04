@@ -1,9 +1,11 @@
 import Link from 'next/link'
 import { FormCadastroPaciente } from '@/components/features/FormCadastroPaciente'
 import { requireModulo } from '@/lib/guard'
+import { listarOrigensAtivasPaciente } from '@/actions/origens-paciente'
 
 export default async function NovoPacientePage() {
   await requireModulo('pacientes')
+  const origens = await listarOrigensAtivasPaciente()
 
   return (
     <div className="relative min-h-full">
@@ -20,7 +22,7 @@ export default async function NovoPacientePage() {
       </div>
 
       <div className="bg-surface p-8 rounded-lg shadow-sm border border-border">
-        <FormCadastroPaciente />
+        <FormCadastroPaciente origens={origens} />
       </div>
     </div>
   )
