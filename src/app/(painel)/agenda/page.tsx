@@ -264,36 +264,36 @@ export default async function AgendaPage({ searchParams }: PageProps) {
         <div className="col-span-1 lg:col-span-8 flex flex-col gap-3 lg:gap-4 min-h-0 overflow-hidden">
 
           {/* Barra de navegação */}
-          <div className="flex-shrink-0 bg-[#f0f5f4] rounded-2xl lg:rounded-3xl px-4 lg:px-5 py-2.5 lg:py-3 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Link href={prevUrl} className="w-8 h-8 lg:w-9 lg:h-9 rounded-full flex items-center justify-center hover:bg-[#dee3e3] transition-colors text-[#171d1c]">
-                <ChevronLeft size={20} />
+          <div className="flex-shrink-0 bg-[#f0f5f4] rounded-2xl lg:rounded-3xl px-3 lg:px-5 py-2.5 lg:py-3 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1 lg:gap-2 min-w-0">
+              <Link href={prevUrl} className="w-7 h-7 lg:w-9 lg:h-9 rounded-full flex items-center justify-center hover:bg-[#dee3e3] transition-colors text-[#171d1c] shrink-0">
+                <ChevronLeft size={18} />
               </Link>
-              <h3 className="font-extrabold text-base lg:text-xl text-[#006b5a] tracking-tight capitalize w-32 lg:w-44 text-center">
+              <h3 className="font-extrabold text-sm lg:text-xl text-[#006b5a] tracking-tight capitalize w-24 lg:w-44 text-center truncate">
                 {mesAnoAtual}
               </h3>
-              <Link href={nextUrl} className="w-8 h-8 lg:w-9 lg:h-9 rounded-full flex items-center justify-center hover:bg-[#dee3e3] transition-colors text-[#171d1c]">
-                <ChevronRight size={20} />
+              <Link href={nextUrl} className="w-7 h-7 lg:w-9 lg:h-9 rounded-full flex items-center justify-center hover:bg-[#dee3e3] transition-colors text-[#171d1c] shrink-0">
+                <ChevronRight size={18} />
               </Link>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 shrink-0">
               <div className="flex bg-[#dee3e3] p-1 rounded-full">
                 <Link
                   href={`?view=dia&data=${dataString}${myAppointmentsOnly ? '&meus=true' : ''}`}
-                  className={`px-3 lg:px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${view === 'dia' ? 'bg-white shadow-sm text-[#006b5a]' : 'text-[#3d4945] hover:text-[#171d1c]'}`}
+                  className={`px-2.5 lg:px-5 py-1.5 rounded-full text-[10px] lg:text-xs font-bold uppercase tracking-wider transition-all ${view === 'dia' ? 'bg-white shadow-sm text-[#006b5a]' : 'text-[#3d4945] hover:text-[#171d1c]'}`}
                 >
                   Dia
                 </Link>
                 <Link
                   href={`?view=semana&data=${dataString}${myAppointmentsOnly ? '&meus=true' : ''}`}
-                  className={`hidden sm:block px-3 lg:px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${view === 'semana' ? 'bg-white shadow-sm text-[#006b5a]' : 'text-[#3d4945] hover:text-[#171d1c]'}`}
+                  className={`hidden sm:block px-2.5 lg:px-5 py-1.5 rounded-full text-[10px] lg:text-xs font-bold uppercase tracking-wider transition-all ${view === 'semana' ? 'bg-white shadow-sm text-[#006b5a]' : 'text-[#3d4945] hover:text-[#171d1c]'}`}
                 >
                   Semana
                 </Link>
                 <Link
                   href={`?view=mes&data=${dataString}${myAppointmentsOnly ? '&meus=true' : ''}`}
-                  className={`px-3 lg:px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${view === 'mes' ? 'bg-white shadow-sm text-[#006b5a]' : 'text-[#3d4945] hover:text-[#171d1c]'}`}
+                  className={`px-2.5 lg:px-5 py-1.5 rounded-full text-[10px] lg:text-xs font-bold uppercase tracking-wider transition-all ${view === 'mes' ? 'bg-white shadow-sm text-[#006b5a]' : 'text-[#3d4945] hover:text-[#171d1c]'}`}
                 >
                   Mês
                 </Link>
@@ -302,14 +302,15 @@ export default async function AgendaPage({ searchParams }: PageProps) {
               {!isFisioterapeuta && (
                 <Link
                   href={`?view=${view}&data=${dataString}${myAppointmentsOnly ? '' : '&meus=true'}`}
-                  className={`px-3 lg:px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+                  title="Meus agendamentos"
+                  className={`w-8 h-8 lg:w-auto lg:h-auto lg:px-4 lg:py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center lg:gap-1.5 ${
                     myAppointmentsOnly
                       ? 'bg-[#006b5a] text-white shadow-md shadow-[#006b5a]/20'
                       : 'bg-white text-[#006b5a] border border-[#bcc9c4]/50 hover:border-[#006b5a]'
                   }`}
                 >
                   <User size={14} />
-                  Meus
+                  <span className="hidden lg:inline">Meus</span>
                 </Link>
               )}
             </div>
