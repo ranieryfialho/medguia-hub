@@ -1,7 +1,10 @@
 import Link from 'next/link'
 import { FormCadastroPaciente } from '@/components/features/FormCadastroPaciente'
+import { requireModulo } from '@/lib/guard'
 
-export default function NovoPacientePage() {
+export default async function NovoPacientePage() {
+  await requireModulo('pacientes')
+
   return (
     <div className="relative min-h-full">
       <div className="mb-6">

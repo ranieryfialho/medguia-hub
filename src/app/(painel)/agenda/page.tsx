@@ -20,6 +20,7 @@ import { listarTodasDisponibilidades } from '@/actions/disponibilidade'
 import { formatAppDateKey, getAppDayRangeUTC, getAppHour, parseAppDate } from '@/lib/datetime'
 import { normalizarDisponibilidade, type DisponibilidadeDia } from '@/lib/disponibilidade'
 import { podeEntrarNaAgendaOuRelatorio } from '@/lib/profissionais'
+import { requireModulo } from '@/lib/guard'
 
 type StatusConfig = { badgeBg: string; label: string }
 type RelacaoPaciente = AgendamentoDetalhe['pacientes'] | AgendamentoDetalhe['pacientes'][]
@@ -68,6 +69,8 @@ async function fetchAll<T>(
 }
 
 export default async function AgendaPage({ searchParams }: PageProps) {
+  await requireModulo('agenda')
+
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()

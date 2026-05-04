@@ -23,7 +23,7 @@ export default async function DashboardLayout({
   if (user) {
     const { data, error } = await supabase
       .from('profiles')
-      .select('primeiro_acesso, role, full_name, avatar_url, especialidade')
+      .select('primeiro_acesso, role, nivel_acesso, full_name, avatar_url, especialidade, modulos_liberados')
       .eq('id', user.id)
       .single()
 
@@ -38,6 +38,8 @@ export default async function DashboardLayout({
   const nomeUsuario = profile?.full_name || user?.email?.split('@')[0] || 'Usuário'
   const cargoUsuario = profile?.role || profile?.especialidade || 'Gestor'
   const userRole = profile?.role || ''
+  const userNivelAcesso = profile?.nivel_acesso || ''
+  const modulosLiberados: string[] = profile?.modulos_liberados ?? []
   const avatarUrl = profile?.avatar_url ||
     `https://ui-avatars.com/api/?name=${encodeURIComponent(nomeUsuario)}&background=cce2da&color=006b5a&bold=true`
 
@@ -69,7 +71,7 @@ export default async function DashboardLayout({
     <AppShell
       profissionais={profissionais}
       disponibilidades={disponibilidadesMap}
-      headerData={{ nomeUsuario, cargoUsuario, avatarUrl, userRole }}
+      headerData={{ nomeUsuario, cargoUsuario, avatarUrl, userRole, userNivelAcesso, modulosLiberados }}
     >
       <Header />
       <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto overflow-x-hidden min-h-0 w-0 min-w-full">

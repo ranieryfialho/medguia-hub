@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { FormNovaVenda } from '@/components/features/FormNovaVenda'
+import { requireModulo } from '@/lib/guard'
 
 interface JornadaRow {
   profissional_id: string | null
@@ -22,6 +23,8 @@ function formatProfile(profile: ProfileRow) {
 }
 
 export default async function NovaVendaPage() {
+  await requireModulo('comercial:vendas')
+
   const supabase = await createClient()
 
   const [{ data: pacientes }, { data: produtos }, { data: comJornada }, { data: fisioterapeutas }, { data: medicos }] = await Promise.all([

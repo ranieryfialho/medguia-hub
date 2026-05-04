@@ -8,6 +8,7 @@ import {
   type KanbanColunaContato,
   type StatusContatoPadrao,
 } from '@/lib/contatos-kanban'
+import { requireModulo } from '@/lib/guard'
 
 type StatusContato = StatusContatoPadrao
 
@@ -26,6 +27,8 @@ type ContatoComDados = {
 }
 
 export default async function RelatorioContatosPage() {
+  await requireModulo('contatos:relatorio')
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -33,13 +36,13 @@ export default async function RelatorioContatosPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, full_name')
+    .select('role, nivel_acesso, full_name')
     .eq('id', user.id)
     .single()
 
   if (!profile) notFound()
 
-  const isGestorOuMaster = profile.role === 'gestor' || profile.role === 'master'
+  const isGestorOuMaster = profile.nivel_acesso === 'gestor' || profile.nivel_acesso === 'master'
 
   // Construir query base
   let q = supabase

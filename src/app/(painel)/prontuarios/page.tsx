@@ -3,12 +3,15 @@ import Link from 'next/link'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { ClipboardList, CheckCheck, ChevronRight, CalendarDays } from 'lucide-react'
+import { requireModulo } from '@/lib/guard'
 
 function iniciais(nome: string) {
   return nome.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()
 }
 
 export default async function ProntuariosPendentesPage() {
+  await requireModulo('prontuarios')
+
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()

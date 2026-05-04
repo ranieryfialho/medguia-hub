@@ -13,6 +13,8 @@ type HeaderData = {
   cargoUsuario: string
   avatarUrl: string
   userRole: string
+  userNivelAcesso: string
+  modulosLiberados: string[]
 }
 
 export function AppShell({
@@ -51,7 +53,7 @@ export function AppShell({
         <Sidebar
           onMobileClose={() => setSidebarOpen(false)}
           onOpenNovoAgendamento={() => setSlideNovoAberto(true)}
-          userRole={headerData.userRole}
+          modulosLiberados={headerData.modulosLiberados}
         />
       </div>
 

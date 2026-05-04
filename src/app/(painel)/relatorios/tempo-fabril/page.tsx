@@ -16,6 +16,7 @@ import {
   type KPIsProfissional,
 } from '@/lib/relatorios/kpis-tempo-fabril'
 import { podeEntrarNaAgendaOuRelatorio } from '@/lib/profissionais'
+import { requireModulo } from '@/lib/guard'
 
 // Componente de cards resumo
 function CardsResumoFabril({
@@ -57,6 +58,8 @@ export default async function TempoFabrilPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
+  await requireModulo('equipe:tempo_fabril')
+
   const supabase = await createClient()
   const params = await searchParams
 
@@ -66,11 +69,11 @@ export default async function TempoFabrilPage({
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, full_name')
+    .select('role, nivel_acesso, full_name')
     .eq('id', user.id)
     .single()
 
-  const isGestorOuMaster = profile?.role === 'gestor' || profile?.role === 'master'
+  const isGestorOuMaster = profile?.nivel_acesso === 'gestor' || profile?.nivel_acesso === 'master'
 
   // Buscar profissionais elegíveis
   const [{ data: listaProfissionais }, { data: jornadasAtivas }] = await Promise.all([

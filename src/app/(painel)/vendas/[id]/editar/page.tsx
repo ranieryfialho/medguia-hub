@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { FormEditarVenda } from '@/components/features/FormEditarVenda'
+import { requireModulo } from '@/lib/guard'
 
 interface ProfileRow {
   id: string
@@ -22,6 +23,8 @@ export default async function EditarVendaPage({
 }: {
   params: Promise<{ id: string }>
 }) {
+  await requireModulo('comercial:vendas')
+
   const supabase = await createClient()
   const { id } = await params
 

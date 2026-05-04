@@ -2,12 +2,15 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { listarDisponibilidade } from '@/actions/disponibilidade'
 import { JornadaEditor } from '@/components/features/JornadaEditor'
+import { requireModulo } from '@/lib/guard'
 
 export default async function JornadaPage({
   searchParams,
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
+  await requireModulo('configuracoes:jornada')
+
   const supabase = await createClient()
   const params = await searchParams
 
@@ -16,11 +19,11 @@ export default async function JornadaPage({
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, full_name')
+    .select('role, nivel_acesso, full_name')
     .eq('id', user.id)
     .single()
 
-  const isGestor = profile?.role === 'gestor' || profile?.role === 'master'
+  const isGestor = profile?.nivel_acesso === 'gestor' || profile?.nivel_acesso === 'master'
 
   let profissionais: { id: string; nome: string }[] = []
   if (isGestor) {

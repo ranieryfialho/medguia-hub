@@ -4,6 +4,7 @@ import { CalendarDays, User } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import Link from 'next/link'
+import { requireModulo } from '@/lib/guard'
 
 const TZ = 'America/Sao_Paulo'
 const MIDNIGHT_BRT_IN_UTC = 'T03:00:00Z'
@@ -75,6 +76,8 @@ export default async function SemanaPage({
 }: {
   searchParams: Promise<{ dia?: string }>
 }) {
+  await requireModulo('confirmacoes:semana')
+
   const supabase = await createClient()
   const { dias, dataInicioSemana, dataFimSemana, abaHoje } = semanaAtual()
 

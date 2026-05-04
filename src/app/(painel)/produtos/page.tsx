@@ -2,12 +2,15 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Plus, Edit, Trash2 } from 'lucide-react'
 import { BtnDeletarProduto } from '@/components/features/BtnDeletarProduto'
+import { requireModulo } from '@/lib/guard'
 
 export default async function ProdutosListPage({
   searchParams,
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
+  await requireModulo('comercial:produtos')
+
   const supabase = await createClient()
 
   const resolvedParams = await searchParams

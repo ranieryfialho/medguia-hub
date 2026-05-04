@@ -2,12 +2,15 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { FormEditarProduto } from '@/components/features/FormEditarProduto'
+import { requireModulo } from '@/lib/guard'
 
 export default async function EditarProdutoPage({
   params,
 }: {
   params: Promise<{ id: string }>
 }) {
+  await requireModulo('comercial:produtos')
+
   const supabase = await createClient()
   const { id } = await params
 

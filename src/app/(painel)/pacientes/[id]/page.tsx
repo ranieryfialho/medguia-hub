@@ -9,6 +9,7 @@ import { BtnGerarPdfProntuario } from '@/components/features/BtnGerarPdfProntuar
 import { buscarProntuariosPorPaciente } from '@/actions/prontuarios'
 import { Suspense } from 'react'
 import { format } from 'date-fns'
+import { requireModulo } from '@/lib/guard'
 import {
   AlertTriangle,
   FileText,
@@ -23,6 +24,8 @@ export default async function PacienteDetailsPage({
   params: Promise<{ id: string }>,
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
+  await requireModulo('pacientes')
+
   const supabase = await createClient()
   const resolvedParams = await params
   const resolvedSearchParams = await searchParams

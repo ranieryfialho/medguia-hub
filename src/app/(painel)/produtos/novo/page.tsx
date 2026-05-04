@@ -1,8 +1,11 @@
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { FormNovoProduto } from '@/components/features/FormNovoProduto'
+import { requireModulo } from '@/lib/guard'
 
-export default function NovoProdutoPage() {
+export default async function NovoProdutoPage() {
+  await requireModulo('comercial:produtos')
+
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}

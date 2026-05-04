@@ -5,6 +5,7 @@ import { ProntuarioFormWrapper } from '@/components/features/ProntuarioFormWrapp
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { CalendarDays, ClipboardList, User } from 'lucide-react'
+import { requireModulo } from '@/lib/guard'
 
 function iniciais(nome: string) {
   return nome.split(' ').slice(0, 2).map((n: string) => n[0]).join('').toUpperCase()
@@ -15,6 +16,8 @@ export default async function ProntuarioFormPage({
 }: {
   params: Promise<{ atendimentoId: string }>
 }) {
+  await requireModulo('prontuarios')
+
   const { atendimentoId } = await params
   const supabase = await createClient()
 

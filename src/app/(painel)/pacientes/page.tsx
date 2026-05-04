@@ -5,12 +5,15 @@ import { BtnWhatsApp } from '@/components/features/BtnWhatsApp'
 import { BtnArquivarPaciente } from '@/components/features/BtnArquivarPaciente'
 import { FiltrosPacientes } from '@/components/features/FiltrosPacientes'
 import { PaginacaoPacientes } from '@/components/features/PaginacaoPacientes'
+import { requireModulo } from '@/lib/guard'
 
 export default async function PacientesListPage({
   searchParams,
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
+  await requireModulo('pacientes')
+
   const supabase = await createClient()
 
   const resolvedParams = await searchParams

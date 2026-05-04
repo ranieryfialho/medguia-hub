@@ -13,6 +13,7 @@ import { normalizarDisponibilidade, type DisponibilidadeDia } from '@/lib/dispon
 import { obterIntervalosJornada, toHora } from '@/lib/jornada'
 import { StatusEquipeRealtime } from '@/components/features/StatusEquipeRealtime'
 import { listarStatusDisponibilidade } from '@/actions/status-disponibilidade'
+import { requireModulo } from '@/lib/guard'
 
 const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
@@ -593,6 +594,8 @@ export default async function DisponibilidadePage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
+  await requireModulo('configuracoes:disponibilidade')
+
   const supabase = await createClient()
   const params = await searchParams
 
@@ -601,11 +604,11 @@ export default async function DisponibilidadePage({
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, full_name')
+    .select('role, nivel_acesso, full_name')
     .eq('id', user.id)
     .single()
 
-  const isGestor = profile?.role === 'gestor' || profile?.role === 'master'
+  const isGestor = profile?.nivel_acesso === 'gestor' || profile?.nivel_acesso === 'master'
 
   let profissionais: { id: string; nome: string }[] = []
   if (isGestor) {

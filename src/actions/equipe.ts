@@ -1,8 +1,21 @@
 'use server'
 
-import { createClient } from '@supabase/supabase-js'
+import { createClient as createSupabaseAdminClient, type SupabaseClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { obterModulosPadraoParaUsuario } from '@/lib/modulos'
+import { createClient as createServerClient } from '@/lib/supabase/server'
+
+async function contarMastersAtivosAdmin(supabaseAdmin: SupabaseClient) {
+  const { count, error } = await supabaseAdmin
+    .from('profiles')
+    .select('id', { count: 'exact', head: true })
+    .eq('nivel_acesso', 'master')
+    .eq('ativo', true)
+
+  if (error) return null
+  return count ?? 0
+}
 
 export async function cadastrarColaborador(_prevState: { error?: string } | null, formData: FormData) {
   const nome = formData.get('nome') as string
@@ -13,8 +26,10 @@ export async function cadastrarColaborador(_prevState: { error?: string } | null
   const conselho = formData.get('conselho') as string
   const especialidade = formData.get('especialidade') as string
   const senhaProvisoria = formData.get('senha') as string
+  const nivelAcesso = (formData.get('nivel_acesso') as string) || 'basico'
+  const modulosLiberados = obterModulosPadraoParaUsuario(cargo, nivelAcesso)
 
-  const supabaseAdmin = createClient(
+  const supabaseAdmin = createSupabaseAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
@@ -47,6 +62,8 @@ export async function cadastrarColaborador(_prevState: { error?: string } | null
       especialidade: especialidade || null,
       ativo: true,
       primeiro_acesso: true,
+      nivel_acesso: nivelAcesso,
+      modulos_liberados: modulosLiberados,
     })
 
   if (profileError) {
@@ -64,7 +81,7 @@ export async function cadastrarColaborador(_prevState: { error?: string } | null
   redirect('/equipe')
 }
 
-export async function editarColaborador(formData: FormData) {
+export async function editarColaborador(_prevState: { error?: string } | null, formData: FormData) {
   const id = formData.get('id') as string
   const nome = formData.get('nome') as string
   const cpf = formData.get('cpf') as string
@@ -72,13 +89,65 @@ export async function editarColaborador(formData: FormData) {
   const cargo = formData.get('cargo') as string
   const conselho = formData.get('conselho') as string
   const especialidade = formData.get('especialidade') as string
+  const nivelAcesso = (formData.get('nivel_acesso') as string) || 'basico'
 
-  const supabaseAdmin = createClient(
+  const retornoErro = (mensagem: string) => ({ error: mensagem })
+
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return retornoErro('Não autenticado')
+
+  const { data: self } = await supabase
+    .from('profiles')
+    .select('nivel_acesso')
+    .eq('id', user.id)
+    .single()
+
+  if (!self || !['gestor', 'master'].includes(self.nivel_acesso)) {
+    return retornoErro('Sem permissão para editar colaborador')
+  }
+
+  const supabaseAdmin = createSupabaseAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
   // 1. Atualiza os dados na tabela pública 'profiles'
+  const { data: perfilAtual } = await supabaseAdmin
+    .from('profiles')
+    .select('role, nivel_acesso, modulos_liberados')
+    .eq('id', id)
+    .single()
+
+  let modulosLiberados = perfilAtual?.modulos_liberados ?? null
+  const mudouCargo = perfilAtual?.role !== cargo
+  const mudouNivel = perfilAtual?.nivel_acesso !== nivelAcesso
+
+  if (perfilAtual?.nivel_acesso === 'master' && self.nivel_acesso !== 'master') {
+    return retornoErro('Apenas master pode editar um usuário master')
+  }
+
+  if (nivelAcesso === 'master' && self.nivel_acesso !== 'master') {
+    return retornoErro('Apenas master pode conceder nível master')
+  }
+
+  if (perfilAtual?.nivel_acesso === 'master' && nivelAcesso !== 'master') {
+    const totalMastersAtivos = await contarMastersAtivosAdmin(supabaseAdmin)
+    if (totalMastersAtivos === 1) {
+      return retornoErro('Não é possível remover o nível master do último master ativo')
+    }
+  }
+
+  if (
+    nivelAcesso === 'master' ||
+    mudouCargo ||
+    mudouNivel ||
+    !Array.isArray(perfilAtual?.modulos_liberados) ||
+    perfilAtual.modulos_liberados.length === 0
+  ) {
+    modulosLiberados = obterModulosPadraoParaUsuario(cargo, nivelAcesso)
+  }
+
   const { error: profileError } = await supabaseAdmin
     .from('profiles')
     .update({
@@ -87,13 +156,15 @@ export async function editarColaborador(formData: FormData) {
       cpf: cpf,
       telefone: telefone,
       conselho: conselho || null,
-      especialidade: especialidade || null
+      especialidade: especialidade || null,
+      nivel_acesso: nivelAcesso,
+      modulos_liberados: modulosLiberados,
     })
     .eq('id', id)
 
   if (profileError) {
     console.error('Erro ao atualizar profiles:', profileError.message)
-    throw new Error('Erro ao salvar os detalhes do perfil.')
+    return retornoErro('Erro ao salvar os detalhes do perfil.')
   }
 
   // 2. Atualiza o nome também nos metadados do Auth
@@ -106,7 +177,7 @@ export async function editarColaborador(formData: FormData) {
 }
 
 export async function alternarAtivoColaborador(id: string, ativarAgora: boolean) {
-  const supabaseAdmin = createClient(
+  const supabaseAdmin = createSupabaseAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
@@ -138,7 +209,7 @@ export async function redefinirSenha(id: string, novaSenha: string) {
     return { error: 'A senha deve ter no mínimo 6 caracteres.' }
   }
 
-  const supabaseAdmin = createClient(
+  const supabaseAdmin = createSupabaseAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )

@@ -2,8 +2,11 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { FormEditarPaciente } from '@/components/features/FormEditarPaciente'
+import { requireModulo } from '@/lib/guard'
 
 export default async function EditarPacientePage({ params }: { params: Promise<{ id: string }> }) {
+  await requireModulo('pacientes')
+
   const supabase = await createClient()
 
   const resolvedParams = await params

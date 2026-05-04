@@ -3,12 +3,15 @@ import Link from 'next/link'
 import { Plus, Eye, Edit } from 'lucide-react'
 import { FiltrosVendas } from '@/components/features/FiltrosVendas'
 import { BtnDeletarVenda } from '@/components/features/BtnDeletarVenda'
+import { requireModulo } from '@/lib/guard'
 
 export default async function VendasListPage({
   searchParams,
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
+  await requireModulo('comercial:vendas')
+
   const supabase = await createClient()
 
   const resolvedParams = await searchParams

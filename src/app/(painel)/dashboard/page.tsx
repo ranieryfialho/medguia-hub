@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { calcularKPIs } from '@/lib/relatorios/kpis-tempo-fabril'
 import { formatAppDateKey, getAppDayRangeUTC } from '@/lib/datetime'
 import { criarContagemStatusContato, LABEL_POR_STATUS_CONTATO } from '@/lib/contatos-kanban'
+import { requireModulo } from '@/lib/guard'
 
 type Atendimento = {
   id: string
@@ -39,6 +40,8 @@ type Contato = {
 }
 
 export default async function DashboardPage() {
+  await requireModulo('dashboard')
+
   const supabase = await createClient()
   const hoje = new Date()
   const inicioMes = startOfMonth(hoje)
@@ -47,11 +50,11 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, full_name')
+    .select('role, nivel_acesso, full_name')
     .eq('id', user!.id)
     .single()
 
-  const isGestorOuMaster = profile?.role === 'gestor' || profile?.role === 'master'
+  const isGestorOuMaster = profile?.nivel_acesso === 'gestor' || profile?.nivel_acesso === 'master'
 
   // 2. Determinar lista de profissionais
   let profissionais: Profissional[] = []

@@ -1,8 +1,11 @@
 import { listarTemplates } from '@/actions/templates'
 import { GerenciadorMensagens } from '@/components/features/GerenciadorMensagens'
 import { MessageSquare } from 'lucide-react'
+import { requireModulo } from '@/lib/guard'
 
 export default async function MensagensPage() {
+  await requireModulo('confirmacoes:mensagens')
+
   const templates = await listarTemplates()
 
   return (

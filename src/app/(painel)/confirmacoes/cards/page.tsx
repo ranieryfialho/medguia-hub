@@ -3,6 +3,7 @@ import { CardConfirmacaoPaciente } from '@/components/features/CardConfirmacaoPa
 import { buildSessaoEfetivaMap } from '@/lib/sessoes'
 import { PhoneCall, CalendarDays } from 'lucide-react'
 import Link from 'next/link'
+import { requireModulo } from '@/lib/guard'
 
 type Periodo = {
   dataInicio: string
@@ -96,6 +97,8 @@ function periodoParaContatar(): { periodos: Periodo[]; isSexta: boolean } {
 }
 
 export default async function CardsPage() {
+  await requireModulo('confirmacoes:cards')
+
   const supabase = await createClient()
   const { periodos, isSexta } = periodoParaContatar()
 

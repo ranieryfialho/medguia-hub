@@ -2,12 +2,15 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { ArrowLeft, Edit } from 'lucide-react'
 import { BtnDeletarVenda } from '@/components/features/BtnDeletarVenda'
+import { requireModulo } from '@/lib/guard'
 
 export default async function VendaDetalhePage({
   params,
 }: {
   params: Promise<{ id: string }>
 }) {
+  await requireModulo('comercial:vendas')
+
   const supabase = await createClient()
   const { id } = await params
 

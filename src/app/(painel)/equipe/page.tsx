@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Plus, User, Mail } from 'lucide-react'
 import { MenuAcoesColaborador } from '@/components/features/MenuAcoesColaborador'
 import { FiltrosEquipe } from '@/components/features/FiltrosEquipe'
+import { requireModulo } from '@/lib/guard'
 
 // Mapeamento de estilos para cada cargo
 const getCargoConfig = (cargo: string) => {
@@ -21,6 +22,8 @@ export default async function EquipePage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
+  await requireModulo('equipe:membros')
+
   const supabase = await createClient()
   const resolvedParams = await searchParams
   const busca = ((resolvedParams.busca as string) || '').trim().toLowerCase()

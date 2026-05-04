@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { BarChart3, TrendingUp, Users, Package } from 'lucide-react'
 import { RelatorioVendasClient } from '@/components/features/RelatorioVendasClient'
 import { BtnGerarPdfVendas } from '@/components/features/BtnGerarPdfVendas'
+import { requireModulo } from '@/lib/guard'
 
 const ORIGENS = [
   { value: 'medico', label: 'Médico' },
@@ -17,6 +18,8 @@ export default async function RelatorioVendasPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
+  await requireModulo('comercial:relatorio_vendas')
+
   const supabase = await createClient()
   const resolvedParams = await searchParams
 

@@ -149,13 +149,13 @@ export function KanbanContatos({
   profiles,
   templates,
   columns: initialColumns,
-  userRole,
+  userNivelAcesso,
 }: {
   contatos: ContatoPaciente[]
   profiles: ProfileSimples[]
   templates: Template[]
   columns: KanbanColunaContato[]
-  userRole: string
+  userNivelAcesso: string
 }) {
   const [contatos, setContatos] = useState<ContatoPaciente[]>(initialContatos)
   const [columns, setColumns] = useState<KanbanColunaContato[]>(initialColumns)
@@ -178,7 +178,7 @@ export function KanbanContatos({
   const [, startTransition] = useTransition()
 
   const router = useRouter()
-  const canManageColumns = userRole === 'gestor' || userRole === 'master'
+  const canManageColumns = userNivelAcesso === 'gestor' || userNivelAcesso === 'master'
   const selectedId = selected?.id
 
   useEffect(() => {

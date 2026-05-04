@@ -7,6 +7,7 @@ import {
   type KanbanColunaContato,
 } from '@/lib/contatos-kanban'
 import { Target } from 'lucide-react'
+import { requireModulo } from '@/lib/guard'
 
 export type ContatoPaciente = {
   id: string
@@ -40,6 +41,8 @@ async function fetchAll<T>(
 }
 
 export default async function ContatosPage() {
+  await requireModulo('contatos:base')
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -56,7 +59,7 @@ export default async function ContatosPage() {
     ),
     listarTemplates('reativacao'),
     user
-      ? supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+      ? supabase.from('profiles').select('role, nivel_acesso').eq('id', user.id).maybeSingle()
       : Promise.resolve({ data: null }),
     supabase
       .from('kanban_colunas_contatos')
@@ -118,7 +121,7 @@ export default async function ContatosPage() {
         profiles={profiles ?? []}
         templates={templates}
         columns={kanbanColumns}
-        userRole={profile?.role ?? ''}
+        userNivelAcesso={profile?.nivel_acesso ?? ''}
       />
     </div>
   )
