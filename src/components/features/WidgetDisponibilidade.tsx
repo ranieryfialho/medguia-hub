@@ -4,6 +4,7 @@ import { useState, useEffect, useTransition } from 'react'
 import { Users, ChevronDown, ChevronUp, CircleDot } from 'lucide-react'
 import { useRealtimeDisponibilidade, type StatusRow } from '@/hooks/useRealtimeDisponibilidade'
 import { setStatusDisponibilidade, type StatusDisponibilidade } from '@/actions/status-disponibilidade'
+import { usePathname } from 'next/navigation'
 import toast from 'react-hot-toast'
 
 type Profissional = { id: string; nome: string; cargo: string }
@@ -43,6 +44,7 @@ function Dot({ status, ping = false }: { status: StatusDisponibilidade; ping?: b
 }
 
 export function WidgetDisponibilidade({ profissionais, initialStatuses, currentUserId }: Props) {
+  const pathname = usePathname()
   const statuses = useRealtimeDisponibilidade(initialStatuses)
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
@@ -52,6 +54,11 @@ export function WidgetDisponibilidade({ profissionais, initialStatuses, currentU
     const id = setInterval(() => setTick(t => t + 1), 30_000)
     return () => clearInterval(id)
   }, [])
+
+  // Ocultar em telas de cadastro/edição que possuem barras fixas no rodapé
+  const isTelaCadastro = pathname?.includes('/novo') || pathname?.includes('/editar') || pathname?.includes('/vendas/nova')
+  
+  if (isTelaCadastro) return null
 
   const myStatus = (statuses.find(s => s.profissional_id === currentUserId)?.status ?? 'ausente') as StatusDisponibilidade
   const podeToggle = profissionais.some(p => p.id === currentUserId)
