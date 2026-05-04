@@ -42,6 +42,7 @@ import {
 } from '@/lib/contatos-kanban'
 import { differenceInCalendarDays, format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import toast from 'react-hot-toast'
 
 type Nota = {
   id: string
@@ -304,6 +305,7 @@ export function KanbanContatos({
 
     const result = await atualizarColunaContato(pacienteId, columnKey)
     if (result?.error) {
+      toast.error('Sem permissão para alterar o status. Contate o gestor.')
       router.refresh()
     }
   }
