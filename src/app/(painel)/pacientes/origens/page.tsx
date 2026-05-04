@@ -25,7 +25,7 @@ export default async function OriginsPacientePage() {
         </p>
       </div>
 
-      <div className="max-w-xl bg-surface p-6 rounded-lg shadow-sm border border-border">
+      <div className="bg-surface p-6 rounded-lg shadow-sm border border-border">
         <OrigensManager origens={origens} />
       </div>
     </div>
