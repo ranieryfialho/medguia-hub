@@ -54,7 +54,7 @@ export default async function ProntuarioFormPage({
     <div className="w-full flex flex-col gap-4 pb-8">
 
       {/* Top bar — sticky */}
-      <div className="sticky top-0 z-20 flex items-center gap-3 bg-white/95 backdrop-blur-md px-4 py-3 rounded-xl shadow-sm border border-slate-100">
+      <div className="sticky top-0 z-20 flex items-center gap-3 bg-white px-4 py-3 rounded-xl shadow-sm border border-slate-100">
         <BtnVoltar href="/prontuarios" />
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <ClipboardList size={18} className="text-[#006b5a] shrink-0" />

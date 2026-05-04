@@ -74,7 +74,7 @@ export default async function DashboardLayout({
       headerData={{ nomeUsuario, cargoUsuario, avatarUrl, userRole, userNivelAcesso, modulosLiberados }}
     >
       <Header />
-      <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto overflow-x-hidden min-h-0 w-0 min-w-full">
+      <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto overflow-x-hidden min-h-0 w-0 min-w-full" style={{ WebkitOverflowScrolling: 'touch' }}>
         {children}
       </main>
 

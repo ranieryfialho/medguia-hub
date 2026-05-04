@@ -47,7 +47,7 @@ function dorBarColor(n: number): string {
 }
 
 const FIELD_CLASS =
-  'w-full border border-slate-200 rounded-xl px-3.5 py-3 text-sm text-slate-800 placeholder:text-slate-300 resize-none focus:outline-none focus:border-[#006b5a] focus:ring-2 focus:ring-[#006b5a]/10 transition-all'
+  'w-full border border-slate-200 rounded-xl px-3.5 py-3 text-sm text-slate-800 placeholder:text-slate-300 resize-none focus:outline-none focus:border-[#006b5a] focus:ring-2 focus:ring-[#006b5a]/10 transition-all touch-manipulation'
 
 function SectionLabel({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
   return (
