@@ -26,11 +26,16 @@ type ContatoComDados = {
   ultima_nota_criada_em: string | null
 }
 
+const HISTORICO_ATENDIMENTOS_ANOS = 2
+
 export default async function RelatorioContatosPage() {
   await requireModulo('contatos:relatorio')
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  const atendimentoCutoff = new Date()
+  atendimentoCutoff.setFullYear(atendimentoCutoff.getFullYear() - HISTORICO_ATENDIMENTOS_ANOS)
+  const atendimentoCutoffIso = atendimentoCutoff.toISOString()
 
   if (!user) notFound()
 
@@ -107,6 +112,7 @@ export default async function RelatorioContatosPage() {
     .from('atendimentos')
     .select('paciente_id, data_agendamento, tipo')
     .in('paciente_id', pacientesIds)
+    .gte('data_agendamento', atendimentoCutoffIso)
     .order('data_agendamento', { ascending: false })
 
   // Mapear último atendimento por paciente

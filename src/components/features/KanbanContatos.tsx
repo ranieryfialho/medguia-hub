@@ -67,6 +67,7 @@ type ColumnFormState = {
 }
 
 const INITIAL_PER_COLUMN = 50
+const AUTO_REFRESH_INTERVAL_MS = 30_000
 
 function getInitials(name: string) {
   return name
@@ -208,8 +209,11 @@ export function KanbanContatos({
 
   useEffect(() => {
     const interval = setInterval(() => {
+      if (document.visibilityState !== 'visible' || !navigator.onLine) {
+        return
+      }
       router.refresh()
-    }, 5_000)
+    }, AUTO_REFRESH_INTERVAL_MS)
 
     return () => clearInterval(interval)
   }, [router])

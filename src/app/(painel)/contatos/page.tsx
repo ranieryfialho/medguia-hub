@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
 import { KanbanContatos } from '@/components/features/KanbanContatos'
-import { listarTemplates } from '@/actions/templates'
 import type { StatusContato } from '@/actions/contatos'
 import {
   normalizarColunasContato,
@@ -24,6 +23,8 @@ export type ContatoPaciente = {
 
 export type ProfileSimples = { id: string; full_name: string }
 
+const HISTORICO_ATENDIMENTOS_ANOS = 2
+
 async function fetchAll<T>(
   fetcher: (from: number, to: number) => PromiseLike<{ data: T[] | null }>
 ): Promise<T[]> {
@@ -45,6 +46,9 @@ export default async function ContatosPage() {
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  const atendimentoCutoff = new Date()
+  atendimentoCutoff.setFullYear(atendimentoCutoff.getFullYear() - HISTORICO_ATENDIMENTOS_ANOS)
+  const atendimentoCutoffIso = atendimentoCutoff.toISOString()
 
   const [pacientes, contatos, { data: profiles }, atendimentos, templates, { data: profile }, { data: kanbanColumnsRaw }] = await Promise.all([
     fetchAll((from, to) =>
@@ -55,9 +59,22 @@ export default async function ContatosPage() {
     ),
     supabase.from('profiles').select('id, full_name').eq('ativo', true).neq('role', 'master').neq('role', 'medico').order('full_name'),
     fetchAll((from, to) =>
-      supabase.from('atendimentos').select('paciente_id, data_agendamento, tipo').order('data_agendamento', { ascending: false }).range(from, to)
+      supabase
+        .from('atendimentos')
+        .select('paciente_id, data_agendamento, tipo')
+        .gte('data_agendamento', atendimentoCutoffIso)
+        .order('data_agendamento', { ascending: false })
+        .range(from, to)
     ),
-    listarTemplates('reativacao'),
+    user
+      ? supabase
+          .from('templates_mensagem')
+          .select('id, nome, conteudo, criado_por')
+          .or(`criado_por.is.null,criado_por.eq.${user.id}`)
+          .eq('categoria', 'reativacao')
+          .order('criado_em', { ascending: true })
+          .then(({ data }) => data ?? [])
+      : Promise.resolve([]),
     user
       ? supabase.from('profiles').select('role, nivel_acesso').eq('id', user.id).maybeSingle()
       : Promise.resolve({ data: null }),
