@@ -8,6 +8,11 @@ import {
   type KanbanColunaContato,
   type StatusContatoPadrao,
 } from '@/lib/contatos-kanban'
+import {
+  criarMapaUltimoAtendimento,
+  listarUltimosAtendimentosPorPacientes,
+  type UltimoAtendimentoClient,
+} from '@/lib/ultimo-atendimento'
 import { requireModulo } from '@/lib/guard'
 
 type StatusContato = StatusContatoPadrao
@@ -108,25 +113,12 @@ export default async function RelatorioContatosPage() {
 
   // Buscar atendimentos para cada paciente
   const pacientesIds = contatosRaw.map(c => c.paciente_id)
-  const { data: atendimentos } = await supabase
-    .from('atendimentos')
-    .select('paciente_id, data_agendamento, tipo')
-    .in('paciente_id', pacientesIds)
-    .gte('data_agendamento', atendimentoCutoffIso)
-    .order('data_agendamento', { ascending: false })
-
-  // Mapear último atendimento por paciente
-  const ultimoAtendimentoMap = new Map<string, { data_agendamento: string; tipo: string }>()
-  if (atendimentos) {
-    for (const atend of atendimentos) {
-      if (!ultimoAtendimentoMap.has(atend.paciente_id)) {
-        ultimoAtendimentoMap.set(atend.paciente_id, {
-          data_agendamento: atend.data_agendamento,
-          tipo: atend.tipo,
-        })
-      }
-    }
-  }
+  const atendimentos = await listarUltimosAtendimentosPorPacientes(
+    supabase as unknown as UltimoAtendimentoClient,
+    pacientesIds,
+    atendimentoCutoffIso
+  )
+  const ultimoAtendimentoMap = criarMapaUltimoAtendimento(atendimentos)
 
   // Transformar dados para o formato esperado
   const contatos: ContatoComDados[] = contatosRaw.map(c => {
@@ -142,7 +134,7 @@ export default async function RelatorioContatosPage() {
       kanban_coluna_cor_chave: kanbanColumnMap.get(c.kanban_coluna_chave ?? c.status)?.cor_chave ?? (c.status as StatusContato),
       responsavel_id: c.responsavel_id,
       responsavel_nome: profile?.full_name ?? null,
-      ultimo_atendimento_data: ultimoAtendimento?.data_agendamento ?? null,
+      ultimo_atendimento_data: ultimoAtendimento?.data ?? null,
       ultimo_atendimento_tipo: ultimoAtendimento?.tipo ?? null,
       ultima_nota_criada_em: ultimaNota.get(c.paciente_id) ?? null,
     }

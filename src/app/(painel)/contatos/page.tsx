@@ -5,6 +5,11 @@ import {
   normalizarColunasContato,
   type KanbanColunaContato,
 } from '@/lib/contatos-kanban'
+import {
+  criarMapaUltimoAtendimento,
+  listarUltimosAtendimentosPorPacientes,
+  type UltimoAtendimentoClient,
+} from '@/lib/ultimo-atendimento'
 import { Target } from 'lucide-react'
 import { requireModulo } from '@/lib/guard'
 
@@ -50,7 +55,7 @@ export default async function ContatosPage() {
   atendimentoCutoff.setFullYear(atendimentoCutoff.getFullYear() - HISTORICO_ATENDIMENTOS_ANOS)
   const atendimentoCutoffIso = atendimentoCutoff.toISOString()
 
-  const [pacientes, contatos, { data: profiles }, atendimentos, templates, { data: profile }, { data: kanbanColumnsRaw }] = await Promise.all([
+  const [pacientes, contatos, { data: profiles }, templates, { data: profile }, { data: kanbanColumnsRaw }] = await Promise.all([
     fetchAll((from, to) =>
       supabase.from('pacientes').select('id, nome, telefone, email, recuperacao_base').eq('ativo', true).order('nome').range(from, to)
     ),
@@ -58,14 +63,6 @@ export default async function ContatosPage() {
       supabase.from('contatos_base').select('paciente_id, status, kanban_coluna_chave, responsavel_id').range(from, to)
     ),
     supabase.from('profiles').select('id, full_name').eq('ativo', true).neq('role', 'master').neq('role', 'medico').order('full_name'),
-    fetchAll((from, to) =>
-      supabase
-        .from('atendimentos')
-        .select('paciente_id, data_agendamento, tipo')
-        .gte('data_agendamento', atendimentoCutoffIso)
-        .order('data_agendamento', { ascending: false })
-        .range(from, to)
-    ),
     user
       ? supabase
           .from('templates_mensagem')
@@ -83,17 +80,16 @@ export default async function ContatosPage() {
       .select('chave, nome, tipo, status_base, cor_chave, ordem')
       .order('ordem', { ascending: true }),
   ])
+  const atendimentos = await listarUltimosAtendimentosPorPacientes(
+    supabase as unknown as UltimoAtendimentoClient,
+    pacientes.map((paciente) => paciente.id),
+    atendimentoCutoffIso
+  )
 
   const contatosMap = new Map(contatos.map(c => [c.paciente_id, c]))
   const profilesMap = new Map((profiles ?? []).map(p => [p.id, p]))
   const kanbanColumns = normalizarColunasContato((kanbanColumnsRaw ?? null) as KanbanColunaContato[] | null)
-
-  const ultimoAtendimentoMap = new Map<string, { data: string; tipo: string }>()
-  for (const a of atendimentos) {
-    if (!ultimoAtendimentoMap.has(a.paciente_id)) {
-      ultimoAtendimentoMap.set(a.paciente_id, { data: a.data_agendamento, tipo: a.tipo })
-    }
-  }
+  const ultimoAtendimentoMap = criarMapaUltimoAtendimento(atendimentos)
 
   const data: ContatoPaciente[] = pacientes.map(p => {
     const c = contatosMap.get(p.id)
