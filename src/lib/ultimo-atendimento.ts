@@ -76,7 +76,7 @@ export async function listarUltimosAtendimentosPorPacientes(
       .in('paciente_id', pacienteIds)
       .gte('data_agendamento', dataMinIso ?? '1900-01-01T00:00:00.000Z')
       .order('data_agendamento', { ascending: false })
-      .range(from, to)
+      .range(from, to) as PromiseLike<{ data: UltimoAtendimentoResumo[] | null }>
   )
 
   const ultimoAtendimentoMap = new Map<string, UltimoAtendimentoResumo>()
