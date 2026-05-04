@@ -12,6 +12,7 @@ type KPIsProfissional = {
   nome: string
   jornadaContratadaMin: number
   tempoFabrilMin: number
+  tempoReuniaoMin: number
   taxaOcupacao: number
   qtdAtendimentos: number
   tempoMedioMin: number
@@ -65,6 +66,7 @@ export function ConteudoRelatorio({ kpis, kpisEquipe, profFiltro }: ConteudoRela
               <DetailCard label="Jornada Contratada" value={formatarMinutos(kpiIndividual.jornadaContratadaMin)} />
               <DetailCard label="Tempo Fábril" value={formatarMinutos(kpiIndividual.tempoFabrilMin)} />
               <DetailCard label="Taxa de Ocupação" value={`${kpiIndividual.taxaOcupacao}%`} highlight />
+              <DetailCard label="Em Reunião" value={kpiIndividual.tempoReuniaoMin > 0 ? formatarMinutos(kpiIndividual.tempoReuniaoMin) : '—'} />
               <DetailCard label="Qtd. Atendimentos" value={String(kpiIndividual.qtdAtendimentos)} />
               <DetailCard label="Tempo Médio" value={formatarMinutos(kpiIndividual.tempoMedioMin)} />
               <DetailCard label="Dias Subutilizados" value={String(kpiIndividual.diasSubutilizados)} />

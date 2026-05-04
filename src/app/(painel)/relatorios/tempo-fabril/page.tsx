@@ -12,6 +12,7 @@ import {
   resolverPeriodo,
   type Atendimento,
   type Jornada,
+  type Reuniao,
   type KPIsProfissional,
 } from '@/lib/relatorios/kpis-tempo-fabril'
 import { podeEntrarNaAgendaOuRelatorio } from '@/lib/profissionais'
@@ -112,7 +113,7 @@ export default async function TempoFabrilPage({
   const utcInicio = new Date(`${dataInicioStr}T00:00:00-03:00`).toISOString()
   const utcFim = new Date(`${dataFimStr}T23:59:59.999-03:00`).toISOString()
 
-  const [{ data: atendimentos }, { data: jornadas }] = await Promise.all([
+  const [{ data: atendimentos }, { data: jornadas }, { data: reunioes }] = await Promise.all([
     supabase
       .from('atendimentos')
       .select('id, profissional_id, data_agendamento, duracao_minutos, status, tipo, numero_sessao, paciente_id')
@@ -124,6 +125,13 @@ export default async function TempoFabrilPage({
       .select('profissional_id, dia_semana, hora_inicio, hora_fim, almoco_inicio, almoco_fim')
       .in('profissional_id', profIds)
       .eq('ativo', true),
+    supabase
+      .from('historico_reunioes')
+      .select('profissional_id, inicio, fim, duracao_minutos')
+      .in('profissional_id', profIds)
+      .gte('inicio', utcInicio)
+      .lte('inicio', utcFim)
+      .not('fim', 'is', null),
   ])
 
   // Calcular KPIs
@@ -133,6 +141,7 @@ export default async function TempoFabrilPage({
     (jornadas ?? []) as Jornada[],
     dataInicio,
     dataFim,
+    (reunioes ?? []) as Reuniao[],
   )
 
   const profissionaisFiltrados = profFiltro === 'todos'

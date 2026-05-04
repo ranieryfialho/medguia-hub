@@ -184,6 +184,17 @@ export function Sidebar({ onMobileClose, onOpenNovoAgendamento, userRole: userRo
                 Cards
               </Link>
               <Link
+                href="/confirmacoes/semana"
+                onClick={handleNavClick}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
+                  isActive('/confirmacoes/semana')
+                    ? 'bg-white text-[#006b5a] shadow-sm font-semibold'
+                    : 'text-[#3d4945] hover:bg-[#dee3e3] font-medium'
+                }`}
+              >
+                Semana
+              </Link>
+              <Link
                 href="/confirmacoes/mensagens"
                 onClick={handleNavClick}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${

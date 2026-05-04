@@ -10,6 +10,7 @@ type KPIsProfissional = {
   nome: string
   jornadaContratadaMin: number
   tempoFabrilMin: number
+  tempoReuniaoMin: number
   taxaOcupacao: number
   qtdAtendimentos: number
   tempoMedioMin: number
@@ -148,6 +149,12 @@ export function TabelaTempoFabril({ kpis }: TabelaTempoFabrilProps) {
               </th>
               <th className="px-4 py-4 text-left font-semibold text-[#171d1c]">
                 <div className="flex items-center gap-2">
+                  <span>Em Reunião</span>
+                  <Tooltip texto="Tempo total em reunião no período" />
+                </div>
+              </th>
+              <th className="px-4 py-4 text-left font-semibold text-[#171d1c]">
+                <div className="flex items-center gap-2">
                   <button
                   onClick={() => handleSort('taxa')}
                   className="flex items-center gap-1.5 hover:text-[#006b5a] transition-colors"
@@ -197,6 +204,9 @@ export function TabelaTempoFabril({ kpis }: TabelaTempoFabrilProps) {
                 <td className="px-4 py-3 font-semibold text-[#171d1c]">{kpi.nome}</td>
                 <td className="px-4 py-3 text-[#3d4945]">{formatarMinutos(kpi.jornadaContratadaMin)}</td>
                 <td className="px-4 py-3 text-[#3d4945]">{formatarMinutos(kpi.tempoFabrilMin)}</td>
+                <td className="px-4 py-3 text-amber-700 font-medium">
+                  {kpi.tempoReuniaoMin > 0 ? formatarMinutos(kpi.tempoReuniaoMin) : <span className="text-slate-300">—</span>}
+                </td>
                 <td className="px-4 py-3">
                   <span
                     className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${getBadgeColor(kpi.taxaOcupacao)}`}
@@ -247,6 +257,10 @@ export function TabelaTempoFabril({ kpis }: TabelaTempoFabrilProps) {
               <div>
                 <p className="text-xs font-semibold text-[#6d7a75] mb-1">Tempo Fábril</p>
                 <p className="font-medium text-[#171d1c]">{formatarMinutos(kpi.tempoFabrilMin)}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-[#6d7a75] mb-1">Em Reunião</p>
+                <p className="font-medium text-amber-700">{kpi.tempoReuniaoMin > 0 ? formatarMinutos(kpi.tempoReuniaoMin) : '—'}</p>
               </div>
               <div>
                 <p className="text-xs font-semibold text-[#6d7a75] mb-1">Atendimentos</p>

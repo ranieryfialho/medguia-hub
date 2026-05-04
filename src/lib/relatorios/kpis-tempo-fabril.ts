@@ -38,11 +38,19 @@ export type EvolucaoSemanalKPI = {
   pct: number
 }
 
+export type Reuniao = {
+  profissional_id: string
+  inicio: string
+  fim: string | null
+  duracao_minutos: number | null
+}
+
 export type KPIsProfissional = {
   profissionalId: string
   nome: string
   jornadaContratadaMin: number
   tempoFabrilMin: number
+  tempoReuniaoMin: number
   taxaOcupacao: number
   qtdAtendimentos: number
   tempoMedioMin: number
@@ -141,6 +149,7 @@ export function calcularKPIs(
   jornadas: Jornada[],
   dataInicio: Date,
   dataFim: Date,
+  reunioes: Reuniao[] = [],
 ): KPIsProfissional[] {
   const kpis: KPIsProfissional[] = []
 
@@ -154,6 +163,14 @@ export function calcularKPIs(
     }
 
     const atsProfissional = atendimentos.filter((a) => a.profissional_id === prof.id)
+
+    const tempoReuniaoMin = reunioes
+      .filter(r => r.profissional_id === prof.id && r.duracao_minutos !== null)
+      .filter(r => {
+        const ini = new Date(r.inicio)
+        return ini >= dataInicio && ini <= dataFim
+      })
+      .reduce((acc, r) => acc + (r.duracao_minutos ?? 0), 0)
 
     const jornadaContratadaMin = calcularJornadaContratadaMinutos(
       jornadaMap,
@@ -211,6 +228,7 @@ export function calcularKPIs(
       nome: prof.nome,
       jornadaContratadaMin,
       tempoFabrilMin,
+      tempoReuniaoMin,
       taxaOcupacao,
       qtdAtendimentos,
       tempoMedioMin,

@@ -22,6 +22,11 @@ type Paciente = {
   contato_confirmacao?: string | null
 }
 
+type Props = {
+  paciente: Paciente
+  showDate?: boolean
+}
+
 const OPCOES_CONTATO = [
   { valor: 'confirmou', label: 'Confirmou presença', Icon: CheckCircle, cor: 'text-[#006b5a]' },
   { valor: 'vai_faltar', label: 'Vai faltar', Icon: XCircle, cor: 'text-red-500' },
@@ -32,11 +37,7 @@ const OPCOES_CONTATO = [
 const MENU_WIDTH = 200
 const MENU_HEIGHT = 180
 
-export function CardConfirmacaoPaciente({
-  paciente,
-}: {
-  paciente: Paciente
-}) {
+export function CardConfirmacaoPaciente({ paciente, showDate = false }: Props) {
   const [isOpen, setIsOpen] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
@@ -169,7 +170,10 @@ export function CardConfirmacaoPaciente({
                 )}
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                {paciente.tipo} • {format(new Date(paciente.data_agendamento), "HH:mm")}
+                {paciente.tipo} •{' '}
+                {showDate
+                  ? format(new Date(paciente.data_agendamento), "dd/MM 'às' HH:mm")
+                  : format(new Date(paciente.data_agendamento), 'HH:mm')}
               </p>
               {paciente.profissional_nome && (
                 <p className="text-xs text-slate-500 mt-1 flex items-center gap-1.5 truncate">
