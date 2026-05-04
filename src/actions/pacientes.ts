@@ -13,11 +13,12 @@ export async function criarPaciente(prevState: any, formData: FormData) {
 
   const cpfRaw = (formData.get('cpf') as string || '').trim()
   const cpf = cpfRaw ? normalizarCPF(cpfRaw) : ''
+  const dataNascimentoRaw = (formData.get('data_nascimento') as string || '').trim()
 
   const dadosPaciente = {
     nome: formData.get('nome') as string,
     cpf: cpf || null,
-    data_nascimento: formData.get('data_nascimento') as string,
+    data_nascimento: dataNascimentoRaw || null,
     telefone: formData.get('telefone') as string,
     telefone_secundario: formData.get('telefone_secundario') as string,
     email: formData.get('email') as string,

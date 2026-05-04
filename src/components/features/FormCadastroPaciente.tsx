@@ -45,11 +45,10 @@ export function FormCadastroPaciente() {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-text-secondary mb-1">Data de Nascimento *</label>
+            <label className="block text-xs font-medium text-text-secondary mb-1">Data de Nascimento</label>
             <input 
               type="date" 
               name="data_nascimento" 
-              required 
               defaultValue={state?.fields?.data_nascimento as string || ''}
               className="w-full bg-input border border-border-input rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-primary-500" 
             />
