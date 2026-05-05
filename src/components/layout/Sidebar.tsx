@@ -22,6 +22,7 @@ import {
   UserCheck,
   Clock,
   Calendar,
+  ClipboardList,
   ShoppingCart,
   Package,
   ShieldCheck,
@@ -176,7 +177,7 @@ export function Sidebar({
             </button>
             {pacientesOpen && (
               <div className="mt-1 ml-4 space-y-0.5 border-l-2 border-[#bcc9c4]/40 pl-3">
-                <Link href="/pacientes" onClick={handleNavClick} className={subLinkCls(!!isActive('/pacientes') && !isActive('/pacientes/origens') && !isActive('/pacientes/tipos-consulta'))}>
+                <Link href="/pacientes" onClick={handleNavClick} className={subLinkCls(!!isActive('/pacientes') && !isActive('/pacientes/origens') && !isActive('/pacientes/tipos-consulta') && !isActive('/pacientes/relatorio-consultas'))}>
                   <Users size={14} />
                   Listar Pacientes
                 </Link>
@@ -187,6 +188,10 @@ export function Sidebar({
                 <Link href="/pacientes/tipos-consulta" onClick={handleNavClick} className={subLinkCls(!!isActive('/pacientes/tipos-consulta'))}>
                   <Calendar size={14} />
                   Tipos de consulta
+                </Link>
+                <Link href="/pacientes/relatorio-consultas" onClick={handleNavClick} className={subLinkCls(!!isActive('/pacientes/relatorio-consultas'))}>
+                  <ClipboardList size={14} />
+                  Relatório de Consultas
                 </Link>
               </div>
             )}

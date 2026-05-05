@@ -70,7 +70,7 @@ export default async function DashboardLayout({
   }
 
   const [{ data: listaProfissionais }, todasDisponibilidades, tiposConsulta] = await Promise.all([
-    supabase.from('profiles').select('id, full_name, role').eq('ativo', true).neq('role', 'master').neq('role', 'medico').order('full_name'),
+    supabase.from('profiles').select('id, full_name, role').eq('ativo', true).in('role', ['fisioterapeuta', 'gestor']).order('full_name'),
     listarTodasDisponibilidades(),
     listarTiposConsultaAtivos(),
   ])

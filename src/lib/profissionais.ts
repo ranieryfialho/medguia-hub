@@ -7,9 +7,13 @@ export function podeEntrarNaAgendaOuRelatorio(
   profissional: ProfissionalBasico,
   profissionaisComJornada: Set<string>,
 ) {
-  if (profissional.role !== 'gestor') {
+  if (profissional.role === 'fisioterapeuta') {
     return true
   }
 
-  return profissionaisComJornada.has(profissional.id)
+  if (profissional.role === 'gestor') {
+    return profissionaisComJornada.has(profissional.id)
+  }
+
+  return false
 }

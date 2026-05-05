@@ -638,8 +638,7 @@ export default async function DisponibilidadePage({
         .from('profiles')
         .select('id, full_name, role')
         .eq('ativo', true)
-        .neq('role', 'master')
-        .neq('role', 'medico')
+        .in('role', ['fisioterapeuta', 'gestor'])
         .order('full_name'),
       supabase
         .from('disponibilidade_profissional')
