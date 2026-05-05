@@ -257,7 +257,6 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 .order('data_agendamento', { ascending: true })
         )
 
-  // Calcula numeração efetiva excluindo Falta/Cancelado
   const agendamentoIds = [...new Set(
     (agendamentos ?? [])
       .filter(a => !!a.agendamento_id && (a.total_sessoes ?? 0) > 1)
