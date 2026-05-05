@@ -30,9 +30,9 @@ interface VendaInicial {
   paciente_id: string
   profissional_id: string
   origem: string
-  medico_referenciador_nome?: string
+  medico_referenciador_nome?: string | null
   data_venda: string
-  observacoes?: string
+  observacoes?: string | null
   pacientes?: {
     nome: string
   } | null
