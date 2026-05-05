@@ -17,7 +17,7 @@ import { AgendamentoItemDia, AgendamentoItemSemana } from '@/components/features
 import type { AgendamentoDetalhe } from '@/components/features/AgendamentoItem'
 import { buildSessaoEfetivaMap } from '@/lib/sessoes'
 import { listarTodasDisponibilidades } from '@/actions/disponibilidade'
-import { formatAppDateKey, getAppDayRangeUTC, getAppHour, parseAppDate } from '@/lib/datetime'
+import { formatAppDateKey, formatAppTime, getAppDayRangeUTC, getAppHour, parseAppDate } from '@/lib/datetime'
 import { normalizarDisponibilidade, type DisponibilidadeDia } from '@/lib/disponibilidade'
 import { podeEntrarNaAgendaOuRelatorio } from '@/lib/profissionais'
 import { requireModulo } from '@/lib/guard'
@@ -26,9 +26,41 @@ type StatusConfig = { badgeBg: string; label: string }
 type RelacaoPaciente = AgendamentoDetalhe['pacientes'] | AgendamentoDetalhe['pacientes'][]
 type RelacaoProfissional = AgendamentoDetalhe['profissional'] | AgendamentoDetalhe['profissional'][]
 
+type AgendaQueryOverrides = {
+  data?: string
+  view?: string
+  meus?: boolean
+  profissional?: string | null
+  horario?: string | null
+}
+
 function firstRelation<T>(value: T | T[] | null | undefined): T | null {
   if (Array.isArray(value)) return value[0] ?? null
   return value ?? null
+}
+
+function buildAgendaUrl(base: {
+  data: string
+  view: string
+  meus: boolean
+  profissional: string
+  horario: string
+}, overrides: AgendaQueryOverrides = {}) {
+  const query = new URLSearchParams()
+  const data = overrides.data ?? base.data
+  const view = overrides.view ?? base.view
+  const meus = overrides.meus ?? base.meus
+  const profissional = overrides.profissional === undefined ? base.profissional : (overrides.profissional ?? '')
+  const horario = overrides.horario === undefined ? base.horario : (overrides.horario ?? '')
+
+  query.set('view', view)
+  query.set('data', data)
+
+  if (meus) query.set('meus', 'true')
+  if (profissional) query.set('profissional', profissional)
+  if (horario) query.set('horario', horario)
+
+  return `?${query.toString()}`
 }
 
 const getStatusConfig = (status: string) => {
@@ -86,6 +118,8 @@ export default async function AgendaPage({ searchParams }: PageProps) {
   const view = typeof params.view === 'string' ? params.view : 'dia'
   const dataParam = typeof params.data === 'string' ? params.data : undefined
   const myAppointmentsOnly = params.meus === 'true'
+  const profissionalSelecionado = typeof params.profissional === 'string' ? params.profissional : ''
+  const horarioSelecionado = typeof params.horario === 'string' ? params.horario.slice(0, 5) : ''
 
   const hojeString = formatAppDateKey(new Date())
   let dataSelecionada = parseAppDate(hojeString)
@@ -110,8 +144,15 @@ export default async function AgendaPage({ searchParams }: PageProps) {
     nextDate = addDays(dataSelecionada, 1)
   }
 
-  const prevUrl = `?view=${view}&data=${formatAppDateKey(prevDate)}${myAppointmentsOnly ? '&meus=true' : ''}`
-  const nextUrl = `?view=${view}&data=${formatAppDateKey(nextDate)}${myAppointmentsOnly ? '&meus=true' : ''}`
+  const baseQuery = {
+    data: dataString,
+    view,
+    meus: myAppointmentsOnly,
+    profissional: profissionalSelecionado,
+    horario: horarioSelecionado,
+  }
+  const prevUrl = buildAgendaUrl(baseQuery, { data: formatAppDateKey(prevDate) })
+  const nextUrl = buildAgendaUrl(baseQuery, { data: formatAppDateKey(nextDate) })
 
   const inicioDaSemana = startOfWeek(dataSelecionada, { weekStartsOn: 0 })
   const diasDaSemana = Array.from({ length: 7 }, (_, i) => addDays(inicioDaSemana, i))
@@ -137,6 +178,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
 
   let { start: fetchInicio, end: fetchFim } = getAppDayRangeUTC(dataString)
   const shouldFilterByProfissional = isFisioterapeuta || myAppointmentsOnly
+  const profissionalIdFiltro = shouldFilterByProfissional ? user!.id : profissionalSelecionado || ''
 
   if (view === 'semana') {
     fetchInicio = getAppDayRangeUTC(formatAppDateKey(inicioDaSemana)).start
@@ -156,24 +198,28 @@ export default async function AgendaPage({ searchParams }: PageProps) {
       .lte('data_agendamento', fetchFim)
       .order('data_agendamento', { ascending: true })
 
-    if (shouldFilterByProfissional) {
-      agendamentosMesLevesQuery.eq('profissional_id', user!.id)
+    if (profissionalIdFiltro) {
+      agendamentosMesLevesQuery.eq('profissional_id', profissionalIdFiltro)
     }
 
     const { data: agendamentosMesLeves } = await agendamentosMesLevesQuery
-    agendamentosComEfetivo = (agendamentosMesLeves ?? []).map((a) => ({
-      id: a.id,
-      paciente_id: '',
-      data_agendamento: a.data_agendamento,
-      status: a.status,
-      tipo: '',
-      pacientes: null,
-    }))
+    agendamentosComEfetivo = (agendamentosMesLeves ?? [])
+      .map((a) => ({
+        id: a.id,
+        paciente_id: '',
+        data_agendamento: a.data_agendamento,
+        status: a.status,
+        tipo: '',
+        pacientes: null,
+      }))
+      .filter((agendamento) =>
+        !horarioSelecionado || formatAppTime(agendamento.data_agendamento) === horarioSelecionado,
+      )
   } else {
     const usarQueryLeveAgenda = view === 'semana' || view === 'dia'
     const { data: agendamentos } = usarQueryLeveAgenda
       ? await (
-          shouldFilterByProfissional
+          profissionalIdFiltro
             ? supabase
                 .from('atendimentos')
                 .select(`
@@ -191,7 +237,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 `)
                 .gte('data_agendamento', fetchInicio)
                 .lte('data_agendamento', fetchFim)
-                .eq('profissional_id', user!.id)
+                .eq('profissional_id', profissionalIdFiltro)
                 .order('data_agendamento', { ascending: true })
             : supabase
                 .from('atendimentos')
@@ -213,7 +259,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 .order('data_agendamento', { ascending: true })
         )
       : await (
-          shouldFilterByProfissional
+          profissionalIdFiltro
             ? supabase
                 .from('atendimentos')
                 .select(`
@@ -233,7 +279,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 `)
                 .gte('data_agendamento', fetchInicio)
                 .lte('data_agendamento', fetchFim)
-                .eq('profissional_id', user!.id)
+                .eq('profissional_id', profissionalIdFiltro)
                 .order('data_agendamento', { ascending: true })
             : supabase
                 .from('atendimentos')
@@ -282,7 +328,9 @@ export default async function AgendaPage({ searchParams }: PageProps) {
       numero_sessao: efetivo?.sessao_efetiva ?? a.numero_sessao,
       total_sessoes: efetivo?.total_efetivo ?? a.total_sessoes,
     }
-  })
+  }).filter((agendamento) =>
+    !horarioSelecionado || formatAppTime(agendamento.data_agendamento) === horarioSelecionado,
+  )
   }
 
   const agendamentosMesQuery = supabase
@@ -291,12 +339,15 @@ export default async function AgendaPage({ searchParams }: PageProps) {
     .gte('data_agendamento', getAppDayRangeUTC(formatAppDateKey(inicioDoMes)).start)
     .lte('data_agendamento', getAppDayRangeUTC(formatAppDateKey(fimDoMes)).end)
 
-  if (shouldFilterByProfissional) agendamentosMesQuery.eq('profissional_id', user!.id)
+  if (profissionalIdFiltro) agendamentosMesQuery.eq('profissional_id', profissionalIdFiltro)
 
   const { data: agendamentosMes } = await agendamentosMesQuery
+  const agendamentosMesFiltrados = (agendamentosMes ?? []).filter((agendamento) =>
+    !horarioSelecionado || formatAppTime(agendamento.data_agendamento) === horarioSelecionado,
+  )
 
   const diasComAgendamento = new Set(
-    agendamentosMes?.map(a => formatAppDateKey(a.data_agendamento)) || []
+    agendamentosMesFiltrados.map(a => formatAppDateKey(a.data_agendamento))
   )
 
   const listaPacientes = view === 'mes'
@@ -372,19 +423,19 @@ export default async function AgendaPage({ searchParams }: PageProps) {
             <div className="flex items-center gap-1.5 shrink-0">
               <div className="flex bg-[#dee3e3] p-1 rounded-full">
                 <Link
-                  href={`?view=dia&data=${dataString}${myAppointmentsOnly ? '&meus=true' : ''}`}
+                  href={buildAgendaUrl(baseQuery, { view: 'dia' })}
                   className={`px-2.5 lg:px-5 py-1.5 rounded-full text-[10px] lg:text-xs font-bold uppercase tracking-wider transition-all ${view === 'dia' ? 'bg-white shadow-sm text-[#006b5a]' : 'text-[#3d4945] hover:text-[#171d1c]'}`}
                 >
                   Dia
                 </Link>
                 <Link
-                  href={`?view=semana&data=${dataString}${myAppointmentsOnly ? '&meus=true' : ''}`}
+                  href={buildAgendaUrl(baseQuery, { view: 'semana' })}
                   className={`hidden sm:block px-2.5 lg:px-5 py-1.5 rounded-full text-[10px] lg:text-xs font-bold uppercase tracking-wider transition-all ${view === 'semana' ? 'bg-white shadow-sm text-[#006b5a]' : 'text-[#3d4945] hover:text-[#171d1c]'}`}
                 >
                   Semana
                 </Link>
                 <Link
-                  href={`?view=mes&data=${dataString}${myAppointmentsOnly ? '&meus=true' : ''}`}
+                  href={buildAgendaUrl(baseQuery, { view: 'mes' })}
                   className={`px-2.5 lg:px-5 py-1.5 rounded-full text-[10px] lg:text-xs font-bold uppercase tracking-wider transition-all ${view === 'mes' ? 'bg-white shadow-sm text-[#006b5a]' : 'text-[#3d4945] hover:text-[#171d1c]'}`}
                 >
                   Mês
@@ -393,7 +444,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
 
               {!isFisioterapeuta && (
                 <Link
-                  href={`?view=${view}&data=${dataString}${myAppointmentsOnly ? '' : '&meus=true'}`}
+                  href={buildAgendaUrl(baseQuery, { meus: !myAppointmentsOnly, profissional: profissionalSelecionado || null })}
                   title="Meus agendamentos"
                   className={`w-8 h-8 lg:w-auto lg:h-auto lg:px-4 lg:py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center lg:gap-1.5 ${
                     myAppointmentsOnly
@@ -408,6 +459,59 @@ export default async function AgendaPage({ searchParams }: PageProps) {
             </div>
           </div>
 
+          {!isFisioterapeuta && (
+            <div className="flex-shrink-0 bg-white rounded-2xl border border-[#bcc9c4]/30 px-3 py-3 shadow-sm">
+              <form method="get" className="flex flex-col lg:flex-row gap-3 lg:items-end">
+                <input type="hidden" name="view" value={view} />
+                <input type="hidden" name="data" value={dataString} />
+                {myAppointmentsOnly && <input type="hidden" name="meus" value="true" />}
+
+                {!shouldFilterByProfissional && (
+                  <label className="flex-1 min-w-0">
+                    <span className="block text-[11px] font-bold uppercase tracking-wider text-[#6d7a75] mb-1">Profissional</span>
+                    <select
+                      name="profissional"
+                      defaultValue={profissionalSelecionado}
+                      className="w-full bg-white border border-[#bcc9c4] rounded-xl px-3 py-2.5 text-sm text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/40"
+                    >
+                      <option value="">Todos os profissionais</option>
+                      {profissionaisElegiveisAgenda.map((profissional) => (
+                        <option key={profissional.id} value={profissional.id}>
+                          {profissional.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+
+                <label className="w-full lg:w-48">
+                  <span className="block text-[11px] font-bold uppercase tracking-wider text-[#6d7a75] mb-1">Horário</span>
+                  <input
+                    type="time"
+                    name="horario"
+                    defaultValue={horarioSelecionado}
+                    className="w-full bg-white border border-[#bcc9c4] rounded-xl px-3 py-2.5 text-sm text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/40"
+                  />
+                </label>
+
+                <div className="flex gap-2 lg:pb-0.5">
+                  <button
+                    type="submit"
+                    className="px-4 py-2.5 rounded-xl bg-[#006b5a] text-white text-sm font-bold hover:bg-[#004f43] transition-colors"
+                  >
+                    Filtrar
+                  </button>
+                  <Link
+                    href={buildAgendaUrl(baseQuery, { profissional: null, horario: null })}
+                    className="px-4 py-2.5 rounded-xl border border-[#bcc9c4] text-sm font-bold text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
+                  >
+                    Limpar
+                  </Link>
+                </div>
+              </form>
+            </div>
+          )}
+
           {/* Área do calendário — ocupa o espaço restante */}
           <div className="flex-1 min-h-0 bg-white rounded-3xl p-4 shadow-sm border border-[#bcc9c4]/30 overflow-hidden flex flex-col">
 
@@ -420,7 +524,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                     const diaNumero = format(dia, 'd')
                     const isSelecionado = isSameDay(dia, dataSelecionada)
                     return (
-                      <Link href={`?view=dia&data=${format(dia, 'yyyy-MM-dd')}${myAppointmentsOnly ? '&meus=true' : ''}`} key={dia.toString()} className="text-center group cursor-pointer block">
+                      <Link href={buildAgendaUrl(baseQuery, { view: 'dia', data: format(dia, 'yyyy-MM-dd') })} key={dia.toString()} className="text-center group cursor-pointer block">
                         <p className="text-[9px] lg:text-[10px] font-bold text-[#3d4945] uppercase tracking-tighter mb-1">{diaNome.replace('.', '').slice(0, 3)}</p>
                         <div className={`w-7 h-7 lg:w-9 lg:h-9 flex items-center justify-center mx-auto rounded-xl text-sm lg:text-base font-bold transition-colors ${
                           isSelecionado ? 'bg-[#006b5a] text-white shadow-lg shadow-[#006b5a]/30' : 'text-[#bcc9c4] group-hover:bg-[#f0f5f4] group-hover:text-[#171d1c]'
@@ -441,14 +545,6 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                   ) : (
                     <div className="py-8 text-center text-[#3d4945]/50 text-sm font-medium">Nenhum agendamento para este dia.</div>
                   )}
-                  <div className="grid grid-cols-[72px_1fr] gap-3">
-                    <div className="text-sm font-bold text-[#3d4945]/60 flex items-start justify-end pt-2">--:--</div>
-                    <div className="relative py-3 border-t border-dashed border-[#bcc9c4]/50 flex items-center">
-                      <div className="w-full h-14 border-2 border-dashed border-[#bcc9c4]/50 rounded-xl flex items-center justify-center text-[#3d4945]/50 hover:bg-[#f0f5f4] transition-colors cursor-pointer">
-                        <span className="text-xs font-bold uppercase tracking-widest">+ Disponível para agendamento</span>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </div>
             )}
@@ -549,7 +645,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
 
                     return (
                       <Link
-                        href={`?view=dia&data=${formatAppDateKey(dia)}${myAppointmentsOnly ? '&meus=true' : ''}`}
+                        href={buildAgendaUrl(baseQuery, { view: 'dia', data: formatAppDateKey(dia) })}
                         key={`dia-${idx}`}
                         className={`min-h-[48px] lg:min-h-[80px] border border-[#bcc9c4]/30 rounded-xl lg:rounded-2xl p-1 lg:p-2 flex flex-col transition-all hover:border-[#006b5a] hover:shadow-md cursor-pointer ${
                           isSelecionado ? 'bg-[#cce2da] border-[#006b5a]/50' : 'bg-white'
@@ -625,10 +721,10 @@ export default async function AgendaPage({ searchParams }: PageProps) {
             <div className="flex-shrink-0 flex items-center justify-between mb-3">
               <h4 className="text-sm font-bold text-[#3d4945] uppercase tracking-widest capitalize">{mesAnoLateral}</h4>
               <div className="flex gap-1 text-[#3d4945]">
-                <Link href={`?view=${view}&data=${format(subMonths(dataSelecionada, 1), 'yyyy-MM-dd')}${myAppointmentsOnly ? '&meus=true' : ''}`}>
+                <Link href={buildAgendaUrl(baseQuery, { data: format(subMonths(dataSelecionada, 1), 'yyyy-MM-dd') })}>
                   <ChevronLeft size={18} className="cursor-pointer hover:text-[#006b5a]" />
                 </Link>
-                <Link href={`?view=${view}&data=${format(addMonths(dataSelecionada, 1), 'yyyy-MM-dd')}${myAppointmentsOnly ? '&meus=true' : ''}`}>
+                <Link href={buildAgendaUrl(baseQuery, { data: format(addMonths(dataSelecionada, 1), 'yyyy-MM-dd') })}>
                   <ChevronRight size={18} className="cursor-pointer hover:text-[#006b5a]" />
                 </Link>
               </div>
@@ -649,7 +745,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 }
 
                 const temAgendamento = diasComAgendamento.has(formatAppDateKey(dia))
-                const linkUrlComFiltro = `?view=${view}&data=${formatAppDateKey(dia)}${myAppointmentsOnly ? '&meus=true' : ''}`
+                const linkUrlComFiltro = buildAgendaUrl(baseQuery, { data: formatAppDateKey(dia) })
 
                 return (
                   <Link
@@ -669,7 +765,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
             </div>
 
             <Link
-              href={`?view=${view}&data=${hojeString}`}
+              href={buildAgendaUrl(baseQuery, { data: hojeString })}
               className="flex-shrink-0 mt-1 w-full text-center text-xs font-bold py-2 rounded-xl bg-[#006b5a]/10 text-[#006b5a] hover:bg-[#006b5a]/20 transition-colors"
             >
               Hoje

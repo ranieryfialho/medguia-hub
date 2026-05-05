@@ -333,13 +333,6 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
         <div className="flex-1 overflow-y-auto px-8 py-6 scrollbar-thin scrollbar-thumb-slate-200">
           <form id={formId} onSubmit={handleSubmit} className="space-y-6">
 
-            {!modoEdicao && (
-              <div className="flex w-full border border-[#bcc9c4]/50 rounded-lg overflow-hidden mb-6">
-                <div className="flex-1 text-center py-2 bg-[#f0fcf9] text-[#006b5a] font-medium border-r border-[#bcc9c4]/50">Paciente</div>
-                <div className="flex-1 text-center py-2 bg-white text-[#6d7a75] font-medium">Evento</div>
-              </div>
-            )}
-
             <div className="space-y-1 relative">
               <label className="text-xs font-semibold text-[#6d7a75] absolute -top-2 left-3 bg-white px-1 z-10">Paciente *</label>
               <div className="relative" ref={comboboxRef}>
@@ -590,17 +583,6 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
             <div className="space-y-1 relative pt-4">
               <label className="text-xs font-semibold text-[#6d7a75] absolute top-2 left-3 bg-white px-1 z-10">Observações</label>
               <textarea name="observacoes" rows={3} value={observacoesValue} onChange={e => setObservacoesValue(e.target.value)} placeholder="Motivo da consulta, queixas principais..." className="w-full bg-white border border-[#bcc9c4] rounded-lg px-4 py-3 pt-6 text-[#171d1c] focus:ring-2 focus:ring-[#006b5a] transition-all font-medium resize-none shadow-sm"></textarea>
-            </div>
-
-            <div className="flex flex-col gap-3 pt-2">
-              <label className="flex items-center gap-3 cursor-pointer group">
-                <input type="checkbox" name="gerou_venda" className="w-4 h-4 rounded border-[#bcc9c4] text-[#006b5a] focus:ring-[#006b5a]" />
-                <span className="text-sm font-semibold text-[#3d4945] group-hover:text-[#006b5a] transition-colors">Gerou venda</span>
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer group">
-                <input type="checkbox" name="marcou_retorno" className="w-4 h-4 rounded border-[#bcc9c4] text-[#006b5a] focus:ring-[#006b5a]" />
-                <span className="text-sm font-semibold text-[#3d4945] group-hover:text-[#006b5a] transition-colors">Marcou retorno</span>
-              </label>
             </div>
 
             {error && (

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import {
   Phone, Mail, Calendar, Clock, ChevronDown,
@@ -81,8 +82,10 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
   const [loading, setLoading] = useState(false)
   const [loadingDetalhes, setLoadingDetalhes] = useState(false)
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false)
+  const [statusMenuPos, setStatusMenuPos] = useState<{ top: number; left: number; width: number } | null>(null)
   const [contagem, setContagem] = useState<{ total: number; cancelados: number } | null>(null)
   const opcoesRef = useRef<HTMLDivElement>(null)
+  const statusRef = useRef<HTMLDivElement>(null)
   const [detalhesExtras, setDetalhesExtras] = useState<{
     telefone?: string | null
     email?: string | null
@@ -157,10 +160,27 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
         setShowOpcoes(false)
         setConfirmandoExclusao(false)
       }
+
+      if (statusRef.current && !statusRef.current.contains(e.target as Node)) {
+        setShowStatusMenu(false)
+      }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  function toggleStatusMenu() {
+    if (!showStatusMenu && statusRef.current) {
+      const rect = statusRef.current.getBoundingClientRect()
+      setStatusMenuPos({
+        top: Math.max(8, rect.top - 6),
+        left: rect.left,
+        width: rect.width,
+      })
+    }
+
+    setShowStatusMenu((prev) => !prev)
+  }
 
   async function handleStatusChange(novoStatus: string) {
     setLoading(true)
@@ -379,30 +399,16 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
                 </div>
               ) : null}
 
-              <div className="relative">
+              <div className="relative" ref={statusRef}>
                 <label className="block text-xs font-bold text-[#6d7a75] mb-2">Status</label>
                 <button
-                  onClick={() => setShowStatusMenu((prev) => !prev)}
+                  onClick={toggleStatusMenu}
                   disabled={loading}
                   className="w-full flex items-center justify-between border border-[#bcc9c4] rounded-xl px-4 py-2 text-sm font-semibold text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
                 >
                   <span>{status || 'Agendado'}</span>
                   <ChevronDown size={14} />
                 </button>
-                {showStatusMenu && (
-                  <div className="absolute bottom-full left-0 mb-1 bg-white border border-[#bcc9c4] rounded-xl shadow-lg z-20 overflow-hidden min-w-[190px]">
-                    {OPCOES_STATUS.map(({ valor, Icon, cor }) => (
-                      <button
-                        key={valor}
-                        onClick={() => handleStatusChange(valor)}
-                        className="w-full text-left px-3 py-2.5 flex items-center gap-2.5 text-sm font-medium text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
-                      >
-                        <Icon size={14} className={cor} />
-                        {valor}
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
             </>
           )}
@@ -417,6 +423,32 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
           </button>
         </div>
       </div>
+
+      {typeof document !== 'undefined' && showStatusMenu && statusMenuPos && createPortal(
+        <div
+          style={{
+            position: 'fixed',
+            top: statusMenuPos.top,
+            left: statusMenuPos.left,
+            width: Math.max(statusMenuPos.width, 190),
+            zIndex: 9999,
+            transform: 'translateY(-100%)',
+          }}
+          className="bg-white border border-[#bcc9c4] rounded-xl shadow-lg overflow-hidden"
+        >
+          {OPCOES_STATUS.map(({ valor, Icon, cor }) => (
+            <button
+              key={valor}
+              onClick={() => handleStatusChange(valor)}
+              className="w-full text-left px-3 py-2.5 flex items-center gap-2.5 text-sm font-medium text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
+            >
+              <Icon size={14} className={cor} />
+              {valor}
+            </button>
+          ))}
+        </div>,
+        document.body
+      )}
     </div>
   )
 }

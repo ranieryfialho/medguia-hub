@@ -43,7 +43,7 @@ export function ModalSessaoReposicao({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 px-4">
       <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
         <div className="flex items-center justify-between mb-5">
           <div>
