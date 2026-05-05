@@ -66,10 +66,10 @@ function removerMetadadosDisponibilidade(atendimento: {
   hora_fim: string
   [key: string]: boolean | number | string | null | undefined
 }) {
-  const semMetadados = { ...atendimento }
-  delete semMetadados.data
-  delete semMetadados.hora_inicio
-  delete semMetadados.hora_fim
+  const { data, hora_inicio, hora_fim, ...semMetadados } = atendimento
+  void data
+  void hora_inicio
+  void hora_fim
   return semMetadados
 }
 
