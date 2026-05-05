@@ -1,10 +1,11 @@
 'use client'
 
 import { editarVenda } from '@/actions/vendas'
-import { useActionState, useState, startTransition, useRef, useTransition } from 'react'
+import { useActionState, useEffect, useState, startTransition, useRef, useTransition } from 'react'
 import { LoaderCircle, Plus, Trash2 } from 'lucide-react'
 import { ComboboxPaciente } from '@/components/features/ComboboxPaciente'
 import { FORMAS_PAGAMENTO } from '@/lib/vendas'
+import { createClient } from '@/lib/supabase/client'
 
 interface Profissional {
   id: string
@@ -56,6 +57,7 @@ const OPCOES_ORIGEM = [
   { value: 'renovacao', label: 'Renovação' },
   { value: 'campanha', label: 'Campanha' },
 ]
+const USUARIO_AUTORIZADO_VENDA_ZERADA = '46581234-19dd-4e7d-904d-db0357fa2219'
 
 export function FormEditarVenda({
   vendaId,
@@ -99,7 +101,9 @@ export function FormEditarVenda({
   const [showModalConfirmacao, setShowModalConfirmacao] = useState(false)
   const [senhaConfirmacao, setSenhaConfirmacao] = useState('')
   const [senhaError, setSenhaError] = useState('')
+  const [erroLocal, setErroLocal] = useState('')
   const [ocultarErroSenhaAction, setOcultarErroSenhaAction] = useState(false)
+  const [usuarioAtualId, setUsuarioAtualId] = useState<string | null>(null)
   const [isConfirmandoSenha, startConfirmacaoSenhaTransition] = useTransition()
   const formRef = useRef<HTMLFormElement>(null)
 
@@ -132,13 +136,31 @@ export function FormEditarVenda({
 
   const produtoAtual = produtos.find((p) => p.id === produtoSelecionado)
 
+  useEffect(() => {
+    const supabase = createClient()
+
+    supabase.auth.getUser().then(({ data }) => {
+      setUsuarioAtualId(data.user?.id ?? null)
+    })
+  }, [])
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (total === 0) {
+      if (usuarioAtualId !== USUARIO_AUTORIZADO_VENDA_ZERADA) {
+        setErroLocal('Apenas o usuário autorizado pode confirmar venda com valor zero.')
+        setOcultarErroSenhaAction(true)
+        return
+      }
+
+      setErroLocal('')
+      setSenhaError('')
+      setOcultarErroSenhaAction(true)
       setShowModalConfirmacao(true)
       return
     }
 
+    setErroLocal('')
     const formData = new FormData(e.currentTarget)
     startTransition(() => formAction(formData))
   }
@@ -443,9 +465,9 @@ export function FormEditarVenda({
       </div>
 
       {/* Erro */}
-      {!showModalConfirmacao && state?.error && (
+      {!showModalConfirmacao && (erroLocal || state?.error) && (
         <div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-800 text-sm">
-          {state.error}
+          {erroLocal || state?.error}
         </div>
       )}
     </form>

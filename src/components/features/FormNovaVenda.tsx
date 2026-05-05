@@ -1,10 +1,11 @@
 'use client'
 
 import { criarVenda } from '@/actions/vendas'
-import { useActionState, useState, useRef, useTransition } from 'react'
+import { useActionState, useEffect, useState, useRef, useTransition } from 'react'
 import { ChevronRight, ChevronLeft, LoaderCircle, Plus, Trash2 } from 'lucide-react'
 import { ComboboxPaciente } from '@/components/features/ComboboxPaciente'
 import { FORMAS_PAGAMENTO } from '@/lib/vendas'
+import { createClient } from '@/lib/supabase/client'
 
 interface Profissional {
   id: string
@@ -46,6 +47,7 @@ const ROLE_LABEL: Record<string, string> = {
 }
 
 const ABAS = ['Paciente & Profissional', 'Origem da Venda', 'Produtos']
+const USUARIO_AUTORIZADO_VENDA_ZERADA = '46581234-19dd-4e7d-904d-db0357fa2219'
 
 export function FormNovaVenda({ profissionais, produtos, medicos = [] }: FormNovaVendaProps) {
   const [state, formAction] = useActionState(criarVenda, null)
@@ -76,7 +78,9 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [] }: FormNov
   const [showModalConfirmacao, setShowModalConfirmacao] = useState(false)
   const [senhaConfirmacao, setSenhaConfirmacao] = useState('')
   const [senhaError, setSenhaError] = useState('')
+  const [erroLocal, setErroLocal] = useState('')
   const [ocultarErroSenhaAction, setOcultarErroSenhaAction] = useState(false)
+  const [usuarioAtualId, setUsuarioAtualId] = useState<string | null>(null)
   const [isSubmitting, startSubmitTransition] = useTransition()
   const [isConfirmandoSenha, startConfirmacaoSenhaTransition] = useTransition()
   const formRef = useRef<HTMLFormElement>(null)
@@ -129,15 +133,33 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [] }: FormNov
 
   const removerItem = (idx: number) => setItens(itens.filter((_, i) => i !== idx))
 
+  useEffect(() => {
+    const supabase = createClient()
+
+    supabase.auth.getUser().then(({ data }) => {
+      setUsuarioAtualId(data.user?.id ?? null)
+    })
+  }, [])
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (isSubmitting || isConfirmandoSenha) return
 
     if (total === 0) {
+      if (usuarioAtualId !== USUARIO_AUTORIZADO_VENDA_ZERADA) {
+        setErroLocal('Apenas o usuário autorizado pode confirmar venda com valor zero.')
+        setOcultarErroSenhaAction(true)
+        return
+      }
+
+      setErroLocal('')
+      setSenhaError('')
+      setOcultarErroSenhaAction(true)
       setShowModalConfirmacao(true)
       return
     }
 
+    setErroLocal('')
     const formData = new FormData(e.currentTarget)
     startSubmitTransition(() => formAction(formData))
   }
@@ -618,9 +640,9 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [] }: FormNov
         </div>
       )}
 
-      {!showModalConfirmacao && state?.error && (
+      {!showModalConfirmacao && (erroLocal || state?.error) && (
         <div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-800 text-sm">
-          {state.error}
+          {erroLocal || state?.error}
         </div>
       )}
     </form>
