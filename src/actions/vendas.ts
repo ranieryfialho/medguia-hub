@@ -3,6 +3,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { FORMAS_PAGAMENTO } from '@/lib/vendas'
+
+const USUARIO_AUTORIZADO_VENDA_ZERADA = '46581234-19dd-4e7d-904d-db0357fa2219'
 
 interface ItemVendaForm {
   produto_id: string
@@ -66,19 +69,28 @@ function somarTotaisPorVenda(
   }, {})
 }
 
+function formaPagamentoValida(value: string) {
+  return FORMAS_PAGAMENTO.some((forma) => forma.value === value)
+}
+
 export async function criarVenda(_prevState: unknown, formData: FormData) {
   const supabase = await createClient()
 
   const paciente_id = formData.get('paciente_id') as string
   const profissional_id = formData.get('profissional_id') as string
   const origem = formData.get('origem') as string
+  const forma_pagamento = formData.get('forma_pagamento') as string
   const medico_referenciador_id = origem === 'medico' ? (formData.get('medico_referenciador_id') as string) : null
   const data_venda = formData.get('data_venda') as string
   const observacoes = formData.get('observacoes') as string
   const itensJson = formData.get('itens_venda_json') as string
 
-  if (!paciente_id || !profissional_id || !origem) {
-    return { error: 'Paciente, profissional e origem são obrigatórios.' }
+  if (!paciente_id || !profissional_id || !origem || !forma_pagamento) {
+    return { error: 'Paciente, profissional, origem e forma de pagamento são obrigatórios.' }
+  }
+
+  if (!formaPagamentoValida(forma_pagamento)) {
+    return { error: 'Forma de pagamento inválida.' }
   }
 
   if (origem === 'medico' && !medico_referenciador_id?.trim()) {
@@ -113,14 +125,18 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
   }
 
   if (total === 0) {
-    const senhaConfirmacao = formData.get('senha_confirmacao') as string
-    if (!senhaConfirmacao) {
-      return { needsPasswordConfirmation: true }
-    }
-
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (!user || userError) {
       return { error: 'Usuário não autenticado.' }
+    }
+
+    if (user.id !== USUARIO_AUTORIZADO_VENDA_ZERADA) {
+      return { error: 'Apenas o usuário autorizado pode confirmar venda com valor zero.' }
+    }
+
+    const senhaConfirmacao = formData.get('senha_confirmacao') as string
+    if (!senhaConfirmacao) {
+      return { needsPasswordConfirmation: true }
     }
 
     const { error: senhaError } = await supabase.auth.signInWithPassword({
@@ -137,6 +153,7 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
     paciente_id,
     profissional_id,
     origem,
+    forma_pagamento,
     medico_referenciador_nome,
     data_venda: data_venda || new Date().toISOString(),
     observacoes: observacoes || null,
@@ -181,13 +198,18 @@ export async function editarVenda(_prevState: unknown, formData: FormData) {
   const id = formData.get('id') as string
   const paciente_id = formData.get('paciente_id') as string
   const origem = formData.get('origem') as string
+  const forma_pagamento = formData.get('forma_pagamento') as string
   const medico_referenciador_id = origem === 'medico' ? (formData.get('medico_referenciador_id') as string) : null
   const data_venda = formData.get('data_venda') as string
   const observacoes = formData.get('observacoes') as string
   const itensJson = formData.get('itens_venda_json') as string
 
-  if (!paciente_id || !origem) {
-    return { error: 'Paciente e origem são obrigatórios.' }
+  if (!paciente_id || !origem || !forma_pagamento) {
+    return { error: 'Paciente, origem e forma de pagamento são obrigatórios.' }
+  }
+
+  if (!formaPagamentoValida(forma_pagamento)) {
+    return { error: 'Forma de pagamento inválida.' }
   }
 
   if (origem === 'medico' && !medico_referenciador_id?.trim()) {
@@ -222,14 +244,18 @@ export async function editarVenda(_prevState: unknown, formData: FormData) {
   }
 
   if (total === 0) {
-    const senhaConfirmacao = formData.get('senha_confirmacao') as string
-    if (!senhaConfirmacao) {
-      return { needsPasswordConfirmation: true }
-    }
-
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (!user || userError) {
       return { error: 'Usuário não autenticado.' }
+    }
+
+    if (user.id !== USUARIO_AUTORIZADO_VENDA_ZERADA) {
+      return { error: 'Apenas o usuário autorizado pode confirmar venda com valor zero.' }
+    }
+
+    const senhaConfirmacao = formData.get('senha_confirmacao') as string
+    if (!senhaConfirmacao) {
+      return { needsPasswordConfirmation: true }
     }
 
     const { error: senhaError } = await supabase.auth.signInWithPassword({
@@ -245,6 +271,7 @@ export async function editarVenda(_prevState: unknown, formData: FormData) {
   const dadosVenda = {
     paciente_id,
     origem,
+    forma_pagamento,
     medico_referenciador_nome,
     data_venda,
     observacoes: observacoes || null,
@@ -318,6 +345,7 @@ export async function deletarVenda(id: string) {
 
 interface FiltrosVendas {
   origem?: string
+  forma_pagamento?: string
   paciente_id?: string
   profissional_id?: string
   data_inicio?: string
@@ -331,6 +359,7 @@ export async function listarVendas(filtros: FiltrosVendas = {}) {
 
   const {
     origem,
+    forma_pagamento,
     paciente_id,
     profissional_id,
     data_inicio,
@@ -349,6 +378,7 @@ export async function listarVendas(filtros: FiltrosVendas = {}) {
       profissional_id,
       profiles(nome),
       origem,
+      forma_pagamento,
       medico_referenciador_nome,
       data_venda,
       observacoes,
@@ -362,6 +392,10 @@ export async function listarVendas(filtros: FiltrosVendas = {}) {
 
   if (origem) {
     query = query.eq('origem', origem)
+  }
+
+  if (forma_pagamento) {
+    query = query.eq('forma_pagamento', forma_pagamento)
   }
 
   if (paciente_id) {
@@ -414,16 +448,17 @@ interface FiltrosRelatorio {
   data_inicio?: string
   data_fim?: string
   origem?: string
+  forma_pagamento?: string
 }
 
 export async function gerarRelatorioVendas(filtros: FiltrosRelatorio = {}) {
   const supabase = await createClient()
 
-  const { data_inicio, data_fim, origem } = filtros
+  const { data_inicio, data_fim, origem, forma_pagamento } = filtros
 
   let query = supabase
     .from('vendas')
-    .select('id, origem, data_venda')
+    .select('id, origem, forma_pagamento, data_venda')
 
   if (data_inicio) {
     query = query.gte('data_venda', `${data_inicio}T00:00:00`)
@@ -435,6 +470,10 @@ export async function gerarRelatorioVendas(filtros: FiltrosRelatorio = {}) {
 
   if (origem) {
     query = query.eq('origem', origem)
+  }
+
+  if (forma_pagamento) {
+    query = query.eq('forma_pagamento', forma_pagamento)
   }
 
   const { data: vendas, error } = await query
@@ -462,6 +501,7 @@ export async function gerarRelatorioVendas(filtros: FiltrosRelatorio = {}) {
   const vendasComTotais = (vendas || []).map((venda) => ({
     id: venda.id,
     origem: venda.origem,
+    forma_pagamento: venda.forma_pagamento,
     data_venda: venda.data_venda,
     total: totaisPorVenda[venda.id] || 0,
   }))
@@ -473,12 +513,19 @@ export async function gerarRelatorioVendas(filtros: FiltrosRelatorio = {}) {
 
   // Por origem
   const porOrigem: Record<string, { quantidade: number; faturamento: number }> = {}
+  const porFormaPagamento: Record<string, { quantidade: number; faturamento: number }> = {}
   vendasComTotais.forEach((venda) => {
     if (!porOrigem[venda.origem]) {
       porOrigem[venda.origem] = { quantidade: 0, faturamento: 0 }
     }
     porOrigem[venda.origem].quantidade += 1
     porOrigem[venda.origem].faturamento += venda.total
+
+    if (!porFormaPagamento[venda.forma_pagamento]) {
+      porFormaPagamento[venda.forma_pagamento] = { quantidade: 0, faturamento: 0 }
+    }
+    porFormaPagamento[venda.forma_pagamento].quantidade += 1
+    porFormaPagamento[venda.forma_pagamento].faturamento += venda.total
   })
 
   // Por período (últimos 90 dias)
@@ -504,6 +551,7 @@ export async function gerarRelatorioVendas(filtros: FiltrosRelatorio = {}) {
         vendaMedia,
       },
       porOrigem,
+      porFormaPagamento,
       porPeriodo,
     },
     error: null,

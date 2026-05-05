@@ -3,7 +3,9 @@ import Link from 'next/link'
 import { BarChart3, TrendingUp, Users, Package } from 'lucide-react'
 import { RelatorioVendasClient } from '@/components/features/RelatorioVendasClient'
 import { BtnGerarPdfVendas } from '@/components/features/BtnGerarPdfVendas'
+import { FiltroProdutosMultiSelect } from '@/components/features/FiltroProdutosMultiSelect'
 import { requireModulo } from '@/lib/guard'
+import { FORMAS_PAGAMENTO } from '@/lib/vendas'
 
 const ORIGENS = [
   { value: 'medico', label: 'Médico' },
@@ -26,20 +28,27 @@ export default async function RelatorioVendasPage({
   const data_inicio = (resolvedParams.data_inicio as string) || ''
   const data_fim = (resolvedParams.data_fim as string) || ''
   const origem = (resolvedParams.origem as string) || ''
+  const forma_pagamento = (resolvedParams.forma_pagamento as string) || ''
   const profissional_id = (resolvedParams.profissional_id as string) || ''
+  const produtoIds = Array.isArray(resolvedParams.produto_id)
+    ? resolvedParams.produto_id.filter((value): value is string => typeof value === 'string' && value.length > 0)
+    : typeof resolvedParams.produto_id === 'string' && resolvedParams.produto_id
+      ? [resolvedParams.produto_id]
+      : []
 
   // Query única com join em profissional e itens+produto
   let query = supabase
     .from('vendas')
     .select(`
-      id, origem, data_venda, profissional_id,
+      id, origem, forma_pagamento, data_venda, profissional_id,
       profiles:profissional_id ( full_name, role ),
-      itens_venda ( quantidade, preco_unitario, produtos:produto_id ( nome ) )
+      itens_venda ( quantidade, preco_unitario, produtos:produto_id ( id, nome ) )
     `)
 
   if (data_inicio) query = query.gte('data_venda', `${data_inicio}T00:00:00`)
   if (data_fim) query = query.lte('data_venda', `${data_fim}T23:59:59`)
   if (origem) query = query.eq('origem', origem)
+  if (forma_pagamento) query = query.eq('forma_pagamento', forma_pagamento)
   if (profissional_id) query = query.eq('profissional_id', profissional_id)
 
   const { data: vendas } = await query
@@ -51,10 +60,20 @@ export default async function RelatorioVendasPage({
     .in('role', ['fisioterapeuta', 'gestor'])
     .order('full_name')
 
+  const { data: produtosRaw } = await supabase
+    .from('produtos')
+    .select('id, nome')
+    .eq('ativo', true)
+    .order('nome')
+
   const profissionaisFiltro = (profissionaisRaw || []).map((p: any) => ({
     id: p.id,
     nome: p.full_name || 'Sem nome',
     role: p.role,
+  }))
+  const produtosFiltro = (produtosRaw || []).map((produto: { id: string; nome: string }) => ({
+    id: produto.id,
+    nome: produto.nome,
   }))
 
   // ── Agregações ──────────────────────────────────────────────
@@ -62,6 +81,7 @@ export default async function RelatorioVendasPage({
   type AgregacaoNome = { nome: string; quantidade: number; faturamento: number }
 
   const porOrigem: Record<string, { quantidade: number; faturamento: number }> = {}
+  const porFormaPagamento: Record<string, { quantidade: number; faturamento: number }> = {}
   const porProfissional: Record<string, AgregacaoNome> = {}
   const porProduto: Record<string, AgregacaoNome> = {}
   const porPeriodo: Record<string, number> = {}
@@ -70,7 +90,13 @@ export default async function RelatorioVendasPage({
   const dias90 = new Date(agora.getTime() - 90 * 24 * 60 * 60 * 1000)
 
   for (const venda of vendas || []) {
-    const itens: any[] = (venda as any).itens_venda || []
+    const itensOriginais: any[] = (venda as any).itens_venda || []
+    const itens = produtoIds.length > 0
+      ? itensOriginais.filter((item) => produtoIds.includes(item.produtos?.id ?? ''))
+      : itensOriginais
+
+    if (itens.length === 0) continue
+
     const perfil: any = (venda as any).profiles
 
     const totalVenda = itens.reduce(
@@ -82,6 +108,10 @@ export default async function RelatorioVendasPage({
     if (!porOrigem[venda.origem]) porOrigem[venda.origem] = { quantidade: 0, faturamento: 0 }
     porOrigem[venda.origem].quantidade += 1
     porOrigem[venda.origem].faturamento += totalVenda
+
+    if (!porFormaPagamento[venda.forma_pagamento]) porFormaPagamento[venda.forma_pagamento] = { quantidade: 0, faturamento: 0 }
+    porFormaPagamento[venda.forma_pagamento].quantidade += 1
+    porFormaPagamento[venda.forma_pagamento].faturamento += totalVenda
 
     // Por profissional
     const profNome = perfil?.full_name || 'Desconhecido'
@@ -184,6 +214,19 @@ export default async function RelatorioVendasPage({
             </select>
           </div>
           <div>
+            <label className="block text-xs text-text-secondary uppercase mb-1">Pagamento</label>
+            <select
+              name="forma_pagamento"
+              defaultValue={forma_pagamento}
+              className="px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
+            >
+              <option value="">Todas as formas</option>
+              {FORMAS_PAGAMENTO.map((forma) => (
+                <option key={forma.value} value={forma.value}>{forma.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label className="block text-xs text-text-secondary uppercase mb-1">Profissional</label>
             <select
               name="profissional_id"
@@ -196,13 +239,22 @@ export default async function RelatorioVendasPage({
               ))}
             </select>
           </div>
+          <div className="min-w-[260px] flex-1">
+            <FiltroProdutosMultiSelect
+              name="produto_id"
+              label="Produtos"
+              options={produtosFiltro}
+              defaultSelected={produtoIds}
+            />
+          </div>
+
           <button
             type="submit"
             className="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-md text-sm font-medium transition-colors"
           >
             Filtrar
           </button>
-          {(data_inicio || data_fim || origem || profissional_id) && (
+          {(data_inicio || data_fim || origem || forma_pagamento || profissional_id || produtoIds.length > 0) && (
             <Link
               href="/relatorios/vendas"
               className="px-4 py-2 bg-page hover:bg-page/80 border border-border text-text-secondary rounded-md text-sm transition-colors"
@@ -242,6 +294,7 @@ export default async function RelatorioVendasPage({
       {/* Gráficos (cliente) */}
       <RelatorioVendasClient
         porOrigem={porOrigem}
+        porFormaPagamento={porFormaPagamento}
         porPeriodo={porPeriodo}
         porProfissional={Object.values(porProfissional)}
         porProduto={Object.values(porProduto)}

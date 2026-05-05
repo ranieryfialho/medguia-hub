@@ -15,6 +15,7 @@ interface VendaRow {
   paciente_id: string
   profissional_id: string
   origem: string
+  forma_pagamento: string
   medico_referenciador_nome?: string | null
   data_venda: string
   observacoes?: string | null
@@ -54,6 +55,7 @@ export default async function EditarVendaPage({
       paciente_id,
       profissional_id,
       origem,
+      forma_pagamento,
       medico_referenciador_nome,
       data_venda,
       observacoes,
@@ -115,6 +117,7 @@ export default async function EditarVendaPage({
     paciente_id: venda.paciente_id,
     profissional_id: venda.profissional_id,
     origem: venda.origem,
+    forma_pagamento: venda.forma_pagamento,
     medico_referenciador_nome: venda.medico_referenciador_nome,
     data_venda: venda.data_venda,
     observacoes: venda.observacoes,

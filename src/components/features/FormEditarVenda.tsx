@@ -4,6 +4,7 @@ import { editarVenda } from '@/actions/vendas'
 import { useActionState, useState, startTransition, useRef, useTransition } from 'react'
 import { LoaderCircle, Plus, Trash2 } from 'lucide-react'
 import { ComboboxPaciente } from '@/components/features/ComboboxPaciente'
+import { FORMAS_PAGAMENTO } from '@/lib/vendas'
 
 interface Profissional {
   id: string
@@ -30,6 +31,7 @@ interface VendaInicial {
   paciente_id: string
   profissional_id: string
   origem: string
+  forma_pagamento: string
   medico_referenciador_nome?: string | null
   data_venda: string
   observacoes?: string | null
@@ -70,6 +72,7 @@ export function FormEditarVenda({
   const [pacienteNome, setPacienteNome] = useState(vendaInicial.pacientes?.nome || '')
   const [profissionalId] = useState(vendaInicial.profissional_id)
   const [origem, setOrigem] = useState(vendaInicial.origem)
+  const [formaPagamento, setFormaPagamento] = useState(vendaInicial.forma_pagamento)
 
   // Encontrar ID do médico baseado no nome
   const medicoInicialId = medicos.find(
@@ -280,6 +283,22 @@ export function FormEditarVenda({
       {/* Data e Observações */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
+          <label className="block text-sm font-medium text-text-primary mb-2">Forma de Pagamento</label>
+          <select
+            value={formaPagamento}
+            onChange={(e) => setFormaPagamento(e.target.value)}
+            className="w-full px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
+          >
+            <option value="">Selecione a forma de pagamento...</option>
+            {FORMAS_PAGAMENTO.map((forma) => (
+              <option key={forma.value} value={forma.value}>
+                {forma.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
           <label className="block text-sm font-medium text-text-primary mb-2">Data da Venda</label>
           <input
             type="date"
@@ -405,6 +424,7 @@ export function FormEditarVenda({
       <input type="hidden" name="id" value={vendaId} />
       <input type="hidden" name="profissional_id" value={profissionalId} />
       <input type="hidden" name="origem" value={origem} />
+      <input type="hidden" name="forma_pagamento" value={formaPagamento} />
       <input type="hidden" name="medico_referenciador_id" value={medicoReferenciadorId} />
       <input type="hidden" name="data_venda" value={dataVenda} />
       <input type="hidden" name="observacoes" value={observacoes} />

@@ -1,9 +1,10 @@
 'use client'
 
 import { criarVenda } from '@/actions/vendas'
-import { useActionState, useState, startTransition, useRef, useTransition } from 'react'
+import { useActionState, useState, useRef, useTransition } from 'react'
 import { ChevronRight, ChevronLeft, LoaderCircle, Plus, Trash2 } from 'lucide-react'
 import { ComboboxPaciente } from '@/components/features/ComboboxPaciente'
+import { FORMAS_PAGAMENTO } from '@/lib/vendas'
 
 interface Profissional {
   id: string
@@ -61,6 +62,7 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [] }: FormNov
   const [origem, setOrigem] = useState('')
   const [medicoReferenciadorId, setMedicoReferenciadorId] = useState('')
   const [buscaMedico, setBuscaMedico] = useState('')
+  const [formaPagamento, setFormaPagamento] = useState('')
   const [dataVenda, setDataVenda] = useState(new Date().toISOString().split('T')[0])
   const [observacoes, setObservacoes] = useState('')
 
@@ -75,6 +77,7 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [] }: FormNov
   const [senhaConfirmacao, setSenhaConfirmacao] = useState('')
   const [senhaError, setSenhaError] = useState('')
   const [ocultarErroSenhaAction, setOcultarErroSenhaAction] = useState(false)
+  const [isSubmitting, startSubmitTransition] = useTransition()
   const [isConfirmandoSenha, startConfirmacaoSenhaTransition] = useTransition()
   const formRef = useRef<HTMLFormElement>(null)
 
@@ -107,7 +110,7 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [] }: FormNov
   }
 
   const podeAvancar0 = !!pacienteId && !!profissionalId
-  const podeAvancar1 = !!origem && (origem !== 'medico' || !!medicoReferenciadorId)
+  const podeAvancar1 = !!origem && !!formaPagamento && (origem !== 'medico' || !!medicoReferenciadorId)
 
   const medicosFiltrados = buscaMedico.trim()
     ? medicos.filter((p) => p.nome.toLowerCase().includes(buscaMedico.toLowerCase()))
@@ -128,13 +131,15 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [] }: FormNov
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (isSubmitting || isConfirmandoSenha) return
+
     if (total === 0) {
       setShowModalConfirmacao(true)
       return
     }
 
     const formData = new FormData(e.currentTarget)
-    startTransition(() => formAction(formData))
+    startSubmitTransition(() => formAction(formData))
   }
 
   const handleConfirmarValorZero = (senha: string) => {
@@ -156,10 +161,11 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [] }: FormNov
   }
 
   const erroSenhaConfirmacao = senhaError || (!ocultarErroSenhaAction && !isConfirmandoSenha ? state?.error : '')
+  const isProcessing = isSubmitting || isConfirmandoSenha
 
   return (
     <>
-    <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
+    <form ref={formRef} onSubmit={handleSubmit} className={`space-y-6 transition-opacity ${isProcessing ? 'opacity-80' : ''}`}>
 
       {/* Indicador de abas */}
       <div className="flex items-center gap-0">
@@ -354,6 +360,22 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [] }: FormNov
             <h2 className="text-base font-semibold text-text-primary border-b border-border pb-2">Data e Observações</h2>
 
             <div>
+              <label className="block text-sm font-medium text-text-primary mb-2">Forma de Pagamento</label>
+              <select
+                value={formaPagamento}
+                onChange={(e) => setFormaPagamento(e.target.value)}
+                className="w-full px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
+              >
+                <option value="">Selecione a forma de pagamento...</option>
+                {FORMAS_PAGAMENTO.map((forma) => (
+                  <option key={forma.value} value={forma.value}>
+                    {forma.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
               <label className="block text-sm font-medium text-text-primary mb-2">Data da Venda</label>
               <input
                 type="date"
@@ -542,6 +564,7 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [] }: FormNov
       <input type="hidden" name="profissional_id" value={profissionalId} />
       <input type="hidden" name="origem" value={origem} />
       <input type="hidden" name="medico_referenciador_id" value={medicoReferenciadorId} />
+      <input type="hidden" name="forma_pagamento" value={formaPagamento} />
       <input type="hidden" name="data_venda" value={dataVenda} />
       <input type="hidden" name="observacoes" value={observacoes} />
       <input type="hidden" name="itens_venda_json" value={JSON.stringify(itens)} />
@@ -551,7 +574,7 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [] }: FormNov
         <button
           type="button"
           onClick={() => setAbaAtual((a) => Math.max(0, a - 1))}
-          disabled={abaAtual === 0}
+          disabled={abaAtual === 0 || isProcessing}
           className="flex items-center gap-2 px-5 py-2.5 rounded-md border border-border text-sm font-medium text-text-primary hover:bg-page transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <ChevronLeft size={16} />
@@ -565,7 +588,7 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [] }: FormNov
               if (abaAtual === 0 && podeAvancar0) setAbaAtual(1)
               if (abaAtual === 1 && podeAvancar1) setAbaAtual(2)
             }}
-            disabled={(abaAtual === 0 && !podeAvancar0) || (abaAtual === 1 && !podeAvancar1)}
+            disabled={(abaAtual === 0 && !podeAvancar0) || (abaAtual === 1 && !podeAvancar1) || isProcessing}
             className="flex items-center gap-2 px-5 py-2.5 rounded-md bg-primary-500 hover:bg-primary-600 text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Próximo
@@ -574,14 +597,26 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [] }: FormNov
         ) : (
           <button
             type="submit"
-            disabled={itens.length === 0 || total >= 999999.99}
+            disabled={itens.length === 0 || total >= 999999.99 || isProcessing}
             title={total >= 999999.99 ? 'Valor máximo é R$ 999.999,99' : ''}
-            className="px-6 py-2.5 rounded-md bg-green-600 hover:bg-green-700 text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-6 py-2.5 rounded-md bg-green-600 hover:bg-green-700 text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-2"
           >
-            {total >= 999999.99 ? 'Valor muito alto' : 'Criar Venda'}
+            {isSubmitting ? (
+              <>
+                <LoaderCircle size={16} className="animate-spin" />
+                Criando venda...
+              </>
+            ) : total >= 999999.99 ? 'Valor muito alto' : 'Criar Venda'}
           </button>
         )}
       </div>
+
+      {isSubmitting && (
+        <div className="flex items-center gap-2 rounded-md border border-primary-200 bg-primary-50 px-3 py-2 text-sm text-primary-800">
+          <LoaderCircle size={16} className="animate-spin" />
+          Salvando venda e preparando redirecionamento...
+        </div>
+      )}
 
       {!showModalConfirmacao && state?.error && (
         <div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-800 text-sm">

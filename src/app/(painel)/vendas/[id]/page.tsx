@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { ArrowLeft, Edit } from 'lucide-react'
 import { BtnDeletarVenda } from '@/components/features/BtnDeletarVenda'
 import { requireModulo } from '@/lib/guard'
+import { FORMA_PAGAMENTO_LABEL } from '@/lib/vendas'
 
 export default async function VendaDetalhePage({
   params,
@@ -24,6 +25,7 @@ export default async function VendaDetalhePage({
       profissional_id,
       profiles:profissional_id(id, full_name, role),
       origem,
+      forma_pagamento,
       medico_referenciador_nome,
       data_venda,
       observacoes,
@@ -148,6 +150,10 @@ export default async function VendaDetalhePage({
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-page text-text-primary mt-1">
                 {origemLabel}
               </span>
+            </div>
+            <div>
+              <p className="text-xs text-text-secondary uppercase">Forma de Pagamento</p>
+              <p className="text-text-primary">{FORMA_PAGAMENTO_LABEL[venda.forma_pagamento] || 'Não informada'}</p>
             </div>
             {venda.medico_referenciador_nome && (
               <div>

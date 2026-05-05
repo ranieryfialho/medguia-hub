@@ -4,6 +4,7 @@ import { Plus, Eye, Edit } from 'lucide-react'
 import { FiltrosVendas } from '@/components/features/FiltrosVendas'
 import { BtnDeletarVenda } from '@/components/features/BtnDeletarVenda'
 import { requireModulo } from '@/lib/guard'
+import { FORMA_PAGAMENTO_LABEL } from '@/lib/vendas'
 
 export default async function VendasListPage({
   searchParams,
@@ -33,6 +34,7 @@ export default async function VendasListPage({
       profissional_id,
       profiles:profissional_id(full_name),
       origem,
+      forma_pagamento,
       medico_referenciador_nome,
       data_venda,
       observacoes,
@@ -106,6 +108,7 @@ export default async function VendasListPage({
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Paciente</th>
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Profissional</th>
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Origem</th>
+                <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Pagamento</th>
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Referenciador</th>
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Data</th>
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase text-right">Ações</th>
@@ -114,7 +117,7 @@ export default async function VendasListPage({
             <tbody className="divide-y divide-border">
               {vendasFiltradas.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-sm text-text-secondary">
+                  <td colSpan={7} className="px-6 py-8 text-center text-sm text-text-secondary">
                     {busca ? `Nenhuma venda encontrada para "${busca}".` : 'Nenhuma venda encontrada.'}
                   </td>
                 </tr>
@@ -136,8 +139,11 @@ export default async function VendasListPage({
                               ? 'Indicação'
                               : venda.origem === 'renovacao'
                                 ? 'Renovação'
-                                : 'Campanha'}
+                              : 'Campanha'}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-text-secondary">
+                      {FORMA_PAGAMENTO_LABEL[venda.forma_pagamento] || '—'}
                     </td>
                     <td className="px-6 py-4 text-sm text-text-secondary">{venda.medico_referenciador_nome || '—'}</td>
                     <td className="px-6 py-4 text-sm text-text-secondary">{dataFormatada}</td>
@@ -197,6 +203,9 @@ export default async function VendasListPage({
                     </span>
                   </div>
                   <p className="text-xs text-text-secondary">{dataFormatada}</p>
+                  <p className="text-xs text-text-secondary">
+                    {FORMA_PAGAMENTO_LABEL[venda.forma_pagamento] || 'Forma não informada'}
+                  </p>
                   {venda.medico_referenciador_nome && (
                     <p className="text-xs text-text-secondary">Dr. {venda.medico_referenciador_nome}</p>
                   )}

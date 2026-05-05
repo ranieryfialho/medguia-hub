@@ -7,6 +7,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer,
 } from 'recharts'
+import { FORMA_PAGAMENTO_LABEL } from '@/lib/vendas'
 
 interface AgregacaoNome {
   nome: string
@@ -16,6 +17,7 @@ interface AgregacaoNome {
 
 interface RelatorioVendasClientProps {
   porOrigem: Record<string, { quantidade: number; faturamento: number }>
+  porFormaPagamento: Record<string, { quantidade: number; faturamento: number }>
   porPeriodo: Record<string, number>
   porProfissional: AgregacaoNome[]
   porProduto: AgregacaoNome[]
@@ -36,6 +38,7 @@ const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigi
 
 export function RelatorioVendasClient({
   porOrigem,
+  porFormaPagamento,
   porPeriodo,
   porProfissional,
   porProduto,
@@ -60,6 +63,14 @@ export function RelatorioVendasClient({
   const dadosProduto = [...porProduto]
     .sort((a, b) => b.faturamento - a.faturamento)
     .map((p) => ({ name: p.nome, faturamento: p.faturamento, quantidade: p.quantidade }))
+
+  const dadosFormaPagamento = Object.entries(porFormaPagamento)
+    .map(([forma, d]) => ({
+      name: FORMA_PAGAMENTO_LABEL[forma] || forma,
+      faturamento: d.faturamento,
+      quantidade: d.quantidade,
+    }))
+    .sort((a, b) => b.faturamento - a.faturamento)
 
   const vazio = dadosPizza.length === 0
 
@@ -139,6 +150,26 @@ export function RelatorioVendasClient({
           </div>
         )}
       </div>
+
+      {dadosFormaPagamento.length > 0 && (
+        <div className="bg-surface rounded-lg border border-border p-6">
+          <h2 className="text-lg font-semibold text-text-primary mb-4">Faturamento por Forma de Pagamento</h2>
+          <div className="w-full h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={dadosFormaPagamento}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                <YAxis tickFormatter={(v: number) => `R$${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 12 }} />
+                <Tooltip // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  formatter={(v: any) => fmt(Number(v ?? 0))} />
+                <Legend />
+                <Bar dataKey="faturamento" fill="#C73E1D" name="Faturamento" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="quantidade" fill="#6A994E" name="Vendas" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
 
       {/* Por profissional */}
       {dadosProfissional.length > 0 && (
