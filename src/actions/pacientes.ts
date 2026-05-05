@@ -152,16 +152,33 @@ export async function adicionarObservacao(prevState: any, formData: FormData) {
 }
 
 export async function buscarPacientesPorNome(termo: string): Promise<{ id: string; nome: string; detalhe?: string }[]> {
-  if (!termo.trim()) return []
+  const termoBusca = termo.trim()
+  const termoCpf = normalizarCPF(termoBusca)
+  const buscaPorNome = /[A-Za-zÀ-ÿ]/.test(termoBusca)
+
+  if (termoBusca.length < 2 && termoCpf.length < 3) return []
+
   const supabase = await createClient()
-  const { data } = await supabase
+  let query = supabase
     .from('pacientes')
-    .select('id, nome, telefone')
-    .ilike('nome', `%${termo.trim()}%`)
-    .or('ativo.eq.true,ativo.is.null')
+    .select('id, nome, telefone, cpf')
+    .not('ativo', 'is', 'false')
     .order('nome', { ascending: true })
-    .limit(8)
-  return (data ?? []).map(p => ({ id: p.id, nome: p.nome, detalhe: p.telefone ?? undefined }))
+    .limit(10)
+
+  if (buscaPorNome) {
+    query = query.ilike('nome', `%${termoBusca}%`)
+  } else if (termoCpf.length >= 3) {
+    query = query.ilike('cpf', `%${termoCpf}%`)
+  }
+
+  const { data } = await query
+
+  return (data ?? []).map(p => ({
+    id: p.id,
+    nome: p.nome,
+    detalhe: p.cpf ?? p.telefone ?? undefined,
+  }))
 }
 
 export async function buscarMedicosPorNome(termo: string): Promise<{ id: string; nome: string; detalhe?: string }[]> {

@@ -9,15 +9,32 @@ type Resultado = { id: string; nome: string; detalhe?: string }
 interface Props {
   name: string
   defaultValue?: string
+  defaultId?: string
   placeholder?: string
   tipo?: 'paciente' | 'medico'
+  valueMode?: 'label' | 'id'
+  onSelect?: (item: Resultado) => void
+  onClear?: () => void
 }
 
-export function ComboboxPaciente({ name, defaultValue = '', placeholder = 'Buscar...', tipo = 'paciente' }: Props) {
+export function ComboboxPaciente({
+  name,
+  defaultValue = '',
+  defaultId = '',
+  placeholder = 'Buscar...',
+  tipo = 'paciente',
+  valueMode = 'label',
+  onSelect,
+  onClear,
+}: Props) {
   const [query, setQuery] = useState(defaultValue)
   const [resultados, setResultados] = useState<Resultado[]>([])
   const [aberto, setAberto] = useState(false)
-  const [selecionado, setSelecionado] = useState(defaultValue)
+  const [selecionado, setSelecionado] = useState<Resultado | null>(
+    defaultValue
+      ? { id: defaultId || defaultValue, nome: defaultValue }
+      : null
+  )
   const [isPending, startTransition] = useTransition()
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -34,12 +51,13 @@ export function ComboboxPaciente({ name, defaultValue = '', placeholder = 'Busca
 
   function handleChange(valor: string) {
     setQuery(valor)
-    setSelecionado('')
+    setSelecionado(null)
 
     if (debounceRef.current) clearTimeout(debounceRef.current)
     if (!valor.trim()) {
       setResultados([])
       setAberto(false)
+      onClear?.()
       return
     }
 
@@ -56,21 +74,27 @@ export function ComboboxPaciente({ name, defaultValue = '', placeholder = 'Busca
 
   function handleSelecionar(item: Resultado) {
     setQuery(item.nome)
-    setSelecionado(item.nome)
+    setSelecionado(item)
     setResultados([])
     setAberto(false)
+    onSelect?.(item)
   }
 
   function handleLimpar() {
     setQuery('')
-    setSelecionado('')
+    setSelecionado(null)
     setResultados([])
     setAberto(false)
+    onClear?.()
   }
+
+  const valorHidden = valueMode === 'id'
+    ? (selecionado?.id || '')
+    : (selecionado?.nome || query)
 
   return (
     <div ref={containerRef} className="relative">
-      <input type="hidden" name={name} value={selecionado || query} />
+      <input type="hidden" name={name} value={valorHidden} />
 
       <div className="relative">
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary pointer-events-none" />

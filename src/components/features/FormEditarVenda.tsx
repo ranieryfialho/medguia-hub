@@ -3,11 +3,7 @@
 import { editarVenda } from '@/actions/vendas'
 import { useActionState, useState, startTransition, useRef, useTransition } from 'react'
 import { LoaderCircle, Plus, Trash2 } from 'lucide-react'
-
-interface Paciente {
-  id: string
-  nome: string
-}
+import { ComboboxPaciente } from '@/components/features/ComboboxPaciente'
 
 interface Profissional {
   id: string
@@ -37,13 +33,15 @@ interface VendaInicial {
   medico_referenciador_nome?: string
   data_venda: string
   observacoes?: string
+  pacientes?: {
+    nome: string
+  } | null
 }
 
 interface FormEditarVendaProps {
   vendaId: string
   vendaInicial: VendaInicial
   itensInicial: ItemVenda[]
-  pacientes: Paciente[]
   profissionais: Profissional[]
   produtos: Produto[]
   medicos?: Profissional[]
@@ -61,7 +59,6 @@ export function FormEditarVenda({
   vendaId,
   vendaInicial,
   itensInicial,
-  pacientes,
   profissionais,
   produtos,
   medicos = [],
@@ -70,6 +67,7 @@ export function FormEditarVenda({
 
   // Form state
   const [pacienteId, setPacienteId] = useState(vendaInicial.paciente_id)
+  const [pacienteNome, setPacienteNome] = useState(vendaInicial.pacientes?.nome || '')
   const [profissionalId] = useState(vendaInicial.profissional_id)
   const [origem, setOrigem] = useState(vendaInicial.origem)
 
@@ -169,18 +167,30 @@ export function FormEditarVenda({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-text-primary mb-2">Paciente</label>
-          <select
-            value={pacienteId}
-            onChange={(e) => setPacienteId(e.target.value)}
-            className="w-full px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
-          >
-            <option value="">Selecione um paciente...</option>
-            {pacientes.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nome}
-              </option>
-            ))}
-          </select>
+          <ComboboxPaciente
+            name="paciente_id"
+            tipo="paciente"
+            valueMode="id"
+            defaultValue={pacienteNome}
+            defaultId={pacienteId}
+            placeholder="Buscar por nome ou CPF..."
+            onSelect={(paciente) => {
+              setPacienteId(paciente.id)
+              setPacienteNome(paciente.nome)
+            }}
+            onClear={() => {
+              setPacienteId('')
+              setPacienteNome('')
+            }}
+          />
+          <p className="text-xs text-text-secondary mt-1">
+            Digite ao menos 2 letras do nome ou 3 números do CPF.
+          </p>
+          {pacienteId && pacienteNome && (
+            <div className="mt-2 p-3 rounded-md bg-green-50 border border-green-200 text-green-800 text-sm">
+              ✓ <span className="font-medium">{pacienteNome}</span> selecionado
+            </div>
+          )}
         </div>
 
         <div>
@@ -393,7 +403,6 @@ export function FormEditarVenda({
 
       {/* Campos ocultos */}
       <input type="hidden" name="id" value={vendaId} />
-      <input type="hidden" name="paciente_id" value={pacienteId} />
       <input type="hidden" name="profissional_id" value={profissionalId} />
       <input type="hidden" name="origem" value={origem} />
       <input type="hidden" name="medico_referenciador_id" value={medicoReferenciadorId} />

@@ -56,6 +56,16 @@ function parseItensVenda(itensJson: string): { itens: ItemVendaForm[]; error: nu
   return { itens, error: null }
 }
 
+function somarTotaisPorVenda(
+  itens: Array<{ venda_id: string; quantidade: number; preco_unitario: number }>
+) {
+  return itens.reduce<Record<string, number>>((acc, item) => {
+    const subtotal = item.quantidade * item.preco_unitario
+    acc[item.venda_id] = (acc[item.venda_id] || 0) + subtotal
+    return acc
+  }, {})
+}
+
 export async function criarVenda(_prevState: unknown, formData: FormData) {
   const supabase = await createClient()
 
@@ -376,22 +386,26 @@ export async function listarVendas(filtros: FiltrosVendas = {}) {
     return { error: `Erro ao listar vendas: ${error.message}`, vendas: [], total: 0 }
   }
 
-  // Calcular total de cada venda
-  const vendas = await Promise.all(
-    data.map(async (venda) => {
-      const { data: itens } = await supabase
-        .from('itens_venda')
-        .select('quantidade, preco_unitario')
-        .eq('venda_id', venda.id)
+  const idsVendas = (data || []).map((venda) => venda.id)
+  let totaisPorVenda: Record<string, number> = {}
 
-      const total = itens?.reduce((sum, item) => sum + item.quantidade * item.preco_unitario, 0) || 0
+  if (idsVendas.length > 0) {
+    const { data: itens, error: itensError } = await supabase
+      .from('itens_venda')
+      .select('venda_id, quantidade, preco_unitario')
+      .in('venda_id', idsVendas)
 
-      return {
-        ...venda,
-        total,
-      }
-    })
-  )
+    if (itensError) {
+      return { error: `Erro ao listar itens das vendas: ${itensError.message}`, vendas: [], total: 0 }
+    }
+
+    totaisPorVenda = somarTotaisPorVenda(itens || [])
+  }
+
+  const vendas = (data || []).map((venda) => ({
+    ...venda,
+    total: totaisPorVenda[venda.id] || 0,
+  }))
 
   return { vendas, total: count || 0, error: null }
 }
@@ -429,24 +443,28 @@ export async function gerarRelatorioVendas(filtros: FiltrosRelatorio = {}) {
     return { error: `Erro ao gerar relatório: ${error.message}`, relatorio: null }
   }
 
-  // Para cada venda, calcular total
-  const vendasComTotais = await Promise.all(
-    (vendas || []).map(async (venda) => {
-      const { data: itens } = await supabase
-        .from('itens_venda')
-        .select('quantidade, preco_unitario')
-        .eq('venda_id', venda.id)
+  const idsVendas = (vendas || []).map((venda) => venda.id)
+  let totaisPorVenda: Record<string, number> = {}
 
-      const total = itens?.reduce((sum, item) => sum + item.quantidade * item.preco_unitario, 0) || 0
+  if (idsVendas.length > 0) {
+    const { data: itens, error: itensError } = await supabase
+      .from('itens_venda')
+      .select('venda_id, quantidade, preco_unitario')
+      .in('venda_id', idsVendas)
 
-      return {
-        id: venda.id,
-        origem: venda.origem,
-        data_venda: venda.data_venda,
-        total,
-      }
-    })
-  )
+    if (itensError) {
+      return { error: `Erro ao gerar relatório: ${itensError.message}`, relatorio: null }
+    }
+
+    totaisPorVenda = somarTotaisPorVenda(itens || [])
+  }
+
+  const vendasComTotais = (vendas || []).map((venda) => ({
+    id: venda.id,
+    origem: venda.origem,
+    data_venda: venda.data_venda,
+    total: totaisPorVenda[venda.id] || 0,
+  }))
 
   // Agregações
   const totalFaturado = vendasComTotais.reduce((sum, v) => sum + v.total, 0)

@@ -3,13 +3,7 @@
 import { criarVenda } from '@/actions/vendas'
 import { useActionState, useState, startTransition, useRef, useTransition } from 'react'
 import { ChevronRight, ChevronLeft, LoaderCircle, Plus, Trash2 } from 'lucide-react'
-
-interface Paciente {
-  id: string
-  nome: string
-  cpf?: string
-  telefone?: string
-}
+import { ComboboxPaciente } from '@/components/features/ComboboxPaciente'
 
 interface Profissional {
   id: string
@@ -31,7 +25,6 @@ interface ItemVenda {
 }
 
 interface FormNovaVendaProps {
-  pacientes: Paciente[]
   profissionais: Profissional[]
   produtos: Produto[]
   medicos?: Profissional[]
@@ -53,15 +46,15 @@ const ROLE_LABEL: Record<string, string> = {
 
 const ABAS = ['Paciente & Profissional', 'Origem da Venda', 'Produtos']
 
-export function FormNovaVenda({ pacientes, profissionais, produtos, medicos = [] }: FormNovaVendaProps) {
+export function FormNovaVenda({ profissionais, produtos, medicos = [] }: FormNovaVendaProps) {
   const [state, formAction] = useActionState(criarVenda, null)
 
   const [abaAtual, setAbaAtual] = useState(0)
 
   // Aba 0
   const [pacienteId, setPacienteId] = useState('')
+  const [pacienteNome, setPacienteNome] = useState('')
   const [profissionalId, setProfissionalId] = useState('')
-  const [buscaPaciente, setBuscaPaciente] = useState('')
   const [buscaProfissional, setBuscaProfissional] = useState('')
 
   // Aba 1
@@ -88,21 +81,12 @@ export function FormNovaVenda({ pacientes, profissionais, produtos, medicos = []
   const calcularTotal = () => itens.reduce((s, i) => s + i.quantidade * i.preco_unitario, 0)
   const total = calcularTotal()
 
-  const pacientesFiltrados = buscaPaciente.trim()
-    ? pacientes.filter(
-        (p) =>
-          p.nome.toLowerCase().includes(buscaPaciente.toLowerCase()) ||
-          p.cpf?.includes(buscaPaciente)
-      )
-    : pacientes
-
   const profissionaisFiltrados = buscaProfissional.trim()
     ? profissionais.filter((p) =>
         p.nome.toLowerCase().includes(buscaProfissional.toLowerCase())
       )
     : profissionais
 
-  const pacienteSelecionado = pacientes.find((p) => p.id === pacienteId)
   const profissionalSelecionado = profissionais.find((p) => p.id === profissionalId)
   const produtoAtual = produtos.find((p) => p.id === produtoSelecionado)
 
@@ -217,41 +201,28 @@ export function FormNovaVenda({ pacientes, profissionais, produtos, medicos = []
           <div className="space-y-3">
             <h2 className="text-base font-semibold text-text-primary border-b border-border pb-2">Paciente</h2>
 
-            <input
-              type="text"
-              value={buscaPaciente}
-              onChange={(e) => setBuscaPaciente(e.target.value)}
+            <ComboboxPaciente
+              name="paciente_id"
+              tipo="paciente"
+              valueMode="id"
               placeholder="Buscar por nome ou CPF..."
-              className="w-full px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
+              onSelect={(paciente) => {
+                setPacienteId(paciente.id)
+                setPacienteNome(paciente.nome)
+              }}
+              onClear={() => {
+                setPacienteId('')
+                setPacienteNome('')
+              }}
             />
 
-            <div className="border border-border rounded-md overflow-hidden">
-              <div className="max-h-72 overflow-y-auto">
-                {pacientesFiltrados.length === 0 ? (
-                  <p className="px-4 py-3 text-sm text-text-secondary">Nenhum paciente encontrado.</p>
-                ) : (
-                  pacientesFiltrados.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => { setPacienteId(p.id); setBuscaPaciente('') }}
-                      className={`w-full px-4 py-3 text-left text-sm border-b border-border last:border-0 transition-colors ${
-                        pacienteId === p.id
-                          ? 'bg-primary-500 text-white'
-                          : 'hover:bg-page text-text-primary'
-                      }`}
-                    >
-                      <span className="font-medium">{p.nome}</span>
-                      {p.cpf && <span className={`ml-2 text-xs ${pacienteId === p.id ? 'opacity-75' : 'text-text-secondary'}`}>{p.cpf}</span>}
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
+            <p className="text-xs text-text-secondary">
+              Digite ao menos 2 letras do nome ou 3 números do CPF.
+            </p>
 
-            {pacienteSelecionado && (
+            {pacienteId && pacienteNome && (
               <div className="p-3 rounded-md bg-green-50 border border-green-200 text-green-800 text-sm">
-                ✓ <span className="font-medium">{pacienteSelecionado.nome}</span> selecionado
+                ✓ <span className="font-medium">{pacienteNome}</span> selecionado
               </div>
             )}
           </div>
@@ -567,7 +538,6 @@ export function FormNovaVenda({ pacientes, profissionais, produtos, medicos = []
       )}
 
       {/* Campos ocultos */}
-      <input type="hidden" name="paciente_id" value={pacienteId} />
       <input type="hidden" name="profissional_id" value={profissionalId} />
       <input type="hidden" name="origem" value={origem} />
       <input type="hidden" name="medico_referenciador_id" value={medicoReferenciadorId} />

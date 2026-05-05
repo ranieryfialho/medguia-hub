@@ -10,6 +10,19 @@ interface ProfileRow {
   role: string
 }
 
+interface VendaRow {
+  id: string
+  paciente_id: string
+  profissional_id: string
+  origem: string
+  medico_referenciador_nome?: string | null
+  data_venda: string
+  observacoes?: string | null
+  pacientes?: {
+    nome: string
+  } | null
+}
+
 function formatProfile(profile: ProfileRow) {
   return {
     id: profile.id,
@@ -31,7 +44,16 @@ export default async function EditarVendaPage({
   // Carregar dados da venda
   const { data: venda } = await supabase
     .from('vendas')
-    .select('*')
+    .select(`
+      id,
+      paciente_id,
+      profissional_id,
+      origem,
+      medico_referenciador_nome,
+      data_venda,
+      observacoes,
+      pacientes(nome)
+    `)
     .eq('id', id)
     .single()
 
@@ -47,12 +69,7 @@ export default async function EditarVendaPage({
     .eq('venda_id', id)
 
   // Carregar dados de referência
-  const [{ data: pacientes }, { data: profiles }, { data: produtos }, { data: medicos }] = await Promise.all([
-    supabase
-      .from('pacientes')
-      .select('id, nome')
-      .eq('ativo', true)
-      .order('nome'),
+  const [{ data: profiles }, { data: produtos }, { data: medicos }] = await Promise.all([
     supabase
       .from('profiles')
       .select('id, full_name, role')
@@ -108,9 +125,8 @@ export default async function EditarVendaPage({
       <div className="bg-surface rounded-lg border border-border shadow-sm p-6">
         <FormEditarVenda
           vendaId={id}
-          vendaInicial={venda}
+          vendaInicial={venda as VendaRow}
           itensInicial={itensVenda || []}
-          pacientes={pacientes || []}
           profissionais={((profiles || []) as ProfileRow[]).map(formatProfile)}
           produtos={produtos || []}
           medicos={medicosFormatados}

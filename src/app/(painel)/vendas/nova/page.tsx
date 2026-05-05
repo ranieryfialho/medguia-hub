@@ -27,12 +27,7 @@ export default async function NovaVendaPage() {
 
   const supabase = await createClient()
 
-  const [{ data: pacientes }, { data: produtos }, { data: comJornada }, { data: fisioterapeutas }, { data: medicos }] = await Promise.all([
-    supabase
-      .from('pacientes')
-      .select('id, nome, cpf, telefone')
-      .eq('ativo', true)
-      .order('nome'),
+  const [{ data: produtos }, { data: comJornada }, { data: fisioterapeutas }, { data: medicos }] = await Promise.all([
     supabase
       .from('produtos')
       .select('id, nome, numero_atendimentos, preco_padrao')
@@ -92,7 +87,6 @@ export default async function NovaVendaPage() {
       {/* Formulário ocupando toda a largura */}
       <div className="bg-surface rounded-lg border border-border shadow-sm p-6">
         <FormNovaVenda
-          pacientes={pacientes || []}
           profissionais={profissionais}
           produtos={produtos || []}
           medicos={medicosFormatados}
