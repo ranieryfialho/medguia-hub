@@ -8,6 +8,7 @@ import { normalizarDisponibilidade, type DisponibilidadeDia } from '@/lib/dispon
 import { podeEntrarNaAgendaOuRelatorio } from '@/lib/profissionais'
 import { WidgetDisponibilidade } from '@/components/features/WidgetDisponibilidade'
 import { listarStatusDisponibilidade } from '@/actions/status-disponibilidade'
+import { listarTiposConsultaAtivos } from '@/actions/tipos-consulta'
 
 export default async function DashboardLayout({
   children,
@@ -68,9 +69,10 @@ export default async function DashboardLayout({
     prontuariosPendentes = Math.max(0, (totalConcluidos ?? 0) - (totalComProntuario ?? 0))
   }
 
-  const [{ data: listaProfissionais }, todasDisponibilidades] = await Promise.all([
+  const [{ data: listaProfissionais }, todasDisponibilidades, tiposConsulta] = await Promise.all([
     supabase.from('profiles').select('id, full_name, role').eq('ativo', true).neq('role', 'master').neq('role', 'medico').order('full_name'),
     listarTodasDisponibilidades(),
+    listarTiposConsultaAtivos(),
   ])
 
   const disponibilidadesMap: Record<string, Record<number, DisponibilidadeDia>> = {}
@@ -96,6 +98,7 @@ export default async function DashboardLayout({
     <AppShell
       profissionais={profissionais}
       disponibilidades={disponibilidadesMap}
+      tiposConsulta={tiposConsulta}
       headerData={{ nomeUsuario, cargoUsuario, avatarUrl, userRole, userNivelAcesso, modulosLiberados, prontuariosPendentes }}
     >
       <Header nomeUsuario={nomeUsuario} cargoUsuario={cargoUsuario} avatarUrl={avatarUrl} />

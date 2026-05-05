@@ -176,13 +176,17 @@ export function Sidebar({
             </button>
             {pacientesOpen && (
               <div className="mt-1 ml-4 space-y-0.5 border-l-2 border-[#bcc9c4]/40 pl-3">
-                <Link href="/pacientes" onClick={handleNavClick} className={subLinkCls(!!isActive('/pacientes') && !isActive('/pacientes/origens'))}>
+                <Link href="/pacientes" onClick={handleNavClick} className={subLinkCls(!!isActive('/pacientes') && !isActive('/pacientes/origens') && !isActive('/pacientes/tipos-consulta'))}>
                   <Users size={14} />
                   Listar Pacientes
                 </Link>
                 <Link href="/pacientes/origens" onClick={handleNavClick} className={subLinkCls(!!isActive('/pacientes/origens'))}>
                   <Target size={14} />
                   Origens
+                </Link>
+                <Link href="/pacientes/tipos-consulta" onClick={handleNavClick} className={subLinkCls(!!isActive('/pacientes/tipos-consulta'))}>
+                  <Calendar size={14} />
+                  Tipos de consulta
                 </Link>
               </div>
             )}

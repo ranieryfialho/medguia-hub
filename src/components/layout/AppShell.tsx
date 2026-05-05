@@ -6,6 +6,8 @@ import { SlideNovoAgendamento } from '@/components/features/SlideNovoAgendamento
 import { Menu } from 'lucide-react'
 import type { DisponibilidadeDia } from '@/lib/disponibilidade'
 import { SlideNovoAgendamentoProvider } from './SlideNovoAgendamentoContext'
+import { TiposConsultaProvider } from './TiposConsultaContext'
+import type { TipoConsulta } from '@/actions/tipos-consulta'
 
 type Profissional = { id: string; nome: string; cargo: string }
 
@@ -23,11 +25,13 @@ export function AppShell({
   children,
   profissionais,
   disponibilidades,
+  tiposConsulta,
   headerData,
 }: {
   children: React.ReactNode
   profissionais: Profissional[]
   disponibilidades?: Record<string, Record<number, DisponibilidadeDia>>
+  tiposConsulta: TipoConsulta[]
   headerData: HeaderData
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -35,7 +39,8 @@ export function AppShell({
 
   return (
     <SlideNovoAgendamentoProvider aberto={slideNovoAberto}>
-      <div className="flex min-h-screen bg-[#f5faf9]">
+      <TiposConsultaProvider tiposConsulta={tiposConsulta}>
+        <div className="flex min-h-screen bg-[#f5faf9]">
 
         {/* Mobile overlay */}
         {sidebarOpen && (
@@ -90,7 +95,8 @@ export function AppShell({
           controlledOpen={slideNovoAberto}
           onControlledClose={() => setSlideNovoAberto(false)}
         />
-      </div>
+        </div>
+      </TiposConsultaProvider>
     </SlideNovoAgendamentoProvider>
   )
 }

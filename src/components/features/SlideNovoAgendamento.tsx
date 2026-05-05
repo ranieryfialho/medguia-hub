@@ -11,6 +11,8 @@ import {
   type DisponibilidadeDia,
 } from '@/lib/disponibilidade'
 import { formatarFaixasJornada } from '@/lib/jornada'
+import { useTiposConsulta } from '@/components/layout/TiposConsultaContext'
+import type { TipoConsulta } from '@/actions/tipos-consulta'
 
 type Paciente = { id: string, nome: string }
 type Profissional = { id: string, nome: string, cargo: string }
@@ -50,6 +52,7 @@ interface SlideProps {
   pacientes?: Paciente[]
   profissionais: Profissional[]
   disponibilidades?: Record<string, Record<number, DisponibilidadeDia>>
+  tiposConsulta?: TipoConsulta[]
   controlledOpen?: boolean
   onControlledClose?: () => void
   defaultPacienteId?: string
@@ -63,9 +66,13 @@ const DIAS_SEMANA = [
   { val: 4, label: 'Qui' }, { val: 5, label: 'Sex' }, { val: 6, label: 'Sáb' }, { val: 0, label: 'Dom' },
 ]
 
-export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionais, disponibilidades, controlledOpen, onControlledClose, defaultPacienteId, defaultData, defaultHora, atendimentoParaEditar }: SlideProps) {
+export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionais, disponibilidades, tiposConsulta: tiposConsultaProp, controlledOpen, onControlledClose, defaultPacienteId, defaultData, defaultHora, atendimentoParaEditar }: SlideProps) {
   const isControlled = controlledOpen !== undefined
   const modoEdicao = !!atendimentoParaEditar
+  const tiposConsultaContexto = useTiposConsulta()
+  const tiposConsulta = tiposConsultaProp ?? tiposConsultaContexto
+  const tiposAtivos = tiposConsulta.filter((tipo) => tipo.ativo)
+  const primeiroTipoDisponivel = tiposAtivos[0]?.nome ?? ''
   const formId = useId()
   const [supabase] = useState(createClient)
   const [isOpen, setIsOpen] = useState(false)
@@ -82,7 +89,7 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
   const [pacienteDropdownOpen, setPacienteDropdownOpen] = useState(false)
   const comboboxRef = useRef<HTMLDivElement>(null)
   const [selectedProfissionalId, setSelectedProfissionalId] = useState('')
-  const [selectedTipo, setSelectedTipo] = useState('FOT Fisioterapia')
+  const [selectedTipo, setSelectedTipo] = useState(primeiroTipoDisponivel)
   const [horaInicioValue, setHoraInicioValue] = useState('')
   const [horaFimValue, setHoraFimValue] = useState('')
   const [observacoesValue, setObservacoesValue] = useState('')
@@ -112,10 +119,15 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
         const fim = new Date(dataObj.getTime() + atendimentoParaEditar.duracao_minutos * 60000)
         setHoraFimValue(format(fim, 'HH:mm'))
       }
-      setSelectedTipo(atendimentoParaEditar.tipo ?? 'Consulta Padrão')
+      setSelectedTipo(atendimentoParaEditar.tipo ?? primeiroTipoDisponivel)
       setObservacoesValue(atendimentoParaEditar.observacoes ?? '')
     }
-  }, [atendimentoParaEditar, pacientes])
+  }, [atendimentoParaEditar, pacientes, primeiroTipoDisponivel])
+
+  useEffect(() => {
+    if (modoEdicao || selectedTipo || !primeiroTipoDisponivel) return
+    setSelectedTipo(primeiroTipoDisponivel)
+  }, [modoEdicao, primeiroTipoDisponivel, selectedTipo])
 
   useEffect(() => {
     if (!atendimentoParaEditar || !precisaCarregarDetalhesEdicao) return
@@ -228,6 +240,7 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
       setSelectedPacienteId('')
       setPacienteSearch('')
     }
+    setSelectedTipo(primeiroTipoDisponivel)
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -246,6 +259,12 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
 
     if (!selectedPacienteId || !selectedProfissionalId || !dataAgendamento || !horaInicioValue || !horaFimValue) {
       setError('Preencha todos os campos obrigatórios.')
+      setLoading(false)
+      return
+    }
+
+    if (!selectedTipo) {
+      setError('Cadastre e selecione um tipo de atendimento.')
       setLoading(false)
       return
     }
@@ -303,6 +322,9 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
       horaFimValue,
     ),
   )
+  const opcoesTipoConsulta = selectedTipo && !tiposAtivos.some((tipo) => tipo.nome === selectedTipo)
+    ? [{ id: '__selecionado__', nome: selectedTipo, ativo: true, ordem: -1 }, ...tiposAtivos]
+    : tiposAtivos
 
   return (
     <>
@@ -389,15 +411,16 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
             <div className="space-y-1 relative">
               <label className="text-xs font-semibold text-[#6d7a75] absolute -top-2 left-3 bg-white px-1 z-10">Tipo de atendimento *</label>
               <select name="tipo" required value={selectedTipo} onChange={e => setSelectedTipo(e.target.value)} className="w-full bg-white border border-[#bcc9c4] rounded-lg px-4 py-3 text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/50 transition-all font-medium appearance-none shadow-sm">
-                <option value="FOT Fisioterapia">FOT Fisioterapia</option>
-                <option value="FOT Avaliação">FOT Avaliação</option>
-                <option value="CTA">CTA</option>
-                <option value="Consulta">Consulta</option>
-                <option value="Laser">Laser</option>
-                <option value="Ondas de Choque">Ondas de Choque</option>
-                <option value="Reavaliação">Reavaliação</option>
-                <option value="Ativação Base 2026">Ativação Base 2026</option>
+                <option value="">Selecione uma opção</option>
+                {opcoesTipoConsulta.map((tipo) => (
+                  <option key={tipo.id} value={tipo.nome}>{tipo.nome}</option>
+                ))}
               </select>
+              {opcoesTipoConsulta.length === 0 && (
+                <p className="text-xs text-amber-700 font-medium mt-2">
+                  Nenhum tipo ativo cadastrado. Use `Pacientes &gt; Tipos de consulta`.
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-12 gap-4">
