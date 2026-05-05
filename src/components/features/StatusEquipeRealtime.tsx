@@ -2,12 +2,15 @@
 
 import { useRealtimeDisponibilidade, type StatusRow } from '@/hooks/useRealtimeDisponibilidade'
 import type { StatusDisponibilidade } from '@/actions/status-disponibilidade'
+import { estaDentroDaJornadaAgora, getDiaSemanaAtualNaTimezone, type DisponibilidadeDia } from '@/lib/disponibilidade'
+import { useEffect, useState } from 'react'
 
 type Profissional = { id: string; nome: string }
 
 type Props = {
   profissionais: Profissional[]
   initialStatuses: StatusRow[]
+  disponibilidades?: Record<string, Record<number, DisponibilidadeDia>>
 }
 
 const STATUS_CONFIG: Record<StatusDisponibilidade, { label: string; dot: string; bg: string; text: string; border: string }> = {
@@ -24,12 +27,26 @@ function tempoDesde(atualizado_em: string): string {
   return `${Math.floor(diff / 3600)}h`
 }
 
-export function StatusEquipeRealtime({ profissionais, initialStatuses }: Props) {
+export function StatusEquipeRealtime({ profissionais, initialStatuses, disponibilidades }: Props) {
   const statuses = useRealtimeDisponibilidade(initialStatuses)
+  const [, setTick] = useState(0)
+
+  useEffect(() => {
+    const id = setInterval(() => setTick((value) => value + 1), 30_000)
+    return () => clearInterval(id)
+  }, [])
+
+  const diaSemanaAtual = getDiaSemanaAtualNaTimezone()
 
   const comStatus = profissionais.map(p => {
     const st = statuses.find(s => s.profissional_id === p.id)
-    return { ...p, status: (st?.status ?? 'ausente') as StatusDisponibilidade, atualizado_em: st?.atualizado_em }
+    const disponibilidadeHoje = disponibilidades?.[p.id]?.[diaSemanaAtual] ?? null
+    const dentroDaJornada = estaDentroDaJornadaAgora(disponibilidadeHoje)
+    const statusEfetivo = dentroDaJornada
+      ? ((st?.status ?? 'ausente') as StatusDisponibilidade)
+      : 'ausente'
+
+    return { ...p, status: statusEfetivo as StatusDisponibilidade, atualizado_em: st?.atualizado_em }
   })
 
   const livres   = comStatus.filter(p => p.status === 'disponivel')

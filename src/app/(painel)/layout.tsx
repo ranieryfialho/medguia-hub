@@ -110,6 +110,7 @@ export default async function DashboardLayout({
           profissionais={profissionais}
           initialStatuses={statusDisponibilidade}
           currentUserId={user.id}
+          disponibilidades={disponibilidadesMap}
         />
       )}
     </AppShell>

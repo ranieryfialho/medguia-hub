@@ -14,6 +14,7 @@ import { obterIntervalosJornada, toHora } from '@/lib/jornada'
 import { StatusEquipeRealtime } from '@/components/features/StatusEquipeRealtime'
 import { listarStatusDisponibilidade } from '@/actions/status-disponibilidade'
 import { requireModulo } from '@/lib/guard'
+import { podeEntrarNaAgendaOuRelatorio } from '@/lib/profissionais'
 
 const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
@@ -166,7 +167,11 @@ async function ViewIndividual({
     <div className="space-y-6 px-6">
       {/* Status em tempo real */}
       {isGestor && profissionais.length > 0 && (
-        <StatusEquipeRealtime profissionais={profissionais} initialStatuses={initialStatuses} />
+        <StatusEquipeRealtime
+          profissionais={profissionais}
+          initialStatuses={initialStatuses}
+          disponibilidades={{ [targetId]: Object.fromEntries(jornadaMap.entries()) }}
+        />
       )}
 
       {/* Header */}
@@ -317,11 +322,13 @@ async function ViewIndividual({
 
 async function ViewGeral({
   profissionais,
+  profissionaisStatus,
   dataParam,
   agrupamento,
   initialStatuses,
 }: {
   profissionais: { id: string; nome: string }[]
+  profissionaisStatus: { id: string; nome: string }[]
   dataParam: string | undefined
   agrupamento: 'horario' | 'profissional'
   initialStatuses: Awaited<ReturnType<typeof listarStatusDisponibilidade>>
@@ -348,8 +355,8 @@ async function ViewGeral({
   const buildToggleUrl = (ag: string) =>
     `/configuracoes/disponibilidade?visao=geral&agrupamento=${ag}&data=${format(dataSelecionada, 'yyyy-MM-dd')}`
 
-  // Buscar jornada de todos
-  const profIds = profissionais.map(p => p.id)
+  // Buscar jornada de todos que podem aparecer no status ou na grade
+  const profIds = [...new Set([...profissionais.map((p) => p.id), ...profissionaisStatus.map((p) => p.id)])]
   const { data: todasJornadas } = await supabase
     .from('disponibilidade_profissional')
     .select('profissional_id, dia_semana, hora_inicio, hora_fim, almoco_inicio, almoco_fim, ativo')
@@ -385,8 +392,10 @@ async function ViewGeral({
     livres: SlotLivre[]
   }
 
+  const profissionaisComJornada = profissionais.filter((prof) => jornadaMap.has(prof.id))
+
   const grid: ProfDia[] = []
-  for (const prof of profissionais) {
+  for (const prof of profissionaisComJornada) {
     const jornProf = jornadaMap.get(prof.id)
     for (const dia of diasDaSemana) {
       const diaSemana = dia.getDay()
@@ -419,7 +428,16 @@ async function ViewGeral({
   return (
     <div className="space-y-6 px-6">
       {/* Status em tempo real */}
-      <StatusEquipeRealtime profissionais={profissionais} initialStatuses={initialStatuses} />
+      <StatusEquipeRealtime
+        profissionais={profissionaisStatus}
+        initialStatuses={initialStatuses}
+        disponibilidades={Object.fromEntries(
+          profissionaisStatus.map((prof) => [
+            prof.id,
+            Object.fromEntries((jornadaMap.get(prof.id) ?? new Map()).entries()),
+          ]),
+        )}
+      />
 
       {/* Header */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
@@ -463,7 +481,7 @@ async function ViewGeral({
       {agrupamento === 'profissional' ? (
         // ── Por profissional: cada linha = um profissional, dias como colunas legíveis ──
         <div className="space-y-4">
-          {profissionais.map(prof => {
+          {profissionaisComJornada.map(prof => {
             const diasProf = grid.filter(g => g.profId === prof.id)
             const diasComTrabalho = diasProf.filter(d => d.trabalha)
             return (
@@ -613,14 +631,33 @@ export default async function DisponibilidadePage({
   const isGestor = profile?.nivel_acesso === 'gestor' || profile?.nivel_acesso === 'master'
 
   let profissionais: { id: string; nome: string }[] = []
+  let profissionaisStatus: { id: string; nome: string }[] = []
   if (isGestor) {
-    const { data } = await supabase
-      .from('profiles')
-      .select('id, full_name')
-      .eq('ativo', true)
-      .in('role', ['fisioterapeuta', 'gestor'])
-      .order('full_name')
-    profissionais = (data ?? []).map(p => ({ id: p.id, nome: p.full_name || 'Sem nome' }))
+    const [{ data: listaProfissionais }, { data: jornadasAtivas }] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select('id, full_name, role')
+        .eq('ativo', true)
+        .neq('role', 'master')
+        .neq('role', 'medico')
+        .order('full_name'),
+      supabase
+        .from('disponibilidade_profissional')
+        .select('profissional_id')
+        .eq('ativo', true),
+    ])
+
+    const profissionaisComJornada = new Set((jornadasAtivas ?? []).map((item) => item.profissional_id))
+    const equipeStatus = (listaProfissionais ?? []).filter((p) =>
+      podeEntrarNaAgendaOuRelatorio(p, profissionaisComJornada),
+    )
+
+    profissionaisStatus = equipeStatus.map((p) => ({ id: p.id, nome: p.full_name || 'Sem nome' }))
+    profissionais = equipeStatus
+      .filter((p) => p.role === 'fisioterapeuta')
+      .map((p) => ({ id: p.id, nome: p.full_name || 'Sem nome' }))
+  } else {
+    profissionaisStatus = [{ id: user.id, nome: profile?.full_name ?? 'Você' }]
   }
 
   const visao = typeof params.visao === 'string' ? params.visao : null
@@ -628,7 +665,7 @@ export default async function DisponibilidadePage({
   const dataParam = typeof params.data === 'string' ? params.data : undefined
   const agrupamento = params.agrupamento === 'profissional' ? 'profissional' : 'horario'
   const targetId = isGestor && paramProfId ? paramProfId : user.id
-  const statusIds = isGestor ? profissionais.map(p => p.id) : [targetId]
+  const statusIds = isGestor ? profissionaisStatus.map(p => p.id) : [targetId]
   const initialStatuses = await listarStatusDisponibilidade(statusIds)
 
   // Gestor sem parâmetro → redirect para visão geral
@@ -642,6 +679,7 @@ export default async function DisponibilidadePage({
     return (
       <ViewGeral
         profissionais={profissionais}
+        profissionaisStatus={profissionaisStatus}
         dataParam={dataParam}
         agrupamento={agrupamento as 'horario' | 'profissional'}
         initialStatuses={initialStatuses}

@@ -75,3 +75,37 @@ export function validarHorarioDisponibilidade(
     faixas,
   }
 }
+
+function getNowParts(timeZone: string) {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+
+  const parts = formatter.formatToParts(new Date())
+  const weekday = parts.find((part) => part.type === 'weekday')?.value ?? 'Sun'
+  const hour = Number(parts.find((part) => part.type === 'hour')?.value ?? '0')
+  const minute = Number(parts.find((part) => part.type === 'minute')?.value ?? '0')
+
+  return { weekday, currentMin: hour * 60 + minute }
+}
+
+export function estaDentroDaJornadaAgora(
+  disponibilidade: DisponibilidadeDia | null | undefined,
+  timeZone = 'America/Sao_Paulo',
+) {
+  if (!disponibilidade) return false
+
+  const { currentMin } = getNowParts(timeZone)
+  return obterIntervalosJornada(disponibilidade).some(
+    (intervalo) => currentMin >= intervalo.inicio && currentMin < intervalo.fim,
+  )
+}
+
+export function getDiaSemanaAtualNaTimezone(timeZone = 'America/Sao_Paulo') {
+  const { weekday } = getNowParts(timeZone)
+  return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(weekday)
+}
