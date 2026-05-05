@@ -301,6 +301,36 @@ export async function criarAgendamento(formData: FormData) {
   return { success: true }
 }
 
+export async function buscarDetalhesAgendamento(atendimentoId: string) {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('atendimentos')
+    .select(`
+      id,
+      paciente_id,
+      profissional_id,
+      agendamento_id,
+      data_agendamento,
+      status,
+      tipo,
+      duracao_minutos,
+      observacoes,
+      numero_sessao,
+      total_sessoes,
+      pacientes (nome, telefone, email),
+      profissional:profiles!profissional_id(full_name, role)
+    `)
+    .eq('id', atendimentoId)
+    .maybeSingle()
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  return { data }
+}
+
 export async function contarAtendimentosPaciente(pacienteId: string): Promise<{ total: number; cancelados: number }> {
   const supabase = await createClient()
   const { data } = await supabase

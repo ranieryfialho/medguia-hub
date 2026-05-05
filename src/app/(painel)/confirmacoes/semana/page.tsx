@@ -33,7 +33,7 @@ type AtendimentoRow = {
   total_sessoes: number | null
   contato_confirmacao: string | null
   paciente: { id: string; nome: string; telefone: string } | null
-  profissional: { id: string; full_name: string } | null
+  profissional: { full_name: string } | null
 }
 
 function semanaAtual() {
@@ -95,7 +95,7 @@ export default async function SemanaPage({
       total_sessoes,
       contato_confirmacao,
       paciente:pacientes(id, nome, telefone),
-      profissional:profiles!profissional_id(id, full_name)
+      profissional:profiles!profissional_id(full_name)
     `)
     .eq('status', 'Aguardando')
     .gte('data_agendamento', dataInicioSemana)
@@ -103,7 +103,9 @@ export default async function SemanaPage({
     .order('data_agendamento', { ascending: true }) as { data: AtendimentoRow[] | null }
 
   const agendamentoIds = [...new Set(
-    (atendimentos ?? []).map(a => a.agendamento_id).filter(Boolean) as string[]
+    (atendimentos ?? [])
+      .filter(a => !!a.agendamento_id && (a.total_sessoes ?? 0) > 1)
+      .map(a => a.agendamento_id) as string[]
   )]
   let sessaoEfetivaMap = new Map<string, { sessao_efetiva: number; total_efetivo: number }>()
   if (agendamentoIds.length > 0) {

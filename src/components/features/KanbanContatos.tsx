@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useCallback, useEffect, useEffectEvent, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import {
   Calendar,
   ChevronDown,
@@ -67,7 +68,6 @@ type ColumnFormState = {
 }
 
 const INITIAL_PER_COLUMN = 50
-const AUTO_REFRESH_INTERVAL_MS = 30_000
 
 function getInitials(name: string) {
   return name
@@ -146,6 +146,18 @@ function defaultColumnForm(): ColumnFormState {
   }
 }
 
+type ContatoBaseRealtimeRow = {
+  paciente_id: string
+  status: StatusContato
+  kanban_coluna_chave: string
+  responsavel_id: string | null
+}
+
+type KanbanColunaRealtimeRow = KanbanColunaContato
+type NotaContatoRealtimeRow = {
+  paciente_id: string
+}
+
 export function KanbanContatos({
   contatos: initialContatos,
   profiles,
@@ -178,10 +190,58 @@ export function KanbanContatos({
   const [columnModalTab, setColumnModalTab] = useState<'lista' | 'form'>('lista')
   const [localTemplates, setLocalTemplates] = useState<Template[]>(templates)
   const [, startTransition] = useTransition()
+  const [supabase] = useState(createClient)
 
   const router = useRouter()
   const canManageColumns = userNivelAcesso === 'gestor' || userNivelAcesso === 'master'
   const selectedId = selected?.id
+
+  function getFallbackStatus(contato: ContatoPaciente): StatusContato {
+    return contato.recuperacao_base ? 'recuperacao_base' : 'a_contactar'
+  }
+
+  function sortColumns(nextColumns: KanbanColunaContato[]) {
+    return [...nextColumns].sort((a, b) => a.ordem - b.ordem)
+  }
+
+  const applyContatoRealtime = useEffectEvent((row: ContatoBaseRealtimeRow) => {
+    setContatos((prev) =>
+      prev.map((contato) =>
+        contato.id === row.paciente_id
+          ? {
+              ...contato,
+              status: row.status,
+              kanban_coluna_chave: row.kanban_coluna_chave,
+              responsavel_id: row.responsavel_id,
+              responsavel_nome: row.responsavel_id
+                ? profiles.find((profile) => profile.id === row.responsavel_id)?.full_name ?? null
+                : null,
+            }
+          : contato
+      )
+    )
+
+    setSelected((prev) =>
+      prev?.id === row.paciente_id
+        ? {
+            ...prev,
+            status: row.status,
+            kanban_coluna_chave: row.kanban_coluna_chave,
+            responsavel_id: row.responsavel_id,
+            responsavel_nome: row.responsavel_id
+              ? profiles.find((profile) => profile.id === row.responsavel_id)?.full_name ?? null
+              : null,
+          }
+        : prev
+    )
+  })
+
+  const reloadNotas = useCallback(async (pacienteId: string) => {
+    setLoadingNotas(true)
+    const data = await buscarNotas(pacienteId)
+    setNotas(data as Nota[])
+    setLoadingNotas(false)
+  }, [])
 
   useEffect(() => {
     setContatos(initialContatos)
@@ -208,27 +268,124 @@ export function KanbanContatos({
   }, [columns, activeColuna])
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (document.visibilityState !== 'visible' || !navigator.onLine) {
-        return
-      }
-      router.refresh()
-    }, AUTO_REFRESH_INTERVAL_MS)
+    let active = true
+    const channelName = `kanban-contatos:${crypto.randomUUID()}`
 
-    return () => clearInterval(interval)
-  }, [router])
+    const subscribe = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!active) return
+
+      if (session?.access_token) {
+        supabase.realtime.setAuth(session.access_token)
+      }
+
+      const channel = supabase
+        .channel(channelName)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'contatos_base' },
+          (payload) => {
+            if (payload.eventType === 'DELETE') {
+              const row = payload.old as Partial<ContatoBaseRealtimeRow>
+              if (!row.paciente_id) return
+
+              setContatos((prev) =>
+                prev.map((contato) => {
+                  if (contato.id !== row.paciente_id) return contato
+                  const fallbackStatus = getFallbackStatus(contato)
+                  return {
+                    ...contato,
+                    status: fallbackStatus,
+                    kanban_coluna_chave: fallbackStatus,
+                    responsavel_id: null,
+                    responsavel_nome: null,
+                  }
+                })
+              )
+
+              setSelected((prev) => {
+                if (!prev || prev.id !== row.paciente_id) return prev
+                const fallbackStatus = getFallbackStatus(prev)
+                return {
+                  ...prev,
+                  status: fallbackStatus,
+                  kanban_coluna_chave: fallbackStatus,
+                  responsavel_id: null,
+                  responsavel_nome: null,
+                }
+              })
+
+              return
+            }
+
+            if (payload.new && typeof payload.new === 'object') {
+              applyContatoRealtime(payload.new as ContatoBaseRealtimeRow)
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'kanban_colunas_contatos' },
+          (payload) => {
+            if (payload.eventType === 'DELETE') {
+              const row = payload.old as Partial<KanbanColunaRealtimeRow>
+              if (!row.chave) return
+              setColumns((prev) => prev.filter((column) => column.chave !== row.chave))
+              return
+            }
+
+            if (!payload.new || typeof payload.new !== 'object') return
+
+            const nextColumn = payload.new as KanbanColunaRealtimeRow
+            setColumns((prev) => {
+              const withoutCurrent = prev.filter((column) => column.chave !== nextColumn.chave)
+              return sortColumns([...withoutCurrent, nextColumn])
+            })
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'notas_contato' },
+          (payload) => {
+            const row =
+              payload.eventType === 'DELETE'
+                ? (payload.old as Partial<NotaContatoRealtimeRow>)
+                : (payload.new as Partial<NotaContatoRealtimeRow>)
+
+            if (!row.paciente_id || row.paciente_id !== selectedId) return
+            void reloadNotas(row.paciente_id)
+          }
+        )
+        .subscribe()
+
+      return channel
+    }
+
+    const currentChannelPromise = subscribe()
+    const { data: authListener } = supabase.auth.onAuthStateChange((_, session) => {
+      if (session?.access_token) {
+        supabase.realtime.setAuth(session.access_token)
+      }
+    })
+
+    return () => {
+      active = false
+      authListener.subscription.unsubscribe()
+      void currentChannelPromise.then((channel) => {
+        if (channel) {
+          supabase.removeChannel(channel)
+        }
+      })
+    }
+  }, [profiles, reloadNotas, selectedId, supabase])
 
   useEffect(() => {
     if (!selected) return
-    setLoadingNotas(true)
     setNotas([])
     setTemplatePickerOpen(true)
     setMobileModalTab('detalhes')
-    buscarNotas(selected.id).then((data) => {
-      setNotas(data as Nota[])
-      setLoadingNotas(false)
-    })
-  }, [selected, selectedId])
+    void reloadNotas(selected.id)
+  }, [reloadNotas, selected, selectedId])
 
   useEffect(() => {
     setVisibleCount(createVisibleCount(columns))
@@ -350,8 +507,7 @@ export function KanbanContatos({
     const res = await adicionarNota(selected.id, texto)
 
     if (!res.error) {
-      const data = await buscarNotas(selected.id)
-      setNotas(data as Nota[])
+      await reloadNotas(selected.id)
     }
   }
 

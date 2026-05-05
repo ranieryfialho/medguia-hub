@@ -105,7 +105,7 @@ async function ViewIndividual({
 
   const { data: agendamentos } = await supabase
     .from('atendimentos')
-    .select('data_agendamento, duracao_minutos, status')
+    .select('data_agendamento, duracao_minutos')
     .eq('profissional_id', targetId)
     .gte('data_agendamento', inicioDaSemana.toISOString())
     .lte('data_agendamento', fimDaSemana.toISOString())
@@ -356,21 +356,23 @@ async function ViewGeral({
     .in('profissional_id', profIds)
     .eq('ativo', true)
 
-  // Buscar atendimentos da semana para todos (exceto cancelados/faltas)
-  const { data: todosAgendamentos } = await supabase
-    .from('atendimentos')
-    .select('profissional_id, data_agendamento, duracao_minutos, status')
-    .in('profissional_id', profIds)
-    .gte('data_agendamento', inicioDaSemana.toISOString())
-    .lte('data_agendamento', fimDaSemana.toISOString())
-    .not('status', 'in', '("cancelado","Cancelado","falta","Falta","reagendado","Reagendado")')
-
   // Montar mapa: profId → dia_semana → { inicio, fim }
   const jornadaMap = new Map<string, Map<number, DisponibilidadeDia>>()
   for (const j of todasJornadas ?? []) {
     if (!jornadaMap.has(j.profissional_id)) jornadaMap.set(j.profissional_id, new Map())
     jornadaMap.get(j.profissional_id)!.set(j.dia_semana, normalizarDisponibilidade(j))
   }
+
+  const profIdsComJornada = [...new Set((todasJornadas ?? []).map((j) => j.profissional_id))]
+  const { data: todosAgendamentos } = profIdsComJornada.length > 0
+    ? await supabase
+        .from('atendimentos')
+        .select('profissional_id, data_agendamento, duracao_minutos')
+        .in('profissional_id', profIdsComJornada)
+        .gte('data_agendamento', inicioDaSemana.toISOString())
+        .lte('data_agendamento', fimDaSemana.toISOString())
+        .not('status', 'in', '("cancelado","Cancelado","falta","Falta","reagendado","Reagendado")')
+    : { data: [] }
 
   // Calcular slots livres por profissional por dia
   type ProfDia = {

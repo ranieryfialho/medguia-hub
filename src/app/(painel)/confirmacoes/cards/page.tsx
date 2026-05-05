@@ -14,6 +14,18 @@ type Periodo = {
   dataExibicao: string // ex: "03/05"
 }
 
+type AtendimentoRow = {
+  id: string
+  agendamento_id: string | null
+  data_agendamento: string
+  tipo: string
+  numero_sessao: number | null
+  total_sessoes: number | null
+  contato_confirmacao: string | null
+  paciente: { id: string; nome: string; telefone: string } | null
+  profissional: { full_name: string } | null
+}
+
 function periodoParaContatar(): { periodos: Periodo[]; isSexta: boolean } {
   const agora = new Date()
   const TZ = 'America/Sao_Paulo'
@@ -113,7 +125,7 @@ export default async function CardsPage() {
       total_sessoes,
       contato_confirmacao,
       paciente:pacientes(id, nome, telefone),
-      profissional:profiles!profissional_id(id, full_name, role)
+      profissional:profiles!profissional_id(full_name)
     `)
     .eq('status', 'Aguardando')
     .or('contato_confirmacao.is.null,contato_confirmacao.eq.nao_atendeu')
@@ -122,10 +134,12 @@ export default async function CardsPage() {
         .map(p => `and(data_agendamento.gte.${p.dataInicio},data_agendamento.lte.${p.dataFim})`)
         .join(',')
     )
-    .order('data_agendamento', { ascending: true })
+    .order('data_agendamento', { ascending: true }) as { data: AtendimentoRow[] | null }
 
   const agendamentoIds = [...new Set(
-    (atendimentos ?? []).map(a => a.agendamento_id).filter(Boolean) as string[]
+    (atendimentos ?? [])
+      .filter(a => !!a.agendamento_id && (a.total_sessoes ?? 0) > 1)
+      .map(a => a.agendamento_id) as string[]
   )]
   let sessaoEfetivaMap = new Map<string, { sessao_efetiva: number; total_efetivo: number }>()
   if (agendamentoIds.length > 0) {
@@ -152,17 +166,17 @@ export default async function CardsPage() {
       .map(a => {
         const efetivo = sessaoEfetivaMap.get(a.id)
         return {
-          id: (a.paciente as any).id,
+          id: a.paciente!.id,
           atendimento_id: a.id,
-          agendamento_id: a.agendamento_id as string | null,
-          nome: (a.paciente as any).nome,
-          telefone: (a.paciente as any).telefone,
+          agendamento_id: a.agendamento_id,
+          nome: a.paciente!.nome,
+          telefone: a.paciente!.telefone,
           data_agendamento: a.data_agendamento,
           tipo: a.tipo,
-          profissional_nome: (a.profissional as any)?.full_name || 'Profissional',
+          profissional_nome: a.profissional?.full_name || 'Profissional',
           numero_sessao: efetivo?.sessao_efetiva ?? a.numero_sessao ?? 1,
           total_sessoes: efetivo?.total_efetivo ?? a.total_sessoes ?? 1,
-          contato_confirmacao: a.contato_confirmacao as string | null,
+          contato_confirmacao: a.contato_confirmacao,
         }
       })
 

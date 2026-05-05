@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   LayoutDashboard,
@@ -33,10 +33,12 @@ export function Sidebar({
   onMobileClose,
   onOpenNovoAgendamento,
   modulosLiberados: modulosLiberadosProp,
+  prontuariosPendentes: prontuariosPendentesProp,
 }: {
   onMobileClose?: () => void
   onOpenNovoAgendamento?: () => void
   modulosLiberados?: string[]
+  prontuariosPendentes?: number
 }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -47,51 +49,8 @@ export function Sidebar({
   const [equipeOpen, setEquipeOpen] = useState(() => (pathname?.startsWith('/equipe') || pathname?.startsWith('/relatorios/tempo-fabril')) ?? false)
   const [comercialOpen, setComercialOpen] = useState(() => (pathname?.startsWith('/vendas') || pathname?.startsWith('/produtos') || pathname?.startsWith('/relatorios/vendas')) ?? false)
   const [pacientesOpen, setPacientesOpen] = useState(() => pathname?.startsWith('/pacientes') ?? false)
-  const [modulos, setModulos] = useState<string[]>(modulosLiberadosProp ?? [])
-  const [prontuariosPendentes, setProntuariosPendentes] = useState(0)
-
-  useEffect(() => {
-    async function fetchProfile() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data } = await supabase
-        .from('profiles')
-        .select('nivel_acesso, modulos_liberados')
-        .eq('id', user.id)
-        .single()
-      if (data?.modulos_liberados) setModulos(data.modulos_liberados)
-    }
-    fetchProfile()
-  }, [supabase])
-
-  useEffect(() => {
-    async function fetchProntuariosPendentes() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('nivel_acesso')
-        .eq('id', user.id)
-        .single()
-
-      const isFisio = profile?.nivel_acesso === 'basico'
-
-      let qAtendimentos = supabase.from('atendimentos').select('id').eq('status', 'Concluído')
-      if (isFisio) qAtendimentos = qAtendimentos.eq('profissional_id', user.id)
-
-      const { data: atendimentos } = await qAtendimentos
-      const idsAtendimentos = (atendimentos ?? []).map(a => a.id)
-
-      let qProntuarios = supabase.from('prontuarios').select('atendimento_id')
-      if (idsAtendimentos.length > 0) qProntuarios = qProntuarios.in('atendimento_id', idsAtendimentos)
-
-      const { data: comProntuario } = await qProntuarios
-      const idsComProntuario = new Set(comProntuario?.map(p => p.atendimento_id) ?? [])
-      setProntuariosPendentes(Math.max(0, idsAtendimentos.length - idsComProntuario.size))
-    }
-    fetchProntuariosPendentes()
-  }, [supabase])
+  const modulos = modulosLiberadosProp ?? []
+  const prontuariosPendentes = prontuariosPendentesProp ?? 0
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -120,8 +79,6 @@ export function Sidebar({
 
   return (
     <aside className="h-screen w-64 overflow-y-auto z-[200] bg-[#f0f5f4] border-r border-[#dee3e3]/50 flex flex-col p-4 gap-2 hide-scrollbar">
-
-      {/* Logo */}
       <div className="px-4 py-6 flex items-center gap-3">
         <Image src="/logo.png" alt="MedGuia Hub" width={32} height={32} className="object-contain" />
         <div className="flex-1">
@@ -138,7 +95,6 @@ export function Sidebar({
       </div>
 
       <nav className="flex-1 space-y-1">
-
         {pv('dashboard') && (
           <Link href="/dashboard" onClick={handleNavClick} className={linkCls(pathname === '/dashboard')}>
             <LayoutDashboard size={20} />
@@ -153,7 +109,6 @@ export function Sidebar({
           </Link>
         )}
 
-        {/* Confirmações */}
         {pvGrupo('confirmacoes') && (
           <div>
             <button onClick={() => setConfirmacoesOpen(v => !v)} className={groupCls(!!isActive('/confirmacoes'))}>
@@ -183,7 +138,6 @@ export function Sidebar({
           </div>
         )}
 
-        {/* Contatos */}
         {pvGrupo('contatos') && (
           <div>
             <button onClick={() => setContatosOpen(v => !v)} className={groupCls(!!isActive('/contatos'))}>
@@ -247,7 +201,6 @@ export function Sidebar({
           </Link>
         )}
 
-        {/* Comercial */}
         {pvGrupo('comercial') && (
           <div>
             <button
@@ -283,7 +236,6 @@ export function Sidebar({
           </div>
         )}
 
-        {/* Equipe */}
         {pvGrupo('equipe') && (
           <div>
             <button
@@ -305,7 +257,7 @@ export function Sidebar({
                 {pv('equipe:tempo_fabril') && (
                   <Link href="/relatorios/tempo-fabril" onClick={handleNavClick} className={subLinkCls(!!isActive('/relatorios/tempo-fabril'))}>
                     <BarChart3 size={14} />
-                    Tempo Fábril
+                    Tempo Fabril
                   </Link>
                 )}
                 {pv('equipe:acessos') && (
@@ -319,7 +271,6 @@ export function Sidebar({
           </div>
         )}
 
-        {/* Configurações */}
         {pvGrupo('configuracoes') && (
           <div>
             <button onClick={() => setConfigOpen(v => !v)} className={groupCls(!!isActive('/configuracoes'))}>
@@ -345,10 +296,8 @@ export function Sidebar({
             )}
           </div>
         )}
-
       </nav>
 
-      {/* Footer */}
       <div className="mt-auto pt-4 space-y-1 border-t border-[#bcc9c4]/30">
         <button
           onClick={onOpenNovoAgendamento}

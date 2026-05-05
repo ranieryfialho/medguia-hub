@@ -15,6 +15,7 @@ type HeaderData = {
   userRole: string
   userNivelAcesso: string
   modulosLiberados: string[]
+  prontuariosPendentes: number
 }
 
 export function AppShell({
@@ -54,6 +55,7 @@ export function AppShell({
           onMobileClose={() => setSidebarOpen(false)}
           onOpenNovoAgendamento={() => setSlideNovoAberto(true)}
           modulosLiberados={headerData.modulosLiberados}
+          prontuariosPendentes={headerData.prontuariosPendentes}
         />
       </div>
 

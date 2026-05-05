@@ -13,6 +13,7 @@ import {
   deletarAgendamento,
   deletarAtendimentoPontualDaRecorrencia,
   deletarTodasRecorrencias,
+  buscarDetalhesAgendamento,
 } from '@/actions/agenda'
 import { MenuAcoesAgendamento } from './MenuAcoesAgendamento'
 import { SlideNovoAgendamento } from './SlideNovoAgendamento'
@@ -43,9 +44,11 @@ const STATUS_CONFIG: Record<string, { cardBg: string; border: string; iconText: 
   'aguardando':     { cardBg: 'bg-amber-50',   border: 'border-amber-500',  iconText: 'text-amber-600',  titleText: 'text-amber-900',  subText: 'text-amber-800/70',  badgeBg: 'bg-amber-500',  label: 'Aguardando',  Icon: Hourglass },
   'em atendimento': { cardBg: 'bg-blue-50',    border: 'border-blue-600',   iconText: 'text-blue-600',   titleText: 'text-blue-900',   subText: 'text-blue-800/70',   badgeBg: 'bg-blue-600',   label: 'Em Atend.',   Icon: Stethoscope },
   'concluído':      { cardBg: 'bg-violet-50',  border: 'border-violet-600', iconText: 'text-violet-600', titleText: 'text-violet-900', subText: 'text-violet-800/70', badgeBg: 'bg-violet-600', label: 'Concluído',   Icon: CheckCheck },
+  'concluÃ­do':      { cardBg: 'bg-violet-50',  border: 'border-violet-600', iconText: 'text-violet-600', titleText: 'text-violet-900', subText: 'text-violet-800/70', badgeBg: 'bg-violet-600', label: 'Concluído',   Icon: CheckCheck },
   'cancelado':      { cardBg: 'bg-red-50',     border: 'border-red-600',    iconText: 'text-red-600',    titleText: 'text-red-900',    subText: 'text-red-800/70',    badgeBg: 'bg-red-600',    label: 'Cancelado',   Icon: XCircle },
   'falta':          { cardBg: 'bg-gray-100',   border: 'border-gray-500',   iconText: 'text-gray-500',   titleText: 'text-gray-800',   subText: 'text-gray-600/70',   badgeBg: 'bg-gray-500',   label: 'Falta',       Icon: UserX },
   'reposição':      { cardBg: 'bg-cyan-50',    border: 'border-cyan-600',   iconText: 'text-cyan-600',   titleText: 'text-cyan-900',   subText: 'text-cyan-800/70',   badgeBg: 'bg-cyan-600',   label: 'Reposição',   Icon: RefreshCw },
+  'reposiÃ§Ã£o':      { cardBg: 'bg-cyan-50',    border: 'border-cyan-600',   iconText: 'text-cyan-600',   titleText: 'text-cyan-900',   subText: 'text-cyan-800/70',   badgeBg: 'bg-cyan-600',   label: 'Reposição',   Icon: RefreshCw },
   'reagendado':     { cardBg: 'bg-orange-50',  border: 'border-orange-500', iconText: 'text-orange-600', titleText: 'text-orange-900', subText: 'text-orange-800/70', badgeBg: 'bg-orange-500', label: 'Reagendado',  Icon: CalendarClock },
 }
 const CONFIG_DEFAULT = { cardBg: 'bg-gray-100', border: 'border-gray-400', iconText: 'text-gray-500', titleText: 'text-gray-800', subText: 'text-gray-600', badgeBg: 'bg-gray-400', label: 'Agendado', Icon: CheckCircle }
@@ -64,6 +67,11 @@ function getConfig(status: string) {
   return STATUS_CONFIG[status?.toLowerCase()] || CONFIG_DEFAULT
 }
 
+function firstRelation<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) return value[0] ?? null
+  return value ?? null
+}
+
 function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDetalhe; onClose: () => void; onEditar: () => void }) {
   const router = useRouter()
   const [status, setStatus] = useState(agendamento.status)
@@ -71,28 +79,77 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
   const [showStatusMenu, setShowStatusMenu] = useState(false)
   const [showOpcoes, setShowOpcoes] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [loadingDetalhes, setLoadingDetalhes] = useState(false)
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false)
   const [contagem, setContagem] = useState<{ total: number; cancelados: number } | null>(null)
   const opcoesRef = useRef<HTMLDivElement>(null)
+  const [detalhesExtras, setDetalhesExtras] = useState<{
+    telefone?: string | null
+    email?: string | null
+    full_name?: string | null
+    role?: string | null
+    duracao_minutos?: number | null
+    observacoes?: string | null
+  } | null>(null)
 
   const isRecorrente = !!(agendamento.agendamento_id && (agendamento.total_sessoes ?? 0) > 1)
-
   const nomePaciente = agendamento.pacientes?.nome || 'Paciente'
   const inicial = nomePaciente.charAt(0).toUpperCase()
   const dataObj = new Date(agendamento.data_agendamento)
+  const telefone = detalhesExtras?.telefone ?? agendamento.pacientes?.telefone
+  const emailPaciente = detalhesExtras?.email ?? agendamento.pacientes?.email
+  const nomeProfissional = detalhesExtras?.full_name ?? agendamento.profissional?.full_name
+  const roleProfissional = detalhesExtras?.role ?? agendamento.profissional?.role
+  const duracaoMinutos = detalhesExtras?.duracao_minutos ?? agendamento.duracao_minutos
+  const observacoes = detalhesExtras?.observacoes ?? agendamento.observacoes
   const horaInicio = formatAppTime(dataObj)
-  const horaFim = agendamento.duracao_minutos
-    ? formatAppTime(new Date(dataObj.getTime() + agendamento.duracao_minutos * 60000))
-    : null
+  const horaFim = duracaoMinutos ? formatAppTime(new Date(dataObj.getTime() + duracaoMinutos * 60000)) : null
   const dataFormatada = formatAppDateLabel(dataObj)
-
-  const telefone = agendamento.pacientes?.telefone
-  const nomeProfissional = agendamento.profissional?.full_name
-  const roleProfissional = agendamento.profissional?.role
+  const precisaCarregarDetalhes = telefone == null
+    && emailPaciente == null
+    && roleProfissional == null
+    && duracaoMinutos == null
+    && observacoes == null
 
   useEffect(() => {
     contarAtendimentosPaciente(agendamento.paciente_id).then(setContagem)
   }, [agendamento.paciente_id])
+
+  useEffect(() => {
+    setDetalhesExtras(null)
+  }, [agendamento.id])
+
+  useEffect(() => {
+    if (!precisaCarregarDetalhes) return
+
+    let active = true
+    setLoadingDetalhes(true)
+
+    buscarDetalhesAgendamento(agendamento.id).then((result) => {
+      if (!active) return
+      if (!result || 'error' in result || !result.data) {
+        setLoadingDetalhes(false)
+        return
+      }
+
+      const paciente = firstRelation(result.data.pacientes as AgendamentoDetalhe['pacientes'] | AgendamentoDetalhe['pacientes'][])
+      const profissional = firstRelation(result.data.profissional as AgendamentoDetalhe['profissional'] | AgendamentoDetalhe['profissional'][])
+
+      setDetalhesExtras({
+        telefone: paciente?.telefone ?? null,
+        email: paciente?.email ?? null,
+        full_name: profissional?.full_name ?? null,
+        role: profissional?.role ?? null,
+        duracao_minutos: result.data.duracao_minutos ?? null,
+        observacoes: result.data.observacoes ?? null,
+      })
+      setLoadingDetalhes(false)
+    })
+
+    return () => {
+      active = false
+    }
+  }, [agendamento.id, precisaCarregarDetalhes])
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -120,7 +177,6 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
       return
     }
 
-    // Para recorrente, aguarda escolha explícita do escopo
     if (isRecorrente && !escopo) return
 
     setLoading(true)
@@ -144,7 +200,6 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
         className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md z-10 flex flex-col max-h-[90dvh]"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="px-6 pt-6 pb-4">
           <div className="flex items-start gap-4">
             <div className="w-14 h-14 rounded-full bg-[#006b5a] flex items-center justify-center text-white text-2xl font-bold shrink-0">
@@ -155,11 +210,11 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
               <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5">
                 <span className="flex items-center gap-1.5 text-xs text-[#6d7a75]">
                   <Phone size={12} />
-                  {telefone || 'Sem informação'}
+                  {loadingDetalhes ? 'Carregando...' : (telefone || 'Sem informacao')}
                 </span>
                 <span className="flex items-center gap-1.5 text-xs text-[#6d7a75]">
                   <Mail size={12} />
-                  {agendamento.pacientes?.email || 'Sem informação'}
+                  {loadingDetalhes ? 'Carregando...' : (emailPaciente || 'Sem informacao')}
                 </span>
               </div>
               {contagem !== null && (
@@ -175,7 +230,6 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
             </div>
           </div>
 
-          {/* Ações rápidas */}
           <div className="flex items-center gap-3 mt-4">
             <button
               onClick={() => { router.push('/confirmacoes/cards'); onClose() }}
@@ -187,10 +241,10 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
 
             <div className="relative flex-1" ref={opcoesRef}>
               <button
-                onClick={() => { setShowOpcoes(prev => !prev); setConfirmandoExclusao(false) }}
+                onClick={() => { setShowOpcoes((prev) => !prev); setConfirmandoExclusao(false) }}
                 className="w-full flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl border border-[#bcc9c4] text-sm font-semibold text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
               >
-                Opções
+                Opcoes
                 <ChevronDown size={14} />
               </button>
               {showOpcoes && (
@@ -227,7 +281,7 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
                         disabled={loading}
                         className="w-full px-3 py-2.5 text-sm font-semibold text-[#ba1a1a] hover:bg-[#fbeaea] transition-colors rounded-lg text-left disabled:opacity-50"
                       >
-                        Toda a recorrência
+                        Toda a recorrencia
                       </button>
                       <button
                         onClick={() => { setConfirmandoExclusao(false) }}
@@ -252,7 +306,6 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
           </div>
         </div>
 
-        {/* Tabs */}
         <div className="flex border-y border-[#bcc9c4]/30 bg-[#f5faf9] shrink-0">
           <button
             onClick={() => setActiveTab('detalhes')}
@@ -273,98 +326,88 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
             }`}
           >
             <ClipboardList size={13} />
-            Evolução
+            Evolucao
           </button>
         </div>
 
-        {/* Body */}
         <div className="px-6 py-5 space-y-4 overflow-y-auto flex-1">
           {activeTab === 'evolucao' ? (
-            <ProntuarioEvolucao
-              atendimentoId={agendamento.id}
-              pacienteId={agendamento.paciente_id}
-            />
-          ) : (<>
-          {/* Tipo + Sessão */}
-          <div className="flex items-center gap-3">
-            <MapPin size={16} className="text-[#006b5a] shrink-0" />
-            <span className="text-sm font-medium text-[#3d4945]">{agendamento.tipo}</span>
-            {agendamento.total_sessoes && agendamento.total_sessoes > 1 && (
-              <span className="text-xs font-bold px-2 py-0.5 bg-[#006b5a]/10 text-[#006b5a] rounded-full">
-                Sessão {agendamento.numero_sessao}/{agendamento.total_sessoes}
-              </span>
-            )}
-          </div>
-
-          {/* Profissional */}
-          {nomeProfissional && (
-            <div className="flex items-center gap-3">
-              <User size={16} className="text-[#006b5a] shrink-0" />
-              <span className="text-sm font-medium text-[#3d4945]">
-                {nomeProfissional}
-                {roleProfissional && <span className="text-[#6d7a75] ml-1">· {roleProfissional}</span>}
-              </span>
-            </div>
-          )}
-
-          {/* Data e hora */}
-          <div className="flex items-start gap-3">
-            <Calendar size={16} className="text-[#006b5a] mt-0.5 shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-[#171d1c] capitalize">{dataFormatada}</p>
-              <p className="text-base font-bold text-[#083142]">
-                {horaInicio}{horaFim ? ` – ${horaFim}` : ''}
-              </p>
-            </div>
-          </div>
-
-          {/* Duração */}
-          {agendamento.duracao_minutos ? (
-            <div className="flex items-center gap-3">
-              <Clock size={16} className="text-[#006b5a] shrink-0" />
-              <span className="text-sm font-medium text-[#3d4945]">{agendamento.duracao_minutos} minutos</span>
-            </div>
-          ) : null}
-
-          {/* Observações */}
-          {agendamento.observacoes ? (
-            <div className="bg-[#f0f5f4] rounded-xl p-3">
-              <p className="text-xs font-semibold text-[#6d7a75] mb-1">Observações</p>
-              <p className="text-sm text-[#3d4945]">{agendamento.observacoes}</p>
-            </div>
-          ) : null}
-
-          {/* Status */}
-          <div className="relative">
-            <label className="block text-xs font-bold text-[#6d7a75] mb-2">Status</label>
-            <button
-              onClick={() => setShowStatusMenu(prev => !prev)}
-              disabled={loading}
-              className="w-full flex items-center justify-between border border-[#bcc9c4] rounded-xl px-4 py-2 text-sm font-semibold text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
-            >
-              <span>{status || 'Agendado'}</span>
-              <ChevronDown size={14} />
-            </button>
-            {showStatusMenu && (
-              <div className="absolute bottom-full left-0 mb-1 bg-white border border-[#bcc9c4] rounded-xl shadow-lg z-20 overflow-hidden min-w-[190px]">
-                {OPCOES_STATUS.map(({ valor, Icon, cor }) => (
-                  <button
-                    key={valor}
-                    onClick={() => handleStatusChange(valor)}
-                    className="w-full text-left px-3 py-2.5 flex items-center gap-2.5 text-sm font-medium text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
-                  >
-                    <Icon size={14} className={cor} />
-                    {valor}
-                  </button>
-                ))}
+            <ProntuarioEvolucao atendimentoId={agendamento.id} pacienteId={agendamento.paciente_id} />
+          ) : (
+            <>
+              <div className="flex items-center gap-3">
+                <MapPin size={16} className="text-[#006b5a] shrink-0" />
+                <span className="text-sm font-medium text-[#3d4945]">{agendamento.tipo}</span>
+                {agendamento.total_sessoes && agendamento.total_sessoes > 1 && (
+                  <span className="text-xs font-bold px-2 py-0.5 bg-[#006b5a]/10 text-[#006b5a] rounded-full">
+                    Sessao {agendamento.numero_sessao}/{agendamento.total_sessoes}
+                  </span>
+                )}
               </div>
-            )}
-          </div>
-          </>
+
+              {nomeProfissional && (
+                <div className="flex items-center gap-3">
+                  <User size={16} className="text-[#006b5a] shrink-0" />
+                  <span className="text-sm font-medium text-[#3d4945]">
+                    {nomeProfissional}
+                    {roleProfissional && <span className="text-[#6d7a75] ml-1">· {roleProfissional}</span>}
+                  </span>
+                </div>
+              )}
+
+              <div className="flex items-start gap-3">
+                <Calendar size={16} className="text-[#006b5a] mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-[#171d1c] capitalize">{dataFormatada}</p>
+                  <p className="text-base font-bold text-[#083142]">
+                    {horaInicio}{horaFim ? ` - ${horaFim}` : ''}
+                  </p>
+                </div>
+              </div>
+
+              {duracaoMinutos ? (
+                <div className="flex items-center gap-3">
+                  <Clock size={16} className="text-[#006b5a] shrink-0" />
+                  <span className="text-sm font-medium text-[#3d4945]">{duracaoMinutos} minutos</span>
+                </div>
+              ) : null}
+
+              {observacoes ? (
+                <div className="bg-[#f0f5f4] rounded-xl p-3">
+                  <p className="text-xs font-semibold text-[#6d7a75] mb-1">Observacoes</p>
+                  <p className="text-sm text-[#3d4945]">{observacoes}</p>
+                </div>
+              ) : null}
+
+              <div className="relative">
+                <label className="block text-xs font-bold text-[#6d7a75] mb-2">Status</label>
+                <button
+                  onClick={() => setShowStatusMenu((prev) => !prev)}
+                  disabled={loading}
+                  className="w-full flex items-center justify-between border border-[#bcc9c4] rounded-xl px-4 py-2 text-sm font-semibold text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
+                >
+                  <span>{status || 'Agendado'}</span>
+                  <ChevronDown size={14} />
+                </button>
+                {showStatusMenu && (
+                  <div className="absolute bottom-full left-0 mb-1 bg-white border border-[#bcc9c4] rounded-xl shadow-lg z-20 overflow-hidden min-w-[190px]">
+                    {OPCOES_STATUS.map(({ valor, Icon, cor }) => (
+                      <button
+                        key={valor}
+                        onClick={() => handleStatusChange(valor)}
+                        className="w-full text-left px-3 py-2.5 flex items-center gap-2.5 text-sm font-medium text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
+                      >
+                        <Icon size={14} className={cor} />
+                        {valor}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </div>
 
-        {/* Footer */}
         <div className="px-6 py-4 border-t border-[#bcc9c4]/30 bg-[#f5faf9] flex justify-end rounded-b-2xl">
           <button
             onClick={onClose}

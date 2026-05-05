@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useId, useRef } from 'react'
-import { criarAgendamento, editarAtendimento } from '@/actions/agenda'
+import { buscarDetalhesAgendamento, criarAgendamento, editarAtendimento } from '@/actions/agenda'
 import { createClient } from '@/lib/supabase/client'
 import { X, CalendarPlus, User, Minus, Plus, Search, Clock } from 'lucide-react'
 import { format } from 'date-fns'
@@ -71,6 +71,7 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
   const [isOpen, setIsOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [loadingPacientes, setLoadingPacientes] = useState(false)
+  const [loadingDetalhesAtendimento, setLoadingDetalhesAtendimento] = useState(false)
   const [error, setError] = useState('')
   const [pacientes, setPacientes] = useState<Paciente[]>(pacientesInicial ?? [])
 
@@ -92,6 +93,10 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
   const [diasSelecionados, setDiasSelecionados] = useState<number[]>([])
   const [terminaEm, setTerminaEm] = useState<'data' | 'ocorrencias' | 'sem_fim'>('sem_fim')
   const [ocorrencias, setOcorrencias] = useState('1')
+  const precisaCarregarDetalhesEdicao = Boolean(
+    atendimentoParaEditar &&
+    (atendimentoParaEditar.duracao_minutos == null || atendimentoParaEditar.observacoes == null),
+  )
 
   // Inicializa campos quando em modo edição
   useEffect(() => {
@@ -111,6 +116,31 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
       setObservacoesValue(atendimentoParaEditar.observacoes ?? '')
     }
   }, [atendimentoParaEditar, pacientes])
+
+  useEffect(() => {
+    if (!atendimentoParaEditar || !precisaCarregarDetalhesEdicao) return
+
+    let active = true
+    setLoadingDetalhesAtendimento(true)
+
+    buscarDetalhesAgendamento(atendimentoParaEditar.id).then((result) => {
+      if (!active) return
+      setLoadingDetalhesAtendimento(false)
+
+      if (!result || 'error' in result || !result.data) return
+
+      const dataObj = new Date(result.data.data_agendamento)
+      if (result.data.duracao_minutos) {
+        const fim = new Date(dataObj.getTime() + result.data.duracao_minutos * 60000)
+        setHoraFimValue(format(fim, 'HH:mm'))
+      }
+      setObservacoesValue(result.data.observacoes ?? '')
+    })
+
+    return () => {
+      active = false
+    }
+  }, [atendimentoParaEditar, precisaCarregarDetalhesEdicao])
 
   // Fetch de pacientes quando o modal abre (modo controlado ou autônomo)
   useEffect(() => {
@@ -551,6 +581,11 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
             {error && (
               <div className="p-3 rounded-lg bg-[#ba1a1a]/10 border border-[#ba1a1a]/20 text-[#ba1a1a] text-sm font-bold text-center">
                 {error}
+              </div>
+            )}
+            {loadingDetalhesAtendimento && (
+              <div className="p-3 rounded-lg bg-[#006b5a]/10 border border-[#006b5a]/20 text-[#006b5a] text-sm font-semibold text-center">
+                Carregando detalhes do atendimento...
               </div>
             )}
           </form>

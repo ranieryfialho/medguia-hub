@@ -18,6 +18,7 @@ export type ContatoPaciente = {
   nome: string
   telefone: string
   email: string | null
+  recuperacao_base: boolean
   status: StatusContato
   kanban_coluna_chave: string
   responsavel_id: string | null
@@ -100,6 +101,7 @@ export default async function ContatosPage() {
       nome: p.nome,
       telefone: p.telefone,
       email: p.email,
+      recuperacao_base: p.recuperacao_base,
       status: (c?.status ?? (p.recuperacao_base ? 'recuperacao_base' : 'a_contactar')) as StatusContato,
       kanban_coluna_chave: c?.kanban_coluna_chave ?? c?.status ?? (p.recuperacao_base ? 'recuperacao_base' : 'a_contactar'),
       responsavel_id: c?.responsavel_id ?? null,

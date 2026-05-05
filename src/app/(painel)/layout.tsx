@@ -43,6 +43,31 @@ export default async function DashboardLayout({
   const avatarUrl = profile?.avatar_url ||
     `https://ui-avatars.com/api/?name=${encodeURIComponent(nomeUsuario)}&background=cce2da&color=006b5a&bold=true`
 
+  let prontuariosPendentes = 0
+  if (user && modulosLiberados.includes('prontuarios')) {
+    const atendimentosConcluidosQuery = supabase
+      .from('atendimentos')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'Concluído')
+
+    const prontuariosPreenchidosQuery = supabase
+      .from('prontuarios')
+      .select('atendimento_id, atendimentos!inner(id)', { count: 'exact', head: true })
+      .eq('atendimentos.status', 'Concluído')
+
+    if (userNivelAcesso === 'basico') {
+      atendimentosConcluidosQuery.eq('profissional_id', user.id)
+      prontuariosPreenchidosQuery.eq('atendimentos.profissional_id', user.id)
+    }
+
+    const [{ count: totalConcluidos }, { count: totalComProntuario }] = await Promise.all([
+      atendimentosConcluidosQuery,
+      prontuariosPreenchidosQuery,
+    ])
+
+    prontuariosPendentes = Math.max(0, (totalConcluidos ?? 0) - (totalComProntuario ?? 0))
+  }
+
   const [{ data: listaProfissionais }, todasDisponibilidades] = await Promise.all([
     supabase.from('profiles').select('id, full_name, role').eq('ativo', true).neq('role', 'master').neq('role', 'medico').order('full_name'),
     listarTodasDisponibilidades(),
@@ -71,9 +96,9 @@ export default async function DashboardLayout({
     <AppShell
       profissionais={profissionais}
       disponibilidades={disponibilidadesMap}
-      headerData={{ nomeUsuario, cargoUsuario, avatarUrl, userRole, userNivelAcesso, modulosLiberados }}
+      headerData={{ nomeUsuario, cargoUsuario, avatarUrl, userRole, userNivelAcesso, modulosLiberados, prontuariosPendentes }}
     >
-      <Header />
+      <Header nomeUsuario={nomeUsuario} cargoUsuario={cargoUsuario} avatarUrl={avatarUrl} />
       <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto overflow-x-hidden min-h-0 w-0 min-w-full" style={{ WebkitOverflowScrolling: 'touch' }}>
         {children}
       </main>

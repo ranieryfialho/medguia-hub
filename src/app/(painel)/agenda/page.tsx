@@ -136,6 +136,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
   const todosDiasMes = [...diasVaziosInicio, ...diasDoMes]
 
   let { start: fetchInicio, end: fetchFim } = getAppDayRangeUTC(dataString)
+  const shouldFilterByProfissional = isFisioterapeuta || myAppointmentsOnly
 
   if (view === 'semana') {
     fetchInicio = getAppDayRangeUTC(formatAppDateKey(inicioDaSemana)).start
@@ -145,36 +146,122 @@ export default async function AgendaPage({ searchParams }: PageProps) {
     fetchFim = getAppDayRangeUTC(formatAppDateKey(fimDoMes)).end
   }
 
-  let atendimentosQuery = supabase
-    .from('atendimentos')
-    .select(`
-      id,
-      paciente_id,
-      profissional_id,
-      agendamento_id,
-      data_agendamento,
-      status,
-      tipo,
-      duracao_minutos,
-      observacoes,
-      numero_sessao,
-      total_sessoes,
-      pacientes (nome, telefone, email),
-      profissional:profiles!profissional_id(full_name, role)
-    `)
-    .gte('data_agendamento', fetchInicio)
-    .lte('data_agendamento', fetchFim)
-    .order('data_agendamento', { ascending: true })
+  let agendamentosComEfetivo: AgendamentoDetalhe[] = []
 
-  if (isFisioterapeuta || myAppointmentsOnly) {
-    atendimentosQuery = atendimentosQuery.eq('profissional_id', user!.id)
-  }
+  if (view === 'mes') {
+    const agendamentosMesLevesQuery = supabase
+      .from('atendimentos')
+      .select('id, data_agendamento, status')
+      .gte('data_agendamento', fetchInicio)
+      .lte('data_agendamento', fetchFim)
+      .order('data_agendamento', { ascending: true })
 
-  const { data: agendamentos } = await atendimentosQuery
+    if (shouldFilterByProfissional) {
+      agendamentosMesLevesQuery.eq('profissional_id', user!.id)
+    }
+
+    const { data: agendamentosMesLeves } = await agendamentosMesLevesQuery
+    agendamentosComEfetivo = (agendamentosMesLeves ?? []).map((a) => ({
+      id: a.id,
+      paciente_id: '',
+      data_agendamento: a.data_agendamento,
+      status: a.status,
+      tipo: '',
+      pacientes: null,
+    }))
+  } else {
+    const usarQueryLeveAgenda = view === 'semana' || view === 'dia'
+    const { data: agendamentos } = usarQueryLeveAgenda
+      ? await (
+          shouldFilterByProfissional
+            ? supabase
+                .from('atendimentos')
+                .select(`
+                  id,
+                  paciente_id,
+                  profissional_id,
+                  agendamento_id,
+                  data_agendamento,
+                  status,
+                  tipo,
+                  numero_sessao,
+                  total_sessoes,
+                  pacientes (nome),
+                  profissional:profiles!profissional_id(full_name)
+                `)
+                .gte('data_agendamento', fetchInicio)
+                .lte('data_agendamento', fetchFim)
+                .eq('profissional_id', user!.id)
+                .order('data_agendamento', { ascending: true })
+            : supabase
+                .from('atendimentos')
+                .select(`
+                  id,
+                  paciente_id,
+                  profissional_id,
+                  agendamento_id,
+                  data_agendamento,
+                  status,
+                  tipo,
+                  numero_sessao,
+                  total_sessoes,
+                  pacientes (nome),
+                  profissional:profiles!profissional_id(full_name)
+                `)
+                .gte('data_agendamento', fetchInicio)
+                .lte('data_agendamento', fetchFim)
+                .order('data_agendamento', { ascending: true })
+        )
+      : await (
+          shouldFilterByProfissional
+            ? supabase
+                .from('atendimentos')
+                .select(`
+                  id,
+                  paciente_id,
+                  profissional_id,
+                  agendamento_id,
+                  data_agendamento,
+                  status,
+                  tipo,
+                  duracao_minutos,
+                  observacoes,
+                  numero_sessao,
+                  total_sessoes,
+                  pacientes (nome, telefone, email),
+                  profissional:profiles!profissional_id(full_name, role)
+                `)
+                .gte('data_agendamento', fetchInicio)
+                .lte('data_agendamento', fetchFim)
+                .eq('profissional_id', user!.id)
+                .order('data_agendamento', { ascending: true })
+            : supabase
+                .from('atendimentos')
+                .select(`
+                  id,
+                  paciente_id,
+                  profissional_id,
+                  agendamento_id,
+                  data_agendamento,
+                  status,
+                  tipo,
+                  duracao_minutos,
+                  observacoes,
+                  numero_sessao,
+                  total_sessoes,
+                  pacientes (nome, telefone, email),
+                  profissional:profiles!profissional_id(full_name, role)
+                `)
+                .gte('data_agendamento', fetchInicio)
+                .lte('data_agendamento', fetchFim)
+                .order('data_agendamento', { ascending: true })
+        )
 
   // Calcula numeração efetiva excluindo Falta/Cancelado
   const agendamentoIds = [...new Set(
-    (agendamentos ?? []).map(a => a.agendamento_id).filter(Boolean) as string[]
+    (agendamentos ?? [])
+      .filter(a => !!a.agendamento_id && (a.total_sessoes ?? 0) > 1)
+      .map(a => a.agendamento_id) as string[]
   )]
   let sessaoEfetivaMap = new Map<string, { sessao_efetiva: number; total_efetivo: number }>()
   if (agendamentoIds.length > 0) {
@@ -187,7 +274,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
     }
   }
 
-  const agendamentosComEfetivo: AgendamentoDetalhe[] = (agendamentos ?? []).map(a => {
+    agendamentosComEfetivo = (agendamentos ?? []).map(a => {
     const efetivo = sessaoEfetivaMap.get(a.id)
     return {
       ...a,
@@ -197,6 +284,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
       total_sessoes: efetivo?.total_efetivo ?? a.total_sessoes,
     }
   })
+  }
 
   const agendamentosMesQuery = supabase
     .from('atendimentos')
@@ -204,7 +292,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
     .gte('data_agendamento', getAppDayRangeUTC(formatAppDateKey(inicioDoMes)).start)
     .lte('data_agendamento', getAppDayRangeUTC(formatAppDateKey(fimDoMes)).end)
 
-  if (isFisioterapeuta || myAppointmentsOnly) agendamentosMesQuery.eq('profissional_id', user!.id)
+  if (shouldFilterByProfissional) agendamentosMesQuery.eq('profissional_id', user!.id)
 
   const { data: agendamentosMes } = await agendamentosMesQuery
 
@@ -212,9 +300,11 @@ export default async function AgendaPage({ searchParams }: PageProps) {
     agendamentosMes?.map(a => formatAppDateKey(a.data_agendamento)) || []
   )
 
-  const listaPacientes = await fetchAll((from, to) =>
-    supabase.from('pacientes').select('id, nome').eq('ativo', true).order('nome').range(from, to)
-  )
+  const listaPacientes = view === 'mes'
+    ? []
+    : await fetchAll((from, to) =>
+        supabase.from('pacientes').select('id, nome').eq('ativo', true).order('nome').range(from, to)
+      )
 
   const { data: listaProfissionais } = await supabase
     .from('profiles')
