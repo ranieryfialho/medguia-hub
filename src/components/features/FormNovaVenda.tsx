@@ -538,6 +538,7 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [] }: FormNov
       )}
 
       {/* Campos ocultos */}
+      <input type="hidden" name="paciente_id" value={pacienteId} />
       <input type="hidden" name="profissional_id" value={profissionalId} />
       <input type="hidden" name="origem" value={origem} />
       <input type="hidden" name="medico_referenciador_id" value={medicoReferenciadorId} />
