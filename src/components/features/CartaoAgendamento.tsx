@@ -5,13 +5,16 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
   CalendarDays, ChevronDown, ChevronUp, RefreshCw, Calendar,
-  CheckCircle, Hourglass, Stethoscope, CheckCheck, XCircle, UserX, CalendarClock, ClipboardList
+  CheckCircle, Hourglass, Stethoscope, CheckCheck, XCircle, UserX, CalendarClock, ClipboardList, Layers, StickyNote
 } from 'lucide-react'
 
 type ProntuarioResumo = {
   evolucao: string | null
   escala_dor: number | null
   queixa_principal: string | null
+  procedimentos?: string | null
+  observacoes?: string | null
+  updated_at?: string | null
 }
 
 type Sessao = {
@@ -30,7 +33,7 @@ type AgendamentoComSessoes = {
   sessoes: Sessao[]
 }
 
-const STATUS_CONFIG: Record<string, { label: string; cor: string; bg: string; Icon: any }> = {
+const STATUS_CONFIG: Record<string, { label: string; cor: string; bg: string; Icon: React.ElementType }> = {
   'Confirmado':      { label: 'Confirmado',      cor: 'text-green-700',   bg: 'bg-green-50',   Icon: CheckCircle },
   'Aguardando':      { label: 'Aguardando',      cor: 'text-amber-600',   bg: 'bg-amber-50',   Icon: Hourglass },
   'Em Atendimento':  { label: 'Em Atendimento',  cor: 'text-blue-600',    bg: 'bg-blue-50',    Icon: Stethoscope },
@@ -177,7 +180,13 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
               const sc = getStatusConfig(sessao.status)
               const SessaoIcon = sc.Icon
               const p = sessao.prontuario
-              const temProntuario = p && (p.evolucao || p.escala_dor !== null || p.queixa_principal)
+              const temProntuario = p && (
+                p.evolucao ||
+                p.escala_dor !== null ||
+                p.queixa_principal ||
+                p.procedimentos ||
+                p.observacoes
+              )
               return (
                 <div key={sessao.id} className={`rounded-lg border border-current/10 overflow-hidden ${sc.bg}`}>
                   <div className="flex items-center gap-3 p-2.5">
@@ -211,6 +220,11 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
                             EVA {p!.escala_dor}
                           </span>
                         )}
+                        {p!.updated_at && (
+                          <span className="text-[10px] text-slate-400">
+                            Atualizado em {format(new Date(p!.updated_at), "dd/MM/yyyy 'às' HH:mm")}
+                          </span>
+                        )}
                       </div>
                       {p!.queixa_principal && (
                         <p className="text-[11px] text-slate-600 leading-relaxed">
@@ -219,6 +233,18 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
                       )}
                       {p!.evolucao && (
                         <p className="text-[11px] text-slate-600 leading-relaxed line-clamp-3">{p!.evolucao}</p>
+                      )}
+                      {p!.procedimentos && (
+                        <p className="text-[11px] text-slate-600 leading-relaxed line-clamp-3 flex gap-1">
+                          <Layers size={12} className="text-slate-400 shrink-0 mt-0.5" />
+                          <span><span className="font-semibold">Procedimentos: </span>{p!.procedimentos}</span>
+                        </p>
+                      )}
+                      {p!.observacoes && (
+                        <p className="text-[11px] text-slate-600 leading-relaxed line-clamp-3 flex gap-1">
+                          <StickyNote size={12} className="text-slate-400 shrink-0 mt-0.5" />
+                          <span><span className="font-semibold">Observações: </span>{p!.observacoes}</span>
+                        </p>
                       )}
                     </div>
                   )}

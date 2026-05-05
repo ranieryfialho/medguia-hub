@@ -6,10 +6,10 @@ import { FiltrosJornada } from '@/components/features/FiltrosJornada'
 import { CartaoAgendamento } from '@/components/features/CartaoAgendamento'
 import { CartaoVenda, type VendaTimeline } from '@/components/features/CartaoVenda'
 import { BtnGerarPdfProntuario } from '@/components/features/BtnGerarPdfProntuario'
-import { buscarProntuariosPorPaciente } from '@/actions/prontuarios'
+import { requireModulo } from '@/lib/guard'
 import { Suspense } from 'react'
 import { format } from 'date-fns'
-import { requireModulo } from '@/lib/guard'
+import { buscarProntuariosPorPaciente } from '@/actions/prontuarios'
 import {
   AlertTriangle,
   FileText,
@@ -43,65 +43,94 @@ export default async function PacienteDetailsPage({
 
   if (error || !paciente) notFound()
 
-  const [{ data: atendimentos }, prontuarios] = await Promise.all([
+  type ProntuarioResumo = {
+    queixa_principal: string | null
+    evolucao: string | null
+    procedimentos: string | null
+    escala_dor: number | null
+    observacoes: string | null
+    updated_at: string | null
+  }
+
+  type AtendimentoComRelacoes = {
+    id: string
+    agendamento_id: string | null
+    data_agendamento: string
+    status: string
+    tipo?: string | null
+    observacoes?: string | null
+    agendamento?: { tipo?: string | null; is_recorrente?: boolean | null } | null
+  }
+
+  const [{ data: atendimentos }, prontuariosRaw, { data: vendasRaw }] = await Promise.all([
     supabase
       .from('atendimentos')
       .select(`*, agendamento:agendamentos(tipo, is_recorrente)`)
       .eq('paciente_id', pacienteId)
       .order('data_agendamento', { ascending: false }),
     buscarProntuariosPorPaciente(pacienteId),
+    supabase
+      .from('vendas')
+      .select(`
+        id,
+        origem,
+        medico_referenciador_nome,
+        data_venda,
+        observacoes,
+        profiles:profissional_id(full_name),
+        itens_venda(id, quantidade, preco_unitario, produtos(nome))
+      `)
+      .eq('paciente_id', pacienteId)
+      .order('data_venda', { ascending: false }),
   ])
 
+  const prontuarios = prontuariosRaw.map((p) => ({
+    atendimento_id: p.atendimento_id,
+    queixa_principal: p.queixa_principal,
+    evolucao: p.evolucao,
+    procedimentos: p.procedimentos,
+    escala_dor: p.escala_dor,
+    observacoes: p.observacoes,
+    updated_at: p.updated_at,
+  }))
+
   const prontuariosMap = new Map(
-    prontuarios.map(p => [p.atendimento_id, {
-      evolucao: p.evolucao,
-      escala_dor: p.escala_dor,
-      queixa_principal: p.queixa_principal,
-    }])
+    prontuarios.map((p) => [p.atendimento_id, p])
   )
 
-  const { data: vendasRaw } = await supabase
-    .from('vendas')
-    .select(`
-      id,
-      origem,
-      medico_referenciador_nome,
-      data_venda,
-      observacoes,
-      profiles:profissional_id(full_name),
-      itens_venda(id, quantidade, preco_unitario, produtos(nome))
-    `)
-    .eq('paciente_id', pacienteId)
-    .order('data_venda', { ascending: false })
+  const atendimentosComProntuario = (atendimentos ?? []) as AtendimentoComRelacoes[]
+
+  const vendas = (vendasRaw ?? []) as unknown as VendaTimeline[]
 
   // Agrupar atendimentos por agendamento_id
-  const gruposMap = new Map<string, { agendamento_id: string | null; tipo: string; is_recorrente: boolean; sessoes: any[] }>()
+  const gruposMap = new Map<string, { agendamento_id: string | null; tipo: string; is_recorrente: boolean; sessoes: Array<AtendimentoComRelacoes & { prontuario: ProntuarioResumo | null }> }>()
 
-  for (const atend of atendimentos ?? []) {
+  for (const atend of atendimentosComProntuario) {
+    const prontuario = prontuariosMap.get(atend.id) ?? null
     const chave = atend.agendamento_id ?? `avulso_${atend.id}`
     if (!gruposMap.has(chave)) {
       gruposMap.set(chave, {
         agendamento_id: atend.agendamento_id ?? null,
-        tipo: (atend.agendamento as any)?.tipo ?? atend.tipo ?? 'Sessão',
-        is_recorrente: (atend.agendamento as any)?.is_recorrente ?? false,
+        tipo: atend.agendamento?.tipo ?? atend.tipo ?? 'Sessão',
+        is_recorrente: atend.agendamento?.is_recorrente ?? false,
         sessoes: [],
       })
     }
     gruposMap.get(chave)!.sessoes.push({
       ...atend,
-      prontuario: prontuariosMap.get(atend.id) ?? null,
+      prontuario,
     })
   }
 
   // Ordenar grupos pela data da sessão mais recente
-  let grupos = Array.from(gruposMap.values()).sort((a, b) => {
+  const grupos = Array.from(gruposMap.values()).sort((a, b) => {
     const dataA = Math.max(...a.sessoes.map(s => new Date(s.data_agendamento).getTime()))
     const dataB = Math.max(...b.sessoes.map(s => new Date(s.data_agendamento).getTime()))
     return dataB - dataA
   })
 
   // Filtros
-  let gruposFiltrados = grupos.filter((grupo) => {
+  const gruposFiltrados = grupos.filter((grupo) => {
     const matchesBusca = termoBusca
       ? grupo.tipo.toLowerCase().includes(termoBusca.toLowerCase()) ||
         grupo.sessoes.some(s =>
@@ -118,7 +147,6 @@ export default async function PacienteDetailsPage({
   })
 
   // Filtrar vendas — ocultar quando há filtro de status de agendamento ativo
-  const vendas = (vendasRaw ?? []) as unknown as VendaTimeline[]
   const mostrarVendas = !statusFiltro || statusFiltro === 'todos'
   const vendasFiltradas = mostrarVendas
     ? termoBusca
@@ -151,7 +179,7 @@ export default async function PacienteDetailsPage({
   )
 
   // Para o resumo clínico e última interação, usar atendimentos flat
-  const todosAtendimentos = atendimentos ?? []
+  const todosAtendimentos = atendimentosComProntuario
 
   const calcularIdade = (dataNascimento: string | null) => {
     if (!dataNascimento) return '--'
@@ -197,7 +225,7 @@ export default async function PacienteDetailsPage({
       observacoes_gerais: paciente.observacoes_gerais ?? null,
       ativo: isAtivo,
     },
-    sessoesParaPdf: todosAtendimentos.map((a: any) => ({
+    sessoesParaPdf: todosAtendimentos.map((a) => ({
       id: a.id,
       data_agendamento: a.data_agendamento,
       status: a.status,
