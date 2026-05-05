@@ -8,6 +8,8 @@ import {
   validarHorarioDisponibilidade,
   type DisponibilidadeDia,
 } from '@/lib/disponibilidade'
+import { validarConflitosProfissional } from '@/lib/agendamento-conflitos'
+import { recorrenciaSemanalAtiva } from '@/lib/recorrencia'
 
 function extractTimePart(dateTime: string) {
   const [, timePart = '00:00:00'] = dateTime.split('T')
@@ -64,12 +66,10 @@ function removerMetadadosDisponibilidade(atendimento: {
   hora_fim: string
   [key: string]: boolean | number | string | null | undefined
 }) {
-  const {
-    data: _data,
-    hora_inicio: _horaInicio,
-    hora_fim: _horaFim,
-    ...semMetadados
-  } = atendimento
+  const semMetadados = { ...atendimento }
+  delete semMetadados.data
+  delete semMetadados.hora_inicio
+  delete semMetadados.hora_fim
   return semMetadados
 }
 
@@ -108,38 +108,6 @@ export async function criarAgendamento(formData: FormData) {
   let duracao = (end.getTime() - start.getTime()) / 60000
   if (duracao <= 0) duracao = 30 // Fallback de segurança
 
-  // Criar registro pai em agendamentos
-  const { data: agendamentoPai, error: erroAgendamento } = await supabase
-    .from('agendamentos')
-    .insert({
-      paciente_id,
-      profissional_id,
-      tipo: tipo || 'Sessão',
-      data_inicio: dataStr,
-      hora_inicio: horaInicio,
-      hora_fim: horaFim,
-      duracao_minutos: duracao,
-      is_recorrente: isRecorrente,
-      frequencia: isRecorrente ? frequencia : null,
-      dias_semana: isRecorrente ? diasSemana : null,
-      termina_em: isRecorrente ? terminaEm : null,
-      data_fim: isRecorrente && terminaEm === 'data' ? dataFimStr : null,
-      total_ocorrencias: isRecorrente && terminaEm === 'ocorrencias' ? ocorrencias : null,
-      observacoes,
-      gerou_venda,
-      marcou_retorno,
-      criado_por: user?.id ?? null,
-    })
-    .select('id')
-    .single()
-
-  if (erroAgendamento || !agendamentoPai) {
-    console.error('Erro ao criar agendamento pai:', erroAgendamento?.message)
-    return { error: `Erro ao criar agendamento: ${erroAgendamento?.message ?? 'Resposta vazia do banco'}` }
-  }
-
-  const agendamentoId = agendamentoPai.id
-
   let atendimentosParaInserir: Array<{
     paciente_id: string
     profissional_id: string
@@ -172,7 +140,7 @@ export async function criarAgendamento(formData: FormData) {
       criado_por: user?.id ?? null,
       gerou_venda,
       marcou_retorno,
-      agendamento_id: agendamentoId,
+      agendamento_id: '',
       data: dataStr,
       hora_inicio: horaInicio,
       hora_fim: horaFim,
@@ -219,7 +187,7 @@ export async function criarAgendamento(formData: FormData) {
         const dataFormatada = formatAppDateKey(dataBase)
         atendimentosParaInserir.push({
           paciente_id, profissional_id, tipo, duracao_minutos: duracao, observacoes, status: 'Aguardando',
-          criado_por: user?.id ?? null, gerou_venda, marcou_retorno, agendamento_id: agendamentoId,
+          criado_por: user?.id ?? null, gerou_venda, marcou_retorno, agendamento_id: '',
           data_agendamento: buildAppDateTimeISO(dataFormatada, horaInicio),
           data: dataFormatada,
           hora_inicio: horaInicio,
@@ -236,22 +204,15 @@ export async function criarAgendamento(formData: FormData) {
       if (diasArray.length === 0) return { error: 'Selecione ao menos um dia da semana.' }
 
       const semanasPulo = parseInt(frequencia)
-      const inicioDaSemanaBase = new Date(`${dataStr}T00:00:00-03:00`)
-      inicioDaSemanaBase.setDate(inicioDaSemanaBase.getDate() - inicioDaSemanaBase.getDay())
-
       const dataAtual = new Date(`${dataStr}T00:00:00-03:00`)
 
       while (count < limiteOcorrencias && dataAtual <= limiteData) {
         if (diasArray.includes(dataAtual.getDay())) {
-          // Descobre se a semana atual é uma semana "ativa" baseado no pulo (1, 2 ou 3)
-          const diffTime = dataAtual.getTime() - inicioDaSemanaBase.getTime()
-          const diffSemanas = Math.floor(Math.floor(diffTime / (1000 * 60 * 60 * 24)) / 7)
-
-          if (diffSemanas % semanasPulo === 0) {
+          if (recorrenciaSemanalAtiva(dataAtual, dataInicio, semanasPulo)) {
             const dataFormatada = formatAppDateKey(dataAtual)
             atendimentosParaInserir.push({
               paciente_id, profissional_id, tipo, duracao_minutos: duracao, observacoes, status: 'Aguardando',
-              criado_por: user?.id ?? null, gerou_venda, marcou_retorno, agendamento_id: agendamentoId,
+              criado_por: user?.id ?? null, gerou_venda, marcou_retorno, agendamento_id: '',
               data_agendamento: buildAppDateTimeISO(dataFormatada, horaInicio),
               data: dataFormatada,
               hora_inicio: horaInicio,
@@ -288,8 +249,56 @@ export async function criarAgendamento(formData: FormData) {
     return erroDisponibilidade
   }
 
+  const erroConflito = await validarConflitosProfissional(
+    supabase,
+    profissional_id,
+    atendimentosParaInserir.map((a) => ({
+      data: a.data,
+      hora_inicio: a.hora_inicio,
+      hora_fim: a.hora_fim,
+    })),
+  )
+
+  if (erroConflito) {
+    return erroConflito
+  }
+
+  const { data: agendamentoPai, error: erroAgendamento } = await supabase
+    .from('agendamentos')
+    .insert({
+      paciente_id,
+      profissional_id,
+      tipo: tipo || 'Sessão',
+      data_inicio: dataStr,
+      hora_inicio: horaInicio,
+      hora_fim: horaFim,
+      duracao_minutos: duracao,
+      is_recorrente: isRecorrente,
+      frequencia: isRecorrente ? frequencia : null,
+      dias_semana: isRecorrente ? diasSemana : null,
+      termina_em: isRecorrente ? terminaEm : null,
+      data_fim: isRecorrente && terminaEm === 'data' ? dataFimStr : null,
+      total_ocorrencias: isRecorrente && terminaEm === 'ocorrencias' ? ocorrencias : null,
+      observacoes,
+      gerou_venda,
+      marcou_retorno,
+      criado_por: user?.id ?? null,
+    })
+    .select('id')
+    .single()
+
+  if (erroAgendamento || !agendamentoPai) {
+    console.error('Erro ao criar agendamento pai:', erroAgendamento?.message)
+    return { error: `Erro ao criar agendamento: ${erroAgendamento?.message ?? 'Resposta vazia do banco'}` }
+  }
+
   const { error } = await supabase.from('atendimentos').insert(
-    atendimentosParaInserir.map(removerMetadadosDisponibilidade),
+    atendimentosParaInserir.map((atendimento) =>
+      removerMetadadosDisponibilidade({
+        ...atendimento,
+        agendamento_id: agendamentoPai.id,
+      }),
+    ),
   )
 
   if (error) {
@@ -380,18 +389,13 @@ function calcularProximaDataAgenda(
   const semanasPulo = parseInt(frequencia)
   const dataInicio = toUTC(dataInicioStr)
 
-  const baseWeekStart = new Date(dataInicio)
-  baseWeekStart.setUTCDate(dataInicio.getUTCDate() - dataInicio.getUTCDay())
-
   const dataAtual = new Date(ultimaData)
   dataAtual.setUTCDate(dataAtual.getUTCDate() + 1)
 
   for (let i = 0; i < 365; i++) {
     const dayOfWeek = dataAtual.getUTCDay()
     if (diasArray.includes(dayOfWeek)) {
-      const diffDias = Math.round((dataAtual.getTime() - baseWeekStart.getTime()) / (1000 * 60 * 60 * 24))
-      const diffSemanas = Math.floor(diffDias / 7)
-      if (diffSemanas % semanasPulo === 0) {
+      if (recorrenciaSemanalAtiva(dataAtual, dataInicio, semanasPulo)) {
         return dataAtual.toISOString().split('T')[0]
       }
     }
@@ -525,6 +529,17 @@ export async function editarAtendimento(id: string, formData: FormData) {
 
   if (erroDisponibilidade) {
     return erroDisponibilidade
+  }
+
+  const erroConflito = await validarConflitosProfissional(
+    supabase,
+    profissional_id,
+    [{ data: dataStr, hora_inicio: horaInicio, hora_fim: horaFim }],
+    { ignorarAtendimentoId: id },
+  )
+
+  if (erroConflito) {
+    return erroConflito
   }
 
   const start = new Date(`1970-01-01T${horaInicio}:00`)

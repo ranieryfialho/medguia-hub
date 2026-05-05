@@ -3,6 +3,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { buildAppDateTimeISO } from '@/lib/datetime'
+import { calcularHoraFim, validarConflitosProfissional } from '@/lib/agendamento-conflitos'
+import { recorrenciaSemanalAtiva } from '@/lib/recorrencia'
 
 /**
  * Dado a data da última sessão e o padrão de recorrência, calcula a próxima data
@@ -29,10 +31,6 @@ function calcularProximaData(
   const semanasPulo = parseInt(frequencia)
   const dataInicio = toUTC(dataInicioStr)
 
-  // Domingo da semana base (igual à lógica de criarAgendamento)
-  const baseWeekStart = new Date(dataInicio)
-  baseWeekStart.setUTCDate(dataInicio.getUTCDate() - dataInicio.getUTCDay())
-
   // Buscar a partir do dia seguinte à última sessão
   const dataAtual = new Date(ultimaData)
   dataAtual.setUTCDate(dataAtual.getUTCDate() + 1)
@@ -40,9 +38,7 @@ function calcularProximaData(
   for (let i = 0; i < 365; i++) {
     const dayOfWeek = dataAtual.getUTCDay()
     if (diasArray.includes(dayOfWeek)) {
-      const diffDias = Math.round((dataAtual.getTime() - baseWeekStart.getTime()) / (1000 * 60 * 60 * 24))
-      const diffSemanas = Math.floor(diffDias / 7)
-      if (diffSemanas % semanasPulo === 0) {
+      if (recorrenciaSemanalAtiva(dataAtual, dataInicio, semanasPulo)) {
         return dataAtual.toISOString().split('T')[0]
       }
     }
@@ -157,6 +153,20 @@ export async function adicionarSessaoReposicao(
   if (!agendamento) return { error: 'Agendamento não encontrado.' }
   if (!origem) return { error: 'Sessão de origem não encontrada.' }
 
+  const erroConflito = await validarConflitosProfissional(
+    supabase,
+    agendamento.profissional_id,
+    [{
+      data,
+      hora_inicio: hora,
+      hora_fim: calcularHoraFim(hora, agendamento.duracao_minutos ?? 30),
+    }],
+  )
+
+  if (erroConflito) {
+    return erroConflito
+  }
+
   const { error } = await supabase.from('atendimentos').insert({
     paciente_id: agendamento.paciente_id,
     profissional_id: agendamento.profissional_id,
@@ -199,6 +209,20 @@ export async function criarAtendimentoReagendado(
     .single()
 
   if (!origem) return { error: 'Atendimento não encontrado.' }
+
+  const erroConflito = await validarConflitosProfissional(
+    supabase,
+    origem.profissional_id,
+    [{
+      data,
+      hora_inicio: hora,
+      hora_fim: calcularHoraFim(hora, origem.duracao_minutos ?? 30),
+    }],
+  )
+
+  if (erroConflito) {
+    return erroConflito
+  }
 
   const { error } = await supabase.from('atendimentos').insert({
     paciente_id: origem.paciente_id,

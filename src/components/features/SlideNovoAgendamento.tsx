@@ -236,17 +236,42 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
     setError('')
 
     const formData = new FormData(e.currentTarget)
+    formData.set('paciente_id', selectedPacienteId)
+    formData.set('profissional_id', selectedProfissionalId)
+    formData.set('data', dataAgendamento)
+    formData.set('hora_inicio', horaInicioValue)
+    formData.set('hora_fim', horaFimValue)
+    formData.set('tipo', selectedTipo)
+    formData.set('observacoes', observacoesValue)
+
+    if (!selectedPacienteId || !selectedProfissionalId || !dataAgendamento || !horaInicioValue || !horaFimValue) {
+      setError('Preencha todos os campos obrigatórios.')
+      setLoading(false)
+      return
+    }
 
     let res
     if (modoEdicao && atendimentoParaEditar) {
       res = await editarAtendimento(atendimentoParaEditar.id, formData)
     } else {
-      formData.append('is_recorrente', String(isRecorrente))
+      formData.set('is_recorrente', String(isRecorrente))
       if (isRecorrente) {
-        formData.append('frequencia', frequencia)
-        formData.append('dias_semana', diasSelecionados.join(','))
-        formData.append('termina_em', terminaEm)
-        formData.append('ocorrencias', ocorrencias)
+        formData.set('frequencia', frequencia)
+        formData.set('dias_semana', diasSelecionados.join(','))
+        formData.set('termina_em', terminaEm)
+        formData.set('ocorrencias', ocorrencias)
+
+        if (!frequencia) {
+          setError('Selecione a frequência da recorrência.')
+          setLoading(false)
+          return
+        }
+
+        if (frequencia !== 'mes' && diasSelecionados.length === 0) {
+          setError('Selecione ao menos um dia da semana para a recorrência.')
+          setLoading(false)
+          return
+        }
       }
       res = await criarAgendamento(formData)
     }
