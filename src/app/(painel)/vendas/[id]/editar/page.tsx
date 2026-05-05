@@ -23,6 +23,11 @@ interface VendaRow {
   } | null
 }
 
+function firstRelation<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) return value[0] ?? null
+  return value ?? null
+}
+
 function formatProfile(profile: ProfileRow) {
   return {
     id: profile.id,
@@ -105,6 +110,17 @@ export default async function EditarVendaPage({
     )
   }
 
+  const vendaNormalizada: VendaRow = {
+    id: venda.id,
+    paciente_id: venda.paciente_id,
+    profissional_id: venda.profissional_id,
+    origem: venda.origem,
+    medico_referenciador_nome: venda.medico_referenciador_nome,
+    data_venda: venda.data_venda,
+    observacoes: venda.observacoes,
+    pacientes: firstRelation(venda.pacientes as VendaRow['pacientes'] | VendaRow['pacientes'][]),
+  }
+
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
@@ -125,7 +141,7 @@ export default async function EditarVendaPage({
       <div className="bg-surface rounded-lg border border-border shadow-sm p-6">
         <FormEditarVenda
           vendaId={id}
-          vendaInicial={venda as VendaRow}
+          vendaInicial={vendaNormalizada}
           itensInicial={itensVenda || []}
           profissionais={((profiles || []) as ProfileRow[]).map(formatProfile)}
           produtos={produtos || []}
