@@ -7,6 +7,7 @@ import { setStatusDisponibilidade, type StatusDisponibilidade } from '@/actions/
 import { usePathname } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { estaDentroDaJornadaAgora, getDiaSemanaAtualNaTimezone, type DisponibilidadeDia } from '@/lib/disponibilidade'
+import { useSlideNovoAgendamentoAberto } from '@/components/layout/SlideNovoAgendamentoContext'
 
 type Profissional = { id: string; nome: string; cargo: string }
 
@@ -51,16 +52,28 @@ export function WidgetDisponibilidade({ profissionais, initialStatuses, currentU
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [, setTick] = useState(0)
+  const slideNovoAgendamentoAberto = useSlideNovoAgendamentoAberto()
+  const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
     const id = setInterval(() => setTick(t => t + 1), 30_000)
     return () => clearInterval(id)
   }, [])
 
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 767px)')
+    const sync = () => setIsMobile(mediaQuery.matches)
+
+    sync()
+    mediaQuery.addEventListener('change', sync)
+    return () => mediaQuery.removeEventListener('change', sync)
+  }, [])
+
   // Ocultar em telas de cadastro/edição que possuem barras fixas no rodapé
   const isTelaCadastro = pathname?.includes('/novo') || pathname?.includes('/editar') || pathname?.includes('/vendas/nova')
   
   if (isTelaCadastro) return null
+  if (isMobile && slideNovoAgendamentoAberto) return null
 
   const diaSemanaAtual = getDiaSemanaAtualNaTimezone()
   const statusesEfetivos = statuses.map((status) => {
