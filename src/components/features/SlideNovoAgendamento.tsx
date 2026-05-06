@@ -88,6 +88,7 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
   const [pacienteSearch, setPacienteSearch] = useState('')
   const [pacienteDropdownOpen, setPacienteDropdownOpen] = useState(false)
   const comboboxRef = useRef<HTMLDivElement>(null)
+  const [tipoProfissional, setTipoProfissional] = useState<'fisioterapeuta' | 'medico'>('fisioterapeuta')
   const [selectedProfissionalId, setSelectedProfissionalId] = useState('')
   const [selectedTipo, setSelectedTipo] = useState(primeiroTipoDisponivel)
   const [horaInicioValue, setHoraInicioValue] = useState('')
@@ -113,6 +114,8 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
       const pacienteEdit = pacientes.find(p => p.id === atendimentoParaEditar.paciente_id)
       if (pacienteEdit) setPacienteSearch(pacienteEdit.nome)
       setSelectedProfissionalId(atendimentoParaEditar.profissional_id ?? '')
+      const profEdit = profissionais.find(p => p.id === atendimentoParaEditar.profissional_id)
+      setTipoProfissional(profEdit?.cargo === 'medico' ? 'medico' : 'fisioterapeuta')
       setDataAgendamento(format(dataObj, 'yyyy-MM-dd'))
       setHoraInicioValue(format(dataObj, 'HH:mm'))
       if (atendimentoParaEditar.duracao_minutos) {
@@ -241,6 +244,7 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
       setPacienteSearch('')
     }
     setSelectedTipo(primeiroTipoDisponivel)
+    setTipoProfissional('fisioterapeuta')
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -326,6 +330,12 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
     ? [{ id: '__selecionado__', nome: selectedTipo, ativo: true, ordem: -1 }, ...tiposAtivos]
     : tiposAtivos
 
+  const profissionalSelecionado = profissionais.find((p) => p.id === selectedProfissionalId)
+  const profissionalSelecionadoEhMedico = profissionalSelecionado?.cargo === 'medico'
+  const profissionaisFiltrados = profissionais.filter(p =>
+    tipoProfissional === 'medico' ? p.cargo === 'medico' : p.cargo === 'fisioterapeuta',
+  )
+
   return (
     <>
       {/* Botão trigger — apenas no modo autônomo */}
@@ -400,12 +410,30 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
               </div>
             </div>
 
-            <div className="space-y-1 relative">
-              <label className="text-xs font-semibold text-[#6d7a75] absolute -top-2 left-3 bg-white px-1 z-10">Profissional / Serviço *</label>
-              <select name="profissional_id" required value={selectedProfissionalId} onChange={e => setSelectedProfissionalId(e.target.value)} className="w-full bg-white border border-[#bcc9c4] rounded-lg px-4 py-3 text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/50 focus:border-[#006b5a] transition-all font-medium appearance-none shadow-sm">
-                <option value="">Selecione uma opção</option>
-                {profissionais.map(p => <option key={p.id} value={p.id}>{p.nome} ({p.cargo})</option>)}
-              </select>
+            <div className="space-y-3">
+              <div className="flex rounded-lg border border-[#bcc9c4] overflow-hidden shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => { setTipoProfissional('fisioterapeuta'); setSelectedProfissionalId('') }}
+                  className={`flex-1 py-2.5 text-sm font-semibold transition-colors ${tipoProfissional === 'fisioterapeuta' ? 'bg-[#006b5a] text-white' : 'bg-white text-[#6d7a75] hover:bg-[#f0f5f4]'}`}
+                >
+                  Fisioterapeuta
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setTipoProfissional('medico'); setSelectedProfissionalId('') }}
+                  className={`flex-1 py-2.5 text-sm font-semibold transition-colors border-l border-[#bcc9c4] ${tipoProfissional === 'medico' ? 'bg-[#006b5a] text-white' : 'bg-white text-[#6d7a75] hover:bg-[#f0f5f4]'}`}
+                >
+                  Médico
+                </button>
+              </div>
+              <div className="space-y-1 relative">
+                <label className="text-xs font-semibold text-[#6d7a75] absolute -top-2 left-3 bg-white px-1 z-10">Profissional *</label>
+                <select name="profissional_id" required value={selectedProfissionalId} onChange={e => setSelectedProfissionalId(e.target.value)} className="w-full bg-white border border-[#bcc9c4] rounded-lg px-4 py-3 text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/50 focus:border-[#006b5a] transition-all font-medium appearance-none shadow-sm">
+                  <option value="">Selecione uma opção</option>
+                  {profissionaisFiltrados.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                </select>
+              </div>
             </div>
 
             <div className="space-y-1 relative">
@@ -448,7 +476,9 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
             {/* Hint de disponibilidade do profissional */}
             {(() => {
               if (!selectedProfissionalId || !dataAgendamento) return null
-              const nomeProfissional = profissionais.find(p => p.id === selectedProfissionalId)?.nome ?? 'Profissional'
+              if (profissionalSelecionadoEhMedico) return null
+
+              const nomeProfissional = profissionalSelecionado?.nome ?? 'Profissional'
               const NOMES_DIA = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado']
               const diaSemana = disponibilidadeSelecionada?.diaSemana ?? new Date(`${dataAgendamento}T00:00:00`).getDay()
               const disp = disponibilidadeSelecionada?.disponibilidade ?? null

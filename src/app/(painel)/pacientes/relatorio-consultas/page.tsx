@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { BtnGerarPdfConsultas } from '@/components/features/BtnGerarPdfConsultas'
 import { FiltrosConsultas } from '@/components/FiltrosConsultas'
+import { podeEntrarNoWidgetDisponibilidade } from '@/lib/profissionais'
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>
 
@@ -88,6 +89,28 @@ function formatarStatus(status: string) {
   }
 }
 
+function buildRelatorioConsultasUrl({
+  visao,
+  data_inicio,
+  data_fim,
+  tipos_filtro,
+  status_filtro,
+}: {
+  visao: 'fisioterapia' | 'medicos'
+  data_inicio: string
+  data_fim: string
+  tipos_filtro: string[]
+  status_filtro: string
+}) {
+  const query = new URLSearchParams()
+  query.set('visao', visao)
+  query.set('data_inicio', data_inicio)
+  query.set('data_fim', data_fim)
+  if (status_filtro) query.set('status', status_filtro)
+  for (const tipo of tipos_filtro) query.append('tipo', tipo)
+  return `/pacientes/relatorio-consultas?${query.toString()}`
+}
+
 export default async function RelatorioConsultasPage({
   searchParams,
 }: {
@@ -103,11 +126,12 @@ export default async function RelatorioConsultasPage({
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('nivel_acesso')
+    .select('nivel_acesso, role')
     .eq('id', user.id)
     .single()
 
   const isGestorOuMaster = profile?.nivel_acesso === 'gestor' || profile?.nivel_acesso === 'master'
+  const roleUsuario = profile?.role ?? null
 
   const hoje = new Date()
   const dataInicioPadrao = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0, 10)
@@ -115,19 +139,31 @@ export default async function RelatorioConsultasPage({
 
   const data_inicio = (params.data_inicio as string) || dataInicioPadrao
   const data_fim = (params.data_fim as string) || dataFimPadrao
+  const visaoParam = params.visao === 'medicos' ? 'medicos' : 'fisioterapia'
+  const visao = isGestorOuMaster ? visaoParam : roleUsuario === 'medico' ? 'medicos' : 'fisioterapia'
   const profissional_id = (params.profissional_id as string) || ''
+  const medico_id = (params.medico_id as string) || ''
   const tipos_filtro = Array.isArray(params.tipo) ? params.tipo : params.tipo ? [params.tipo] : []
   const status_filtro = (params.status as string) || ''
 
-  const profissionalFiltroEfetivo = isGestorOuMaster ? profissional_id : user.id
+  const responsavelSelecionadoId = visao === 'medicos' ? medico_id : profissional_id
+  const profissionaisFiltroEfetivos = isGestorOuMaster
+    ? (responsavelSelecionadoId ? [responsavelSelecionadoId] : [])
+    : [user.id]
   const dataInicioIso = `${data_inicio}T00:00:00`
   const dataFimIso = `${data_fim}T23:59:59`
 
-  const [{ data: profissionaisRaw }, { data: disponibilidadeRaw }] = await Promise.all([
+  const [{ data: profissionaisRaw }, { data: medicosRaw }, { data: disponibilidadeRaw }] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, full_name')
+      .select('id, full_name, role')
       .in('role', ['fisioterapeuta', 'gestor'])
+      .eq('ativo', true)
+      .order('full_name'),
+    supabase
+      .from('profiles')
+      .select('id, full_name, role')
+      .eq('role', 'medico')
       .eq('ativo', true)
       .order('full_name'),
     supabase
@@ -141,12 +177,23 @@ export default async function RelatorioConsultasPage({
   )
 
   const profissionais = (profissionaisRaw ?? [])
-    .filter((item: { id: string; full_name: string | null }) => profissionaisComJornada.has(item.id))
-    .map((item: { id: string; full_name: string | null }) => ({
+    .filter((item: { id: string; full_name: string | null; role: string | null }) =>
+      podeEntrarNoWidgetDisponibilidade(item, profissionaisComJornada),
+    )
+    .map((item: { id: string; full_name: string | null; role: string | null }) => ({
       id: item.id,
       nome: item.full_name || 'Sem nome',
     }))
-  const profissionaisMap = new Map(profissionais.map((item) => [item.id, item.nome]))
+
+  const medicos = (medicosRaw ?? [])
+    .map((item: { id: string; full_name: string | null; role: string | null }) => ({
+      id: item.id,
+      nome: item.full_name || 'Sem nome',
+    }))
+
+  const opcoesResponsaveis = visao === 'medicos' ? medicos : profissionais
+
+  const profissionaisMap = new Map([...profissionais, ...medicos].map((item) => [item.id, item.nome]))
 
   let agendamentosQuery = supabase
     .from('agendamentos')
@@ -154,8 +201,10 @@ export default async function RelatorioConsultasPage({
     .gte('data_inicio', data_inicio)
     .lte('data_inicio', data_fim)
 
-  if (profissionalFiltroEfetivo) {
-    agendamentosQuery = agendamentosQuery.eq('profissional_id', profissionalFiltroEfetivo)
+  if (profissionaisFiltroEfetivos.length === 1) {
+    agendamentosQuery = agendamentosQuery.eq('profissional_id', profissionaisFiltroEfetivos[0])
+  } else if (profissionaisFiltroEfetivos.length > 1) {
+    agendamentosQuery = agendamentosQuery.in('profissional_id', profissionaisFiltroEfetivos)
   }
   if (tipos_filtro.length > 0) {
     agendamentosQuery = agendamentosQuery.in('tipo', tipos_filtro)
@@ -167,8 +216,10 @@ export default async function RelatorioConsultasPage({
     .gte('data_agendamento', dataInicioIso)
     .lte('data_agendamento', dataFimIso)
 
-  if (profissionalFiltroEfetivo) {
-    atendimentosQuery = atendimentosQuery.eq('profissional_id', profissionalFiltroEfetivo)
+  if (profissionaisFiltroEfetivos.length === 1) {
+    atendimentosQuery = atendimentosQuery.eq('profissional_id', profissionaisFiltroEfetivos[0])
+  } else if (profissionaisFiltroEfetivos.length > 1) {
+    atendimentosQuery = atendimentosQuery.in('profissional_id', profissionaisFiltroEfetivos)
   }
   if (tipos_filtro.length > 0) {
     atendimentosQuery = atendimentosQuery.in('tipo', tipos_filtro)
@@ -332,15 +383,53 @@ export default async function RelatorioConsultasPage({
         </div>
       </div>
 
+      {isGestorOuMaster && (
+        <div className="inline-flex rounded-2xl bg-[#dee3e3] p-1">
+          <Link
+            href={buildRelatorioConsultasUrl({
+              visao: 'fisioterapia',
+              data_inicio,
+              data_fim,
+              tipos_filtro,
+              status_filtro,
+            })}
+            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+              visao === 'fisioterapia'
+                ? 'bg-white text-[#006b5a] shadow-sm'
+                : 'text-[#3d4945] hover:text-[#171d1c]'
+            }`}
+          >
+            Equipe de fisioterapia
+          </Link>
+          <Link
+            href={buildRelatorioConsultasUrl({
+              visao: 'medicos',
+              data_inicio,
+              data_fim,
+              tipos_filtro,
+              status_filtro,
+            })}
+            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+              visao === 'medicos'
+                ? 'bg-white text-[#006b5a] shadow-sm'
+                : 'text-[#3d4945] hover:text-[#171d1c]'
+            }`}
+          >
+            Médicos
+          </Link>
+        </div>
+      )}
+
       <FiltrosConsultas
+        visao={visao}
         dataInicio={data_inicio}
         dataFim={data_fim}
         dataInicioPadrao={dataInicioPadrao}
         dataFimPadrao={dataFimPadrao}
-        profissionalId={profissional_id}
+        responsavelId={responsavelSelecionadoId}
         tiposFiltro={tipos_filtro}
         statusFiltro={status_filtro}
-        profissionais={profissionais}
+        profissionais={opcoesResponsaveis}
         opcoesTipos={opcoesTipos}
         opcoesStatus={opcoesStatus}
         isGestorOuMaster={isGestorOuMaster}
@@ -434,13 +523,17 @@ export default async function RelatorioConsultasPage({
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100">
-            <h2 className="font-semibold text-slate-900">Por Fisioterapeuta</h2>
+            <h2 className="font-semibold text-slate-900">
+              {visao === 'medicos' ? 'Por Médico' : 'Por Equipe de Fisioterapia'}
+            </h2>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
                 <tr>
-                  <th className="text-left px-4 py-3">Fisioterapeuta</th>
+                  <th className="text-left px-4 py-3">
+                    {visao === 'medicos' ? 'Médico' : 'Responsável'}
+                  </th>
                   <th className="text-right px-4 py-3">Agend.</th>
                   <th className="text-right px-4 py-3">Recorr.</th>
                   <th className="text-right px-4 py-3">Atend.</th>
@@ -453,7 +546,9 @@ export default async function RelatorioConsultasPage({
                 {linhasProfissionalOrdenadas.length === 0 && (
                   <tr>
                     <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
-                      Nenhum fisioterapeuta com dados no período.
+                      {visao === 'medicos'
+                        ? 'Nenhum médico com dados no período.'
+                        : 'Nenhum responsável com dados no período.'}
                     </td>
                   </tr>
                 )}

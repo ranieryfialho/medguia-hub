@@ -32,6 +32,17 @@ async function carregarDisponibilidadesProfissional(profissionalId: string) {
   return disponibilidades
 }
 
+async function carregarRoleProfissional(profissionalId: string) {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', profissionalId)
+    .maybeSingle()
+
+  return data?.role ?? null
+}
+
 function validarOcorrenciasNaDisponibilidade(
   disponibilidades: Map<number, DisponibilidadeDia>,
   ocorrencias: { data: string; hora_inicio: string; hora_fim: string }[],
@@ -100,7 +111,8 @@ export async function criarAgendamento(formData: FormData) {
     return { error: 'Preencha todos os campos obrigatórios.' }
   }
 
-  const disponibilidades = await carregarDisponibilidadesProfissional(profissional_id)
+  const roleProfissional = await carregarRoleProfissional(profissional_id)
+  const exigeDisponibilidade = roleProfissional !== 'medico'
 
   // Calcula a duração em minutos
   const start = new Date(`1970-01-01T${horaInicio}:00`)
@@ -236,17 +248,20 @@ export async function criarAgendamento(formData: FormData) {
     }))
   }
 
-  const erroDisponibilidade = validarOcorrenciasNaDisponibilidade(
-    disponibilidades,
-    atendimentosParaInserir.map((a) => ({
-      data: a.data,
-      hora_inicio: a.hora_inicio,
-      hora_fim: a.hora_fim,
-    })),
-  )
+  if (exigeDisponibilidade) {
+    const disponibilidades = await carregarDisponibilidadesProfissional(profissional_id)
+    const erroDisponibilidade = validarOcorrenciasNaDisponibilidade(
+      disponibilidades,
+      atendimentosParaInserir.map((a) => ({
+        data: a.data,
+        hora_inicio: a.hora_inicio,
+        hora_fim: a.hora_fim,
+      })),
+    )
 
-  if (erroDisponibilidade) {
-    return erroDisponibilidade
+    if (erroDisponibilidade) {
+      return erroDisponibilidade
+    }
   }
 
   const erroConflito = await validarConflitosProfissional(
@@ -522,13 +537,16 @@ export async function editarAtendimento(id: string, formData: FormData) {
     return { error: 'Selecione um profissional.' }
   }
 
-  const disponibilidades = await carregarDisponibilidadesProfissional(profissional_id)
-  const erroDisponibilidade = validarOcorrenciasNaDisponibilidade(disponibilidades, [
-    { data: dataStr, hora_inicio: horaInicio, hora_fim: horaFim },
-  ])
+  const roleProfissional = await carregarRoleProfissional(profissional_id)
+  if (roleProfissional !== 'medico') {
+    const disponibilidades = await carregarDisponibilidadesProfissional(profissional_id)
+    const erroDisponibilidade = validarOcorrenciasNaDisponibilidade(disponibilidades, [
+      { data: dataStr, hora_inicio: horaInicio, hora_fim: horaFim },
+    ])
 
-  if (erroDisponibilidade) {
-    return erroDisponibilidade
+    if (erroDisponibilidade) {
+      return erroDisponibilidade
+    }
   }
 
   const erroConflito = await validarConflitosProfissional(

@@ -5,7 +5,7 @@ import { ModalPrimeiroAcesso } from '@/components/features/ModalPrimeiroAcesso'
 import { Toaster } from 'react-hot-toast'
 import { listarTodasDisponibilidades } from '@/actions/disponibilidade'
 import { normalizarDisponibilidade, type DisponibilidadeDia } from '@/lib/disponibilidade'
-import { podeEntrarNaAgendaOuRelatorio } from '@/lib/profissionais'
+import { podeEntrarNaAgendaOuRelatorio, podeEntrarNoWidgetDisponibilidade } from '@/lib/profissionais'
 import { WidgetDisponibilidade } from '@/components/features/WidgetDisponibilidade'
 import { listarStatusDisponibilidade } from '@/actions/status-disponibilidade'
 import { listarTiposConsultaAtivos } from '@/actions/tipos-consulta'
@@ -69,7 +69,8 @@ export default async function DashboardLayout({
     prontuariosPendentes = Math.max(0, (totalConcluidos ?? 0) - (totalComProntuario ?? 0))
   }
 
-  const [{ data: listaProfissionais }, todasDisponibilidades, tiposConsulta] = await Promise.all([
+  const [{ data: listaProfissionais }, { data: listaProfissionaisWidget }, todasDisponibilidades, tiposConsulta] = await Promise.all([
+    supabase.from('profiles').select('id, full_name, role').neq('ativo', false).in('role', ['fisioterapeuta', 'gestor', 'medico']).order('full_name'),
     supabase.from('profiles').select('id, full_name, role').eq('ativo', true).in('role', ['fisioterapeuta', 'gestor']).order('full_name'),
     listarTodasDisponibilidades(),
     listarTiposConsultaAtivos(),
@@ -92,7 +93,17 @@ export default async function DashboardLayout({
       cargo: p.role || 'Profissional',
     }))
 
-  const statusDisponibilidade = await listarStatusDisponibilidade(profissionais.map(p => p.id))
+  const profissionaisWidget = (listaProfissionaisWidget ?? [])
+    .filter((p: { id: string; full_name: string; role: string }) =>
+      podeEntrarNoWidgetDisponibilidade(p, profissionaisComJornada),
+    )
+    .map((p: { id: string; full_name: string; role: string }) => ({
+      id: p.id,
+      nome: p.full_name || 'Sem nome',
+      cargo: p.role || 'Profissional',
+    }))
+
+  const statusDisponibilidade = await listarStatusDisponibilidade(profissionaisWidget.map(p => p.id))
 
   return (
     <AppShell
@@ -110,7 +121,7 @@ export default async function DashboardLayout({
       <Toaster position="top-right" />
       {user && (
         <WidgetDisponibilidade
-          profissionais={profissionais}
+          profissionais={profissionaisWidget}
           initialStatuses={statusDisponibilidade}
           currentUserId={user.id}
           disponibilidades={disponibilidadesMap}

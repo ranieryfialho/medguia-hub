@@ -7,6 +7,21 @@ export function podeEntrarNaAgendaOuRelatorio(
   profissional: ProfissionalBasico,
   profissionaisComJornada: Set<string>,
 ) {
+  if (profissional.role === 'fisioterapeuta' || profissional.role === 'medico') {
+    return true
+  }
+
+  if (profissional.role === 'gestor') {
+    return profissionaisComJornada.has(profissional.id)
+  }
+
+  return false
+}
+
+export function podeEntrarNoWidgetDisponibilidade(
+  profissional: ProfissionalBasico,
+  profissionaisComJornada: Set<string>,
+) {
   if (profissional.role === 'fisioterapeuta') {
     return true
   }

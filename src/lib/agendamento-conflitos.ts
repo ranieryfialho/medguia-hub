@@ -91,7 +91,7 @@ export async function validarConflitosProfissional(
       if (!temSobreposicao) continue
 
       return {
-        error: `O fisioterapeuta já possui outro atendimento em ${intervalo.data}, entre ${formatAppTime(existente.inicio)} e ${formatAppTime(existente.fim)}.`,
+        error: `O profissional já possui outro atendimento em ${intervalo.data}, entre ${formatAppTime(existente.inicio)} e ${formatAppTime(existente.fim)}.`,
       }
     }
   }
