@@ -86,6 +86,7 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
   const [contagem, setContagem] = useState<{ total: number; cancelados: number } | null>(null)
   const opcoesRef = useRef<HTMLDivElement>(null)
   const statusRef = useRef<HTMLDivElement>(null)
+  const statusMenuRef = useRef<HTMLDivElement>(null)
   const [detalhesExtras, setDetalhesExtras] = useState<{
     telefone?: string | null
     email?: string | null
@@ -161,7 +162,10 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
         setConfirmandoExclusao(false)
       }
 
-      if (statusRef.current && !statusRef.current.contains(e.target as Node)) {
+      if (
+        statusRef.current && !statusRef.current.contains(e.target as Node) &&
+        statusMenuRef.current && !statusMenuRef.current.contains(e.target as Node)
+      ) {
         setShowStatusMenu(false)
       }
     }
@@ -435,6 +439,7 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
             transform: 'translateY(-100%)',
           }}
           className="bg-white border border-[#bcc9c4] rounded-xl shadow-lg overflow-hidden"
+          ref={statusMenuRef}
         >
           {OPCOES_STATUS.map(({ valor, Icon, cor }) => (
             <button

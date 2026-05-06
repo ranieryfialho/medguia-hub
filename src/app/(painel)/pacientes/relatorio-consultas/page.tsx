@@ -11,6 +11,7 @@ import {
   Undo2,
 } from 'lucide-react'
 import { BtnGerarPdfConsultas } from '@/components/features/BtnGerarPdfConsultas'
+import { FiltrosConsultas } from '@/components/FiltrosConsultas'
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>
 
@@ -115,24 +116,36 @@ export default async function RelatorioConsultasPage({
   const data_inicio = (params.data_inicio as string) || dataInicioPadrao
   const data_fim = (params.data_fim as string) || dataFimPadrao
   const profissional_id = (params.profissional_id as string) || ''
-  const tipo_filtro = (params.tipo as string) || ''
+  const tipos_filtro = Array.isArray(params.tipo) ? params.tipo : params.tipo ? [params.tipo] : []
   const status_filtro = (params.status as string) || ''
 
   const profissionalFiltroEfetivo = isGestorOuMaster ? profissional_id : user.id
   const dataInicioIso = `${data_inicio}T00:00:00`
   const dataFimIso = `${data_fim}T23:59:59`
 
-  const { data: profissionaisRaw } = await supabase
-    .from('profiles')
-    .select('id, full_name')
-    .in('role', ['fisioterapeuta', 'gestor'])
-    .eq('ativo', true)
-    .order('full_name')
+  const [{ data: profissionaisRaw }, { data: disponibilidadeRaw }] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('id, full_name')
+      .in('role', ['fisioterapeuta', 'gestor'])
+      .eq('ativo', true)
+      .order('full_name'),
+    supabase
+      .from('disponibilidade_profissional')
+      .select('profissional_id')
+      .eq('ativo', true),
+  ])
 
-  const profissionais = (profissionaisRaw ?? []).map((item: { id: string; full_name: string | null }) => ({
-    id: item.id,
-    nome: item.full_name || 'Sem nome',
-  }))
+  const profissionaisComJornada = new Set(
+    (disponibilidadeRaw ?? []).map((item: { profissional_id: string }) => item.profissional_id)
+  )
+
+  const profissionais = (profissionaisRaw ?? [])
+    .filter((item: { id: string; full_name: string | null }) => profissionaisComJornada.has(item.id))
+    .map((item: { id: string; full_name: string | null }) => ({
+      id: item.id,
+      nome: item.full_name || 'Sem nome',
+    }))
   const profissionaisMap = new Map(profissionais.map((item) => [item.id, item.nome]))
 
   let agendamentosQuery = supabase
@@ -144,8 +157,8 @@ export default async function RelatorioConsultasPage({
   if (profissionalFiltroEfetivo) {
     agendamentosQuery = agendamentosQuery.eq('profissional_id', profissionalFiltroEfetivo)
   }
-  if (tipo_filtro) {
-    agendamentosQuery = agendamentosQuery.eq('tipo', tipo_filtro)
+  if (tipos_filtro.length > 0) {
+    agendamentosQuery = agendamentosQuery.in('tipo', tipos_filtro)
   }
 
   let atendimentosQuery = supabase
@@ -157,16 +170,21 @@ export default async function RelatorioConsultasPage({
   if (profissionalFiltroEfetivo) {
     atendimentosQuery = atendimentosQuery.eq('profissional_id', profissionalFiltroEfetivo)
   }
-  if (tipo_filtro) {
-    atendimentosQuery = atendimentosQuery.eq('tipo', tipo_filtro)
+  if (tipos_filtro.length > 0) {
+    atendimentosQuery = atendimentosQuery.in('tipo', tipos_filtro)
   }
   if (status_filtro) {
     atendimentosQuery = atendimentosQuery.eq('status', status_filtro)
   }
 
-  const [{ data: agendamentosRaw }, { data: atendimentosRaw }] = await Promise.all([
+  const [{ data: agendamentosRaw }, { data: atendimentosRaw }, { data: tiposConsultaRaw }] = await Promise.all([
     agendamentosQuery.order('data_inicio', { ascending: false }),
     atendimentosQuery.order('data_agendamento', { ascending: false }),
+    supabase
+      .from('tipos_consulta')
+      .select('nome')
+      .eq('ativo', true)
+      .order('ordem'),
   ])
 
   const agendamentos = (agendamentosRaw ?? []) as AgendamentoResumo[]
@@ -253,13 +271,12 @@ export default async function RelatorioConsultasPage({
   }).length
   const totalPendentes = atendimentos.filter((item) => STATUS_PENDENTES.has(lowerSafe(item.status))).length
   const totalCanceladosOuFalta = atendimentos.filter((item) => STATUS_CANCELADOS.has(lowerSafe(item.status))).length
-  const opcoesTipos = Array.from(new Set([
-    ...agendamentos.map((item) => normalizarTipo(item.tipo)),
-    ...atendimentos.map((item) => normalizarTipo(item.tipo)),
-  ])).sort((a, b) => a.localeCompare(b))
 
-  const opcoesStatus = Array.from(new Set(atendimentos.map((item) => formatarStatus(item.status || 'Sem status'))))
+  const opcoesTipos = (tiposConsultaRaw ?? [])
+    .map((item: { nome: string }) => item.nome)
     .sort((a, b) => a.localeCompare(b))
+
+  const opcoesStatus = ['Confirmado', 'Aguardando', 'Em Atendimento', 'Concluído', 'Cancelado', 'Falta', 'Reposição']
   const periodoLabel = data_inicio === data_fim
     ? data_inicio
     : `${data_inicio} até ${data_fim}`
@@ -315,84 +332,19 @@ export default async function RelatorioConsultasPage({
         </div>
       </div>
 
-      <form method="get" className="bg-surface rounded-lg border border-border p-4">
-        <h2 className="text-sm font-semibold text-text-primary mb-3">Filtros</h2>
-        <div className="flex items-end gap-4 flex-wrap">
-          <div>
-            <label className="block text-xs text-text-secondary uppercase mb-1">Data Início</label>
-            <input
-              type="date"
-              name="data_inicio"
-              defaultValue={data_inicio}
-              className="px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-text-secondary uppercase mb-1">Data Fim</label>
-            <input
-              type="date"
-              name="data_fim"
-              defaultValue={data_fim}
-              className="px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
-            />
-          </div>
-          {isGestorOuMaster && (
-            <div>
-              <label className="block text-xs text-text-secondary uppercase mb-1">Fisioterapeuta</label>
-              <select
-                name="profissional_id"
-                defaultValue={profissional_id}
-                className="px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
-              >
-                <option value="">Todos</option>
-                {profissionais.map((profissional) => (
-                  <option key={profissional.id} value={profissional.id}>{profissional.nome}</option>
-                ))}
-              </select>
-            </div>
-          )}
-          <div>
-            <label className="block text-xs text-text-secondary uppercase mb-1">Tipo</label>
-            <select
-              name="tipo"
-              defaultValue={tipo_filtro}
-              className="px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
-            >
-              <option value="">Todos</option>
-              {opcoesTipos.map((tipo) => (
-                <option key={tipo} value={tipo}>{tipo}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-text-secondary uppercase mb-1">Status do Atendimento</label>
-            <select
-              name="status"
-              defaultValue={status_filtro}
-              className="px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
-            >
-              <option value="">Todos</option>
-              {opcoesStatus.map((status) => (
-                <option key={status} value={status}>{status}</option>
-              ))}
-            </select>
-          </div>
-          <button
-            type="submit"
-            className="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-md text-sm font-medium transition-colors"
-          >
-            Filtrar
-          </button>
-          {(data_inicio !== dataInicioPadrao || data_fim !== dataFimPadrao || profissional_id || tipo_filtro || status_filtro) && (
-            <Link
-              href="/pacientes/relatorio-consultas"
-              className="px-4 py-2 bg-page hover:bg-page/80 border border-border text-text-secondary rounded-md text-sm transition-colors"
-            >
-              Limpar
-            </Link>
-          )}
-        </div>
-      </form>
+      <FiltrosConsultas
+        dataInicio={data_inicio}
+        dataFim={data_fim}
+        dataInicioPadrao={dataInicioPadrao}
+        dataFimPadrao={dataFimPadrao}
+        profissionalId={profissional_id}
+        tiposFiltro={tipos_filtro}
+        statusFiltro={status_filtro}
+        profissionais={profissionais}
+        opcoesTipos={opcoesTipos}
+        opcoesStatus={opcoesStatus}
+        isGestorOuMaster={isGestorOuMaster}
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
