@@ -17,6 +17,16 @@ import {
   Megaphone
 } from 'lucide-react'
 
+function formatarOrigemPaciente(origem: string | null | undefined) {
+  if (!origem) return 'Não informada'
+
+  const [origemBase = '', metaCanal = '', ...resto] = origem.split('::')
+  if (origemBase !== 'Meta') return origem
+
+  const metaAnuncio = resto.join('::')
+  return ['Meta', metaCanal, metaAnuncio].filter(Boolean).join(' > ')
+}
+
 export default async function PacienteDetailsPage({ 
   params,
   searchParams
@@ -214,6 +224,7 @@ export default async function PacienteDetailsPage({
 
   const iniciais = paciente.nome.split(' ').slice(0, 2).map((n: string) => n[0]).join('').toUpperCase()
   const isAtivo = paciente.ativo !== false
+  const origemFormatada = formatarOrigemPaciente(paciente.origem)
 
   const pdfInput = {
     paciente: {
@@ -221,7 +232,7 @@ export default async function PacienteDetailsPage({
       cpf: paciente.cpf ?? null,
       data_nascimento: paciente.data_nascimento ?? null,
       convenio: paciente.convenio ?? null,
-      origem: paciente.origem ?? null,
+      origem: origemFormatada,
       observacoes_gerais: paciente.observacoes_gerais ?? null,
       ativo: isAtivo,
     },
@@ -323,7 +334,7 @@ export default async function PacienteDetailsPage({
                   <span className="text-xs font-medium text-slate-600">Origem / Captação</span>
                 </div>
                 <span className="text-xs font-bold text-[#006b5a] capitalize">
-                  {paciente.origem || 'Não informada'}
+                  {origemFormatada}
                 </span>
               </div>
             </div>

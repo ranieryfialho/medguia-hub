@@ -7,8 +7,23 @@ import toast from 'react-hot-toast'
 import type { OrigemPaciente } from '@/actions/origens-paciente'
 import { ComboboxPaciente } from '@/components/features/ComboboxPaciente'
 
+function parseOrigem(origem: string) {
+  const [origemBase = '', metaCanal = '', ...resto] = origem.split('::')
+  return {
+    origemBase,
+    metaCanal,
+    metaAnuncio: resto.join('::'),
+  }
+}
+
+function montarOrigem(origemBase: string, metaCanal: string, metaAnuncio: string) {
+  if (origemBase !== 'Meta') return origemBase
+  return ['Meta', metaCanal.trim(), metaAnuncio.trim()].filter(Boolean).join('::')
+}
+
 function tipoOrigem(nome: string) {
   const n = nome.toLowerCase()
+  if (n.includes('meta') || n.includes('instagram')) return 'meta'
   if (n.includes('médico') || n.includes('medico')) return 'medico'
   if (n.includes('indicaç') || n.includes('indicac')) return 'indicacao'
   return 'outro'
@@ -30,8 +45,12 @@ export function FormEditarPaciente({ paciente, origens = [] }: { paciente: any; 
     return paciente[field] || ''
   }
 
-  const [origemSelecionada, setOrigemSelecionada] = useState<string>(getValue('origem'))
+  const origemInicial = parseOrigem(getValue('origem'))
+  const [origemSelecionada, setOrigemSelecionada] = useState<string>(origemInicial.origemBase)
+  const [metaCanal, setMetaCanal] = useState<string>(origemInicial.metaCanal)
+  const [metaAnuncio, setMetaAnuncio] = useState<string>(origemInicial.metaAnuncio)
   const tipo = tipoOrigem(origemSelecionada)
+  const origemPersistida = montarOrigem(origemSelecionada, metaCanal, metaAnuncio)
 
   // Define se o paciente está ativo para marcar o select corretamente
   const isAtivo = state?.fields?.ativo !== undefined 
@@ -115,17 +134,57 @@ export function FormEditarPaciente({ paciente, origens = [] }: { paciente: any; 
           <div>
             <label className="block text-xs font-medium text-text-secondary mb-1">Como soube de nós? *</label>
             <select
-              name="origem"
-              defaultValue={getValue('origem')}
-              onChange={e => setOrigemSelecionada(e.target.value)}
+              value={origemSelecionada}
+              onChange={e => {
+                const value = e.target.value
+                setOrigemSelecionada(value)
+                if (tipoOrigem(value) !== 'meta') {
+                  setMetaCanal('')
+                  setMetaAnuncio('')
+                }
+              }}
               className="w-full bg-input border border-border-input rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-primary-500"
             >
               <option value="">Selecione</option>
               {origens.map(o => (
-                <option key={o.id} value={o.nome}>{o.nome}</option>
+                <option key={o.id} value={o.nome.toLowerCase() === 'instagram' ? 'Meta' : o.nome}>
+                  {o.nome.toLowerCase() === 'instagram' ? 'Meta' : o.nome}
+                </option>
               ))}
+              {!origens.some(o => o.nome.toLowerCase() === 'site') && (
+                <option value="Site">Site</option>
+              )}
             </select>
+            <input type="hidden" name="origem" value={origemPersistida} />
           </div>
+          {tipo === 'meta' && (
+            <div>
+              <label className="block text-xs font-medium text-text-secondary mb-1">Canal da Meta</label>
+              <select
+                required
+                value={metaCanal}
+                onChange={e => setMetaCanal(e.target.value)}
+                className="w-full bg-input border border-border-input rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-primary-500"
+              >
+                <option value="">Selecione</option>
+                <option value="Instagram">Instagram</option>
+                <option value="Facebook">Facebook</option>
+              </select>
+            </div>
+          )}
+          {tipo === 'meta' && (
+            <div className="md:col-span-2">
+              <label className="block text-xs font-medium text-text-secondary mb-1">Nome do anúncio</label>
+              <input
+                type="text"
+                required
+                value={metaAnuncio}
+                onChange={e => setMetaAnuncio(e.target.value)}
+                className="w-full bg-input border border-border-input rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-primary-500"
+                placeholder="Ex: Campanha dor lombar maio"
+              />
+            </div>
+          )}
           {(tipo === 'medico' || tipo === 'indicacao') && (
             <div>
               <label className="block text-xs font-medium text-text-secondary mb-1">
