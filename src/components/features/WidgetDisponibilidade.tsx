@@ -53,7 +53,10 @@ export function WidgetDisponibilidade({ profissionais, initialStatuses, currentU
   const [isPending, startTransition] = useTransition()
   const [, setTick] = useState(0)
   const slideNovoAgendamentoAberto = useSlideNovoAgendamentoAberto()
-  const [isMobile, setIsMobile] = useState(false)
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return window.matchMedia('(max-width: 1023px)').matches
+  })
 
   useEffect(() => {
     const id = setInterval(() => setTick(t => t + 1), 30_000)
@@ -61,7 +64,7 @@ export function WidgetDisponibilidade({ profissionais, initialStatuses, currentU
   }, [])
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(max-width: 767px)')
+    const mediaQuery = window.matchMedia('(max-width: 1023px)')
     const sync = () => setIsMobile(mediaQuery.matches)
 
     sync()
@@ -71,9 +74,11 @@ export function WidgetDisponibilidade({ profissionais, initialStatuses, currentU
 
   // Ocultar em telas de cadastro/edição que possuem barras fixas no rodapé
   const isTelaCadastro = pathname?.includes('/novo') || pathname?.includes('/editar') || pathname?.includes('/vendas/nova')
+  const isAgenda = pathname?.includes('/agenda')
   
   if (isTelaCadastro) return null
-  if (isMobile && slideNovoAgendamentoAberto) return null
+  // Se for agenda e mobile, ocultamos para não atrapalhar o botão de novo agendamento
+  if (isMobile && (slideNovoAgendamentoAberto || isAgenda)) return null
 
   const diaSemanaAtual = getDiaSemanaAtualNaTimezone()
   const statusesEfetivos = statuses.map((status) => {
@@ -105,7 +110,10 @@ export function WidgetDisponibilidade({ profissionais, initialStatuses, currentU
   const fabCfg = livres > 0 ? STATUS_CONFIG.disponivel : STATUS_CONFIG.ocupado
 
   return (
-    <div className="fixed bottom-5 right-5 z-300 flex flex-col items-end gap-2">
+    <div 
+      className="fixed bottom-5 right-5 z-[300] flex flex-col items-end gap-2"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+    >
 
       {/* Painel expandido */}
       {open && (

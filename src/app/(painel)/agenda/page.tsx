@@ -395,15 +395,15 @@ export default async function AgendaPage({ searchParams }: PageProps) {
   const pendentes = totalAgendamentos - atendidos
 
   return (
-    <div className="h-full overflow-hidden flex flex-col gap-3 lg:gap-4">
+    <div className="flex-1 min-h-0 overflow-hidden flex flex-col gap-3 lg:gap-4 p-2.5 sm:p-3 lg:p-4" style={{ paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))' }}>
 
-      <h2 className="font-bold text-xl lg:text-2xl text-[#171d1c] flex-shrink-0">Agenda de Atendimento</h2>
+      <h2 className="font-bold text-xl lg:text-2xl text-[#171d1c] flex-shrink-0 px-1">Agenda de Atendimento</h2>
 
       {/* GRID PRINCIPAL (DUAS COLUNAS) */}
       <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-6 overflow-hidden">
 
         {/* COLUNA ESQUERDA (CALENDÁRIO PRINCIPAL) */}
-        <div className="col-span-1 lg:col-span-8 flex flex-col gap-3 lg:gap-4 min-h-0 overflow-hidden">
+        <div className="order-2 lg:order-1 col-span-1 lg:col-span-8 flex flex-col gap-3 lg:gap-4 min-h-0 overflow-hidden">
 
           {/* Barra de navegação */}
           <div className="flex-shrink-0 bg-[#f0f5f4] rounded-2xl lg:rounded-3xl px-3 lg:px-5 py-2.5 lg:py-3 flex items-center justify-between gap-2">
@@ -512,7 +512,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
           )}
 
           {/* Área do calendário — ocupa o espaço restante */}
-          <div className="flex-1 min-h-0 bg-white rounded-3xl p-4 shadow-sm border border-[#bcc9c4]/30 overflow-hidden flex flex-col">
+          <div className="flex-1 min-h-0 bg-white rounded-3xl p-3 sm:p-4 shadow-sm border border-[#bcc9c4]/30 overflow-hidden flex flex-col">
 
             {view === 'dia' && (
               <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
@@ -536,7 +536,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 </div>
 
                 {/* Lista de agendamentos — scroll interno */}
-                <div className="overflow-y-auto overflow-x-hidden pb-2 space-y-3 scrollbar-thin scrollbar-thumb-slate-200" style={{ maxHeight: 'calc(100dvh - 280px)' }}>
+                <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-2 space-y-3 scrollbar-thin scrollbar-thumb-slate-200">
                   {agendamentosHoje.length > 0 ? (
                     agendamentosHoje.map((agendamento) => (
                       <AgendamentoItemDia key={agendamento.id} agendamento={agendamento} pacientes={listaPacientes || []} profissionais={todosProfissionaisFormatados} />
@@ -571,7 +571,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 </div>
 
                 {/* Grade de horas — scroll interno vertical */}
-                <div className="overflow-auto pb-2" style={{ maxHeight: 'calc(100dvh - 280px)' }}>
+                <div className="flex-1 min-h-0 overflow-auto pb-2">
                   <div className="min-w-[800px] space-y-0">
                     {HORAS_DIA.map((horaStr) => {
                       const horaNum = parseInt(horaStr.split(':')[0])
@@ -683,10 +683,10 @@ export default async function AgendaPage({ searchParams }: PageProps) {
         </div>
 
         {/* COLUNA DIREITA (RESUMO E MINI CALENDÁRIO) */}
-        <div className="col-span-1 lg:col-span-4 flex flex-col gap-4 min-h-0 overflow-hidden overflow-y-auto lg:overflow-hidden">
+        <div className="order-1 lg:order-2 col-span-1 lg:col-span-4 flex flex-col gap-3 lg:gap-4 min-h-0 overflow-hidden overflow-y-auto lg:overflow-hidden">
 
           {/* Card de resumo */}
-          <div className="flex-shrink-0 bg-gradient-to-br from-[#006b5a] to-[#33a68f] p-5 rounded-3xl text-white">
+          <div className="flex-shrink-0 bg-gradient-to-br from-[#006b5a] to-[#33a68f] p-4 sm:p-5 rounded-3xl text-white">
             <div className="flex justify-between items-start mb-4">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-widest opacity-80">
@@ -716,7 +716,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
           </div>
 
           {/* Mini calendário — ocupa o espaço restante */}
-          <div className="flex-1 min-h-0 bg-[#f0f5f4] rounded-3xl p-4 overflow-hidden flex flex-col">
+          <div className="flex-1 min-h-0 bg-[#f0f5f4] rounded-3xl p-3 sm:p-4 overflow-hidden flex flex-col">
             <div className="flex-shrink-0 flex items-center justify-between mb-3">
               <h4 className="text-sm font-bold text-[#3d4945] uppercase tracking-widest capitalize">{mesAnoLateral}</h4>
               <div className="flex gap-1 text-[#3d4945]">
@@ -775,7 +775,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
       </div>
 
       {/* LEGENDA DE STATUS (RODAPÉ) */}
-      <div className="flex-shrink-0 bg-white border border-[#bcc9c4]/30 rounded-3xl px-6 py-3 shadow-sm w-full">
+      <div className="flex-shrink-0 bg-white border border-[#bcc9c4]/30 rounded-3xl px-4 sm:px-6 py-3 shadow-sm w-full">
         <ul className="flex flex-wrap gap-x-6 sm:gap-x-10 gap-y-2 items-center">
           {[
             { cor: 'bg-green-600',  label: 'Confirmado' },

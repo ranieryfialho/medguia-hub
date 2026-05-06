@@ -218,35 +218,36 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       <div
-        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md z-10 flex flex-col max-h-[90dvh]"
+        className="relative bg-white w-full max-w-md z-10 flex flex-col max-h-[100svh] sm:max-h-[90dvh] rounded-t-[28px] sm:rounded-2xl shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
-        <div className="px-6 pt-6 pb-4">
-          <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-full bg-[#006b5a] flex items-center justify-center text-white text-2xl font-bold shrink-0">
+        <div className="px-4 sm:px-6 pt-4 sm:pt-6 pb-4 safe-top">
+          <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-[#bcc9c4]/70 sm:hidden" />
+          <div className="flex items-start gap-3 sm:gap-4">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#006b5a] flex items-center justify-center text-white text-xl sm:text-2xl font-bold shrink-0">
               {inicial}
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="text-xl font-bold text-[#083142]">{nomePaciente}</h3>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5">
-                <span className="flex items-center gap-1.5 text-xs text-[#6d7a75]">
+              <h3 className="text-lg sm:text-xl font-bold text-[#083142] truncate">{nomePaciente}</h3>
+              <div className="flex flex-wrap gap-x-3 sm:gap-x-4 gap-y-1 mt-1">
+                <span className="flex items-center gap-1 text-[10px] sm:text-xs text-[#6d7a75]">
                   <Phone size={12} />
-                  {loadingDetalhes ? 'Carregando...' : (telefone || 'Sem informacao')}
+                  {loadingDetalhes ? '...' : (telefone || 'N/A')}
                 </span>
-                <span className="flex items-center gap-1.5 text-xs text-[#6d7a75]">
+                <span className="flex items-center gap-1 text-[10px] sm:text-xs text-[#6d7a75]">
                   <Mail size={12} />
-                  {loadingDetalhes ? 'Carregando...' : (emailPaciente || 'Sem informacao')}
+                  {loadingDetalhes ? '...' : (emailPaciente || 'N/A')}
                 </span>
               </div>
               {contagem !== null && (
-                <p className="text-xs font-bold text-[#006b5a] mt-1.5">
-                  {contagem.total} atendimento{contagem.total !== 1 ? 's' : ''} no total
+                <p className="text-[10px] sm:text-xs font-bold text-[#006b5a] mt-1">
+                  {contagem.total} atendimento{contagem.total !== 1 ? 's' : ''}
                   {contagem.cancelados > 0 && (
                     <span className="text-slate-400 font-normal">
-                      {' '}· {contagem.cancelados} falta{contagem.cancelados !== 1 ? 's' : ''}/cancelamento{contagem.cancelados !== 1 ? 's' : ''}
+                      {' '}· {contagem.cancelados} faltas
                     </span>
                   )}
                 </p>
@@ -254,21 +255,21 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
             </div>
           </div>
 
-          <div className="flex items-center gap-3 mt-4">
+          <div className="flex items-center gap-2 sm:gap-3 mt-4">
             <button
               onClick={() => { router.push('/confirmacoes/cards'); onClose() }}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-[#bcc9c4] text-xs font-semibold text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-[#bcc9c4] text-[11px] sm:text-xs font-semibold text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
             >
               <MessageCircle size={14} className="text-[#25d366]" />
-              Enviar Lembrete
+              <span className="hidden xs:inline">Enviar</span> Lembrete
             </button>
 
             <div className="relative flex-1" ref={opcoesRef}>
               <button
                 onClick={() => { setShowOpcoes((prev) => !prev); setConfirmandoExclusao(false) }}
-                className="w-full flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl border border-[#bcc9c4] text-sm font-semibold text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
+                className="w-full flex items-center justify-center gap-1 px-3 py-2 rounded-xl border border-[#bcc9c4] text-[11px] sm:text-xs font-semibold text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
               >
-                Opcoes
+                Opções
                 <ChevronDown size={14} />
               </button>
               {showOpcoes && (
@@ -354,7 +355,7 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
           </button>
         </div>
 
-        <div className="px-6 py-5 space-y-4 overflow-y-auto flex-1">
+        <div className="px-4 sm:px-6 py-4 sm:py-5 space-y-4 overflow-y-auto flex-1">
           {activeTab === 'evolucao' ? (
             <ProntuarioEvolucao atendimentoId={agendamento.id} pacienteId={agendamento.paciente_id} />
           ) : (
@@ -418,10 +419,10 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
           )}
         </div>
 
-        <div className="px-6 py-4 border-t border-[#bcc9c4]/30 bg-[#f5faf9] flex justify-end rounded-b-2xl">
+        <div className="px-4 sm:px-6 py-4 border-t border-[#bcc9c4]/30 bg-[#f5faf9] flex justify-end sm:rounded-b-2xl safe-bottom">
           <button
             onClick={onClose}
-            className="px-5 py-2.5 rounded-xl font-bold text-[#3d4945] bg-white border border-[#bcc9c4] hover:bg-[#dee3e3] transition-colors text-sm"
+            className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-[#3d4945] bg-white border border-[#bcc9c4] hover:bg-[#dee3e3] transition-colors text-sm"
           >
             Fechar
           </button>
