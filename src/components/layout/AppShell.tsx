@@ -40,7 +40,7 @@ export function AppShell({
   return (
     <SlideNovoAgendamentoProvider aberto={slideNovoAberto}>
       <TiposConsultaProvider tiposConsulta={tiposConsulta}>
-        <div className="flex min-h-screen bg-[#f5faf9]">
+        <div className="flex min-h-[100dvh] bg-[#f5faf9]">
 
         {/* Mobile overlay */}
         {sidebarOpen && (
@@ -67,22 +67,24 @@ export function AppShell({
         </div>
 
         {/* Conteúdo principal */}
-        <div className="flex-1 lg:ml-64 flex flex-col min-h-screen">
+        <div className="flex-1 lg:ml-64 flex flex-col min-h-dvh">
 
           {/* Topbar mobile */}
-          <div className="lg:hidden sticky top-0 z-40 bg-[#f5faf9]/95 backdrop-blur-md border-b border-[#dee3e3]/50 flex items-center gap-3 px-4 py-3">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="p-2 rounded-xl hover:bg-[#dee3e3] text-[#3d4945] transition-colors"
-            >
-              <Menu size={22} />
-            </button>
-            <span className="font-bold text-[#006b5a] text-base tracking-tight flex-1">MedGuia Hub</span>
-            <img
-              src={headerData.avatarUrl}
-              alt={headerData.nomeUsuario}
-              className="w-8 h-8 rounded-xl object-cover border border-slate-200"
-            />
+          <div className="lg:hidden sticky top-0 z-40 bg-[#f5faf9]/95 backdrop-blur-md border-b border-[#dee3e3]/50" style={{ paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))', paddingBottom: '12px', paddingLeft: '16px', paddingRight: '16px' }}>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="p-2 rounded-xl hover:bg-[#dee3e3] text-[#3d4945] transition-colors"
+              >
+                <Menu size={22} />
+              </button>
+              <span className="font-bold text-[#006b5a] text-base tracking-tight flex-1">MedGuia Hub</span>
+              <img
+                src={headerData.avatarUrl}
+                alt={headerData.nomeUsuario}
+                className="w-8 h-8 rounded-xl object-cover border border-slate-200"
+              />
+            </div>
           </div>
 
           {children}

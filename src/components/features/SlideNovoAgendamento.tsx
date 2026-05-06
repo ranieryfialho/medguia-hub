@@ -651,7 +651,7 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
           </form>
         </div>
 
-        <div className="px-6 py-4 border-t border-[#bcc9c4]/30 bg-[#f5faf9] shrink-0">
+        <div className="px-6 border-t border-[#bcc9c4]/30 bg-[#f5faf9] shrink-0" style={{ paddingTop: '16px', paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))' }}>
           <div className="flex justify-end gap-3">
             <button type="button" onClick={handleClose} className="px-6 py-2.5 rounded-lg font-bold text-[#3d4945] bg-white border border-[#bcc9c4] hover:bg-[#dee3e3] transition-colors">
               Cancelar

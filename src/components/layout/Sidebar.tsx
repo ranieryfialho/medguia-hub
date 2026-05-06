@@ -79,7 +79,7 @@ export function Sidebar({
     }`
 
   return (
-    <aside className="h-screen w-64 overflow-y-auto z-[200] bg-[#f0f5f4] border-r border-[#dee3e3]/50 flex flex-col p-4 gap-2 hide-scrollbar">
+    <aside className="h-dvh w-64 overflow-y-auto z-200 bg-[#f0f5f4] border-r border-[#dee3e3]/50 flex flex-col p-4 gap-2 hide-scrollbar" style={{ paddingTop: 'calc(16px + env(safe-area-inset-top, 0px))' }}>
       <div className="px-4 py-6 flex items-center gap-3">
         <Image src="/logo.png" alt="MedGuia Hub" width={32} height={32} className="object-contain" />
         <div className="flex-1">

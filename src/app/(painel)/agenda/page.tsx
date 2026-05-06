@@ -536,7 +536,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 </div>
 
                 {/* Lista de agendamentos — scroll interno */}
-                <div className="overflow-y-auto overflow-x-hidden pb-2 space-y-3 scrollbar-thin scrollbar-thumb-slate-200" style={{ maxHeight: 'calc(100vh - 280px)' }}>
+                <div className="overflow-y-auto overflow-x-hidden pb-2 space-y-3 scrollbar-thin scrollbar-thumb-slate-200" style={{ maxHeight: 'calc(100dvh - 280px)' }}>
                   {agendamentosHoje.length > 0 ? (
                     agendamentosHoje.map((agendamento) => (
                       <AgendamentoItemDia key={agendamento.id} agendamento={agendamento} pacientes={listaPacientes || []} profissionais={todosProfissionaisFormatados} />
@@ -571,7 +571,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 </div>
 
                 {/* Grade de horas — scroll interno vertical */}
-                <div className="overflow-auto pb-2" style={{ maxHeight: 'calc(100vh - 280px)' }}>
+                <div className="overflow-auto pb-2" style={{ maxHeight: 'calc(100dvh - 280px)' }}>
                   <div className="min-w-[800px] space-y-0">
                     {HORAS_DIA.map((horaStr) => {
                       const horaNum = parseInt(horaStr.split(':')[0])

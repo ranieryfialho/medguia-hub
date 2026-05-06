@@ -114,7 +114,7 @@ export function SeletorTemplateWhatsApp({
       />
 
       {/* Drawer */}
-      <div className="fixed right-0 top-0 h-screen w-full max-w-lg bg-white shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-300 ease-out">
+      <div className="fixed right-0 top-0 h-dvh w-full max-w-lg bg-white shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-300 ease-out">
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-[#171d1c]">
