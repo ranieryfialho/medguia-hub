@@ -10,6 +10,7 @@ import { requireModulo } from '@/lib/guard'
 import { Suspense } from 'react'
 import { format } from 'date-fns'
 import { buscarProntuariosPorPaciente } from '@/actions/prontuarios'
+import { extrairMetadataInativacao } from '@/lib/paciente-inativacao'
 import {
   AlertTriangle,
   FileText,
@@ -111,6 +112,8 @@ export default async function PacienteDetailsPage({
   const atendimentosComProntuario = (atendimentos ?? []) as AtendimentoComRelacoes[]
 
   const vendas = (vendasRaw ?? []) as unknown as VendaTimeline[]
+  const metadataInativacao = extrairMetadataInativacao(paciente.observacoes_gerais)
+  const observacoesGeraisLimpa = metadataInativacao.observacoesLimpa
 
   // Agrupar atendimentos por agendamento_id
   const gruposMap = new Map<string, { agendamento_id: string | null; tipo: string; is_recorrente: boolean; sessoes: Array<AtendimentoComRelacoes & { prontuario: ProntuarioResumo | null }> }>()
@@ -210,8 +213,8 @@ export default async function PacienteDetailsPage({
       trechoEventos = `Paciente possui histórico de ${todosAtendimentos.length} sessão(ões) registrada(s). Última com status "${statusMaisRecente}".`;
     }
 
-    if (paciente.observacoes_gerais) {
-      const obsArray = paciente.observacoes_gerais.split('\n').filter((o: string) => o.trim() !== '');
+    if (observacoesGeraisLimpa) {
+      const obsArray = observacoesGeraisLimpa.split('\n').filter((o: string) => o.trim() !== '');
       if (obsArray.length > 0) {
         const ultimaObs = obsArray[obsArray.length - 1];
         const obsLimpa = ultimaObs.replace(/^[•\-]\s*/, '').replace(/^\[.*?\]\s*/, '').trim();
@@ -233,7 +236,7 @@ export default async function PacienteDetailsPage({
       data_nascimento: paciente.data_nascimento ?? null,
       convenio: paciente.convenio ?? null,
       origem: origemFormatada,
-      observacoes_gerais: paciente.observacoes_gerais ?? null,
+      observacoes_gerais: observacoesGeraisLimpa || null,
       ativo: isAtivo,
     },
     sessoesParaPdf: todosAtendimentos.map((a) => ({
@@ -351,8 +354,8 @@ export default async function PacienteDetailsPage({
 
             <ul className="space-y-3 text-xs text-slate-600 mt-2">
               {(() => {
-                const obsArray = paciente.observacoes_gerais
-                  ? paciente.observacoes_gerais.split('\n').filter((o: string) => o.trim() !== '')
+                const obsArray = observacoesGeraisLimpa
+                  ? observacoesGeraisLimpa.split('\n').filter((o: string) => o.trim() !== '')
                   : [];
                 
                 if (obsArray.length === 0) {

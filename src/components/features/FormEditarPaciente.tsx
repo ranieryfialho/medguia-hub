@@ -6,6 +6,7 @@ import Link from 'next/link'
 import toast from 'react-hot-toast'
 import type { OrigemPaciente } from '@/actions/origens-paciente'
 import { ComboboxPaciente } from '@/components/features/ComboboxPaciente'
+import { extrairMetadataInativacao } from '@/lib/paciente-inativacao'
 
 function parseOrigem(origem: string) {
   const [origemBase = '', metaCanal = '', ...resto] = origem.split('::')
@@ -49,6 +50,7 @@ export function FormEditarPaciente({ paciente, origens = [] }: { paciente: any; 
   const [origemSelecionada, setOrigemSelecionada] = useState<string>(origemInicial.origemBase)
   const [metaCanal, setMetaCanal] = useState<string>(origemInicial.metaCanal)
   const [metaAnuncio, setMetaAnuncio] = useState<string>(origemInicial.metaAnuncio)
+  const metadataInativacao = extrairMetadataInativacao(paciente.observacoes_gerais)
   const tipo = tipoOrigem(origemSelecionada)
   const origemPersistida = montarOrigem(origemSelecionada, metaCanal, metaAnuncio)
 
@@ -56,25 +58,90 @@ export function FormEditarPaciente({ paciente, origens = [] }: { paciente: any; 
   const isAtivo = state?.fields?.ativo !== undefined 
     ? state.fields.ativo === 'true' 
     : paciente.ativo !== false
+  const [statusAtivoSelecionado, setStatusAtivoSelecionado] = useState<boolean>(isAtivo)
+  const [motivoInatividade, setMotivoInatividade] = useState<string>(
+    (state?.fields?.motivo_inatividade as string) || metadataInativacao.motivo,
+  )
+  const [obitoInatividade, setObitoInatividade] = useState<boolean>(
+    state?.fields?.obito_inatividade === 'on' || metadataInativacao.obito,
+  )
 
   return (
     <form action={formAction} className="pb-24">
       <input type="hidden" name="id" value={paciente.id} />
 
       {/* BLOCO: STATUS DO PACIENTE */}
-      <div className="mb-8 p-4 bg-page rounded-md border border-border">
-        <label className="block text-sm font-semibold text-text-primary mb-2">Status do Paciente no Sistema</label>
-        <select 
-          name="ativo" 
-          defaultValue={isAtivo ? 'true' : 'false'}
-          className="w-full md:w-1/3 bg-surface border border-border-input rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-primary-500"
-        >
-          <option value="true">✅ Ativo</option>
-          <option value="false">🔒 Inativo / Arquivado</option>
-        </select>
-        <p className="text-xs text-text-tertiary mt-2">
+      <div className="mb-8 rounded-2xl border border-[#bcc9c4]/40 bg-white p-5 shadow-sm">
+        <label className="block text-sm font-semibold text-[#171d1c] mb-3">Status do Paciente no Sistema</label>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <label className="group cursor-pointer">
+            <input
+              type="radio"
+              name="ativo"
+              value="true"
+              defaultChecked={isAtivo}
+              onChange={() => setStatusAtivoSelecionado(true)}
+              className="peer sr-only"
+            />
+            <div className="h-full rounded-xl border-2 border-[#bcc9c4]/50 p-4 transition-all hover:bg-[#f0f5f4] peer-checked:border-[#006b5a] peer-checked:bg-[#cce2da]/30">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <span className="block font-bold text-[#171d1c] peer-checked:text-[#006b5a]">Ativo</span>
+                  <span className="mt-1 block text-sm text-[#6d7a75]">Paciente disponível na operação diária e nas listagens.</span>
+                </div>
+                <span className="h-3 w-3 rounded-full bg-transparent ring-2 ring-[#bcc9c4] peer-checked:bg-[#006b5a] peer-checked:ring-[#006b5a]" />
+              </div>
+            </div>
+          </label>
+          <label className="group cursor-pointer">
+            <input
+              type="radio"
+              name="ativo"
+              value="false"
+              defaultChecked={!isAtivo}
+              onChange={() => setStatusAtivoSelecionado(false)}
+              className="peer sr-only"
+            />
+            <div className="h-full rounded-xl border-2 border-[#bcc9c4]/50 p-4 transition-all hover:bg-[#f0f5f4] peer-checked:border-[#ba1a1a] peer-checked:bg-[#ffdad6]/40">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <span className="block font-bold text-[#171d1c] peer-checked:text-[#ba1a1a]">Inativo / Arquivado</span>
+                  <span className="mt-1 block text-sm text-[#6d7a75]">Paciente oculto da listagem principal, preservando todo o histórico.</span>
+                </div>
+                <span className="h-3 w-3 rounded-full bg-transparent ring-2 ring-[#bcc9c4] peer-checked:bg-[#ba1a1a] peer-checked:ring-[#ba1a1a]" />
+              </div>
+            </div>
+          </label>
+        </div>
+        <p className="text-xs text-[#6d7a75] mt-3">
           Pacientes inativos são ocultados da listagem principal, mas mantêm todo o histórico salvo.
         </p>
+        {!statusAtivoSelecionado && (
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4">
+            <div>
+              <label className="block text-xs font-medium text-text-secondary mb-1">Motivo da inatividade</label>
+              <input
+                type="text"
+                name="motivo_inatividade"
+                value={motivoInatividade}
+                onChange={(e) => setMotivoInatividade(e.target.value)}
+                required={!statusAtivoSelecionado}
+                className="w-full bg-input border border-border-input rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-primary-500"
+                placeholder="Ex: mudança de cidade, alta, óbito..."
+              />
+            </div>
+            <label className="flex items-center gap-2 self-end text-sm text-text-secondary cursor-pointer pb-2">
+              <input
+                type="checkbox"
+                name="obito_inatividade"
+                checked={obitoInatividade}
+                onChange={(e) => setObitoInatividade(e.target.checked)}
+                className="rounded border-border-input text-primary-500 focus:ring-primary-500"
+              />
+              Óbito
+            </label>
+          </div>
+        )}
       </div>
 
       <div className="mb-8">
@@ -224,7 +291,7 @@ export function FormEditarPaciente({ paciente, origens = [] }: { paciente: any; 
       <div className="mb-8">
         <h2 className="text-lg font-semibold text-text-primary mb-4">Observações Gerais</h2>
         <div>
-          <textarea name="observacoes_gerais" rows={4} defaultValue={getValue('observacoes_gerais')} className="w-full bg-input border border-border-input rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-primary-500" />
+          <textarea name="observacoes_gerais" rows={4} defaultValue={extrairMetadataInativacao(getValue('observacoes_gerais')).observacoesLimpa} className="w-full bg-input border border-border-input rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-primary-500" />
         </div>
       </div>
 

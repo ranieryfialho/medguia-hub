@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { atualizarMetadataInativacao } from '@/lib/paciente-inativacao'
 
 function normalizarCPF(cpf: string): string {
   return cpf.replace(/\D/g, '')
@@ -66,9 +67,13 @@ export async function editarPaciente(prevState: any, formData: FormData) {
 
   const cpfRaw = (formData.get('cpf') as string || '').trim()
   const cpf = cpfRaw ? normalizarCPF(cpfRaw) : ''
+  const ativo = formData.get('ativo') === 'true'
+  const motivoInatividade = formData.get('motivo_inatividade') as string || ''
+  const obitoInatividade = formData.get('obito_inatividade') === 'on'
+  const observacoesGerais = formData.get('observacoes_gerais') as string || ''
 
   const dadosPaciente = {
-    ativo: formData.get('ativo') === 'true',
+    ativo,
     nome: formData.get('nome') as string,
     cpf: cpf || null,
     data_nascimento: formData.get('data_nascimento') as string,
@@ -84,7 +89,11 @@ export async function editarPaciente(prevState: any, formData: FormData) {
     endereco: formData.get('endereco') as string,
     endereco_sem_numero: formData.get('endereco_sem_numero') === 'on',
     complemento: formData.get('complemento') as string,
-    observacoes_gerais: formData.get('observacoes_gerais') as string,
+    observacoes_gerais: atualizarMetadataInativacao(observacoesGerais, {
+      ativo,
+      motivo: motivoInatividade,
+      obito: obitoInatividade,
+    }),
     convenio: formData.get('convenio') as string,
   }
 

@@ -6,6 +6,7 @@ import { BtnArquivarPaciente } from '@/components/features/BtnArquivarPaciente'
 import { FiltrosPacientes } from '@/components/features/FiltrosPacientes'
 import { PaginacaoPacientes } from '@/components/features/PaginacaoPacientes'
 import { requireModulo } from '@/lib/guard'
+import { extrairMetadataInativacao } from '@/lib/paciente-inativacao'
 
 export default async function PacientesListPage({
   searchParams,
@@ -93,6 +94,7 @@ export default async function PacientesListPage({
                 const iniciais = paciente.nome.split(' ').slice(0, 2).map((n: string) => n[0]).join('').toUpperCase()
                 const numeroLimpo = paciente.telefone?.replace(/\D/g, '') || ''
                 const isAtivo = paciente.ativo !== false
+                const metaInativacao = extrairMetadataInativacao(paciente.observacoes_gerais)
 
                 return (
                   <tr key={paciente.id} className={`transition-colors group ${!isAtivo ? 'bg-page/40 opacity-75' : 'hover:bg-page/50'}`}>
@@ -121,15 +123,22 @@ export default async function PacientesListPage({
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      {paciente.recuperacao_base ? (
-                        <span className="inline-block px-3 py-1 bg-[#f5f3ff] text-[#4f46e5] text-xs font-semibold rounded-full border border-[#ddd6fe]">
-                          Recuperação de Base
-                        </span>
-                      ) : (
-                        <span className="inline-block px-3 py-1 bg-[#E8F0FE] text-[#1A73E8] text-xs font-semibold rounded-full">
-                          {paciente.convenio || 'Sem tags'}
-                        </span>
-                      )}
+                      <div className="flex flex-wrap gap-2">
+                        {paciente.recuperacao_base ? (
+                          <span className="inline-block px-3 py-1 bg-[#f5f3ff] text-[#4f46e5] text-xs font-semibold rounded-full border border-[#ddd6fe]">
+                            Recuperação de Base
+                          </span>
+                        ) : (
+                          <span className="inline-block px-3 py-1 bg-[#E8F0FE] text-[#1A73E8] text-xs font-semibold rounded-full">
+                            {paciente.convenio || 'Sem tags'}
+                          </span>
+                        )}
+                        {!isAtivo && metaInativacao.obito && (
+                          <span className="inline-block px-3 py-1 bg-[#ffdad6] text-[#ba1a1a] text-xs font-semibold rounded-full border border-[#ba1a1a]/20">
+                            Óbito
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-center gap-3 text-text-tertiary">
@@ -163,6 +172,7 @@ export default async function PacientesListPage({
             const iniciais = paciente.nome.split(' ').slice(0, 2).map((n: string) => n[0]).join('').toUpperCase()
             const numeroLimpo = paciente.telefone?.replace(/\D/g, '') || ''
             const isAtivo = paciente.ativo !== false
+            const metaInativacao = extrairMetadataInativacao(paciente.observacoes_gerais)
 
             return (
               <div key={paciente.id} className={`px-4 py-3 flex items-center gap-3 ${!isAtivo ? 'opacity-60' : ''}`}>
@@ -182,6 +192,11 @@ export default async function PacientesListPage({
                         {paciente.convenio}
                       </span>
                     )
+                  )}
+                  {!isAtivo && metaInativacao.obito && (
+                    <span className="inline-block mt-1 ml-1 px-2 py-0.5 bg-[#ffdad6] text-[#ba1a1a] text-[10px] font-semibold rounded-full border border-[#ba1a1a]/20">
+                      Óbito
+                    </span>
                   )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0 text-text-tertiary">
