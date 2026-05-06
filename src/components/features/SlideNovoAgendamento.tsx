@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useId, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { buscarDetalhesAgendamento, criarAgendamento, editarAtendimento } from '@/actions/agenda'
 import { createClient } from '@/lib/supabase/client'
 import { X, CalendarPlus, User, Minus, Plus, Search, Clock } from 'lucide-react'
@@ -76,6 +77,7 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
   const formId = useId()
   const [supabase] = useState(createClient)
   const [isOpen, setIsOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [loadingPacientes, setLoadingPacientes] = useState(false)
   const [loadingDetalhesAtendimento, setLoadingDetalhesAtendimento] = useState(false)
@@ -105,6 +107,11 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
     atendimentoParaEditar &&
     (atendimentoParaEditar.duracao_minutos == null || atendimentoParaEditar.observacoes == null),
   )
+  const open = isControlled ? Boolean(controlledOpen) : isOpen
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Inicializa campos quando em modo edição
   useEffect(() => {
@@ -159,30 +166,36 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
 
   // Fetch de pacientes quando o modal abre (modo controlado ou autônomo)
   useEffect(() => {
-    const isOpening = isControlled ? !!controlledOpen : isOpen
-    if (!isOpening || pacientes.length > 0) return
+    if (!open || pacientes.length > 0) return
 
     setLoadingPacientes(true)
     fetchAllPacientes(supabase)
       .then(setPacientes)
       .finally(() => setLoadingPacientes(false))
-  }, [isControlled, controlledOpen, isOpen, pacientes.length, supabase])
+  }, [open, pacientes.length, supabase])
 
-  // Sincroniza estado aberto com prop controlada
   useEffect(() => {
-    if (isControlled) {
-      setIsOpen(controlledOpen!)
-      if (controlledOpen) {
-        if (defaultPacienteId) {
-          setSelectedPacienteId(defaultPacienteId)
-          const p = pacientes.find(p => p.id === defaultPacienteId)
-          if (p) setPacienteSearch(p.nome)
-        }
-        if (defaultData) setDataAgendamento(defaultData)
-        if (defaultHora) setHoraInicioValue(defaultHora)
-      }
+    if (!isControlled || !open) return
+
+    if (defaultPacienteId) {
+      setSelectedPacienteId(defaultPacienteId)
+      const p = pacientes.find((paciente) => paciente.id === defaultPacienteId)
+      if (p) setPacienteSearch(p.nome)
     }
-  }, [isControlled, controlledOpen, defaultPacienteId, defaultData, defaultHora, pacientes])
+    if (defaultData) setDataAgendamento(defaultData)
+    if (defaultHora) setHoraInicioValue(defaultHora)
+  }, [isControlled, open, defaultPacienteId, defaultData, defaultHora, pacientes])
+
+  useEffect(() => {
+    if (!open) return
+
+    const originalOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      document.body.style.overflow = originalOverflow
+    }
+  }, [open])
 
   // Fecha dropdown ao clicar fora
   useEffect(() => {
@@ -336,34 +349,26 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
     tipoProfissional === 'medico' ? p.cargo === 'medico' : p.cargo !== 'medico',
   )
 
-  return (
-    <>
-      {/* Botão trigger — apenas no modo autônomo */}
-      {!isControlled && (
-        <button
-          onClick={() => setIsOpen(true)}
-          className="w-full bg-white text-[#006b5a] border-2 border-[#006b5a] rounded-xl py-3 font-bold flex items-center justify-center gap-2 hover:bg-[#f0f5f4] transition-colors"
-        >
-          <CalendarPlus size={20} />
-          <span>Novo Agendamento</span>
-        </button>
-      )}
+  const slide = open ? (
+    <div className="fixed inset-0 z-[500] pointer-events-none">
+      <button
+        type="button"
+        aria-label="Fechar agendamento"
+        onClick={handleClose}
+        className="absolute inset-0 bg-[#171d1c]/40 backdrop-blur-sm pointer-events-auto"
+      />
+      <div className="absolute inset-y-0 right-0 w-full max-w-lg pointer-events-auto">
+        <div className="flex h-full w-full flex-col bg-white shadow-2xl">
 
-      {isOpen && (
-        <div className="fixed inset-0 z-[500] bg-[#171d1c]/40 backdrop-blur-sm transition-opacity" onClick={handleClose} />
-      )}
+          <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-[#bcc9c4]/30 flex items-center justify-between bg-white shrink-0 safe-top">
+            <h2 className="text-lg sm:text-xl font-bold text-[#083142]">{modoEdicao ? 'Editar agendamento' : 'Novo agendamento'}</h2>
+            <button type="button" onClick={handleClose} className="p-2 border border-[#bcc9c4] text-[#3d4945] hover:bg-[#dee3e3] rounded-lg transition-colors">
+              <X size={16} />
+            </button>
+          </div>
 
-      <div className={`fixed inset-y-0 right-0 z-[510] w-full max-w-lg bg-white transform transition-transform duration-300 ease-in-out flex flex-col ${isOpen ? 'translate-x-0 shadow-2xl' : 'translate-x-full'}`}>
-
-        <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-[#bcc9c4]/30 flex items-center justify-between bg-white shrink-0 safe-top">
-          <h2 className="text-lg sm:text-xl font-bold text-[#083142]">{modoEdicao ? 'Editar agendamento' : 'Novo agendamento'}</h2>
-          <button type="button" onClick={handleClose} className="p-2 border border-[#bcc9c4] text-[#3d4945] hover:bg-[#dee3e3] rounded-lg transition-colors">
-            <X size={16} />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-8 sm:py-6 scrollbar-thin scrollbar-thumb-slate-200">
-          <form id={formId} onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
+          <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-8 sm:py-6 scrollbar-thin scrollbar-thumb-slate-200 overscroll-contain">
+            <form id={formId} onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
 
             <div className="space-y-1 relative">
               <label className="text-xs font-semibold text-[#6d7a75] absolute -top-2 left-3 bg-white px-1 z-10">Paciente *</label>
@@ -451,8 +456,8 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
               )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 sm:gap-4">
-              <div className="sm:col-span-6 space-y-1 relative mt-2">
+            <div className="grid grid-cols-12 gap-3 sm:gap-4">
+              <div className="col-span-12 sm:col-span-6 space-y-1 relative mt-2">
                 <label className="text-xs font-semibold text-[#6d7a75] absolute -top-2 left-3 bg-white px-1 z-10">Data *</label>
                 <input
                   type="date"
@@ -460,16 +465,16 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
                   value={dataAgendamento}
                   onChange={(e) => setDataAgendamento(e.target.value)}
                   required
-                  className="w-full bg-white border border-[#bcc9c4] rounded-lg px-4 py-3 text-[#171d1c] focus:ring-2 focus:ring-[#006b5a] transition-all font-medium shadow-sm"
+                  className="w-full min-w-0 bg-white border border-[#bcc9c4] rounded-lg px-4 py-2.5 text-sm text-[#171d1c] focus:ring-2 focus:ring-[#006b5a] transition-all font-medium shadow-sm"
                 />
               </div>
-              <div className="sm:col-span-3 space-y-1 relative mt-2">
+              <div className="col-span-6 sm:col-span-3 space-y-1 relative mt-2">
                 <label className="text-xs font-semibold text-[#6d7a75] absolute -top-2 left-3 bg-white px-1 z-10">Início *</label>
-                <input type="time" name="hora_inicio" required value={horaInicioValue} onChange={e => setHoraInicioValue(e.target.value)} className="w-full bg-white border border-[#bcc9c4] rounded-lg px-3 py-3 text-[#171d1c] focus:ring-2 focus:ring-[#006b5a] transition-all font-medium shadow-sm" />
+                <input type="time" name="hora_inicio" required value={horaInicioValue} onChange={e => setHoraInicioValue(e.target.value)} className="w-full min-w-0 bg-white border border-[#bcc9c4] rounded-lg px-3 py-2.5 text-sm text-[#171d1c] focus:ring-2 focus:ring-[#006b5a] transition-all font-medium shadow-sm" />
               </div>
-              <div className="sm:col-span-3 space-y-1 relative mt-2">
+              <div className="col-span-6 sm:col-span-3 space-y-1 relative mt-2">
                 <label className="text-xs font-semibold text-[#6d7a75] absolute -top-2 left-3 bg-white px-1 z-10">Fim *</label>
-                <input type="time" name="hora_fim" required value={horaFimValue} onChange={e => setHoraFimValue(e.target.value)} className="w-full bg-white border border-[#bcc9c4] rounded-lg px-3 py-3 text-[#171d1c] focus:ring-2 focus:ring-[#006b5a] transition-all font-medium shadow-sm" />
+                <input type="time" name="hora_fim" required value={horaFimValue} onChange={e => setHoraFimValue(e.target.value)} className="w-full min-w-0 bg-white border border-[#bcc9c4] rounded-lg px-3 py-2.5 text-sm text-[#171d1c] focus:ring-2 focus:ring-[#006b5a] transition-all font-medium shadow-sm" />
               </div>
             </div>
 
@@ -648,21 +653,38 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
                 Carregando detalhes do atendimento...
               </div>
             )}
-          </form>
-        </div>
+            </form>
+          </div>
 
-        <div className="px-4 sm:px-6 border-t border-[#bcc9c4]/30 bg-[#f5faf9] shrink-0" style={{ paddingTop: '14px', paddingBottom: 'calc(14px + env(safe-area-inset-bottom, 0px))' }}>
-          <div className="flex flex-col-reverse sm:flex-row justify-end gap-2.5 sm:gap-3">
-            <button type="button" onClick={handleClose} className="w-full sm:w-auto px-6 py-2.5 rounded-lg font-bold text-[#3d4945] bg-white border border-[#bcc9c4] hover:bg-[#dee3e3] transition-colors">
-              Cancelar
-            </button>
-            <button form={formId} type="submit" disabled={loading} className="w-full sm:w-auto bg-[#006b5a] text-white px-8 py-2.5 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-[#004f43] transition-colors shadow-md disabled:opacity-70">
-              {loading ? 'Salvando...' : 'Salvar'}
-            </button>
+          <div className="px-4 sm:px-6 border-t border-[#bcc9c4]/30 bg-[#f5faf9] shrink-0" style={{ paddingTop: '14px', paddingBottom: 'calc(14px + env(safe-area-inset-bottom, 0px))' }}>
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2.5 sm:gap-3">
+              <button type="button" onClick={handleClose} className="w-full sm:w-auto px-6 py-2.5 rounded-lg font-bold text-[#3d4945] bg-white border border-[#bcc9c4] hover:bg-[#dee3e3] transition-colors">
+                Cancelar
+              </button>
+              <button form={formId} type="submit" disabled={loading} className="w-full sm:w-auto bg-[#006b5a] text-white px-8 py-2.5 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-[#004f43] transition-colors shadow-md disabled:opacity-70">
+                {loading ? 'Salvando...' : 'Salvar'}
+              </button>
+            </div>
           </div>
         </div>
-
       </div>
+    </div>
+  ) : null
+
+  return (
+    <>
+      {!isControlled && (
+        <button
+          type="button"
+          onClick={() => setIsOpen(true)}
+          className="w-full bg-white text-[#006b5a] border-2 border-[#006b5a] rounded-xl py-3 font-bold flex items-center justify-center gap-2 hover:bg-[#f0f5f4] transition-colors"
+        >
+          <CalendarPlus size={20} />
+          <span>Novo Agendamento</span>
+        </button>
+      )}
+
+      {mounted ? createPortal(slide, document.body) : null}
     </>
   )
 }

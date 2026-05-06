@@ -75,6 +75,7 @@ function firstRelation<T>(value: T | T[] | null | undefined): T | null {
 
 function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDetalhe; onClose: () => void; onEditar: () => void }) {
   const router = useRouter()
+  const [mounted, setMounted] = useState(false)
   const [status, setStatus] = useState(agendamento.status)
   const [activeTab, setActiveTab] = useState<'detalhes' | 'evolucao'>('detalhes')
   const [showStatusMenu, setShowStatusMenu] = useState(false)
@@ -114,6 +115,10 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
     && roleProfissional == null
     && duracaoMinutos == null
     && observacoes == null
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     contarAtendimentosPaciente(agendamento.paciente_id).then(setContagem)
@@ -169,8 +174,18 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
         setShowStatusMenu(false)
       }
     }
+
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      document.body.style.overflow = originalOverflow
+    }
   }, [])
 
   function toggleStatusMenu() {
@@ -217,220 +232,256 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
     onClose()
   }
 
-  return (
-    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+  const modalContent = (
+    <div className="fixed inset-0 z-[60] overflow-y-auto pointer-events-none">
+      <button
+        type="button"
+        aria-label="Fechar detalhes do agendamento"
+        onClick={onClose}
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm pointer-events-auto"
+      />
+
       <div
-        className="relative bg-white w-full max-w-md z-10 flex flex-col max-h-[100svh] sm:max-h-[90dvh] rounded-t-[28px] sm:rounded-2xl shadow-2xl"
-        onClick={e => e.stopPropagation()}
+        className="flex min-h-full items-center justify-center px-4 py-5 sm:px-6 sm:py-6"
+        style={{
+          paddingTop: 'calc(20px + env(safe-area-inset-top, 0px))',
+          paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))',
+        }}
       >
-        <div className="px-4 sm:px-6 pt-4 sm:pt-6 pb-4 safe-top">
-          <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-[#bcc9c4]/70 sm:hidden" />
-          <div className="flex items-start gap-3 sm:gap-4">
-            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#006b5a] flex items-center justify-center text-white text-xl sm:text-2xl font-bold shrink-0">
-              {inicial}
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="text-lg sm:text-xl font-bold text-[#083142] truncate">{nomePaciente}</h3>
-              <div className="flex flex-wrap gap-x-3 sm:gap-x-4 gap-y-1 mt-1">
-                <span className="flex items-center gap-1 text-[10px] sm:text-xs text-[#6d7a75]">
-                  <Phone size={12} />
-                  {loadingDetalhes ? '...' : (telefone || 'N/A')}
-                </span>
-                <span className="flex items-center gap-1 text-[10px] sm:text-xs text-[#6d7a75]">
-                  <Mail size={12} />
-                  {loadingDetalhes ? '...' : (emailPaciente || 'N/A')}
-                </span>
+        <div
+          className="relative z-10 flex w-full max-w-[28rem] sm:max-w-md flex-col rounded-2xl bg-white shadow-2xl pointer-events-auto"
+          style={{
+            maxHeight: 'calc(100svh - 40px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))',
+          }}
+          onClick={e => e.stopPropagation()}
+        >
+          <div
+            className="rounded-t-2xl px-5 sm:px-6 pt-3 pb-5 bg-white safe-top"
+            style={{ paddingTop: 'calc(20px + env(safe-area-inset-top, 0px))' }}
+          >
+            <div className="flex items-start gap-3 sm:gap-4">
+              <div className="h-12 w-12 shrink-0 rounded-full bg-[#006b5a] flex items-center justify-center text-xl sm:h-14 sm:w-14 sm:text-2xl font-bold text-white">
+                {inicial}
               </div>
-              {contagem !== null && (
-                <p className="text-[10px] sm:text-xs font-bold text-[#006b5a] mt-1">
-                  {contagem.total} atendimento{contagem.total !== 1 ? 's' : ''}
-                  {contagem.cancelados > 0 && (
-                    <span className="text-slate-400 font-normal">
-                      {' '}· {contagem.cancelados} faltas
-                    </span>
-                  )}
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 sm:gap-3 mt-4">
-            <button
-              onClick={() => { router.push('/confirmacoes/cards'); onClose() }}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-[#bcc9c4] text-[11px] sm:text-xs font-semibold text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
-            >
-              <MessageCircle size={14} className="text-[#25d366]" />
-              <span className="hidden xs:inline">Enviar</span> Lembrete
-            </button>
-
-            <div className="relative flex-1" ref={opcoesRef}>
-              <button
-                onClick={() => { setShowOpcoes((prev) => !prev); setConfirmandoExclusao(false) }}
-                className="w-full flex items-center justify-center gap-1 px-3 py-2 rounded-xl border border-[#bcc9c4] text-[11px] sm:text-xs font-semibold text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
-              >
-                Opções
-                <ChevronDown size={14} />
-              </button>
-              {showOpcoes && (
-                <div className="absolute right-0 top-full mt-1 w-64 bg-white border border-[#bcc9c4]/40 rounded-xl shadow-lg py-1.5 z-30">
-                  <button
-                    onClick={() => { setShowOpcoes(false); onEditar() }}
-                    className="w-full px-4 py-2.5 flex items-center gap-3 text-sm text-[#171d1c] hover:bg-[#f0f5f4] transition-colors"
-                  >
-                    <Pencil size={15} className="text-[#3d4945]" />
-                    Editar
-                  </button>
-                  <button
-                    onClick={() => { router.push(`/pacientes/${agendamento.paciente_id}`); setShowOpcoes(false) }}
-                    className="w-full px-4 py-2.5 flex items-center gap-3 text-sm text-[#171d1c] hover:bg-[#f0f5f4] transition-colors"
-                  >
-                    <User size={15} className="text-[#3d4945]" />
-                    Ver jornada do paciente
-                  </button>
-
-                  <div className="h-px bg-[#bcc9c4]/30 my-1" />
-
-                  {confirmandoExclusao && isRecorrente ? (
-                    <div className="px-3 py-2 space-y-1">
-                      <p className="text-[11px] font-bold text-slate-400 px-1 pb-1">Excluir:</p>
-                      <button
-                        onClick={() => handleExcluir('unico')}
-                        disabled={loading}
-                        className="w-full px-3 py-2.5 text-sm font-medium text-[#ba1a1a] hover:bg-[#fbeaea] transition-colors rounded-lg text-left disabled:opacity-50"
-                      >
-                        Apenas este agendamento
-                      </button>
-                      <button
-                        onClick={() => handleExcluir('todos')}
-                        disabled={loading}
-                        className="w-full px-3 py-2.5 text-sm font-semibold text-[#ba1a1a] hover:bg-[#fbeaea] transition-colors rounded-lg text-left disabled:opacity-50"
-                      >
-                        Toda a recorrencia
-                      </button>
-                      <button
-                        onClick={() => { setConfirmandoExclusao(false) }}
-                        className="w-full px-3 py-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors text-center"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => handleExcluir()}
-                      disabled={loading}
-                      className="w-full px-4 py-2.5 flex items-center gap-3 text-sm font-semibold text-[#ba1a1a] hover:bg-[#fbeaea] transition-colors disabled:opacity-50"
-                    >
-                      <Trash2 size={15} />
-                      {confirmandoExclusao ? 'Clique para confirmar' : 'Excluir agendamento'}
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex border-y border-[#bcc9c4]/30 bg-[#f5faf9] shrink-0">
-          <button
-            onClick={() => setActiveTab('detalhes')}
-            className={`flex-1 py-2.5 text-xs font-bold transition-colors ${
-              activeTab === 'detalhes'
-                ? 'text-[#006b5a] border-b-2 border-[#006b5a] bg-white'
-                : 'text-[#6d7a75] hover:text-[#3d4945]'
-            }`}
-          >
-            Detalhes
-          </button>
-          <button
-            onClick={() => setActiveTab('evolucao')}
-            className={`flex-1 py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${
-              activeTab === 'evolucao'
-                ? 'text-[#006b5a] border-b-2 border-[#006b5a] bg-white'
-                : 'text-[#6d7a75] hover:text-[#3d4945]'
-            }`}
-          >
-            <ClipboardList size={13} />
-            Evolucao
-          </button>
-        </div>
-
-        <div className="px-4 sm:px-6 py-4 sm:py-5 space-y-4 overflow-y-auto flex-1">
-          {activeTab === 'evolucao' ? (
-            <ProntuarioEvolucao atendimentoId={agendamento.id} pacienteId={agendamento.paciente_id} />
-          ) : (
-            <>
-              <div className="flex items-center gap-3">
-                <MapPin size={16} className="text-[#006b5a] shrink-0" />
-                <span className="text-sm font-medium text-[#3d4945]">{agendamento.tipo}</span>
-                {agendamento.total_sessoes && agendamento.total_sessoes > 1 && (
-                  <span className="text-xs font-bold px-2 py-0.5 bg-[#006b5a]/10 text-[#006b5a] rounded-full">
-                    Sessao {agendamento.numero_sessao}/{agendamento.total_sessoes}
+              <div className="min-w-0 flex-1">
+                <h3 className="truncate text-lg sm:text-xl font-bold text-[#083142]">{nomePaciente}</h3>
+                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 sm:gap-x-4">
+                  <span className="flex items-center gap-1 text-[10px] sm:text-xs text-[#6d7a75]">
+                    <Phone size={12} />
+                    {loadingDetalhes ? '...' : (telefone || 'N/A')}
                   </span>
+                  <span className="flex items-center gap-1 text-[10px] sm:text-xs text-[#6d7a75]">
+                    <Mail size={12} />
+                    {loadingDetalhes ? '...' : (emailPaciente || 'N/A')}
+                  </span>
+                </div>
+                {contagem !== null && (
+                  <p className="mt-1.5 text-[10px] sm:text-xs font-bold text-[#006b5a]">
+                    {contagem.total} atendimento{contagem.total !== 1 ? 's' : ''}
+                    {contagem.cancelados > 0 && (
+                      <span className="font-normal text-slate-400">
+                        {' '}· {contagem.cancelados} faltas
+                      </span>
+                    )}
+                  </p>
                 )}
               </div>
+            </div>
 
-              {nomeProfissional && (
-                <div className="flex items-center gap-3">
-                  <User size={16} className="text-[#006b5a] shrink-0" />
-                  <span className="text-sm font-medium text-[#3d4945]">
-                    {nomeProfissional}
-                    {roleProfissional && <span className="text-[#6d7a75] ml-1">· {roleProfissional}</span>}
-                  </span>
-                </div>
-              )}
+            <div className="mt-5 flex items-center gap-2 sm:gap-3">
+              <button
+                type="button"
+                onClick={() => { router.push('/confirmacoes/cards'); onClose() }}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#bcc9c4] px-3 py-2.5 text-[11px] sm:text-xs font-semibold text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
+              >
+                <MessageCircle size={14} className="text-[#25d366]" />
+                <span className="hidden xs:inline">Enviar</span> Lembrete
+              </button>
 
-              <div className="flex items-start gap-3">
-                <Calendar size={16} className="text-[#006b5a] mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-sm font-semibold text-[#171d1c] capitalize">{dataFormatada}</p>
-                  <p className="text-base font-bold text-[#083142]">
-                    {horaInicio}{horaFim ? ` - ${horaFim}` : ''}
-                  </p>
-                </div>
-              </div>
-
-              {duracaoMinutos ? (
-                <div className="flex items-center gap-3">
-                  <Clock size={16} className="text-[#006b5a] shrink-0" />
-                  <span className="text-sm font-medium text-[#3d4945]">{duracaoMinutos} minutos</span>
-                </div>
-              ) : null}
-
-              {observacoes ? (
-                <div className="bg-[#f0f5f4] rounded-xl p-3">
-                  <p className="text-xs font-semibold text-[#6d7a75] mb-1">Observacoes</p>
-                  <p className="text-sm text-[#3d4945]">{observacoes}</p>
-                </div>
-              ) : null}
-
-              <div className="relative" ref={statusRef}>
-                <label className="block text-xs font-bold text-[#6d7a75] mb-2">Status</label>
+              <div className="relative flex-1" ref={opcoesRef}>
                 <button
-                  onClick={toggleStatusMenu}
-                  disabled={loading}
-                  className="w-full flex items-center justify-between border border-[#bcc9c4] rounded-xl px-4 py-2 text-sm font-semibold text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
+                  type="button"
+                  onClick={() => { setShowOpcoes((prev) => !prev); setConfirmandoExclusao(false) }}
+                  className="flex w-full items-center justify-center gap-1 rounded-xl border border-[#bcc9c4] px-3 py-2.5 text-[11px] sm:text-xs font-semibold text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
                 >
-                  <span>{status || 'Agendado'}</span>
+                  Opções
                   <ChevronDown size={14} />
                 </button>
-              </div>
-            </>
-          )}
-        </div>
 
-        <div className="px-4 sm:px-6 py-4 border-t border-[#bcc9c4]/30 bg-[#f5faf9] flex justify-end sm:rounded-b-2xl safe-bottom">
-          <button
-            onClick={onClose}
-            className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-[#3d4945] bg-white border border-[#bcc9c4] hover:bg-[#dee3e3] transition-colors text-sm"
+                {showOpcoes && (
+                  <div className="absolute right-0 top-full z-30 mt-1 w-64 overflow-hidden rounded-xl border border-[#bcc9c4]/40 bg-white py-1.5 shadow-lg">
+                    <button
+                      type="button"
+                      onClick={() => { setShowOpcoes(false); onEditar() }}
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-[#171d1c] hover:bg-[#f0f5f4] transition-colors"
+                    >
+                      <Pencil size={15} className="text-[#3d4945]" />
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { router.push(`/pacientes/${agendamento.paciente_id}`); setShowOpcoes(false) }}
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-[#171d1c] hover:bg-[#f0f5f4] transition-colors"
+                    >
+                      <User size={15} className="text-[#3d4945]" />
+                      Ver jornada do paciente
+                    </button>
+
+                    <div className="my-1 h-px bg-[#bcc9c4]/30" />
+
+                    {confirmandoExclusao && isRecorrente ? (
+                      <div className="space-y-1 px-3 py-2">
+                        <p className="px-1 pb-1 text-[11px] font-bold text-slate-400">Excluir:</p>
+                        <button
+                          type="button"
+                          onClick={() => handleExcluir('unico')}
+                          disabled={loading}
+                          className="w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium text-[#ba1a1a] hover:bg-[#fbeaea] transition-colors disabled:opacity-50"
+                        >
+                          Apenas este agendamento
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleExcluir('todos')}
+                          disabled={loading}
+                          className="w-full rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-[#ba1a1a] hover:bg-[#fbeaea] transition-colors disabled:opacity-50"
+                        >
+                          Toda a recorrencia
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setConfirmandoExclusao(false) }}
+                          className="w-full py-1.5 text-center text-xs text-slate-400 hover:text-slate-600 transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleExcluir()}
+                        disabled={loading}
+                        className="flex w-full items-center gap-3 px-4 py-2.5 text-sm font-semibold text-[#ba1a1a] hover:bg-[#fbeaea] transition-colors disabled:opacity-50"
+                      >
+                        <Trash2 size={15} />
+                        {confirmandoExclusao ? 'Clique para confirmar' : 'Excluir agendamento'}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex shrink-0 border-y border-[#bcc9c4]/30 bg-[#f5faf9]">
+            <button
+              type="button"
+              onClick={() => setActiveTab('detalhes')}
+              className={`flex-1 py-2.5 text-xs font-bold transition-colors ${
+                activeTab === 'detalhes'
+                  ? 'border-b-2 border-[#006b5a] bg-white text-[#006b5a]'
+                  : 'text-[#6d7a75] hover:text-[#3d4945]'
+              }`}
+            >
+              Detalhes
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('evolucao')}
+              className={`flex flex-1 items-center justify-center gap-1.5 py-2.5 text-xs font-bold transition-colors ${
+                activeTab === 'evolucao'
+                  ? 'border-b-2 border-[#006b5a] bg-white text-[#006b5a]'
+                  : 'text-[#6d7a75] hover:text-[#3d4945]'
+              }`}
+            >
+              <ClipboardList size={13} />
+              Evolucao
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-5 sm:py-6 space-y-4">
+            {activeTab === 'evolucao' ? (
+              <ProntuarioEvolucao atendimentoId={agendamento.id} pacienteId={agendamento.paciente_id} />
+            ) : (
+              <>
+                <div className="flex items-center gap-3">
+                  <MapPin size={16} className="shrink-0 text-[#006b5a]" />
+                  <span className="text-sm font-medium text-[#3d4945]">{agendamento.tipo}</span>
+                  {agendamento.total_sessoes && agendamento.total_sessoes > 1 && (
+                    <span className="rounded-full bg-[#006b5a]/10 px-2 py-0.5 text-xs font-bold text-[#006b5a]">
+                      Sessao {agendamento.numero_sessao}/{agendamento.total_sessoes}
+                    </span>
+                  )}
+                </div>
+
+                {nomeProfissional && (
+                  <div className="flex items-center gap-3">
+                    <User size={16} className="shrink-0 text-[#006b5a]" />
+                    <span className="text-sm font-medium text-[#3d4945]">
+                      {nomeProfissional}
+                      {roleProfissional && <span className="ml-1 text-[#6d7a75]">· {roleProfissional}</span>}
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex items-start gap-3">
+                  <Calendar size={16} className="mt-0.5 shrink-0 text-[#006b5a]" />
+                  <div>
+                    <p className="text-sm font-semibold capitalize text-[#171d1c]">{dataFormatada}</p>
+                    <p className="text-base font-bold text-[#083142]">
+                      {horaInicio}{horaFim ? ` - ${horaFim}` : ''}
+                    </p>
+                  </div>
+                </div>
+
+                {duracaoMinutos ? (
+                  <div className="flex items-center gap-3">
+                    <Clock size={16} className="shrink-0 text-[#006b5a]" />
+                    <span className="text-sm font-medium text-[#3d4945]">{duracaoMinutos} minutos</span>
+                  </div>
+                ) : null}
+
+                {observacoes ? (
+                  <div className="rounded-xl bg-[#f0f5f4] p-4">
+                    <p className="mb-1 text-xs font-semibold text-[#6d7a75]">Observacoes</p>
+                    <p className="text-sm text-[#3d4945]">{observacoes}</p>
+                  </div>
+                ) : null}
+
+                <div className="relative" ref={statusRef}>
+                  <label className="mb-2 block text-xs font-bold text-[#6d7a75]">Status</label>
+                  <button
+                    type="button"
+                    onClick={toggleStatusMenu}
+                    disabled={loading}
+                    className="flex w-full items-center justify-between rounded-xl border border-[#bcc9c4] px-4 py-2.5 text-sm font-semibold text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
+                  >
+                    <span>{status || 'Agendado'}</span>
+                    <ChevronDown size={14} />
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div
+            className="flex justify-center sm:justify-end rounded-b-2xl border-t border-[#bcc9c4]/20 bg-white px-5 sm:px-6 pt-3 pb-5"
+            style={{ paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))' }}
           >
-            Fechar
-          </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="min-w-32 rounded-xl border border-[#bcc9c4] bg-white px-5 py-2.5 text-sm font-bold text-[#3d4945] hover:bg-[#dee3e3] transition-colors"
+            >
+              Fechar
+            </button>
+          </div>
         </div>
       </div>
 
       {typeof document !== 'undefined' && showStatusMenu && statusMenuPos && createPortal(
         <div
+          ref={statusMenuRef}
           style={{
             position: 'fixed',
             top: statusMenuPos.top,
@@ -439,14 +490,14 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
             zIndex: 9999,
             transform: 'translateY(-100%)',
           }}
-          className="bg-white border border-[#bcc9c4] rounded-xl shadow-lg overflow-hidden"
-          ref={statusMenuRef}
+          className="overflow-hidden rounded-xl border border-[#bcc9c4] bg-white shadow-lg"
         >
           {OPCOES_STATUS.map(({ valor, Icon, cor }) => (
             <button
               key={valor}
+              type="button"
               onClick={() => handleStatusChange(valor)}
-              className="w-full text-left px-3 py-2.5 flex items-center gap-2.5 text-sm font-medium text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
+              className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm font-medium text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
             >
               <Icon size={14} className={cor} />
               {valor}
@@ -457,6 +508,10 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
       )}
     </div>
   )
+
+  if (!mounted) return null
+
+  return createPortal(modalContent, document.body)
 }
 
 export function AgendamentoItemDia({ agendamento, pacientes, profissionais }: { agendamento: AgendamentoDetalhe; pacientes: Paciente[]; profissionais: Profissional[] }) {
