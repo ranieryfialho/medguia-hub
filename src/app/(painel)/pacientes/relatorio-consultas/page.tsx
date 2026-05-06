@@ -146,10 +146,6 @@ export default async function RelatorioConsultasPage({
   const tipos_filtro = Array.isArray(params.tipo) ? params.tipo : params.tipo ? [params.tipo] : []
   const status_filtro = (params.status as string) || ''
 
-  const responsavelSelecionadoId = visao === 'medicos' ? medico_id : profissional_id
-  const profissionaisFiltroEfetivos = isGestorOuMaster
-    ? (responsavelSelecionadoId ? [responsavelSelecionadoId] : [])
-    : [user.id]
   const dataInicioIso = `${data_inicio}T00:00:00`
   const dataFimIso = `${data_fim}T23:59:59`
 
@@ -191,7 +187,11 @@ export default async function RelatorioConsultasPage({
       nome: item.full_name || 'Sem nome',
     }))
 
+  const responsavelSelecionadoId = visao === 'medicos' ? medico_id : profissional_id
   const opcoesResponsaveis = visao === 'medicos' ? medicos : profissionais
+  const profissionaisFiltroEfetivos = isGestorOuMaster
+    ? (responsavelSelecionadoId ? [responsavelSelecionadoId] : opcoesResponsaveis.map((item) => item.id))
+    : [user.id]
 
   const profissionaisMap = new Map([...profissionais, ...medicos].map((item) => [item.id, item.nome]))
 
@@ -520,53 +520,51 @@ export default async function RelatorioConsultasPage({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100">
-            <h2 className="font-semibold text-slate-900">
-              {visao === 'medicos' ? 'Por Médico' : 'Por Equipe de Fisioterapia'}
-            </h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100">
+          <h2 className="font-semibold text-slate-900">
+            {visao === 'medicos' ? 'Por Médico' : 'Por Equipe de Fisioterapia'}
+          </h2>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
+              <tr>
+                <th className="text-left px-4 py-3">
+                  {visao === 'medicos' ? 'Médico' : 'Responsável'}
+                </th>
+                <th className="text-right px-4 py-3">Agend.</th>
+                <th className="text-right px-4 py-3">Recorr.</th>
+                <th className="text-right px-4 py-3">Atend.</th>
+                <th className="text-right px-4 py-3">Concl.</th>
+                <th className="text-right px-4 py-3">Pend.</th>
+                <th className="text-right px-4 py-3">Canc./Falta</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {linhasProfissionalOrdenadas.length === 0 && (
                 <tr>
-                  <th className="text-left px-4 py-3">
-                    {visao === 'medicos' ? 'Médico' : 'Responsável'}
-                  </th>
-                  <th className="text-right px-4 py-3">Agend.</th>
-                  <th className="text-right px-4 py-3">Recorr.</th>
-                  <th className="text-right px-4 py-3">Atend.</th>
-                  <th className="text-right px-4 py-3">Concl.</th>
-                  <th className="text-right px-4 py-3">Pend.</th>
-                  <th className="text-right px-4 py-3">Canc./Falta</th>
+                  <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                    {visao === 'medicos'
+                      ? 'Nenhum médico com dados no período.'
+                      : 'Nenhum responsável com dados no período.'}
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {linhasProfissionalOrdenadas.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
-                      {visao === 'medicos'
-                        ? 'Nenhum médico com dados no período.'
-                        : 'Nenhum responsável com dados no período.'}
-                    </td>
-                  </tr>
-                )}
-                {linhasProfissionalOrdenadas.map((linha) => (
-                  <tr key={linha.profissionalId}>
-                    <td className="px-4 py-3 font-medium text-slate-900">{linha.profissionalNome}</td>
-                    <td className="px-4 py-3 text-right">{linha.agendamentos}</td>
-                    <td className="px-4 py-3 text-right">{linha.recorrentes}</td>
-                    <td className="px-4 py-3 text-right">{linha.atendimentos}</td>
-                    <td className="px-4 py-3 text-right">{linha.concluidos}</td>
-                    <td className="px-4 py-3 text-right">{linha.pendentes}</td>
-                    <td className="px-4 py-3 text-right">{linha.canceladosOuFalta}</td>
-                  </tr>
+              )}
+              {linhasProfissionalOrdenadas.map((linha) => (
+                <tr key={linha.profissionalId}>
+                  <td className="px-4 py-3 font-medium text-slate-900">{linha.profissionalNome}</td>
+                  <td className="px-4 py-3 text-right">{linha.agendamentos}</td>
+                  <td className="px-4 py-3 text-right">{linha.recorrentes}</td>
+                  <td className="px-4 py-3 text-right">{linha.atendimentos}</td>
+                  <td className="px-4 py-3 text-right">{linha.concluidos}</td>
+                  <td className="px-4 py-3 text-right">{linha.pendentes}</td>
+                  <td className="px-4 py-3 text-right">{linha.canceladosOuFalta}</td>
+                </tr>
               ))}
             </tbody>
           </table>
         </div>
-      </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
