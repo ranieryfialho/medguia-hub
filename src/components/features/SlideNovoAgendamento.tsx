@@ -333,7 +333,7 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
   const profissionalSelecionado = profissionais.find((p) => p.id === selectedProfissionalId)
   const profissionalSelecionadoEhMedico = profissionalSelecionado?.cargo === 'medico'
   const profissionaisFiltrados = profissionais.filter(p =>
-    tipoProfissional === 'medico' ? p.cargo === 'medico' : p.cargo === 'fisioterapeuta',
+    tipoProfissional === 'medico' ? p.cargo === 'medico' : p.cargo !== 'medico',
   )
 
   return (
