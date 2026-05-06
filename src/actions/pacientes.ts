@@ -9,8 +9,100 @@ function normalizarCPF(cpf: string): string {
   return cpf.replace(/\D/g, '')
 }
 
-export async function criarPaciente(prevState: any, formData: FormData) {
+function normalizarTexto(valor: string): string {
+  return valor.trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
+function normalizarTelefone(telefone: string): string {
+  return telefone.replace(/\D/g, '')
+}
+
+function normalizarEmail(email: string): string {
+  return email.trim().toLowerCase()
+}
+
+export type PacienteDuplicado = {
+  id: string
+  nome: string
+  cpf: string | null
+  telefone: string | null
+  email: string | null
+  data_nascimento: string | null
+  ativo: boolean | null
+  score: number
+  motivos: string[]
+}
+
+export type PacienteFormState = {
+  error?: string
+  warning?: string
+  fields?: Record<string, unknown>
+  duplicateCandidates?: PacienteDuplicado[]
+}
+
+async function buscarPossiveisDuplicadosPaciente(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  dadosPaciente: {
+    nome: string
+    telefone: string
+    email: string
+    data_nascimento: string | null
+  },
+  pacienteIdIgnorar?: string,
+): Promise<PacienteDuplicado[]> {
+  const nomeNormalizado = normalizarTexto(dadosPaciente.nome || '')
+
+  if (!nomeNormalizado) return []
+
+  let query = supabase
+    .from('pacientes')
+    .select('id, nome, cpf, telefone, email, data_nascimento, ativo')
+    .ilike('nome', nomeNormalizado)
+    .limit(10)
+
+  if (pacienteIdIgnorar) {
+    query = query.neq('id', pacienteIdIgnorar)
+  }
+
+  const { data, error } = await query
+
+  if (error || !data) return []
+
+  const telefoneNormalizado = normalizarTelefone(dadosPaciente.telefone || '')
+  const emailNormalizado = normalizarEmail(dadosPaciente.email || '')
+
+  return data
+    .map((paciente) => {
+      const motivos: string[] = ['nome igual']
+      let score = 1
+
+      if (telefoneNormalizado && normalizarTelefone(paciente.telefone || '') === telefoneNormalizado) {
+        motivos.push('telefone igual')
+        score += 3
+      }
+
+      if (emailNormalizado && normalizarEmail(paciente.email || '') === emailNormalizado) {
+        motivos.push('email igual')
+        score += 2
+      }
+
+      if (dadosPaciente.data_nascimento && paciente.data_nascimento === dadosPaciente.data_nascimento) {
+        motivos.push('data de nascimento igual')
+        score += 3
+      }
+
+      return {
+        ...paciente,
+        score,
+        motivos,
+      }
+    })
+    .sort((a, b) => b.score - a.score || a.nome.localeCompare(b.nome))
+}
+
+export async function criarPaciente(prevState: PacienteFormState | null, formData: FormData) {
   const supabase = await createClient()
+  const confirmarDuplicado = formData.get('confirmar_duplicado') === '1'
 
   const cpfRaw = (formData.get('cpf') as string || '').trim()
   const cpf = cpfRaw ? normalizarCPF(cpfRaw) : ''
@@ -48,6 +140,24 @@ export async function criarPaciente(prevState: any, formData: FormData) {
     }
   }
 
+  if (!confirmarDuplicado) {
+    const duplicados = await buscarPossiveisDuplicadosPaciente(supabase, {
+      nome: dadosPaciente.nome,
+      telefone: dadosPaciente.telefone,
+      email: dadosPaciente.email,
+      data_nascimento: dadosPaciente.data_nascimento,
+    })
+
+    if (duplicados.length > 0) {
+      return {
+        error: '',
+        warning: 'Encontramos pacientes já cadastrados com o mesmo nome. Revise antes de salvar.',
+        fields: dadosPaciente,
+        duplicateCandidates: duplicados,
+      }
+    }
+  }
+
   const { error } = await supabase
     .from('pacientes')
     .insert(dadosPaciente)
@@ -61,7 +171,7 @@ export async function criarPaciente(prevState: any, formData: FormData) {
   redirect('/pacientes')
 }
 
-export async function editarPaciente(prevState: any, formData: FormData) {
+export async function editarPaciente(prevState: PacienteFormState | null, formData: FormData) {
   const supabase = await createClient()
   const id = formData.get('id') as string
 
@@ -124,7 +234,7 @@ export async function editarPaciente(prevState: any, formData: FormData) {
   redirect('/pacientes')
 }
 
-export async function adicionarObservacao(prevState: any, formData: FormData) {
+export async function adicionarObservacao(prevState: PacienteFormState | null, formData: FormData) {
   const supabase = await createClient()
 
   const pacienteId = formData.get('paciente_id') as string

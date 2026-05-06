@@ -53,10 +53,7 @@ export function WidgetDisponibilidade({ profissionais, initialStatuses, currentU
   const [isPending, startTransition] = useTransition()
   const [, setTick] = useState(0)
   const slideNovoAgendamentoAberto = useSlideNovoAgendamentoAberto()
-  const [isMobile, setIsMobile] = useState(() => {
-    if (typeof window === 'undefined') return false
-    return window.matchMedia('(max-width: 1023px)').matches
-  })
+  const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
     const id = setInterval(() => setTick(t => t + 1), 30_000)
@@ -72,13 +69,12 @@ export function WidgetDisponibilidade({ profissionais, initialStatuses, currentU
     return () => mediaQuery.removeEventListener('change', sync)
   }, [])
 
-  // Ocultar em telas de cadastro/edição que possuem barras fixas no rodapé
+  // No desktop, mantemos oculto em telas de cadastro/edição que já possuem barras fixas no rodapé.
   const isTelaCadastro = pathname?.includes('/novo') || pathname?.includes('/editar') || pathname?.includes('/vendas/nova')
-  const isAgenda = pathname?.includes('/agenda')
-  
-  if (isTelaCadastro) return null
-  // Se for agenda e mobile, ocultamos para não atrapalhar o botão de novo agendamento
-  if (isMobile && (slideNovoAgendamentoAberto || isAgenda)) return null
+
+  if (!isMobile && isTelaCadastro) return null
+  // No mobile, ocultamos apenas durante o fluxo de agendamento aberto.
+  if (isMobile && slideNovoAgendamentoAberto) return null
 
   const diaSemanaAtual = getDiaSemanaAtualNaTimezone()
   const statusesEfetivos = statuses.map((status) => {

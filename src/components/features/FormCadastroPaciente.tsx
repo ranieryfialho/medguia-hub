@@ -1,12 +1,19 @@
 'use client'
 
-import { useActionState, useEffect, useState } from 'react'
-import { criarPaciente } from '@/actions/pacientes'
+import { useActionState, useEffect, useRef, useState, useTransition } from 'react'
+import { buscarPacientesPorNome, criarPaciente, type PacienteDuplicado, type PacienteFormState } from '@/actions/pacientes'
 import Link from 'next/link'
-import { UploadCloud } from 'lucide-react'
+import { Loader2, UploadCloud } from 'lucide-react'
 import toast from 'react-hot-toast'
 import type { OrigemPaciente } from '@/actions/origens-paciente'
 import { ComboboxPaciente } from '@/components/features/ComboboxPaciente'
+
+type CadastroPacienteState = PacienteFormState
+type NomeSuggestion = {
+  id: string
+  nome: string
+  detalhe?: string
+}
 
 function parseOrigem(origem: string) {
   const [origemBase = '', metaCanal = '', ...resto] = origem.split('::')
@@ -31,11 +38,15 @@ function tipoOrigem(nome: string) {
 }
 
 export function FormCadastroPaciente({ origens = [] }: { origens?: OrigemPaciente[] }) {
-  const [state, formAction, isPending] = useActionState<any, FormData>(criarPaciente, { error: '', fields: {} })
+  const [state, formAction, isPending] = useActionState<CadastroPacienteState, FormData>(criarPaciente, { error: '', fields: {} })
+  const [isBuscandoNome, startBuscaNome] = useTransition()
   const origemInicial = parseOrigem(state?.fields?.origem as string || '')
   const [origemSelecionada, setOrigemSelecionada] = useState(origemInicial.origemBase)
   const [metaCanal, setMetaCanal] = useState(origemInicial.metaCanal)
   const [metaAnuncio, setMetaAnuncio] = useState(origemInicial.metaAnuncio)
+  const [nome, setNome] = useState(state?.fields?.nome as string || '')
+  const [sugestoesNome, setSugestoesNome] = useState<NomeSuggestion[]>([])
+  const debounceNomeRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (state?.error) {
@@ -43,8 +54,30 @@ export function FormCadastroPaciente({ origens = [] }: { origens?: OrigemPacient
     }
   }, [state?.error])
 
+  useEffect(() => {
+    const termo = nome.trim()
+
+    if (debounceNomeRef.current) clearTimeout(debounceNomeRef.current)
+
+    if (termo.length < 3) return
+
+    debounceNomeRef.current = setTimeout(() => {
+      startBuscaNome(async () => {
+        const pacientes = await buscarPacientesPorNome(termo)
+        setSugestoesNome(pacientes)
+      })
+    }, 300)
+
+    return () => {
+      if (debounceNomeRef.current) clearTimeout(debounceNomeRef.current)
+    }
+  }, [nome])
+
   const tipo = tipoOrigem(origemSelecionada)
   const origemPersistida = montarOrigem(origemSelecionada, metaCanal, metaAnuncio)
+  const duplicateCandidates: PacienteDuplicado[] = Array.isArray(state?.duplicateCandidates) ? state.duplicateCandidates : []
+  const temSugestoesNome = sugestoesNome.length > 0
+  const nomeExatoJaExiste = sugestoesNome.some((paciente) => paciente.nome.trim().toLowerCase() === nome.trim().toLowerCase())
 
   return (
     <form action={formAction} className="pb-24">
@@ -58,10 +91,51 @@ export function FormCadastroPaciente({ origens = [] }: { origens?: OrigemPacient
               type="text" 
               name="nome" 
               required 
-              defaultValue={state?.fields?.nome as string || ''}
+              value={nome}
+              onChange={e => {
+                const value = e.target.value
+                setNome(value)
+                if (value.trim().length < 3) {
+                  setSugestoesNome([])
+                }
+              }}
               className="w-full bg-input border border-border-input rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-primary-500" 
               placeholder="Nome completo" 
             />
+            {isBuscandoNome && nome.trim().length >= 3 && (
+              <div className="mt-2 flex items-center gap-2 text-xs text-text-secondary">
+                <Loader2 size={12} className="animate-spin" />
+                Buscando pacientes parecidos...
+              </div>
+            )}
+            {!isBuscandoNome && temSugestoesNome && (
+              <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <div className="text-xs font-semibold text-amber-900">
+                  {nomeExatoJaExiste
+                    ? 'Já existe paciente com este nome. Confira antes de criar outro cadastro.'
+                    : 'Encontramos pacientes parecidos. Considere reutilizar um cadastro existente.'}
+                </div>
+                <div className="mt-2 space-y-2">
+                  {sugestoesNome.slice(0, 4).map((paciente) => (
+                    <div key={paciente.id} className="flex items-center justify-between gap-3 rounded-md border border-amber-100 bg-white px-3 py-2">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium text-text-primary">{paciente.nome}</div>
+                        {paciente.detalhe && (
+                          <div className="truncate text-xs text-text-secondary">{paciente.detalhe}</div>
+                        )}
+                      </div>
+                      <Link
+                        href={`/pacientes/${paciente.id}`}
+                        target="_blank"
+                        className="shrink-0 text-xs font-semibold text-primary-600 hover:text-primary-700"
+                      >
+                        Abrir cadastro
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <div>
             <label className="block text-xs font-medium text-text-secondary mb-1">CPF</label>
@@ -319,6 +393,36 @@ export function FormCadastroPaciente({ origens = [] }: { origens?: OrigemPacient
         </div>
       </div>
 
+      {duplicateCandidates.length > 0 && (
+        <div className="mb-8 rounded-2xl border border-amber-300 bg-amber-50 p-5">
+          <h2 className="text-lg font-semibold text-amber-950 mb-2">Possível duplicidade encontrada</h2>
+          <p className="text-sm text-amber-900 mb-4">
+            {state.warning || 'Já existe paciente com dados parecidos. Revise os cadastros abaixo antes de continuar.'}
+          </p>
+          <div className="space-y-3">
+            {duplicateCandidates.map((paciente) => (
+              <div key={paciente.id} className="rounded-lg border border-amber-200 bg-white p-3 text-sm text-slate-800">
+                <div className="font-semibold">{paciente.nome}</div>
+                <div className="mt-1 text-slate-600">
+                  {[
+                    paciente.cpf ? `CPF: ${paciente.cpf}` : null,
+                    paciente.telefone ? `Telefone: ${paciente.telefone}` : null,
+                    paciente.email ? `Email: ${paciente.email}` : null,
+                    paciente.data_nascimento ? `Nascimento: ${paciente.data_nascimento}` : null,
+                  ].filter(Boolean).join(' • ') || 'Sem identificadores complementares'}
+                </div>
+                <div className="mt-1 text-xs font-medium text-amber-700">
+                  {Array.isArray(paciente.motivos) ? paciente.motivos.join(' • ') : 'nome igual'}
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="mt-4 text-xs text-amber-800">
+            Se ainda assim for um paciente novo, confirme o cadastro no botão abaixo.
+          </p>
+        </div>
+      )}
+
       <div className="fixed bottom-0 right-0 left-[220px] bg-surface border-t border-border p-4 flex justify-end gap-3 z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
         <Link 
           href="/pacientes"
@@ -333,6 +437,17 @@ export function FormCadastroPaciente({ origens = [] }: { origens?: OrigemPacient
         >
           {isPending ? 'Salvando...' : 'Salvar'}
         </button>
+        {duplicateCandidates.length > 0 && (
+          <button
+            type="submit"
+            name="confirmar_duplicado"
+            value="1"
+            disabled={isPending}
+            className="px-6 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-md text-sm font-semibold transition-colors disabled:opacity-70"
+          >
+            {isPending ? 'Confirmando...' : 'Salvar mesmo assim'}
+          </button>
+        )}
       </div>
     </form>
   )
