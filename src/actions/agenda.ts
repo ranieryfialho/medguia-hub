@@ -369,6 +369,12 @@ export async function contarAtendimentosPaciente(pacienteId: string): Promise<{ 
 export async function deletarAgendamento(id: string) {
   const supabase = await createClient()
 
+  const { data: atendimento } = await supabase
+    .from('atendimentos')
+    .select('agendamento_id')
+    .eq('id', id)
+    .maybeSingle()
+
   const { error } = await supabase
     .from('atendimentos')
     .delete()
@@ -377,6 +383,17 @@ export async function deletarAgendamento(id: string) {
   if (error) {
     console.error('Erro ao deletar:', error.message)
     return { error: 'Não foi possível excluir o agendamento.' }
+  }
+
+  if (atendimento?.agendamento_id) {
+    const { count } = await supabase
+      .from('atendimentos')
+      .select('id', { count: 'exact', head: true })
+      .eq('agendamento_id', atendimento.agendamento_id)
+
+    if (count === 0) {
+      await supabase.from('agendamentos').delete().eq('id', atendimento.agendamento_id)
+    }
   }
 
   revalidatePath('/agenda')

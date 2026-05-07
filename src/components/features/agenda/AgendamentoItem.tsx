@@ -8,6 +8,7 @@ import {
   CheckCircle, Hourglass, Stethoscope, CheckCheck, XCircle, UserX, RefreshCw, User, CalendarClock,
   MessageCircle, Pencil, Trash2, MapPin, ClipboardList
 } from 'lucide-react'
+import toast from 'react-hot-toast'
 import {
   mudarStatusAgendamento,
   contarAtendimentosPaciente,
@@ -301,12 +302,22 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
 
     setLoading(true)
 
+    let resultado: { error?: string } | undefined
+
     if (escopo === 'todos' && agendamento.agendamento_id) {
-      await deletarTodasRecorrencias(agendamento.agendamento_id)
+      resultado = await deletarTodasRecorrencias(agendamento.agendamento_id)
     } else if (isRecorrente && escopo === 'unico') {
-      await deletarAtendimentoPontualDaRecorrencia(agendamento.id)
+      resultado = await deletarAtendimentoPontualDaRecorrencia(agendamento.id)
     } else {
-      await deletarAgendamento(agendamento.id)
+      resultado = await deletarAgendamento(agendamento.id)
+    }
+
+    setLoading(false)
+
+    if (resultado?.error) {
+      toast.error(resultado.error)
+      setConfirmandoExclusao(false)
+      return
     }
 
     router.refresh()
