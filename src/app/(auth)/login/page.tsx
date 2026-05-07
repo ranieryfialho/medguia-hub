@@ -1,15 +1,36 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useState, useEffect, Suspense } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { login } from '@/actions/auth'
+import { ResetPasswordModal } from '@/components/auth/ResetPasswordModal'
+
+function RedirectIfCodePresent() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const code = searchParams.get('code')
+
+  useEffect(() => {
+    if (code) {
+      router.replace(`/reset-password?code=${code}`)
+    }
+  }, [code, router])
+
+  return null
+}
 
 export default function LoginPage() {
   const [state, formAction, isPending] = useActionState(login, null)
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false)
 
   return (
     <div className="min-h-dvh flex items-center justify-center bg-page p-4">
+      <Suspense>
+        <RedirectIfCodePresent />
+      </Suspense>
+
       <div className="w-full max-w-md bg-surface p-8 rounded-xl shadow-md border border-border">
-        
+
         <div className="text-center mb-8">
           <h1 className="text-2xl font-semibold text-primary-500 mb-2">MedGuia Hub</h1>
           <p className="text-sm text-text-secondary">Faça login para acessar o sistema</p>
@@ -40,6 +61,15 @@ export default function LoginPage() {
               className="w-full bg-input border border-border-input rounded-sm px-[14px] py-[10px] text-sm text-text-primary focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors"
               placeholder="••••••••"
             />
+            <div className="text-right mt-2">
+              <button
+                type="button"
+                onClick={() => setIsResetModalOpen(true)}
+                className="text-xs text-primary-500 hover:text-primary-600 font-medium"
+              >
+                Esqueci minha senha
+              </button>
+            </div>
           </div>
 
           {state?.error && (
@@ -57,6 +87,8 @@ export default function LoginPage() {
           </button>
         </form>
       </div>
+
+      <ResetPasswordModal isOpen={isResetModalOpen} onClose={() => setIsResetModalOpen(false)} />
     </div>
   )
 }
