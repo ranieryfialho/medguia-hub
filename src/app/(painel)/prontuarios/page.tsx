@@ -40,7 +40,7 @@ export default async function ProntuariosPendentesPage() {
           pacientes(id, nome),
           agendamento:agendamentos(tipo)
         `)
-        .eq('status', 'Concluído')
+        .in('status', ['Concluído', 'Concluido'])
         .order('data_agendamento', { ascending: false })
         .limit(300)
       return isFisio ? q.eq('profissional_id', user.id) : q

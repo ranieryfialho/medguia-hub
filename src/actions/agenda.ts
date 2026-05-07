@@ -497,7 +497,7 @@ export async function deletarAtendimentoPontualDaRecorrencia(id: string) {
 
   revalidatePath('/agenda')
   revalidatePath('/confirmacoes')
-  revalidatePath('/pacientes', 'layout')
+  revalidatePath('/(painel)', 'layout')
   return { success: true }
 }
 
@@ -515,7 +515,7 @@ export async function deletarTodasRecorrencias(agendamentoId: string) {
 
   revalidatePath('/agenda')
   revalidatePath('/confirmacoes')
-  revalidatePath('/pacientes', 'layout')
+  revalidatePath('/(painel)', 'layout')
   return { success: true }
 }
 
@@ -599,6 +599,6 @@ export async function mudarStatusAgendamento(id: string, novoStatus: string) {
   }
 
   revalidatePath('/agenda')
-  revalidatePath('/pacientes', 'layout')
+  revalidatePath('/(painel)', 'layout')
   return { success: true }
 }

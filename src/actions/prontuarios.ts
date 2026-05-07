@@ -71,7 +71,7 @@ export async function salvarProntuario(
 
   if (error) return { error: error.message }
 
-  revalidatePath('/pacientes', 'layout')
+  revalidatePath('/(painel)', 'layout')
   revalidatePath('/prontuarios')
   return {}
 }

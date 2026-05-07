@@ -121,7 +121,7 @@ export async function registrarContato(
 
   revalidatePath('/confirmacoes')
   revalidatePath('/agenda')
-  revalidatePath('/pacientes', 'layout')
+  revalidatePath('/(painel)', 'layout')
   return { success: true }
 }
 
@@ -187,7 +187,7 @@ export async function adicionarSessaoReposicao(
 
   revalidatePath('/agenda')
   revalidatePath('/confirmacoes')
-  revalidatePath('/pacientes', 'layout')
+  revalidatePath('/(painel)', 'layout')
   return { success: true }
 }
 
@@ -241,7 +241,7 @@ export async function criarAtendimentoReagendado(
 
   revalidatePath('/agenda')
   revalidatePath('/confirmacoes')
-  revalidatePath('/pacientes', 'layout')
+  revalidatePath('/(painel)', 'layout')
   return { success: true }
 }
 

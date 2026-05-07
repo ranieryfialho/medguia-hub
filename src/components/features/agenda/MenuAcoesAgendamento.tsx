@@ -6,6 +6,7 @@ import { MoreVertical, CheckCircle, Hourglass, Stethoscope, CheckCheck, XCircle,
 import { mudarStatusAgendamento } from '@/actions/agenda'
 import { obterProximaData, registrarContato, criarAtendimentoReagendado, adicionarSessaoReposicao } from '@/actions/confirmacoes'
 import { ModalSessaoReposicao } from '../shared'
+import { ConfirmacaoFaltaModal } from './AgendamentoItem'
 import { format } from 'date-fns'
 import toast from 'react-hot-toast'
 
@@ -36,7 +37,7 @@ export function MenuAcoesAgendamento({ id, statusAtual, onOpenChange, atendiment
   const [isOpen, setIsOpen] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
-  const [modalAberto, setModalAberto] = useState<'vai_faltar' | 'reagendamento' | null>(null)
+  const [modalAberto, setModalAberto] = useState<'confirmacao_falta' | 'reagendamento' | null>(null)
   const [proximaData, setProximaData] = useState<string | undefined>()
   const [proximaHora, setProximaHora] = useState<string | undefined>()
   const [mounted, setMounted] = useState(false)
@@ -96,15 +97,9 @@ export function MenuAcoesAgendamento({ id, statusAtual, onOpenChange, atendiment
       return
     }
 
-    // "Falta": abre modal para agendar reposição (recorrente ou único)
-    if (novoStatus === 'Falta' && atendimentoId && dataAgendamento) {
-      setIsUpdating(true)
-      const proxima = agendamentoId ? await obterProximaData(atendimentoId) : null
-      setIsUpdating(false)
-      const horaAtual = format(new Date(dataAgendamento), 'HH:mm')
-      setProximaData(proxima?.data ?? undefined)
-      setProximaHora(horaAtual)
-      setModalAberto('vai_faltar')
+    // "Falta": abre modal de confirmação com opção de reagendar
+    if (novoStatus === 'Falta') {
+      setModalAberto('confirmacao_falta')
       setOpen(false)
       return
     }
@@ -126,6 +121,21 @@ export function MenuAcoesAgendamento({ id, statusAtual, onOpenChange, atendiment
     setOpen(false)
   }
 
+  async function handleConfirmarFalta(reagendar: boolean) {
+    setModalAberto(null)
+    setIsUpdating(true)
+    await mudarStatusAgendamento(id, 'Falta')
+    setIsUpdating(false)
+    toast.success(`${pacienteNome} — Falta registrada`)
+    if (reagendar && atendimentoId && dataAgendamento) {
+      const proxima = agendamentoId ? await obterProximaData(atendimentoId) : null
+      const horaAtual = format(new Date(dataAgendamento), 'HH:mm')
+      setProximaData(proxima?.data ?? undefined)
+      setProximaHora(horaAtual)
+      setModalAberto('reagendamento')
+    }
+  }
+
   async function handleModalClose(agendado: boolean) {
     const tipo = modalAberto
     setModalAberto(null)
@@ -134,14 +144,7 @@ export function MenuAcoesAgendamento({ id, statusAtual, onOpenChange, atendiment
 
     if (!atendimentoId) return
 
-    if (tipo === 'vai_faltar' && agendado) {
-      const res = await registrarContato(atendimentoId, 'vai_faltar')
-      if (res.error) {
-        toast.error(res.error)
-      } else {
-        toast.success(`${pacienteNome} — Falta registrada`)
-      }
-    } else if (tipo === 'reagendamento') {
+    if (tipo === 'reagendamento') {
       if (agendado) {
         const res = await registrarContato(atendimentoId, 'reagendou')
         if (res.error) {
@@ -202,8 +205,15 @@ export function MenuAcoesAgendamento({ id, statusAtual, onOpenChange, atendiment
         )}
       </div>
 
-      {/* Modal renderizado via portal para evitar conflito com click-outside */}
-      {mounted && modalAberto && atendimentoId && createPortal(
+      {mounted && modalAberto === 'confirmacao_falta' && createPortal(
+        <ConfirmacaoFaltaModal
+          onConfirmar={handleConfirmarFalta}
+          onCancelar={() => setModalAberto(null)}
+        />,
+        document.body
+      )}
+
+      {mounted && modalAberto === 'reagendamento' && atendimentoId && createPortal(
         <ModalSessaoReposicao
           pacienteNome={pacienteNome || 'Paciente'}
           defaultData={proximaData}

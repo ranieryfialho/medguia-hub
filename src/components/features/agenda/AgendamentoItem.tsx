@@ -19,6 +19,9 @@ import {
 import { MenuAcoesAgendamento } from './MenuAcoesAgendamento'
 import { SlideNovoAgendamento } from './SlideNovoAgendamento'
 import { ProntuarioEvolucao } from '../prontuarios'
+import { ModalSessaoReposicao } from '../shared'
+import { adicionarSessaoReposicao, criarAtendimentoReagendado, obterProximaData, registrarContato } from '@/actions/confirmacoes'
+import { format } from 'date-fns'
 import { formatAppDateLabel, formatAppTime } from '@/lib/datetime'
 
 type Paciente = { id: string; nome: string }
@@ -55,13 +58,13 @@ const STATUS_CONFIG: Record<string, { cardBg: string; border: string; iconText: 
 const CONFIG_DEFAULT = { cardBg: 'bg-gray-100', border: 'border-gray-400', iconText: 'text-gray-500', titleText: 'text-gray-800', subText: 'text-gray-600', badgeBg: 'bg-gray-400', label: 'Agendado', Icon: CheckCircle }
 
 const OPCOES_STATUS = [
-  { valor: 'Confirmado', Icon: CheckCircle, cor: 'text-[#006b5a]' },
-  { valor: 'Aguardando', Icon: Hourglass, cor: 'text-[#6d7a75]' },
-  { valor: 'Em Atendimento', Icon: Stethoscope, cor: 'text-[#406375]' },
-  { valor: 'Concluído', Icon: CheckCheck, cor: 'text-[#4f625d]' },
-  { valor: 'Cancelado', Icon: XCircle, cor: 'text-[#ba1a1a]' },
-  { valor: 'Falta', Icon: UserX, cor: 'text-[#3d4945]' },
-  { valor: 'Reposição', Icon: RefreshCw, cor: 'text-[#779aad]' },
+  { valor: 'Confirmado',     label: 'Confirmado',     Icon: CheckCircle, cor: 'text-[#006b5a]' },
+  { valor: 'Aguardando',     label: 'Aguardando',     Icon: Hourglass,   cor: 'text-[#6d7a75]' },
+  { valor: 'Em Atendimento', label: 'Em Atendimento', Icon: Stethoscope, cor: 'text-[#406375]' },
+  { valor: 'Concluído',      label: 'Concluído',      Icon: CheckCheck,  cor: 'text-[#4f625d]' },
+  { valor: 'Cancelado',      label: 'Cancelado',      Icon: XCircle,     cor: 'text-[#ba1a1a]' },
+  { valor: 'Falta',          label: 'Falta',          Icon: UserX,       cor: 'text-[#3d4945]' },
+  { valor: 'Reposição',      label: 'Reagendamento',  Icon: RefreshCw,   cor: 'text-[#779aad]' },
 ]
 
 function getConfig(status: string) {
@@ -71,6 +74,49 @@ function getConfig(status: string) {
 function firstRelation<T>(value: T | T[] | null | undefined): T | null {
   if (Array.isArray(value)) return value[0] ?? null
   return value ?? null
+}
+
+export function ConfirmacaoFaltaModal({ onConfirmar, onCancelar }: { onConfirmar: (reagendar: boolean) => void; onCancelar: () => void }) {
+  const [reagendar, setReagendar] = useState(true)
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50">
+      <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6">
+        <h3 className="text-base font-bold text-[#083142] mb-1">Marcar como Falta?</h3>
+        <p className="text-sm text-[#6d7a75] mb-5">O status do agendamento será alterado para <strong>Falta</strong>.</p>
+
+        <label className="flex items-center gap-3 p-3 rounded-xl border border-[#bcc9c4] cursor-pointer hover:bg-[#f0f5f4] transition-colors mb-5">
+          <input
+            type="checkbox"
+            checked={reagendar}
+            onChange={e => setReagendar(e.target.checked)}
+            className="w-4 h-4 accent-[#006b5a] cursor-pointer"
+          />
+          <div>
+            <p className="text-sm font-semibold text-[#171d1c]">Reagendar paciente</p>
+            <p className="text-xs text-[#6d7a75]">Abre o formulário de novo agendamento</p>
+          </div>
+        </label>
+
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onCancelar}
+            className="flex-1 py-2.5 rounded-xl border border-[#bcc9c4] text-sm font-semibold text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={() => onConfirmar(reagendar)}
+            className="flex-1 py-2.5 rounded-xl bg-gray-500 hover:bg-gray-600 text-white text-sm font-semibold transition-colors"
+          >
+            Confirmar Falta
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDetalhe; onClose: () => void; onEditar: () => void }) {
@@ -83,6 +129,10 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
   const [loading, setLoading] = useState(false)
   const [loadingDetalhes, setLoadingDetalhes] = useState(false)
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false)
+  const [confirmacaoFalta, setConfirmacaoFalta] = useState(false)
+  const [modalReagendamento, setModalReagendamento] = useState(false)
+  const [reagendamentoData, setReagendamentoData] = useState<string | undefined>()
+  const [reagendamentoHora, setReagendamentoHora] = useState<string | undefined>()
   const [statusMenuPos, setStatusMenuPos] = useState<{ top: number; left: number; width: number } | null>(null)
   const [contagem, setContagem] = useState<{ total: number; cancelados: number } | null>(null)
   const opcoesRef = useRef<HTMLDivElement>(null)
@@ -202,12 +252,43 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
   }
 
   async function handleStatusChange(novoStatus: string) {
-    setLoading(true)
     setShowStatusMenu(false)
+
+    if (novoStatus === 'Falta') {
+      setConfirmacaoFalta(true)
+      return
+    }
+
+    if (novoStatus === 'Reposição') {
+      const proxima = agendamento.agendamento_id ? await obterProximaData(agendamento.id) : null
+      const horaAtual = format(new Date(agendamento.data_agendamento), 'HH:mm')
+      setReagendamentoData(proxima?.data ?? undefined)
+      setReagendamentoHora(horaAtual)
+      setModalReagendamento(true)
+      return
+    }
+
+    setLoading(true)
     await mudarStatusAgendamento(agendamento.id, novoStatus)
     setStatus(novoStatus)
     setLoading(false)
     router.refresh()
+  }
+
+  async function handleConfirmarFalta(reagendar: boolean) {
+    setConfirmacaoFalta(false)
+    setLoading(true)
+    await mudarStatusAgendamento(agendamento.id, 'Falta')
+    setStatus('Falta')
+    setLoading(false)
+    router.refresh()
+    if (reagendar) {
+      const proxima = agendamento.agendamento_id ? await obterProximaData(agendamento.id) : null
+      const horaAtual = format(new Date(agendamento.data_agendamento), 'HH:mm')
+      setReagendamentoData(proxima?.data ?? undefined)
+      setReagendamentoHora(horaAtual)
+      setModalReagendamento(true)
+    }
   }
 
   async function handleExcluir(escopo?: 'unico' | 'todos') {
@@ -492,7 +573,7 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
           }}
           className="overflow-hidden rounded-xl border border-[#bcc9c4] bg-white shadow-lg"
         >
-          {OPCOES_STATUS.map(({ valor, Icon, cor }) => (
+          {OPCOES_STATUS.map(({ valor, label, Icon, cor }) => (
             <button
               key={valor}
               type="button"
@@ -500,7 +581,7 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
               className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm font-medium text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
             >
               <Icon size={14} className={cor} />
-              {valor}
+              {label}
             </button>
           ))}
         </div>,
@@ -511,7 +592,36 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
 
   if (!mounted) return null
 
-  return createPortal(modalContent, document.body)
+  return (
+    <>
+      {createPortal(modalContent, document.body)}
+      {confirmacaoFalta && (
+        <ConfirmacaoFaltaModal
+          onConfirmar={handleConfirmarFalta}
+          onCancelar={() => setConfirmacaoFalta(false)}
+        />
+      )}
+      {modalReagendamento && createPortal(
+        <ModalSessaoReposicao
+          pacienteNome={nomePaciente}
+          defaultData={reagendamentoData}
+          defaultHora={reagendamentoHora}
+          onClose={() => setModalReagendamento(false)}
+          onSaved={async () => {
+            setModalReagendamento(false)
+            const res = await registrarContato(agendamento.id, 'reagendou')
+            if (!res.error) router.refresh()
+          }}
+          onSalvarCustom={
+            agendamento.agendamento_id
+              ? (data, hora) => adicionarSessaoReposicao(agendamento.agendamento_id!, agendamento.id, data, hora)
+              : (data, hora) => criarAtendimentoReagendado(agendamento.id, data, hora)
+          }
+        />,
+        document.body
+      )}
+    </>
+  )
 }
 
 export function AgendamentoItemDia({ agendamento, pacientes, profissionais }: { agendamento: AgendamentoDetalhe; pacientes: Paciente[]; profissionais: Profissional[] }) {
@@ -552,6 +662,11 @@ export function AgendamentoItemDia({ agendamento, pacientes, profissionais }: { 
                     {agendamento.profissional.full_name}
                   </p>
                 )}
+                {agendamento.observacoes && (
+                  <p className={`text-[11px] ${config.subText} mt-0.5 truncate max-w-[220px]`}>
+                    {agendamento.observacoes}
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
@@ -589,6 +704,7 @@ export function AgendamentoItemDia({ agendamento, pacientes, profissionais }: { 
         onControlledClose={() => setSlideEditarAberto(false)}
         atendimentoParaEditar={slideEditarAberto ? agendamento : undefined}
       />
+
     </>
   )
 }
@@ -629,6 +745,7 @@ export function AgendamentoItemSemana({ agendamento, pacientes, profissionais }:
         onControlledClose={() => setSlideEditarAberto(false)}
         atendimentoParaEditar={slideEditarAberto ? agendamento : undefined}
       />
+
     </>
   )
 }

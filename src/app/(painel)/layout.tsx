@@ -6,6 +6,7 @@ import { Toaster } from 'react-hot-toast'
 import { listarTodasDisponibilidades } from '@/actions/disponibilidade'
 import { normalizarDisponibilidade, type DisponibilidadeDia } from '@/lib/disponibilidade'
 import { podeEntrarNaAgendaOuRelatorio, podeEntrarNoWidgetDisponibilidade } from '@/lib/profissionais'
+import { temAcesso } from '@/lib/modulos'
 import { WidgetDisponibilidade } from '@/components/features/configuracoes'
 import { listarStatusDisponibilidade } from '@/actions/status-disponibilidade'
 import { listarTiposConsultaAtivos } from '@/actions/tipos-consulta'
@@ -24,12 +25,14 @@ export default async function DashboardLayout({
   if (user) {
     const { data, error } = await supabase
       .from('profiles')
-      .select('primeiro_acesso, role, nivel_acesso, full_name, avatar_url, especialidade, modulos_liberados')
+      .select('primeiro_acesso, role, nivel_acesso, full_name, avatar_url, modulos_liberados')
       .eq('id', user.id)
       .single()
 
     if (!error && data) {
       profile = data
+    } else if (error) {
+      console.error('Erro ao carregar profile no layout:', error)
     }
     if (profile?.primeiro_acesso || user?.user_metadata?.primeiro_acesso) {
       primeiroAcesso = true
@@ -37,7 +40,7 @@ export default async function DashboardLayout({
   }
 
   const nomeUsuario = profile?.full_name || user?.email?.split('@')[0] || 'Usuário'
-  const cargoUsuario = profile?.role || profile?.especialidade || 'Gestor'
+  const cargoUsuario = profile?.role || 'Gestor'
   const userRole = profile?.role || ''
   const userNivelAcesso = profile?.nivel_acesso || ''
   const modulosLiberados: string[] = profile?.modulos_liberados ?? []
@@ -45,28 +48,23 @@ export default async function DashboardLayout({
     `https://ui-avatars.com/api/?name=${encodeURIComponent(nomeUsuario)}&background=cce2da&color=006b5a&bold=true`
 
   let prontuariosPendentes = 0
-  if (user && modulosLiberados.includes('prontuarios')) {
-    const atendimentosConcluidosQuery = supabase
+  if (user && temAcesso(modulosLiberados, 'prontuarios')) {
+    const isFisio = userRole !== 'gestor' && userRole !== 'master'
+
+    const atendimentosQuery = supabase
       .from('atendimentos')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'Concluído')
+      .select('id')
+      .in('status', ['Concluído', 'Concluido'])
 
-    const prontuariosPreenchidosQuery = supabase
-      .from('prontuarios')
-      .select('atendimento_id, atendimentos!inner(id)', { count: 'exact', head: true })
-      .eq('atendimentos.status', 'Concluído')
+    if (isFisio) atendimentosQuery.eq('profissional_id', user.id)
 
-    if (userNivelAcesso === 'basico') {
-      atendimentosConcluidosQuery.eq('profissional_id', user.id)
-      prontuariosPreenchidosQuery.eq('atendimentos.profissional_id', user.id)
-    }
-
-    const [{ count: totalConcluidos }, { count: totalComProntuario }] = await Promise.all([
-      atendimentosConcluidosQuery,
-      prontuariosPreenchidosQuery,
+    const [{ data: comProntuario }, { data: concluidos }] = await Promise.all([
+      supabase.from('prontuarios').select('atendimento_id'),
+      atendimentosQuery,
     ])
 
-    prontuariosPendentes = Math.max(0, (totalConcluidos ?? 0) - (totalComProntuario ?? 0))
+    const idsComProntuario = new Set(comProntuario?.map(p => p.atendimento_id) ?? [])
+    prontuariosPendentes = (concluidos ?? []).filter(a => !idsComProntuario.has(a.id)).length
   }
 
   const [{ data: listaProfissionais }, { data: listaProfissionaisWidget }, todasDisponibilidades, tiposConsulta] = await Promise.all([
