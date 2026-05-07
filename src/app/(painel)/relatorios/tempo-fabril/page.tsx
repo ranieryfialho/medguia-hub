@@ -3,9 +3,9 @@ import {
   format,
 } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { BtnImprimirRelatorio } from '@/components/features/BtnImprimirRelatorio'
-import { FiltrosRelatorio } from '@/components/features/FiltrosRelatorio'
-import { ConteudoRelatorio } from '@/components/features/ConteudoRelatorio'
+import { BtnImprimirRelatorio } from '@/components/features/shared'
+import { FiltrosRelatorio } from '@/components/features/relatorios'
+import { ConteudoRelatorio } from '@/components/features/relatorios'
 import {
   calcularKPIs,
   formatarMinutos,

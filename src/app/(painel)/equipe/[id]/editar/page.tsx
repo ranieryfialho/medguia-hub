@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { requireModulo } from '@/lib/guard'
-import { FormEditarColaborador } from '@/components/features/FormEditarColaborador'
+import { FormEditarColaborador } from '@/components/features/equipe'
 import { normalizarCargoOperacional } from '@/lib/modulos'
 
 export default async function EditarColaboradorPage({ params }: { params: Promise<{ id: string }> }) {

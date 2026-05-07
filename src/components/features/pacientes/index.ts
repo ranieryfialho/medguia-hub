@@ -1,0 +1,7 @@
+export { FormCadastroPaciente } from './FormCadastroPaciente';
+export { FormEditarPaciente } from './FormEditarPaciente';
+export { CardConfirmacaoPaciente } from './CardConfirmacaoPaciente';
+export { ComboboxPaciente } from './ComboboxPaciente';
+export { FiltrosPacientes } from './FiltrosPacientes';
+export { PaginacaoPacientes } from './PaginacaoPacientes';
+export { BtnArquivarPaciente } from './BtnArquivarPaciente';

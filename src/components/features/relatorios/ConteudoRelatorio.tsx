@@ -1,9 +1,9 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { AbasVisualizacao } from './AbasVisualizacao'
+import { AbasVisualizacao } from '../shared'
 import { TabelaTempoFabril } from './TabelaTempoFabril'
-import { EvolucaoSemanal } from './EvolucaoSemanal'
+import { EvolucaoSemanal } from '../shared'
 import { GraficoDistribuicaoTempo } from './GraficoDistribuicaoTempo'
 import { GraficoComparativoMedia } from './GraficoComparativoMedia'
 

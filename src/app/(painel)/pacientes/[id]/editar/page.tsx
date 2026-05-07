@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { FormEditarPaciente } from '@/components/features/FormEditarPaciente'
+import { FormEditarPaciente } from '@/components/features/pacientes'
 import { requireModulo } from '@/lib/guard'
 import { listarOrigensAtivasPaciente } from '@/actions/origens-paciente'
 

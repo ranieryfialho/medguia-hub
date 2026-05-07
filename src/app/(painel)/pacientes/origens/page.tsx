@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { requireModulo } from '@/lib/guard'
 import { listarOrigensPaciente } from '@/actions/origens-paciente'
-import { OrigensManager } from '@/components/features/OrigensManager'
+import { OrigensManager } from '@/components/features/shared'
 
 export default async function OriginsPacientePage() {
   await requireModulo('pacientes')

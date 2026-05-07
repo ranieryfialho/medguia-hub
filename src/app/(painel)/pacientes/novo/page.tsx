@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { FormCadastroPaciente } from '@/components/features/FormCadastroPaciente'
+import { FormCadastroPaciente } from '@/components/features/pacientes'
 import { requireModulo } from '@/lib/guard'
 import { listarOrigensAtivasPaciente } from '@/actions/origens-paciente'
 

@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { CardConfirmacaoPaciente } from '@/components/features/CardConfirmacaoPaciente'
+import { CardConfirmacaoPaciente } from '@/components/features/pacientes'
 import { buildSessaoEfetivaMap } from '@/lib/sessoes'
 import { PhoneCall, CalendarDays } from 'lucide-react'
 import Link from 'next/link'

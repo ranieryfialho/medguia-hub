@@ -1,8 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Plus, Eye, Edit } from 'lucide-react'
-import { FiltrosVendas } from '@/components/features/FiltrosVendas'
-import { BtnDeletarVenda } from '@/components/features/BtnDeletarVenda'
+import { FiltrosVendas } from '@/components/features/vendas'
+import { BtnDeletarVenda } from '@/components/features/vendas'
 import { requireModulo } from '@/lib/guard'
 import { FORMA_PAGAMENTO_LABEL } from '@/lib/vendas'
 

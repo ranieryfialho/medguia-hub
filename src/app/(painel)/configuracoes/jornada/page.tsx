@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { listarDisponibilidade } from '@/actions/disponibilidade'
-import { JornadaEditor } from '@/components/features/JornadaEditor'
+import { JornadaEditor } from '@/components/features/configuracoes'
 import { requireModulo } from '@/lib/guard'
 
 export default async function JornadaPage({

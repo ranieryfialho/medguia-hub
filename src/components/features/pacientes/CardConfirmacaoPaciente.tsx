@@ -3,8 +3,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { format } from 'date-fns'
 import { MoreVertical, CheckCircle, XCircle, Phone, RefreshCw, AlertCircle, User } from 'lucide-react'
-import { BtnWhatsApp } from './BtnWhatsApp'
-import { ModalSessaoReposicao } from './ModalSessaoReposicao'
+import { BtnWhatsApp } from '../shared'
+import { ModalSessaoReposicao } from '../shared'
 import { registrarContato, obterProximaData, adicionarSessaoReposicao, criarAtendimentoReagendado } from '@/actions/confirmacoes'
 import toast from 'react-hot-toast'
 

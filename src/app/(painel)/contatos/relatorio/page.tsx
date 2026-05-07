@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
-import { RelatorioContatosClient } from '@/components/features/RelatorioContatosClient'
-import { BtnVoltar } from '@/components/features/BtnVoltar'
+import { RelatorioContatosClient } from '@/components/features/contatos'
+import { BtnVoltar } from '@/components/features/shared'
 import {
   criarContagemStatusContato,
   normalizarColunasContato,

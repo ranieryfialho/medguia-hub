@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { requireModulo } from '@/lib/guard'
 import { listarTiposConsulta } from '@/actions/tipos-consulta'
-import { TiposConsultaManager } from '@/components/features/TiposConsultaManager'
+import { TiposConsultaManager } from '@/components/features/shared'
 
 export default async function TiposConsultaPage() {
   await requireModulo('pacientes')

@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { MoreVertical, CheckCircle, Hourglass, Stethoscope, CheckCheck, XCircle, UserX, RefreshCw } from 'lucide-react'
 import { mudarStatusAgendamento } from '@/actions/agenda'
 import { obterProximaData, registrarContato, criarAtendimentoReagendado, adicionarSessaoReposicao } from '@/actions/confirmacoes'
-import { ModalSessaoReposicao } from './ModalSessaoReposicao'
+import { ModalSessaoReposicao } from '../shared'
 import { format } from 'date-fns'
 import toast from 'react-hot-toast'
 

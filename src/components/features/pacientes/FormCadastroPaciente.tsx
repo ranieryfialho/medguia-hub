@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { Loader2, UploadCloud } from 'lucide-react'
 import toast from 'react-hot-toast'
 import type { OrigemPaciente } from '@/actions/origens-paciente'
-import { ComboboxPaciente } from '@/components/features/ComboboxPaciente'
+import { ComboboxPaciente } from '@/components/features/pacientes'
 
 type CadastroPacienteState = PacienteFormState
 type NomeSuggestion = {

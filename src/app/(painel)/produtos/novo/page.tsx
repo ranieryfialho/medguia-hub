@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
-import { FormNovoProduto } from '@/components/features/FormNovoProduto'
+import { FormNovoProduto } from '@/components/features/produtos'
 import { requireModulo } from '@/lib/guard'
 
 export default async function NovoProdutoPage() {

@@ -10,8 +10,8 @@ import {
   TrendingUp,
   Undo2,
 } from 'lucide-react'
-import { BtnGerarPdfConsultas } from '@/components/features/BtnGerarPdfConsultas'
-import { FiltrosConsultas } from '@/components/FiltrosConsultas'
+import { BtnGerarPdfConsultas } from '@/components/features/shared'
+import { FiltrosConsultas } from '@/components/features/shared'
 import { podeEntrarNoWidgetDisponibilidade } from '@/lib/profissionais'
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>

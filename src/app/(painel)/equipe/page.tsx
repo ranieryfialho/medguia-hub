@@ -1,8 +1,8 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { Plus, User, Mail } from 'lucide-react'
-import { MenuAcoesColaborador } from '@/components/features/MenuAcoesColaborador'
-import { FiltrosEquipe } from '@/components/features/FiltrosEquipe'
+import { MenuAcoesColaborador } from '@/components/features/equipe'
+import { FiltrosEquipe } from '@/components/features/equipe'
 import { requireModulo } from '@/lib/guard'
 
 // Mapeamento de estilos para cada cargo

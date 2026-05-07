@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Plus, Edit, Trash2 } from 'lucide-react'
-import { BtnDeletarProduto } from '@/components/features/BtnDeletarProduto'
+import { BtnDeletarProduto } from '@/components/features/produtos'
 import { requireModulo } from '@/lib/guard'
 
 export default async function ProdutosListPage({

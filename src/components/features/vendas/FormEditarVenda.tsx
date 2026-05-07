@@ -3,7 +3,7 @@
 import { editarVenda } from '@/actions/vendas'
 import { useActionState, useEffect, useState, startTransition, useRef, useTransition } from 'react'
 import { LoaderCircle, Plus, Trash2 } from 'lucide-react'
-import { ComboboxPaciente } from '@/components/features/ComboboxPaciente'
+import { ComboboxPaciente } from '@/components/features/pacientes'
 import { FORMAS_PAGAMENTO } from '@/lib/vendas'
 import { createClient } from '@/lib/supabase/client'
 

@@ -18,7 +18,7 @@ import {
 } from '@/actions/agenda'
 import { MenuAcoesAgendamento } from './MenuAcoesAgendamento'
 import { SlideNovoAgendamento } from './SlideNovoAgendamento'
-import { ProntuarioEvolucao } from './ProntuarioEvolucao'
+import { ProntuarioEvolucao } from '../prontuarios'
 import { formatAppDateLabel, formatAppTime } from '@/lib/datetime'
 
 type Paciente = { id: string; nome: string }

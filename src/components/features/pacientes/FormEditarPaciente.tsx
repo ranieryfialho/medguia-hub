@@ -5,7 +5,7 @@ import { editarPaciente } from '@/actions/pacientes'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import type { OrigemPaciente } from '@/actions/origens-paciente'
-import { ComboboxPaciente } from '@/components/features/ComboboxPaciente'
+import { ComboboxPaciente } from '@/components/features/pacientes'
 import { extrairMetadataInativacao } from '@/lib/paciente-inativacao'
 
 function parseOrigem(origem: string) {

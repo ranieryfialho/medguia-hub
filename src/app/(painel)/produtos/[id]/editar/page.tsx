@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
-import { FormEditarProduto } from '@/components/features/FormEditarProduto'
+import { FormEditarProduto } from '@/components/features/produtos'
 import { requireModulo } from '@/lib/guard'
 
 export default async function EditarProdutoPage({

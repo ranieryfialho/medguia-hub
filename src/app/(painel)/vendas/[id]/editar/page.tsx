@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
-import { FormEditarVenda } from '@/components/features/FormEditarVenda'
+import { FormEditarVenda } from '@/components/features/vendas'
 import { requireModulo } from '@/lib/guard'
 
 interface ProfileRow {

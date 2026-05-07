@@ -1,9 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { BarChart3, TrendingUp, Users, Package } from 'lucide-react'
-import { RelatorioVendasClient } from '@/components/features/RelatorioVendasClient'
-import { BtnGerarPdfVendas } from '@/components/features/BtnGerarPdfVendas'
-import { FiltroProdutosMultiSelect } from '@/components/features/FiltroProdutosMultiSelect'
+import { RelatorioVendasClient } from '@/components/features/relatorios'
+import { BtnGerarPdfVendas } from '@/components/features/shared'
+import { FiltroProdutosMultiSelect } from '@/components/features/produtos'
 import { requireModulo } from '@/lib/guard'
 import { FORMAS_PAGAMENTO } from '@/lib/vendas'
 

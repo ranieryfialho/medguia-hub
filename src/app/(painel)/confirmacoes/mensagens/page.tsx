@@ -1,5 +1,5 @@
 import { listarTemplates } from '@/actions/templates'
-import { GerenciadorMensagens } from '@/components/features/GerenciadorMensagens'
+import { GerenciadorMensagens } from '@/components/features/contatos'
 import { MessageSquare } from 'lucide-react'
 import { requireModulo } from '@/lib/guard'
 

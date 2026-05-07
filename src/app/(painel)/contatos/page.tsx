@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { KanbanContatos } from '@/components/features/KanbanContatos'
+import { KanbanContatos } from '@/components/features/contatos'
 import type { StatusContato } from '@/actions/contatos'
 import {
   normalizarColunasContato,

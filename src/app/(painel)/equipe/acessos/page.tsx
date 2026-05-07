@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { ShieldCheck, Users } from 'lucide-react'
-import { ModalEditarAcesso } from '@/components/features/ModalEditarAcesso'
+import { ModalEditarAcesso } from '@/components/features/shared'
 import { requireModulo } from '@/lib/guard'
 import { createClient } from '@/lib/supabase/server'
 import { normalizarCargoOperacional, type NivelAcesso } from '@/lib/modulos'

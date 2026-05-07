@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronUp, ChevronDown, Eye } from 'lucide-react'
-import { Tooltip } from './Tooltip'
+import { Tooltip } from '../shared'
 
 type KPIsProfissional = {
   profissionalId: string

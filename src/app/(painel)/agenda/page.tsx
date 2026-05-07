@@ -12,9 +12,9 @@ import {
 } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
-import { SlideNovoAgendamento } from '@/components/features/SlideNovoAgendamento'
-import { AgendamentoItemDia, AgendamentoItemSemana } from '@/components/features/AgendamentoItem'
-import type { AgendamentoDetalhe } from '@/components/features/AgendamentoItem'
+import { SlideNovoAgendamento } from '@/components/features/agenda'
+import { AgendamentoItemDia, AgendamentoItemSemana } from '@/components/features/agenda'
+import type { AgendamentoDetalhe } from '@/components/features/agenda'
 import { buildSessaoEfetivaMap } from '@/lib/sessoes'
 import { listarTodasDisponibilidades } from '@/actions/disponibilidade'
 import { formatAppDateKey, formatAppTime, getAppDayRangeUTC, getAppHour, parseAppDate } from '@/lib/datetime'

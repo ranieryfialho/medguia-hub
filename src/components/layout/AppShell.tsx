@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Sidebar } from './Sidebar'
-import { SlideNovoAgendamento } from '@/components/features/SlideNovoAgendamento'
+import { SlideNovoAgendamento } from '@/components/features/agenda'
 import { Menu } from 'lucide-react'
 import type { DisponibilidadeDia } from '@/lib/disponibilidade'
 import { SlideNovoAgendamentoProvider } from './SlideNovoAgendamentoContext'
