@@ -27,9 +27,44 @@ function tempoDesde(atualizado_em: string): string {
   return `${Math.floor(diff / 3600)}h`
 }
 
+function buildNomesExibicao(profissionais: Profissional[]): Map<string, string> {
+  const partes = new Map(profissionais.map(p => [p.id, p.nome.trim().split(/\s+/)]))
+  const numWords = new Map(profissionais.map(p => {
+    const n = p.nome.trim().split(/\s+/).length
+    return [p.id, n >= 3 ? 3 : n] // nome + sobrenome composto: pega até a 3ª palavra
+  }))
+
+  let changed = true
+  while (changed) {
+    changed = false
+    const seen = new Map<string, string[]>()
+    for (const p of profissionais) {
+      const key = partes.get(p.id)!.slice(0, numWords.get(p.id)!).join(' ')
+      if (!seen.has(key)) seen.set(key, [])
+      seen.get(key)!.push(p.id)
+    }
+    for (const ids of seen.values()) {
+      if (ids.length > 1) {
+        for (const id of ids) {
+          if (numWords.get(id)! < partes.get(id)!.length) {
+            numWords.set(id, numWords.get(id)! + 1)
+            changed = true
+          }
+        }
+      }
+    }
+  }
+
+  return new Map(profissionais.map(p => [
+    p.id,
+    partes.get(p.id)!.slice(0, numWords.get(p.id)!).join(' '),
+  ]))
+}
+
 export function StatusEquipeRealtime({ profissionais, initialStatuses, disponibilidades }: Props) {
   const statuses = useRealtimeDisponibilidade(initialStatuses)
   const [, setTick] = useState(0)
+  const nomesExibicao = buildNomesExibicao(profissionais)
 
   useEffect(() => {
     const id = setInterval(() => setTick((value) => value + 1), 30_000)
@@ -92,7 +127,7 @@ export function StatusEquipeRealtime({ profissionais, initialStatuses, disponibi
                 )}
                 <span className={`relative inline-flex rounded-full h-2 w-2 ${cfg.dot}`} />
               </span>
-              <span>{p.nome.split(' ')[0]}</span>
+              <span>{nomesExibicao.get(p.id) ?? p.nome.split(' ')[0]}</span>
               {p.status !== 'ocupado' && p.status !== 'ausente' && p.atualizado_em && (
                 <span className="opacity-60 font-normal">{tempoDesde(p.atualizado_em)}</span>
               )}

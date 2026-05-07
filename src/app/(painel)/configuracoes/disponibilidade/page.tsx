@@ -50,8 +50,38 @@ function calcularSlotsLivres(
   return livres
 }
 
-function getPrimeiroNome(nome: string): string {
-  return nome.split(' ')[0].toUpperCase()
+function buildNomesExibicao(profissionais: { id: string; nome: string }[]): Map<string, string> {
+  const partes = new Map(profissionais.map(p => [p.id, p.nome.trim().split(/\s+/)]))
+  const numWords = new Map(profissionais.map(p => {
+    const n = p.nome.trim().split(/\s+/).length
+    return [p.id, n >= 3 ? 3 : n] // nome + sobrenome composto: pega até a 3ª palavra
+  }))
+
+  let changed = true
+  while (changed) {
+    changed = false
+    const seen = new Map<string, string[]>()
+    for (const p of profissionais) {
+      const key = partes.get(p.id)!.slice(0, numWords.get(p.id)!).join(' ').toUpperCase()
+      if (!seen.has(key)) seen.set(key, [])
+      seen.get(key)!.push(p.id)
+    }
+    for (const ids of seen.values()) {
+      if (ids.length > 1) {
+        for (const id of ids) {
+          if (numWords.get(id)! < partes.get(id)!.length) {
+            numWords.set(id, numWords.get(id)! + 1)
+            changed = true
+          }
+        }
+      }
+    }
+  }
+
+  return new Map(profissionais.map(p => [
+    p.id,
+    partes.get(p.id)!.slice(0, numWords.get(p.id)!).join(' ').toUpperCase(),
+  ]))
 }
 
 // ─── Visão Individual (fisioterapeuta ou drill-down gestor) ──────────────────
@@ -394,6 +424,8 @@ async function ViewGeral({
 
   const profissionaisComJornada = profissionais.filter((prof) => jornadaMap.has(prof.id))
 
+  const nomesExibicao = buildNomesExibicao(profissionaisComJornada)
+
   const grid: ProfDia[] = []
   for (const prof of profissionaisComJornada) {
     const jornProf = jornadaMap.get(prof.id)
@@ -556,7 +588,7 @@ async function ViewGeral({
                 const fimH = parseInt(slot.fim.split(':')[0])
                 for (let h = inicioH; h < fimH; h++) {
                   if (!horasMap.has(h)) horasMap.set(h, [])
-                  horasMap.get(h)!.push(getPrimeiroNome(entry.nome))
+                  horasMap.get(h)!.push(nomesExibicao.get(entry.profId) ?? entry.nome.toUpperCase())
                 }
               }
             }
@@ -589,7 +621,7 @@ async function ViewGeral({
                         <span className="text-xs font-bold text-slate-400 w-9 shrink-0 pt-0.5">{h.toString().padStart(2, '0')}H</span>
                         <div className="flex flex-wrap gap-1">
                           {nomes.map((nome, i) => (
-                            <span key={i} className="text-[11px] font-bold bg-[#006b5a]/10 text-[#006b5a] px-2 py-0.5 rounded-full leading-tight">
+                            <span key={i} className="inline-flex items-center justify-center text-center text-[11px] font-bold bg-[#006b5a]/10 text-[#006b5a] px-2 py-1 rounded-full">
                               {nome}
                             </span>
                           ))}
