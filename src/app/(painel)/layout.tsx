@@ -10,6 +10,7 @@ import { temAcesso } from '@/lib/modulos'
 import { WidgetDisponibilidade } from '@/components/features/configuracoes'
 import { listarStatusDisponibilidade } from '@/actions/status-disponibilidade'
 import { listarTiposConsultaAtivos } from '@/actions/tipos-consulta'
+import { STATUS_CONCLUIDO_RAW_VALUES } from '@/lib/atendimento-status'
 
 export default async function DashboardLayout({
   children,
@@ -54,7 +55,7 @@ export default async function DashboardLayout({
     const atendimentosQuery = supabase
       .from('atendimentos')
       .select('id')
-      .in('status', ['Concluído', 'Concluido'])
+      .in('status', STATUS_CONCLUIDO_RAW_VALUES)
 
     if (isFisio) atendimentosQuery.eq('profissional_id', user.id)
 

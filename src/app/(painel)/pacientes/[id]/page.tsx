@@ -11,6 +11,7 @@ import { Suspense } from 'react'
 import { format } from 'date-fns'
 import { buscarProntuariosPorPaciente } from '@/actions/prontuarios'
 import { extrairMetadataInativacao } from '@/lib/paciente-inativacao'
+import { normalizeAtendimentoStatus } from '@/lib/atendimento-status'
 import {
   AlertTriangle,
   FileText,
@@ -153,7 +154,7 @@ export default async function PacienteDetailsPage({
       : true
 
     const matchesStatus = statusFiltro && statusFiltro !== 'todos'
-      ? grupo.sessoes.some(s => s.status === statusFiltro)
+      ? grupo.sessoes.some(s => normalizeAtendimentoStatus(s.status) === statusFiltro)
       : true
 
     return matchesBusca && matchesStatus

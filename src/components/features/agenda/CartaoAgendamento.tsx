@@ -7,6 +7,11 @@ import {
   CalendarDays, ChevronDown, ChevronUp, RefreshCw, Calendar,
   CheckCircle, Hourglass, Stethoscope, CheckCheck, XCircle, UserX, CalendarClock, ClipboardList, Layers, StickyNote
 } from 'lucide-react'
+import {
+  getAtendimentoStatusKey,
+  isStatusConcluido,
+  normalizeAtendimentoStatus,
+} from '@/lib/atendimento-status'
 
 type ProntuarioResumo = {
   evolucao: string | null
@@ -34,18 +39,18 @@ type AgendamentoComSessoes = {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; cor: string; bg: string; Icon: React.ElementType }> = {
-  'Confirmado':      { label: 'Confirmado',      cor: 'text-green-700',   bg: 'bg-green-50',   Icon: CheckCircle },
-  'Aguardando':      { label: 'Aguardando',      cor: 'text-amber-600',   bg: 'bg-amber-50',   Icon: Hourglass },
-  'Em Atendimento':  { label: 'Em Atendimento',  cor: 'text-blue-600',    bg: 'bg-blue-50',    Icon: Stethoscope },
-  'Concluído':       { label: 'Concluído',       cor: 'text-violet-600',  bg: 'bg-violet-50',  Icon: CheckCheck },
-  'Cancelado':       { label: 'Cancelado',       cor: 'text-red-600',     bg: 'bg-red-50',     Icon: XCircle },
-  'Falta':           { label: 'Falta',           cor: 'text-gray-500',    bg: 'bg-gray-100',   Icon: UserX },
-  'Reposição':       { label: 'Reposição',       cor: 'text-cyan-600',    bg: 'bg-cyan-50',    Icon: RefreshCw },
-  'Reagendado':      { label: 'Reagendado',      cor: 'text-orange-600',  bg: 'bg-orange-50',  Icon: CalendarClock },
+  confirmado:     { label: 'Confirmado',     cor: 'text-green-700',   bg: 'bg-green-50',   Icon: CheckCircle },
+  aguardando:     { label: 'Aguardando',     cor: 'text-amber-600',   bg: 'bg-amber-50',   Icon: Hourglass },
+  em_atendimento: { label: 'Em Atendimento', cor: 'text-blue-600',    bg: 'bg-blue-50',    Icon: Stethoscope },
+  concluido:      { label: 'Concluído',      cor: 'text-violet-600',  bg: 'bg-violet-50',  Icon: CheckCheck },
+  cancelado:      { label: 'Cancelado',      cor: 'text-red-600',     bg: 'bg-red-50',     Icon: XCircle },
+  falta:          { label: 'Falta',          cor: 'text-gray-500',    bg: 'bg-gray-100',   Icon: UserX },
+  reposicao:      { label: 'Reposição',      cor: 'text-cyan-600',    bg: 'bg-cyan-50',    Icon: RefreshCw },
+  reagendado:     { label: 'Reagendado',     cor: 'text-orange-600',  bg: 'bg-orange-50',  Icon: CalendarClock },
 }
 
 function getStatusConfig(status: string) {
-  return STATUS_CONFIG[status] ?? { label: status, cor: 'text-slate-500', bg: 'bg-slate-100', Icon: CheckCircle }
+  return STATUS_CONFIG[getAtendimentoStatusKey(status)] ?? { label: normalizeAtendimentoStatus(status), cor: 'text-slate-500', bg: 'bg-slate-100', Icon: CheckCircle }
 }
 
 function dorBadgeClass(n: number): string {
@@ -58,13 +63,14 @@ function dorBadgeClass(n: number): string {
 function calcularStatusGeral(sessoes: Sessao[]): string {
   const contagem: Record<string, number> = {}
   for (const s of sessoes) {
-    contagem[s.status] = (contagem[s.status] || 0) + 1
+    const key = getAtendimentoStatusKey(s.status)
+    contagem[key] = (contagem[key] || 0) + 1
   }
-  const ordem = ['Em Atendimento', 'Aguardando', 'Confirmado', 'Reposição', 'Concluído', 'Falta', 'Reagendado', 'Cancelado']
+  const ordem = ['em_atendimento', 'aguardando', 'confirmado', 'reposicao', 'concluido', 'falta', 'reagendado', 'cancelado']
   for (const status of ordem) {
     if (contagem[status]) return status
   }
-  return sessoes[0]?.status ?? 'Confirmado'
+  return sessoes[0]?.status ?? 'confirmado'
 }
 
 export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
@@ -80,8 +86,8 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
   const primeiraSessao = sessoesOrdenadas[0]
   const ultimaSessao = sessoesOrdenadas[sessoesOrdenadas.length - 1]
 
-  const concluidas = sessoes.filter(s => s.status === 'Concluído').length
-  const canceladas = sessoes.filter(s => s.status === 'Cancelado' || s.status === 'Falta' || s.status === 'Reagendado').length
+  const concluidas = sessoes.filter(s => isStatusConcluido(s.status)).length
+  const canceladas = sessoes.filter(s => ['cancelado', 'falta', 'reagendado'].includes(getAtendimentoStatusKey(s.status))).length
   const pendentes = sessoes.length - concluidas - canceladas
 
   return (
@@ -148,13 +154,14 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
               <div className="flex gap-1 h-2 rounded-full overflow-hidden bg-slate-100/80">
                 {sessoesOrdenadas.map((s) => {
                   const c = getStatusConfig(s.status)
-                  const bgBar = s.status === 'Concluído' ? 'bg-violet-500'
-                    : s.status === 'Cancelado' ? 'bg-red-500'
-                    : s.status === 'Falta' ? 'bg-gray-400'
-                    : s.status === 'Confirmado' ? 'bg-green-500'
-                    : s.status === 'Em Atendimento' ? 'bg-blue-500'
-                    : s.status === 'Reposição' ? 'bg-cyan-500'
-                    : s.status === 'Reagendado' ? 'bg-orange-500'
+                  const statusKey = getAtendimentoStatusKey(s.status)
+                  const bgBar = statusKey === 'concluido' ? 'bg-violet-500'
+                    : statusKey === 'cancelado' ? 'bg-red-500'
+                    : statusKey === 'falta' ? 'bg-gray-400'
+                    : statusKey === 'confirmado' ? 'bg-green-500'
+                    : statusKey === 'em_atendimento' ? 'bg-blue-500'
+                    : statusKey === 'reposicao' ? 'bg-cyan-500'
+                    : statusKey === 'reagendado' ? 'bg-orange-500'
                     : 'bg-slate-200'
                   return <div key={s.id} className={`flex-1 ${bgBar} rounded-full transition-colors`} title={`${format(new Date(s.data_agendamento), "dd/MM/yyyy")} — ${c.label}`} />
                 })}

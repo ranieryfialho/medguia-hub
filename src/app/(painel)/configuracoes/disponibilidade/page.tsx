@@ -15,6 +15,7 @@ import { StatusEquipeRealtime } from '@/components/features/equipe'
 import { listarStatusDisponibilidade } from '@/actions/status-disponibilidade'
 import { requireModulo } from '@/lib/guard'
 import { podeEntrarNaAgendaOuRelatorio } from '@/lib/profissionais'
+import { STATUS_NAO_BLOQUEIAM_RAW_SQL } from '@/lib/atendimento-status'
 
 const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
@@ -140,7 +141,7 @@ async function ViewIndividual({
     .eq('profissional_id', targetId)
     .gte('data_agendamento', inicioDaSemana.toISOString())
     .lte('data_agendamento', fimDaSemana.toISOString())
-    .not('status', 'in', '("cancelado","Cancelado","falta","Falta","reagendado","Reagendado")')
+    .not('status', 'in', STATUS_NAO_BLOQUEIAM_RAW_SQL)
 
   type DiaDados = {
     dia: Date
@@ -408,7 +409,7 @@ async function ViewGeral({
         .in('profissional_id', profIdsComJornada)
         .gte('data_agendamento', inicioDaSemana.toISOString())
         .lte('data_agendamento', fimDaSemana.toISOString())
-        .not('status', 'in', '("cancelado","Cancelado","falta","Falta","reagendado","Reagendado")')
+        .not('status', 'in', STATUS_NAO_BLOQUEIAM_RAW_SQL)
     : { data: [] }
 
   // Calcular slots livres por profissional por dia

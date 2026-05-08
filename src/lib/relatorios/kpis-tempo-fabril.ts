@@ -10,6 +10,7 @@ import {
 } from 'date-fns'
 import { formatAppDateKey } from '@/lib/datetime'
 import { calcularMinutosJornada } from '@/lib/jornada'
+import { isStatusFabril } from '@/lib/atendimento-status'
 
 export type Atendimento = {
   id: string
@@ -57,8 +58,6 @@ export type KPIsProfissional = {
   diasSubutilizados: number
   evolucaoPorSemana: EvolucaoSemanalKPI[]
 }
-
-export const STATUS_FABRIL = ['Concluído', 'Em atendimento']
 
 export function toMin(hora: string): number {
   const [hh, mm] = hora.slice(0, 5).split(':').map(Number)
@@ -119,7 +118,7 @@ export function agruparPorSemana(
     })
 
     const fabrilMin = atsSemana
-      .filter((a) => STATUS_FABRIL.includes(a.status))
+      .filter((a) => isStatusFabril(a.status))
       .reduce((acc, a) => acc + (a.duracao_minutos ?? 0), 0)
 
     const jornadaMin = calcularJornadaContratadaMinutos(
@@ -179,11 +178,11 @@ export function calcularKPIs(
     )
 
     const tempoFabrilMin = atsProfissional
-      .filter((a) => STATUS_FABRIL.includes(a.status))
+      .filter((a) => isStatusFabril(a.status))
       .reduce((acc, a) => acc + (a.duracao_minutos ?? 0), 0)
 
     const qtdAtendimentos = atsProfissional.filter((a) =>
-      STATUS_FABRIL.includes(a.status),
+      isStatusFabril(a.status),
     ).length
 
     const tempoMedioMin = qtdAtendimentos > 0 ? Math.round(tempoFabrilMin / qtdAtendimentos) : 0
@@ -207,7 +206,7 @@ export function calcularKPIs(
         })
 
         const tempoFabrilDia = atsDoDia
-          .filter((a) => STATUS_FABRIL.includes(a.status))
+          .filter((a) => isStatusFabril(a.status))
           .reduce((acc, a) => acc + (a.duracao_minutos ?? 0), 0)
 
         const jornadaDia = calcularMinutosJornada(jornDia)

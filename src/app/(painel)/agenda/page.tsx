@@ -21,6 +21,10 @@ import { formatAppDateKey, formatAppTime, getAppDayRangeUTC, getAppHour, parseAp
 import { normalizarDisponibilidade, type DisponibilidadeDia } from '@/lib/disponibilidade'
 import { podeEntrarNaAgendaOuRelatorio } from '@/lib/profissionais'
 import { requireModulo } from '@/lib/guard'
+import {
+  getAtendimentoStatusKey,
+  isStatusConcluido,
+} from '@/lib/atendimento-status'
 
 type StatusConfig = { badgeBg: string; label: string }
 type RelacaoPaciente = AgendamentoDetalhe['pacientes'] | AgendamentoDetalhe['pacientes'][]
@@ -65,17 +69,17 @@ function buildAgendaUrl(base: {
 
 const getStatusConfig = (status: string) => {
   const configs: Record<string, StatusConfig> = {
-    'confirmado':     { badgeBg: 'bg-green-600',  label: 'Confirmado' },
-    'aguardando':     { badgeBg: 'bg-amber-500',  label: 'Aguardando' },
-    'em atendimento': { badgeBg: 'bg-blue-600',   label: 'Em Atend.' },
-    'concluído':      { badgeBg: 'bg-violet-600', label: 'Concluído' },
-    'cancelado':      { badgeBg: 'bg-red-600',    label: 'Cancelado' },
-    'falta':          { badgeBg: 'bg-gray-500',   label: 'Falta' },
-    'reposição':      { badgeBg: 'bg-cyan-600',   label: 'Reposição' },
-    'reagendado':     { badgeBg: 'bg-orange-500', label: 'Reagendado' },
-    'default':        { badgeBg: 'bg-gray-400',   label: 'Agendado' },
+    confirmado:     { badgeBg: 'bg-green-600',  label: 'Confirmado' },
+    aguardando:     { badgeBg: 'bg-amber-500',  label: 'Aguardando' },
+    em_atendimento: { badgeBg: 'bg-blue-600',   label: 'Em Atend.' },
+    concluido:      { badgeBg: 'bg-violet-600', label: 'Concluído' },
+    cancelado:      { badgeBg: 'bg-red-600',    label: 'Cancelado' },
+    falta:          { badgeBg: 'bg-gray-500',   label: 'Falta' },
+    reposicao:      { badgeBg: 'bg-cyan-600',   label: 'Reposição' },
+    reagendado:     { badgeBg: 'bg-orange-500', label: 'Reagendado' },
+    desconhecido:   { badgeBg: 'bg-gray-400',   label: 'Agendado' },
   }
-  return configs[status?.toLowerCase()] || configs['default']
+  return configs[getAtendimentoStatusKey(status)] || configs.desconhecido
 }
 
 const HORAS_DIA = ['07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00']
@@ -395,7 +399,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
 
   const agendamentosHoje = agendamentosComEfetivo.filter(a => formatAppDateKey(a.data_agendamento) === dataString)
   const totalAgendamentos = agendamentosHoje.length
-  const atendidos = agendamentosHoje.filter(a => a.status?.toLowerCase() === 'concluído').length
+  const atendidos = agendamentosHoje.filter(a => isStatusConcluido(a.status)).length
   const pendentes = totalAgendamentos - atendidos
 
   return (

@@ -1,7 +1,6 @@
 import { buildAppDateTimeISO, formatAppDateKey, formatAppTime } from '@/lib/datetime'
+import { STATUS_NAO_BLOQUEIAM_RAW_SQL } from '@/lib/atendimento-status'
 import { createClient } from '@/lib/supabase/server'
-
-const STATUS_QUE_NAO_BLOQUEIAM = '("cancelado","Cancelado","falta","Falta","reagendado","Reagendado")'
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
 
@@ -52,7 +51,7 @@ export async function validarConflitosProfissional(
     .eq('profissional_id', profissionalId)
     .gte('data_agendamento', buildAppDateTimeISO(menorData, '00:00'))
     .lte('data_agendamento', buildAppDateTimeISO(maiorData, '23:59'))
-    .not('status', 'in', STATUS_QUE_NAO_BLOQUEIAM)
+    .not('status', 'in', STATUS_NAO_BLOQUEIAM_RAW_SQL)
 
   if (options?.ignorarAtendimentoId) {
     query = query.neq('id', options.ignorarAtendimentoId)

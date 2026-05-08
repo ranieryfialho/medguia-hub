@@ -1,4 +1,4 @@
-const STATUS_NAO_EFETIVO = new Set(['Falta', 'Cancelado'])
+import { isStatusNaoEfetivo } from '@/lib/atendimento-status'
 
 type SessaoBasica = {
   id: string
@@ -34,13 +34,13 @@ export function buildSessaoEfetivaMap(
     const sorted = [...sessoes].sort((a, b) =>
       a.data_agendamento.localeCompare(b.data_agendamento)
     )
-    const efetivas = sorted.filter(s => !STATUS_NAO_EFETIVO.has(s.status))
+    const efetivas = sorted.filter(s => !isStatusNaoEfetivo(s.status))
     const total = efetivas.length
 
     for (let i = 0; i < efetivas.length; i++) {
       result.set(efetivas[i].id, { sessao_efetiva: i + 1, total_efetivo: total })
     }
-    for (const s of sorted.filter(s => STATUS_NAO_EFETIVO.has(s.status))) {
+    for (const s of sorted.filter(s => isStatusNaoEfetivo(s.status))) {
       result.set(s.id, { sessao_efetiva: 0, total_efetivo: total })
     }
   }

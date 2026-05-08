@@ -14,6 +14,11 @@ import {
   adicionarMesesPreservandoDiaUTC,
   recorrenciaSemanalAtiva,
 } from '@/lib/recorrencia'
+import {
+  isStatusCancelado,
+  isStatusFalta,
+  normalizeAtendimentoStatus,
+} from '@/lib/atendimento-status'
 
 function extractTimePart(dateTime: string) {
   const [, timePart = '00:00:00'] = dateTime.split('T')
@@ -338,7 +343,7 @@ export async function contarAtendimentosPaciente(pacienteId: string): Promise<{ 
     .select('status')
     .eq('paciente_id', pacienteId)
   const total = data?.length ?? 0
-  const cancelados = data?.filter(a => a.status === 'Cancelado' || a.status === 'Falta').length ?? 0
+  const cancelados = data?.filter(a => isStatusCancelado(a.status) || isStatusFalta(a.status)).length ?? 0
   return { total, cancelados }
 }
 
@@ -579,10 +584,11 @@ export async function editarAtendimento(id: string, formData: FormData) {
 
 export async function mudarStatusAgendamento(id: string, novoStatus: string) {
   const supabase = await createClient()
+  const statusCanonico = normalizeAtendimentoStatus(novoStatus)
 
   const { error } = await supabase
     .from('atendimentos')
-    .update({ status: novoStatus })
+    .update({ status: statusCanonico })
     .eq('id', id)
 
   if (error) {

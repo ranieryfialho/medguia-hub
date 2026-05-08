@@ -4,6 +4,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { ClipboardList, CheckCheck, ChevronRight, CalendarDays } from 'lucide-react'
 import { requireModulo } from '@/lib/guard'
+import { STATUS_CONCLUIDO_RAW_VALUES } from '@/lib/atendimento-status'
 
 function iniciais(nome: string) {
   return nome.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()
@@ -40,7 +41,7 @@ export default async function ProntuariosPendentesPage() {
           pacientes(id, nome),
           agendamento:agendamentos(tipo)
         `)
-        .in('status', ['Concluído', 'Concluido'])
+        .in('status', STATUS_CONCLUIDO_RAW_VALUES)
         .order('data_agendamento', { ascending: false })
         .limit(300)
       return isFisio ? q.eq('profissional_id', user.id) : q

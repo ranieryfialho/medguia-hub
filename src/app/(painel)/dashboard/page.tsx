@@ -7,6 +7,10 @@ import { calcularKPIs } from '@/lib/relatorios/kpis-tempo-fabril'
 import { formatAppDateKey, getAppDayRangeUTC } from '@/lib/datetime'
 import { criarContagemStatusContato, LABEL_POR_STATUS_CONTATO } from '@/lib/contatos-kanban'
 import { requireModulo } from '@/lib/guard'
+import {
+  getAtendimentoStatusKey,
+  isStatusConcluido,
+} from '@/lib/atendimento-status'
 
 type Atendimento = {
   id: string
@@ -131,10 +135,10 @@ export default async function DashboardPage() {
 
   // 7. Bloco 2: Volume de Atendimentos
   const totalAtend = atendimentos.length
-  const concluidos = atendimentos.filter(a => a.status?.toLowerCase() === 'concluído').length
-  const cancelados = atendimentos.filter(a => a.status?.toLowerCase() === 'cancelado').length
-  const faltas = atendimentos.filter(a => a.status?.toLowerCase() === 'falta').length
-  const emAberto = atendimentos.filter(a => ['confirmado', 'aguardando'].includes(a.status?.toLowerCase() ?? '')).length
+  const concluidos = atendimentos.filter(a => isStatusConcluido(a.status)).length
+  const cancelados = atendimentos.filter(a => getAtendimentoStatusKey(a.status) === 'cancelado').length
+  const faltas = atendimentos.filter(a => getAtendimentoStatusKey(a.status) === 'falta').length
+  const emAberto = atendimentos.filter(a => ['confirmado', 'aguardando'].includes(getAtendimentoStatusKey(a.status))).length
   const taxaConclusao = totalAtend > 0 ? Math.round((concluidos / totalAtend) * 100) : 0
 
   // 8. Bloco 3: Pacientes
@@ -157,7 +161,7 @@ export default async function DashboardPage() {
     const diaKey = formatAppDateKey(dia)
     const count = atendimentos.filter(a => formatAppDateKey(a.data_agendamento) === diaKey).length
     const concluidos = atendimentos.filter(
-      a => formatAppDateKey(a.data_agendamento) === diaKey && a.status?.toLowerCase() === 'concluído'
+      a => formatAppDateKey(a.data_agendamento) === diaKey && isStatusConcluido(a.status)
     ).length
     return { dia: format(dia, 'EEE', { locale: ptBR }), count, concluidos }
   })
