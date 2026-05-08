@@ -4,7 +4,10 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { buildAppDateTimeISO } from '@/lib/datetime'
 import { calcularHoraFim, validarConflitosProfissional } from '@/lib/agendamento-conflitos'
-import { recorrenciaSemanalAtiva } from '@/lib/recorrencia'
+import {
+  adicionarMesesPreservandoDiaUTC,
+  recorrenciaSemanalAtiva,
+} from '@/lib/recorrencia'
 
 /**
  * Dado a data da última sessão e o padrão de recorrência, calcula a próxima data
@@ -20,8 +23,7 @@ function calcularProximaData(
   const ultimaData = toUTC(ultimaDataStr)
 
   if (frequencia === 'mes') {
-    const next = new Date(ultimaData)
-    next.setUTCMonth(next.getUTCMonth() + 1)
+    const next = adicionarMesesPreservandoDiaUTC(ultimaData, 1)
     return next.toISOString().split('T')[0]
   }
 

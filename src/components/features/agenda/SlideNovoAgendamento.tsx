@@ -101,7 +101,6 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
   const [isRecorrente, setIsRecorrente] = useState(false)
   const [frequencia, setFrequencia] = useState('1')
   const [diasSelecionados, setDiasSelecionados] = useState<number[]>([])
-  const [terminaEm, setTerminaEm] = useState<'data' | 'ocorrencias' | 'sem_fim'>('sem_fim')
   const [ocorrencias, setOcorrencias] = useState('1')
   const precisaCarregarDetalhesEdicao = Boolean(
     atendimentoParaEditar &&
@@ -249,7 +248,6 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
     setIsRecorrente(false)
     setFrequencia('1')
     setDiasSelecionados([])
-    setTerminaEm('sem_fim')
     setOcorrencias('1')
     setDataAgendamento('')
     if (!defaultPacienteId) {
@@ -294,7 +292,7 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
       if (isRecorrente) {
         formData.set('frequencia', frequencia)
         formData.set('dias_semana', diasSelecionados.join(','))
-        formData.set('termina_em', terminaEm)
+        formData.set('termina_em', 'ocorrencias')
         formData.set('ocorrencias', ocorrencias)
 
         if (!frequencia) {
@@ -572,26 +570,14 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
                   <div>
                     <label className="text-sm font-semibold text-[#083142] block mb-3">Termina em:</label>
                     <div className="space-y-4">
-
-                      {/* Opção: Data */}
                       <div className="flex items-center gap-3">
-                        <input type="radio" checked={terminaEm === 'data'} onChange={() => setTerminaEm('data')} className="w-4 h-4 text-[#006b5a] focus:ring-[#006b5a] shrink-0" />
-                        <div className="relative flex-1 max-w-[180px]">
-                          <label className="text-[10px] font-semibold text-[#6d7a75] absolute -top-2 left-3 bg-white px-1 z-10 cursor-default" onClick={() => setTerminaEm('data')}>Data</label>
-                          <input type="date" name="data_fim" onClick={() => setTerminaEm('data')} disabled={terminaEm !== 'data'} className="w-full bg-white border border-[#bcc9c4] rounded-lg px-3 py-2 text-sm text-[#171d1c] focus:ring-2 focus:ring-[#006b5a] disabled:opacity-50" />
-                        </div>
-                      </div>
-
-                      {/* Opção: Ocorrências */}
-                      <div className="flex items-center gap-3">
-                        <input type="radio" checked={terminaEm === 'ocorrencias'} onChange={() => setTerminaEm('ocorrencias')} className="w-4 h-4 text-[#006b5a] focus:ring-[#006b5a] shrink-0" />
+                        <input type="radio" checked readOnly className="w-4 h-4 text-[#006b5a] focus:ring-[#006b5a] shrink-0" />
                         <div className="flex items-center gap-3">
-                          <div className={`border border-[#bcc9c4] rounded-lg flex items-center justify-between w-[120px] bg-white h-11 transition-opacity ${terminaEm !== 'ocorrencias' ? 'opacity-50' : ''}`}>
+                          <div className="border border-[#bcc9c4] rounded-lg flex items-center justify-between w-[120px] bg-white h-11">
                             <button
                               type="button"
-                              onClick={() => { setTerminaEm('ocorrencias'); ajustarOcorrencias(-1) }}
-                              disabled={terminaEm !== 'ocorrencias'}
-                              className="w-10 h-full flex items-center justify-center text-[#6d7a75] hover:bg-[#f0f5f4] disabled:cursor-not-allowed transition-colors rounded-l-lg"
+                              onClick={() => ajustarOcorrencias(-1)}
+                              className="w-10 h-full flex items-center justify-center text-[#6d7a75] hover:bg-[#f0f5f4] transition-colors rounded-l-lg"
                             >
                               <Minus size={18} strokeWidth={1.5} />
                             </button>
@@ -599,37 +585,28 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
                               type="number"
                               name="ocorrencias"
                               value={ocorrencias}
-                              onClick={() => setTerminaEm('ocorrencias')}
                               onChange={(e) => setOcorrencias(e.target.value)}
                               onBlur={() => {
                                 const num = Math.max(1, Math.min(365, parseInt(ocorrencias) || 1))
                                 setOcorrencias(String(num))
                               }}
-                              disabled={terminaEm !== 'ocorrencias'}
-                              className="flex-1 w-full text-center focus:outline-none bg-transparent disabled:opacity-50 text-base font-medium text-[#171d1c] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 m-0"
+                              className="flex-1 w-full text-center focus:outline-none bg-transparent text-base font-medium text-[#171d1c] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 m-0"
                               min="1"
                               max="365"
                             />
                             <button
                               type="button"
-                              onClick={() => { setTerminaEm('ocorrencias'); ajustarOcorrencias(1) }}
-                              disabled={terminaEm !== 'ocorrencias'}
-                              className="w-10 h-full flex items-center justify-center text-[#6d7a75] hover:bg-[#f0f5f4] disabled:cursor-not-allowed transition-colors rounded-r-lg"
+                              onClick={() => ajustarOcorrencias(1)}
+                              className="w-10 h-full flex items-center justify-center text-[#6d7a75] hover:bg-[#f0f5f4] transition-colors rounded-r-lg"
                             >
                               <Plus size={18} strokeWidth={1.5} />
                             </button>
                           </div>
-                          <span onClick={() => setTerminaEm('ocorrencias')} className="text-sm font-medium text-[#6d7a75] cursor-pointer hover:text-[#006b5a] transition-colors">
+                          <span className="text-sm font-medium text-[#6d7a75]">
                             atendimentos <span className="font-normal opacity-70">(Limite igual a 365)</span>
                           </span>
                         </div>
                       </div>
-
-                      {/* Opção: Sem Fim */}
-                      <label className="flex items-center gap-3 cursor-pointer group">
-                        <input type="radio" checked={terminaEm === 'sem_fim'} onChange={() => setTerminaEm('sem_fim')} className="w-4 h-4 text-[#006b5a] focus:ring-[#006b5a]" />
-                        <span className="text-sm font-semibold text-[#3d4945] group-hover:text-[#006b5a] transition-colors">Sem final definido - Máximo de 12 meses por recorrência</span>
-                      </label>
                     </div>
                   </div>
 

@@ -9,7 +9,11 @@ import {
   type DisponibilidadeDia,
 } from '@/lib/disponibilidade'
 import { validarConflitosProfissional } from '@/lib/agendamento-conflitos'
-import { recorrenciaSemanalAtiva } from '@/lib/recorrencia'
+import {
+  adicionarMesesPreservandoDiaLocal,
+  adicionarMesesPreservandoDiaUTC,
+  recorrenciaSemanalAtiva,
+} from '@/lib/recorrencia'
 
 function extractTimePart(dateTime: string) {
   const [, timePart = '00:00:00'] = dateTime.split('T')
@@ -103,9 +107,7 @@ export async function criarAgendamento(formData: FormData) {
   const isRecorrente = formData.get('is_recorrente') === 'true'
   const frequencia = formData.get('frequencia') as string // '1', '2', '3', ou 'mes'
   const diasSemana = formData.get('dias_semana') as string // ex: "1,3,5"
-  const terminaEm = formData.get('termina_em') as string // 'data', 'ocorrencias' ou 'sem_fim'
-  const dataFimStr = formData.get('data_fim') as string
-  const ocorrencias = parseInt(formData.get('ocorrencias') as string) || 1
+  const ocorrencias = Math.max(1, Math.min(365, parseInt(formData.get('ocorrencias') as string) || 1))
 
   if (!paciente_id || !profissional_id || !dataStr || !horaInicio || !horaFim) {
     return { error: 'Preencha todos os campos obrigatórios.' }
@@ -162,39 +164,13 @@ export async function criarAgendamento(formData: FormData) {
   } else {
     // AGENDAMENTO RECORRENTE
     const dataInicio = new Date(`${dataStr}T00:00:00-03:00`)
-    
-    // Regra de Ouro: Nunca passar de 12 meses para evitar sobrecarga no banco
-    const limiteMaximoSeguranca = new Date(dataInicio)
-    limiteMaximoSeguranca.setMonth(limiteMaximoSeguranca.getMonth() + 12)
-
-    let limiteData = new Date('2099-01-01T00:00:00')
-    let limiteOcorrencias = 365
-
-    if (terminaEm === 'sem_fim') {
-      limiteData = limiteMaximoSeguranca
-    } else if (terminaEm === 'data' && dataFimStr) {
-      limiteData = new Date(`${dataFimStr}T23:59:59-03:00`)
-      if (limiteData > limiteMaximoSeguranca) limiteData = limiteMaximoSeguranca
-    } else if (terminaEm === 'ocorrencias') {
-      limiteOcorrencias = Math.min(ocorrencias, 365)
-    }
-
     let count = 0
 
     if (frequencia === 'mes') {
       // LÓGICA MENSAL (Cria exatamente 1 agendamento no mesmo dia do mês)
       let mesesAdicionados = 0
-      while (count < limiteOcorrencias) {
-        const dataBase = new Date(dataInicio)
-        const targetMonth = dataBase.getMonth() + mesesAdicionados
-        dataBase.setMonth(targetMonth)
-
-        // Correção de overflow de mês (Ex: 31 de Jan + 1 mês = 28/29 de Fev e não março)
-        if (dataBase.getMonth() !== (targetMonth % 12 + 12) % 12) {
-          dataBase.setDate(0) // Volta pro último dia do mês correto
-        }
-
-        if (dataBase > limiteData) break;
+      while (count < ocorrencias) {
+        const dataBase = adicionarMesesPreservandoDiaLocal(dataInicio, mesesAdicionados)
 
         const dataFormatada = formatAppDateKey(dataBase)
         atendimentosParaInserir.push({
@@ -218,7 +194,7 @@ export async function criarAgendamento(formData: FormData) {
       const semanasPulo = parseInt(frequencia)
       const dataAtual = new Date(`${dataStr}T00:00:00-03:00`)
 
-      while (count < limiteOcorrencias && dataAtual <= limiteData) {
+      while (count < ocorrencias) {
         if (diasArray.includes(dataAtual.getDay())) {
           if (recorrenciaSemanalAtiva(dataAtual, dataInicio, semanasPulo)) {
             const dataFormatada = formatAppDateKey(dataAtual)
@@ -291,9 +267,9 @@ export async function criarAgendamento(formData: FormData) {
       is_recorrente: isRecorrente,
       frequencia: isRecorrente ? frequencia : null,
       dias_semana: isRecorrente ? diasSemana : null,
-      termina_em: isRecorrente ? terminaEm : null,
-      data_fim: isRecorrente && terminaEm === 'data' ? dataFimStr : null,
-      total_ocorrencias: isRecorrente && terminaEm === 'ocorrencias' ? ocorrencias : null,
+      termina_em: isRecorrente ? 'ocorrencias' : null,
+      data_fim: null,
+      total_ocorrencias: isRecorrente ? ocorrencias : null,
       observacoes,
       gerou_venda,
       marcou_retorno,
@@ -410,8 +386,7 @@ function calcularProximaDataAgenda(
   const ultimaData = toUTC(ultimaDataStr)
 
   if (frequencia === 'mes') {
-    const next = new Date(ultimaData)
-    next.setUTCMonth(next.getUTCMonth() + 1)
+    const next = adicionarMesesPreservandoDiaUTC(ultimaData, 1)
     return next.toISOString().split('T')[0]
   }
 
