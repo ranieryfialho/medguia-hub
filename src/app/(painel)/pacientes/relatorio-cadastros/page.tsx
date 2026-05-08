@@ -69,7 +69,7 @@ function formatarMes(mesKey: string): string {
     timeZone: APP_TIME_ZONE,
     month: 'short',
     year: 'numeric',
-  }).format(new Date(y, m - 1, 1))
+  }).format(new Date(`${y}-${String(m).padStart(2, '0')}-15T12:00:00Z`))
     .replace(/^\w/, c => c.toUpperCase())
     .replace('.', '')
 }
