@@ -26,6 +26,7 @@ import {
   ShoppingCart,
   Package,
   ShieldCheck,
+  UserPlus,
 } from 'lucide-react'
 import { temAcesso, temAcessoGrupo } from '@/lib/modulos'
 import type { ModuloChave } from '@/lib/modulos'
@@ -177,7 +178,7 @@ export function Sidebar({
             </button>
             {pacientesOpen && (
               <div className="mt-1 ml-4 space-y-0.5 border-l-2 border-[#bcc9c4]/40 pl-3">
-                <Link href="/pacientes" onClick={handleNavClick} className={subLinkCls(!!isActive('/pacientes') && !isActive('/pacientes/origens') && !isActive('/pacientes/tipos-consulta') && !isActive('/pacientes/relatorio-consultas'))}>
+                <Link href="/pacientes" onClick={handleNavClick} className={subLinkCls(!!isActive('/pacientes') && !isActive('/pacientes/origens') && !isActive('/pacientes/tipos-consulta') && !isActive('/pacientes/relatorio-consultas') && !isActive('/pacientes/relatorio-cadastros'))}>
                   <Users size={14} />
                   Listar Pacientes
                 </Link>
@@ -192,6 +193,10 @@ export function Sidebar({
                 <Link href="/pacientes/relatorio-consultas" onClick={handleNavClick} className={subLinkCls(!!isActive('/pacientes/relatorio-consultas'))}>
                   <ClipboardList size={14} />
                   Relatório de Consultas
+                </Link>
+                <Link href="/pacientes/relatorio-cadastros" onClick={handleNavClick} className={subLinkCls(!!isActive('/pacientes/relatorio-cadastros'))}>
+                  <UserPlus size={14} />
+                  Relatório de Cadastros
                 </Link>
               </div>
             )}

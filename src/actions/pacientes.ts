@@ -126,6 +126,7 @@ export async function criarPaciente(prevState: PacienteFormState | null, formDat
     complemento: formData.get('complemento') as string,
     observacoes_gerais: formData.get('observacoes_gerais') as string,
     convenio: formData.get('convenio') as string,
+    fonte: 'sistema',
   }
 
   if (cpf) {
