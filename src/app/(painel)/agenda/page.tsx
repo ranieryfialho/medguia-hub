@@ -162,7 +162,9 @@ export default async function AgendaPage({ searchParams }: PageProps) {
   const mesAnoLateral = format(dataSelecionada, "MMMM yyyy", { locale: ptBR })
 
   const anoMes = dataString.slice(0, 7) // 'yyyy-MM'
-  const totalDiasNoMes = new Date(parseInt(anoMes.slice(0, 4)), parseInt(anoMes.slice(5, 7)), 0).getDate()
+  const ano = parseInt(anoMes.slice(0, 4), 10)
+  const mesIndex = parseInt(anoMes.slice(5, 7), 10) - 1
+  const totalDiasNoMes = new Date(Date.UTC(ano, mesIndex + 1, 0)).getUTCDate()
   const diasDoMes = Array.from({ length: totalDiasNoMes }, (_, i) =>
     parseAppDate(`${anoMes}-${(i + 1).toString().padStart(2, '0')}`)
   )
