@@ -4,6 +4,7 @@ import { ArrowLeft, Edit } from 'lucide-react'
 import { BtnDeletarVenda } from '@/components/features/vendas'
 import { requireModulo } from '@/lib/guard'
 import { FORMA_PAGAMENTO_LABEL } from '@/lib/vendas'
+import { formatAppDate } from '@/lib/datetime'
 
 export default async function VendaDetalhePage({
   params,
@@ -68,7 +69,7 @@ export default async function VendaDetalhePage({
 
   const v = venda as any
   const total = (itens || []).reduce((sum, item: any) => sum + item.quantidade * item.preco_unitario, 0)
-  const dataFormatada = new Date(venda.data_venda).toLocaleDateString('pt-BR', {
+  const dataFormatada = formatAppDate(venda.data_venda, 'pt-BR', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',

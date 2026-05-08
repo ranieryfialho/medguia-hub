@@ -22,6 +22,21 @@ export function formatAppDateKey(value: string | Date) {
   }).format(toDate(value))
 }
 
+export function formatAppDate(
+  value: string | Date,
+  locale = 'pt-BR',
+  options: Intl.DateTimeFormatOptions = {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }
+) {
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: APP_TIME_ZONE,
+    ...options,
+  }).format(toDate(value))
+}
+
 export function formatAppTime(value: string | Date) {
   return new Intl.DateTimeFormat('pt-BR', {
     timeZone: APP_TIME_ZONE,

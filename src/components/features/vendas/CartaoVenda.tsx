@@ -1,10 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
 import { ShoppingCart, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
+import { formatAppDate } from '@/lib/datetime'
 
 const ORIGEM_CONFIG: Record<string, { label: string; cor: string; bg: string }> = {
   medico:    { label: 'Médico',    cor: 'text-blue-700',   bg: 'bg-blue-50' },
@@ -57,7 +56,11 @@ export function CartaoVenda({ venda }: { venda: VendaTimeline }) {
                 </span>
               </div>
               <span className="text-xs font-medium text-slate-500">
-                {format(new Date(venda.data_venda), 'dd MMM yyyy', { locale: ptBR })}
+                {formatAppDate(venda.data_venda, 'pt-BR', {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric',
+                })}
               </span>
             </div>
 

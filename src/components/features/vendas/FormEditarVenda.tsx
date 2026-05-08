@@ -6,6 +6,7 @@ import { LoaderCircle, Plus, Trash2 } from 'lucide-react'
 import { ComboboxPaciente } from '@/components/features/pacientes'
 import { FORMAS_PAGAMENTO } from '@/lib/vendas'
 import { createClient } from '@/lib/supabase/client'
+import { formatAppDateKey } from '@/lib/datetime'
 
 interface Profissional {
   id: string
@@ -83,7 +84,7 @@ export function FormEditarVenda({
 
   const [medicoReferenciadorId, setMedicoReferenciadorId] = useState(medicoInicialId)
   const [buscaMedico, setBuscaMedico] = useState('')
-  const [dataVenda, setDataVenda] = useState(vendaInicial.data_venda)
+  const [dataVenda, setDataVenda] = useState(() => formatAppDateKey(vendaInicial.data_venda))
   const [observacoes, setObservacoes] = useState(vendaInicial.observacoes || '')
 
   const medicosFiltrados = buscaMedico.trim()

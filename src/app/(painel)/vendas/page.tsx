@@ -5,6 +5,7 @@ import { FiltrosVendas } from '@/components/features/vendas'
 import { BtnDeletarVenda } from '@/components/features/vendas'
 import { requireModulo } from '@/lib/guard'
 import { FORMA_PAGAMENTO_LABEL } from '@/lib/vendas'
+import { formatAppDate, getAppDayRangeUTC } from '@/lib/datetime'
 
 export default async function VendasListPage({
   searchParams,
@@ -50,11 +51,11 @@ export default async function VendasListPage({
   }
 
   if (data_inicio) {
-    query = query.gte('data_venda', `${data_inicio}T00:00:00`)
+    query = query.gte('data_venda', getAppDayRangeUTC(data_inicio).start)
   }
 
   if (data_fim) {
-    query = query.lte('data_venda', `${data_fim}T23:59:59`)
+    query = query.lte('data_venda', getAppDayRangeUTC(data_fim).end)
   }
 
   // Busca por paciente ou profissional (realizado em memória após fetch)
@@ -123,7 +124,7 @@ export default async function VendasListPage({
                 </tr>
               )}
               {vendasFiltradas.map((venda: any) => {
-                const dataFormatada = new Date(venda.data_venda).toLocaleDateString('pt-BR')
+                const dataFormatada = formatAppDate(venda.data_venda)
 
                 return (
                   <tr key={venda.id} className="hover:bg-page/50 transition-colors">
@@ -181,7 +182,7 @@ export default async function VendasListPage({
             </div>
           ) : (
             vendasFiltradas.map((venda: any) => {
-              const dataFormatada = new Date(venda.data_venda).toLocaleDateString('pt-BR')
+              const dataFormatada = formatAppDate(venda.data_venda)
 
               return (
                 <div key={venda.id} className="p-4 space-y-2">

@@ -6,6 +6,7 @@ import { BtnGerarPdfVendas } from '@/components/features/shared'
 import { FiltroProdutosMultiSelect } from '@/components/features/produtos'
 import { requireModulo } from '@/lib/guard'
 import { FORMAS_PAGAMENTO } from '@/lib/vendas'
+import { formatAppDateKey, getAppDayRangeUTC } from '@/lib/datetime'
 
 const ORIGENS = [
   { value: 'medico', label: 'Médico' },
@@ -45,8 +46,8 @@ export default async function RelatorioVendasPage({
       itens_venda ( quantidade, preco_unitario, produtos:produto_id ( id, nome ) )
     `)
 
-  if (data_inicio) query = query.gte('data_venda', `${data_inicio}T00:00:00`)
-  if (data_fim) query = query.lte('data_venda', `${data_fim}T23:59:59`)
+  if (data_inicio) query = query.gte('data_venda', getAppDayRangeUTC(data_inicio).start)
+  if (data_fim) query = query.lte('data_venda', getAppDayRangeUTC(data_fim).end)
   if (origem) query = query.eq('origem', origem)
   if (forma_pagamento) query = query.eq('forma_pagamento', forma_pagamento)
   if (profissional_id) query = query.eq('profissional_id', profissional_id)
@@ -132,7 +133,7 @@ export default async function RelatorioVendasPage({
 
     // Por período (últimos 90 dias)
     if (new Date(venda.data_venda) >= dias90) {
-      const dia = new Date(venda.data_venda).toISOString().split('T')[0]
+      const dia = formatAppDateKey(venda.data_venda)
       if (!porPeriodo[dia]) porPeriodo[dia] = 0
       porPeriodo[dia] += totalVenda
     }

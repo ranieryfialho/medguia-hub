@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { FORMAS_PAGAMENTO } from '@/lib/vendas'
+import { formatAppDateKey, getAppDayRangeUTC, parseAppDate } from '@/lib/datetime'
 
 const USUARIO_AUTORIZADO_VENDA_ZERADA = '46581234-19dd-4e7d-904d-db0357fa2219'
 
@@ -71,6 +72,11 @@ function somarTotaisPorVenda(
 
 function formaPagamentoValida(value: string) {
   return FORMAS_PAGAMENTO.some((forma) => forma.value === value)
+}
+
+function normalizeVendaDate(value: string | null | undefined) {
+  const dateKey = value?.trim() ? value.split('T')[0] : formatAppDateKey(new Date())
+  return parseAppDate(dateKey).toISOString()
 }
 
 export async function criarVenda(_prevState: unknown, formData: FormData) {
@@ -155,7 +161,7 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
     origem,
     forma_pagamento,
     medico_referenciador_nome,
-    data_venda: data_venda || new Date().toISOString(),
+    data_venda: normalizeVendaDate(data_venda),
     observacoes: observacoes || null,
   }
 
@@ -273,7 +279,7 @@ export async function editarVenda(_prevState: unknown, formData: FormData) {
     origem,
     forma_pagamento,
     medico_referenciador_nome,
-    data_venda,
+    data_venda: normalizeVendaDate(data_venda),
     observacoes: observacoes || null,
     atualizado_em: new Date().toISOString(),
   }
@@ -407,11 +413,11 @@ export async function listarVendas(filtros: FiltrosVendas = {}) {
   }
 
   if (data_inicio) {
-    query = query.gte('data_venda', `${data_inicio}T00:00:00`)
+    query = query.gte('data_venda', getAppDayRangeUTC(data_inicio).start)
   }
 
   if (data_fim) {
-    query = query.lte('data_venda', `${data_fim}T23:59:59`)
+    query = query.lte('data_venda', getAppDayRangeUTC(data_fim).end)
   }
 
   const { data, error, count } = await query
@@ -461,11 +467,11 @@ export async function gerarRelatorioVendas(filtros: FiltrosRelatorio = {}) {
     .select('id, origem, forma_pagamento, data_venda')
 
   if (data_inicio) {
-    query = query.gte('data_venda', `${data_inicio}T00:00:00`)
+    query = query.gte('data_venda', getAppDayRangeUTC(data_inicio).start)
   }
 
   if (data_fim) {
-    query = query.lte('data_venda', `${data_fim}T23:59:59`)
+    query = query.lte('data_venda', getAppDayRangeUTC(data_fim).end)
   }
 
   if (origem) {
@@ -535,7 +541,7 @@ export async function gerarRelatorioVendas(filtros: FiltrosRelatorio = {}) {
   const porPeriodo: Record<string, number> = {}
   vendasComTotais.forEach((venda) => {
     if (new Date(venda.data_venda) >= dias90) {
-      const data = new Date(venda.data_venda).toISOString().split('T')[0]
+      const data = formatAppDateKey(venda.data_venda)
       if (!porPeriodo[data]) {
         porPeriodo[data] = 0
       }

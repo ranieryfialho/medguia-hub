@@ -6,6 +6,7 @@ import { ChevronRight, ChevronLeft, LoaderCircle, Plus, Trash2 } from 'lucide-re
 import { ComboboxPaciente } from '@/components/features/pacientes'
 import { FORMAS_PAGAMENTO } from '@/lib/vendas'
 import { createClient } from '@/lib/supabase/client'
+import { formatAppDateKey } from '@/lib/datetime'
 
 interface Profissional {
   id: string
@@ -65,7 +66,7 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [] }: FormNov
   const [medicoReferenciadorId, setMedicoReferenciadorId] = useState('')
   const [buscaMedico, setBuscaMedico] = useState('')
   const [formaPagamento, setFormaPagamento] = useState('')
-  const [dataVenda, setDataVenda] = useState(new Date().toISOString().split('T')[0])
+  const [dataVenda, setDataVenda] = useState(() => formatAppDateKey(new Date()))
   const [observacoes, setObservacoes] = useState('')
 
   // Aba 2
