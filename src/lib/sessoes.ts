@@ -10,11 +10,11 @@ type SessaoBasica = {
 /**
  * Dado uma lista de todas as sessões dos agendamentos relevantes,
  * retorna um Map de atendimento_id → { sessao_efetiva, total_efetivo }
- * onde sessao_efetiva e total_efetivo excluem Falta e Cancelado da contagem.
+ * onde sessao_efetiva e total_efetivo excluem Falta, Cancelado e Reagendado da contagem.
  *
  * Exemplos:
  *   6 sessões, sessão 1 = Falta → sessão 2 vira efetiva 1/5, sessão 3 = 2/5 etc.
- *   Sessões Falta/Cancelado recebem sessao_efetiva = 0 (não mostrar badge).
+ *   Sessões Falta/Cancelado/Reagendado recebem sessao_efetiva = 0 (não mostrar badge).
  */
 export function buildSessaoEfetivaMap(
   todasSessoes: SessaoBasica[]

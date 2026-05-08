@@ -15,8 +15,7 @@ import {
   recorrenciaSemanalAtiva,
 } from '@/lib/recorrencia'
 import {
-  isStatusCancelado,
-  isStatusFalta,
+  isStatusNaoEfetivo,
   normalizeAtendimentoStatus,
 } from '@/lib/atendimento-status'
 
@@ -343,7 +342,7 @@ export async function contarAtendimentosPaciente(pacienteId: string): Promise<{ 
     .select('status')
     .eq('paciente_id', pacienteId)
   const total = data?.length ?? 0
-  const cancelados = data?.filter(a => isStatusCancelado(a.status) || isStatusFalta(a.status)).length ?? 0
+  const cancelados = data?.filter(a => isStatusNaoEfetivo(a.status)).length ?? 0
   return { total, cancelados }
 }
 

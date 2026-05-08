@@ -82,7 +82,7 @@ export function isStatusFalta(value: string | null | undefined) {
 
 export function isStatusNaoEfetivo(value: string | null | undefined) {
   const key = getAtendimentoStatusKey(value)
-  return key === 'falta' || key === 'cancelado'
+  return key === 'falta' || key === 'cancelado' || key === 'reagendado'
 }
 
 export function isStatusFabril(value: string | null | undefined) {
