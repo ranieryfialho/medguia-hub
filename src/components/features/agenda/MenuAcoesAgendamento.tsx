@@ -17,7 +17,7 @@ const OPCOES_STATUS = [
   { valor: 'Concluído', label: 'Concluído', Icon: CheckCheck, cor: 'text-[#4f625d]' },
   { valor: 'Cancelado', label: 'Cancelado', Icon: XCircle, cor: 'text-[#ba1a1a]' },
   { valor: 'Falta', label: 'Falta', Icon: UserX, cor: 'text-[#3d4945]' },
-  { valor: 'Reposição', label: 'Reagendamento', Icon: RefreshCw, cor: 'text-[#779aad]' },
+  { valor: '__reagendar__', label: 'Reagendar', Icon: RefreshCw, cor: 'text-[#779aad]' },
 ]
 
 const MENU_WIDTH = 192  // w-48
@@ -105,7 +105,7 @@ export function MenuAcoesAgendamento({ id, statusAtual, onOpenChange, atendiment
     }
 
     // "Reagendamento": abre modal para escolher nova data (recorrente ou único)
-    if (novoStatus === 'Reposição' && atendimentoId && dataAgendamento) {
+    if (novoStatus === '__reagendar__' && atendimentoId && dataAgendamento) {
       const horaAtual = format(new Date(dataAgendamento), 'HH:mm')
       setProximaData(undefined)
       setProximaHora(horaAtual)
@@ -179,7 +179,7 @@ export function MenuAcoesAgendamento({ id, statusAtual, onOpenChange, atendiment
             </div>
 
             {OPCOES_STATUS.map((opcao) => {
-              const isAtivo = statusAtual.toLowerCase() === opcao.valor.toLowerCase()
+              const isAtivo = opcao.valor !== '__reagendar__' && statusAtual.toLowerCase() === opcao.valor.toLowerCase()
               const Icone = opcao.Icon
 
               return (

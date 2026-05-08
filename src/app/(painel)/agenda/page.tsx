@@ -12,7 +12,7 @@ import {
 } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
-import { SlideNovoAgendamento } from '@/components/features/agenda'
+import { AgendaFiltrosAutoSubmit, SlideNovoAgendamento } from '@/components/features/agenda'
 import { AgendamentoItemDia, AgendamentoItemSemana } from '@/components/features/agenda'
 import type { AgendamentoDetalhe } from '@/components/features/agenda'
 import { buildSessaoEfetivaMap } from '@/lib/sessoes'
@@ -23,6 +23,7 @@ import { podeEntrarNaAgendaOuRelatorio } from '@/lib/profissionais'
 import { requireModulo } from '@/lib/guard'
 import {
   getAtendimentoStatusKey,
+  getStatusRawValuesForKeys,
   isStatusConcluido,
 } from '@/lib/atendimento-status'
 
@@ -36,7 +37,20 @@ type AgendaQueryOverrides = {
   meus?: boolean
   profissional?: string | null
   horario?: string | null
+  statuses?: string[] | null
 }
+
+const STATUS_FILTER_OPTIONS = [
+  { value: 'confirmado', label: 'Confirmado', badgeBg: 'bg-green-600' },
+  { value: 'aguardando', label: 'Aguardando', badgeBg: 'bg-amber-500' },
+  { value: 'em_atendimento', label: 'Em Atendimento', badgeBg: 'bg-blue-600' },
+  { value: 'concluido', label: 'Concluído', badgeBg: 'bg-violet-600' },
+  { value: 'cancelado', label: 'Cancelado', badgeBg: 'bg-red-600' },
+  { value: 'falta', label: 'Falta', badgeBg: 'bg-gray-500' },
+  { value: 'reagendado', label: 'Reagendado', badgeBg: 'bg-orange-500' },
+] as const
+
+const ALL_STATUS_FILTER_VALUES = STATUS_FILTER_OPTIONS.map((status) => status.value)
 
 function firstRelation<T>(value: T | T[] | null | undefined): T | null {
   if (Array.isArray(value)) return value[0] ?? null
@@ -49,6 +63,7 @@ function buildAgendaUrl(base: {
   meus: boolean
   profissional: string
   horario: string
+  statuses: string[]
 }, overrides: AgendaQueryOverrides = {}) {
   const query = new URLSearchParams()
   const data = overrides.data ?? base.data
@@ -56,6 +71,7 @@ function buildAgendaUrl(base: {
   const meus = overrides.meus ?? base.meus
   const profissional = overrides.profissional === undefined ? base.profissional : (overrides.profissional ?? '')
   const horario = overrides.horario === undefined ? base.horario : (overrides.horario ?? '')
+  const statuses = overrides.statuses === undefined ? base.statuses : (overrides.statuses ?? [])
 
   query.set('view', view)
   query.set('data', data)
@@ -63,6 +79,9 @@ function buildAgendaUrl(base: {
   if (meus) query.set('meus', 'true')
   if (profissional) query.set('profissional', profissional)
   if (horario) query.set('horario', horario)
+  for (const status of statuses) {
+    query.append('status', status)
+  }
 
   return `?${query.toString()}`
 }
@@ -75,7 +94,6 @@ const getStatusConfig = (status: string) => {
     concluido:      { badgeBg: 'bg-violet-600', label: 'Concluído' },
     cancelado:      { badgeBg: 'bg-red-600',    label: 'Cancelado' },
     falta:          { badgeBg: 'bg-gray-500',   label: 'Falta' },
-    reposicao:      { badgeBg: 'bg-cyan-600',   label: 'Reposição' },
     reagendado:     { badgeBg: 'bg-orange-500', label: 'Reagendado' },
     desconhecido:   { badgeBg: 'bg-gray-400',   label: 'Agendado' },
   }
@@ -124,6 +142,19 @@ export default async function AgendaPage({ searchParams }: PageProps) {
   const myAppointmentsOnly = params.meus === 'true'
   const profissionalSelecionado = typeof params.profissional === 'string' ? params.profissional : ''
   const horarioSelecionado = typeof params.horario === 'string' ? params.horario.slice(0, 5) : ''
+  const statusParams = Array.isArray(params.status)
+    ? params.status
+    : typeof params.status === 'string'
+      ? [params.status]
+      : []
+  const statusSelecionados = statusParams.filter((status): status is (typeof ALL_STATUS_FILTER_VALUES)[number] =>
+    ALL_STATUS_FILTER_VALUES.includes(status as (typeof ALL_STATUS_FILTER_VALUES)[number])
+  )
+  const statusSelecionadosSet = new Set<string>(statusSelecionados)
+  const shouldFilterByStatus = statusSelecionadosSet.size > 0
+  const statusRawValues = shouldFilterByStatus ? getStatusRawValuesForKeys(statusSelecionados) : []
+  const matchesStatusFilter = (status: string) =>
+    !shouldFilterByStatus || statusSelecionadosSet.has(getAtendimentoStatusKey(status))
 
   const hojeString = formatAppDateKey(new Date())
   let dataSelecionada = parseAppDate(hojeString)
@@ -154,6 +185,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
     meus: myAppointmentsOnly,
     profissional: profissionalSelecionado,
     horario: horarioSelecionado,
+    statuses: statusSelecionados,
   }
   const prevUrl = buildAgendaUrl(baseQuery, { data: formatAppDateKey(prevDate) })
   const nextUrl = buildAgendaUrl(baseQuery, { data: formatAppDateKey(nextDate) })
@@ -207,6 +239,9 @@ export default async function AgendaPage({ searchParams }: PageProps) {
     if (profissionalIdFiltro) {
       agendamentosMesLevesQuery.eq('profissional_id', profissionalIdFiltro)
     }
+    if (shouldFilterByStatus) {
+      agendamentosMesLevesQuery.in('status', statusRawValues)
+    }
 
     const { data: agendamentosMesLeves } = await agendamentosMesLevesQuery
     agendamentosComEfetivo = (agendamentosMesLeves ?? [])
@@ -218,139 +253,149 @@ export default async function AgendaPage({ searchParams }: PageProps) {
         tipo: '',
         pacientes: null,
       }))
+      .filter((agendamento) => matchesStatusFilter(agendamento.status))
       .filter((agendamento) =>
         !horarioSelecionado || formatAppTime(agendamento.data_agendamento) === horarioSelecionado,
       )
   } else {
     const usarQueryLeveAgenda = view === 'semana' || view === 'dia'
-    const { data: agendamentos } = usarQueryLeveAgenda
-      ? await (
-          profissionalIdFiltro
-            ? supabase
-                .from('atendimentos')
-                .select(`
-                  id,
-                  paciente_id,
-                  profissional_id,
-                  agendamento_id,
-                  data_agendamento,
-                  status,
-                  tipo,
-                  observacoes,
-                  numero_sessao,
-                  total_sessoes,
-                  pacientes (nome),
-                  profissional:profiles!profissional_id(full_name)
-                `)
-                .gte('data_agendamento', fetchInicio)
-                .lte('data_agendamento', fetchFim)
-                .eq('profissional_id', profissionalIdFiltro)
-                .order('data_agendamento', { ascending: true })
-            : supabase
-                .from('atendimentos')
-                .select(`
-                  id,
-                  paciente_id,
-                  profissional_id,
-                  agendamento_id,
-                  data_agendamento,
-                  status,
-                  tipo,
-                  observacoes,
-                  numero_sessao,
-                  total_sessoes,
-                  pacientes (nome),
-                  profissional:profiles!profissional_id(full_name)
-                `)
-                .gte('data_agendamento', fetchInicio)
-                .lte('data_agendamento', fetchFim)
-                .order('data_agendamento', { ascending: true })
-        )
-      : await (
-          profissionalIdFiltro
-            ? supabase
-                .from('atendimentos')
-                .select(`
-                  id,
-                  paciente_id,
-                  profissional_id,
-                  agendamento_id,
-                  data_agendamento,
-                  status,
-                  tipo,
-                  duracao_minutos,
-                  observacoes,
-                  numero_sessao,
-                  total_sessoes,
-                  pacientes (nome, telefone, email),
-                  profissional:profiles!profissional_id(full_name, role)
-                `)
-                .gte('data_agendamento', fetchInicio)
-                .lte('data_agendamento', fetchFim)
-                .eq('profissional_id', profissionalIdFiltro)
-                .order('data_agendamento', { ascending: true })
-            : supabase
-                .from('atendimentos')
-                .select(`
-                  id,
-                  paciente_id,
-                  profissional_id,
-                  agendamento_id,
-                  data_agendamento,
-                  status,
-                  tipo,
-                  duracao_minutos,
-                  observacoes,
-                  numero_sessao,
-                  total_sessoes,
-                  pacientes (nome, telefone, email),
-                  profissional:profiles!profissional_id(full_name, role)
-                `)
-                .gte('data_agendamento', fetchInicio)
-                .lte('data_agendamento', fetchFim)
-                .order('data_agendamento', { ascending: true })
-        )
+    const agendamentosQuery = usarQueryLeveAgenda
+      ? (
+        profissionalIdFiltro
+          ? supabase
+              .from('atendimentos')
+              .select(`
+                id,
+                paciente_id,
+                profissional_id,
+                agendamento_id,
+                data_agendamento,
+                status,
+                tipo,
+                observacoes,
+                numero_sessao,
+                total_sessoes,
+                pacientes (nome),
+                profissional:profiles!profissional_id(full_name)
+              `)
+              .gte('data_agendamento', fetchInicio)
+              .lte('data_agendamento', fetchFim)
+              .eq('profissional_id', profissionalIdFiltro)
+              .order('data_agendamento', { ascending: true })
+          : supabase
+              .from('atendimentos')
+              .select(`
+                id,
+                paciente_id,
+                profissional_id,
+                agendamento_id,
+                data_agendamento,
+                status,
+                tipo,
+                observacoes,
+                numero_sessao,
+                total_sessoes,
+                pacientes (nome),
+                profissional:profiles!profissional_id(full_name)
+              `)
+              .gte('data_agendamento', fetchInicio)
+              .lte('data_agendamento', fetchFim)
+              .order('data_agendamento', { ascending: true })
+      )
+      : (
+        profissionalIdFiltro
+          ? supabase
+              .from('atendimentos')
+              .select(`
+                id,
+                paciente_id,
+                profissional_id,
+                agendamento_id,
+                data_agendamento,
+                status,
+                tipo,
+                duracao_minutos,
+                observacoes,
+                numero_sessao,
+                total_sessoes,
+                pacientes (nome, telefone, email),
+                profissional:profiles!profissional_id(full_name, role)
+              `)
+              .gte('data_agendamento', fetchInicio)
+              .lte('data_agendamento', fetchFim)
+              .eq('profissional_id', profissionalIdFiltro)
+              .order('data_agendamento', { ascending: true })
+          : supabase
+              .from('atendimentos')
+              .select(`
+                id,
+                paciente_id,
+                profissional_id,
+                agendamento_id,
+                data_agendamento,
+                status,
+                tipo,
+                duracao_minutos,
+                observacoes,
+                numero_sessao,
+                total_sessoes,
+                pacientes (nome, telefone, email),
+                profissional:profiles!profissional_id(full_name, role)
+              `)
+              .gte('data_agendamento', fetchInicio)
+              .lte('data_agendamento', fetchFim)
+              .order('data_agendamento', { ascending: true })
+      )
+    const agendamentosQueryFiltrada = shouldFilterByStatus
+      ? agendamentosQuery.in('status', statusRawValues)
+      : agendamentosQuery
+    const { data: agendamentos } = await agendamentosQueryFiltrada
 
-  const agendamentoIds = [...new Set(
-    (agendamentos ?? [])
-      .filter(a => !!a.agendamento_id && (a.total_sessoes ?? 0) > 1)
-      .map(a => a.agendamento_id) as string[]
-  )]
-  let sessaoEfetivaMap = new Map<string, { sessao_efetiva: number; total_efetivo: number }>()
-  if (agendamentoIds.length > 0) {
-    const { data: todasSessoes } = await supabase
-      .from('atendimentos')
-      .select('id, agendamento_id, data_agendamento, status')
-      .in('agendamento_id', agendamentoIds)
-    if (todasSessoes) {
-      sessaoEfetivaMap = buildSessaoEfetivaMap(todasSessoes)
+    const agendamentoIds = [...new Set(
+      (agendamentos ?? [])
+        .filter(a => !!a.agendamento_id && (a.total_sessoes ?? 0) > 1)
+        .map(a => a.agendamento_id) as string[]
+    )]
+    let sessaoEfetivaMap = new Map<string, { sessao_efetiva: number; total_efetivo: number }>()
+    if (agendamentoIds.length > 0) {
+      const { data: todasSessoes } = await supabase
+        .from('atendimentos')
+        .select('id, agendamento_id, data_agendamento, status')
+        .in('agendamento_id', agendamentoIds)
+      if (todasSessoes) {
+        sessaoEfetivaMap = buildSessaoEfetivaMap(todasSessoes)
+      }
     }
-  }
 
     agendamentosComEfetivo = (agendamentos ?? []).map(a => {
-    const efetivo = sessaoEfetivaMap.get(a.id)
-    return {
-      ...a,
-      pacientes: firstRelation(a.pacientes as RelacaoPaciente),
-      profissional: firstRelation(a.profissional as RelacaoProfissional) ?? undefined,
-      numero_sessao: efetivo?.sessao_efetiva ?? a.numero_sessao,
-      total_sessoes: efetivo?.total_efetivo ?? a.total_sessoes,
-    }
-  }).filter((agendamento) =>
-    !horarioSelecionado || formatAppTime(agendamento.data_agendamento) === horarioSelecionado,
-  )
+      const efetivo = sessaoEfetivaMap.get(a.id)
+      return {
+        ...a,
+        pacientes: firstRelation(a.pacientes as RelacaoPaciente),
+        profissional: firstRelation(a.profissional as RelacaoProfissional) ?? undefined,
+        numero_sessao: efetivo?.sessao_efetiva ?? a.numero_sessao,
+        total_sessoes: efetivo?.total_efetivo ?? a.total_sessoes,
+      }
+    }).filter((agendamento) =>
+      matchesStatusFilter(agendamento.status)
+    ).filter((agendamento) =>
+      !horarioSelecionado || formatAppTime(agendamento.data_agendamento) === horarioSelecionado,
+    )
   }
 
   const agendamentosMesQuery = supabase
     .from('atendimentos')
-    .select('data_agendamento')
+    .select('data_agendamento, status')
     .gte('data_agendamento', getAppDayRangeUTC(formatAppDateKey(inicioDoMes)).start)
     .lte('data_agendamento', getAppDayRangeUTC(formatAppDateKey(fimDoMes)).end)
 
   if (profissionalIdFiltro) agendamentosMesQuery.eq('profissional_id', profissionalIdFiltro)
+  if (shouldFilterByStatus) agendamentosMesQuery.in('status', statusRawValues)
 
   const { data: agendamentosMes } = await agendamentosMesQuery
   const agendamentosMesFiltrados = (agendamentosMes ?? []).filter((agendamento) =>
+    matchesStatusFilter(agendamento.status)
+  ).filter((agendamento) =>
     !horarioSelecionado || formatAppTime(agendamento.data_agendamento) === horarioSelecionado,
   )
 
@@ -466,50 +511,82 @@ export default async function AgendaPage({ searchParams }: PageProps) {
             </div>
           </div>
 
-          {!isFisioterapeuta && (
-            <div className="flex-shrink-0 bg-white rounded-2xl border border-[#bcc9c4]/30 px-3 py-3 shadow-sm">
-              <form method="get" className="flex flex-col lg:flex-row gap-3 lg:items-end">
+          <div className="flex-shrink-0 bg-white rounded-2xl border border-[#bcc9c4]/30 px-3 py-3 shadow-sm">
+              <form method="get" className="flex flex-col gap-3">
+                <AgendaFiltrosAutoSubmit />
                 <input type="hidden" name="view" value={view} />
                 <input type="hidden" name="data" value={dataString} />
                 {myAppointmentsOnly && <input type="hidden" name="meus" value="true" />}
 
-                {!shouldFilterByProfissional && (
-                  <label className="flex-1 min-w-0">
-                    <span className="block text-[11px] font-bold uppercase tracking-wider text-[#6d7a75] mb-1">Profissional</span>
-                    <select
-                      name="profissional"
-                      defaultValue={profissionalSelecionado}
+                <div className="flex flex-col lg:flex-row gap-3 lg:items-end">
+                  {!shouldFilterByProfissional && (
+                    <label className="flex-1 min-w-0">
+                      <span className="block text-[11px] font-bold uppercase tracking-wider text-[#6d7a75] mb-1">Profissional</span>
+                      <select
+                        name="profissional"
+                        defaultValue={profissionalSelecionado}
+                        className="w-full bg-white border border-[#bcc9c4] rounded-xl px-3 py-2.5 text-sm text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/40"
+                      >
+                        <option value="">Todos os profissionais</option>
+                        {profissionaisElegiveisAgenda.map((profissional) => (
+                          <option key={profissional.id} value={profissional.id}>
+                            {profissional.nome}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+
+                  <label className="w-full lg:w-48">
+                    <span className="block text-[11px] font-bold uppercase tracking-wider text-[#6d7a75] mb-1">Horário</span>
+                    <input
+                      type="time"
+                      name="horario"
+                      defaultValue={horarioSelecionado}
                       className="w-full bg-white border border-[#bcc9c4] rounded-xl px-3 py-2.5 text-sm text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/40"
-                    >
-                      <option value="">Todos os profissionais</option>
-                      {profissionaisElegiveisAgenda.map((profissional) => (
-                        <option key={profissional.id} value={profissional.id}>
-                          {profissional.nome}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </label>
-                )}
+                </div>
 
-                <label className="w-full lg:w-48">
-                  <span className="block text-[11px] font-bold uppercase tracking-wider text-[#6d7a75] mb-1">Horário</span>
-                  <input
-                    type="time"
-                    name="horario"
-                    defaultValue={horarioSelecionado}
-                    className="w-full bg-white border border-[#bcc9c4] rounded-xl px-3 py-2.5 text-sm text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/40"
-                  />
-                </label>
+                <fieldset>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <legend className="text-[11px] font-bold uppercase tracking-wider text-[#6d7a75]">
+                      Status
+                    </legend>
+                    <span className="text-[11px] text-[#6d7a75]">
+                      {shouldFilterByStatus ? `${statusSelecionados.length} selecionado(s)` : 'Todos visíveis'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:flex lg:flex-nowrap lg:justify-end lg:gap-1.5">
+                    {STATUS_FILTER_OPTIONS.map((status) => {
+                      const isChecked = !shouldFilterByStatus || statusSelecionadosSet.has(status.value)
+                      return (
+                        <label
+                          key={status.value}
+                          className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs sm:text-sm font-semibold transition-colors cursor-pointer lg:min-w-0 lg:flex-1 lg:px-2 lg:py-2 lg:text-[11px] xl:px-3 xl:text-xs ${
+                            isChecked
+                              ? 'border-[#006b5a]/30 bg-[#e8f3f0] text-[#006b5a]'
+                              : 'border-[#bcc9c4] bg-white text-[#3d4945]'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            name="status"
+                            value={status.value}
+                            defaultChecked={isChecked}
+                            className="sr-only"
+                          />
+                          <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${status.badgeBg}`}></span>
+                          <span className="truncate text-center leading-tight">{status.label}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                </fieldset>
 
-                <div className="flex gap-2 lg:pb-0.5">
-                  <button
-                    type="submit"
-                    className="px-4 py-2.5 rounded-xl bg-[#006b5a] text-white text-sm font-bold hover:bg-[#004f43] transition-colors"
-                  >
-                    Filtrar
-                  </button>
+                <div className="flex gap-2 lg:justify-end lg:pb-0.5">
                   <Link
-                    href={buildAgendaUrl(baseQuery, { profissional: null, horario: null })}
+                    href={buildAgendaUrl(baseQuery, { profissional: null, horario: null, statuses: null })}
                     className="px-4 py-2.5 rounded-xl border border-[#bcc9c4] text-sm font-bold text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
                   >
                     Limpar
@@ -517,7 +594,6 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 </div>
               </form>
             </div>
-          )}
 
           {/* Área do calendário — ocupa o espaço restante */}
           <div className="flex-1 min-h-0 bg-white rounded-3xl p-3 sm:p-4 shadow-sm border border-[#bcc9c4]/30 overflow-hidden flex flex-col">
@@ -792,7 +868,6 @@ export default async function AgendaPage({ searchParams }: PageProps) {
             { cor: 'bg-violet-600', label: 'Concluído' },
             { cor: 'bg-red-600',    label: 'Cancelado' },
             { cor: 'bg-gray-500',   label: 'Falta' },
-            { cor: 'bg-cyan-600',   label: 'Reposição' },
             { cor: 'bg-orange-500', label: 'Reagendado' },
           ].map((item, i) => (
             <li key={`legenda-${i}`} className="flex items-center gap-2">

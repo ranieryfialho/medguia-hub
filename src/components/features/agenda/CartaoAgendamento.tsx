@@ -45,7 +45,6 @@ const STATUS_CONFIG: Record<string, { label: string; cor: string; bg: string; Ic
   concluido:      { label: 'Concluído',      cor: 'text-violet-600',  bg: 'bg-violet-50',  Icon: CheckCheck },
   cancelado:      { label: 'Cancelado',      cor: 'text-red-600',     bg: 'bg-red-50',     Icon: XCircle },
   falta:          { label: 'Falta',          cor: 'text-gray-500',    bg: 'bg-gray-100',   Icon: UserX },
-  reposicao:      { label: 'Reposição',      cor: 'text-cyan-600',    bg: 'bg-cyan-50',    Icon: RefreshCw },
   reagendado:     { label: 'Reagendado',     cor: 'text-orange-600',  bg: 'bg-orange-50',  Icon: CalendarClock },
 }
 
@@ -66,7 +65,7 @@ function calcularStatusGeral(sessoes: Sessao[]): string {
     const key = getAtendimentoStatusKey(s.status)
     contagem[key] = (contagem[key] || 0) + 1
   }
-  const ordem = ['em_atendimento', 'aguardando', 'confirmado', 'reposicao', 'concluido', 'falta', 'reagendado', 'cancelado']
+  const ordem = ['em_atendimento', 'aguardando', 'confirmado', 'concluido', 'falta', 'reagendado', 'cancelado']
   for (const status of ordem) {
     if (contagem[status]) return status
   }
@@ -160,7 +159,6 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
                     : statusKey === 'falta' ? 'bg-gray-400'
                     : statusKey === 'confirmado' ? 'bg-green-500'
                     : statusKey === 'em_atendimento' ? 'bg-blue-500'
-                    : statusKey === 'reposicao' ? 'bg-cyan-500'
                     : statusKey === 'reagendado' ? 'bg-orange-500'
                     : 'bg-slate-200'
                   return <div key={s.id} className={`flex-1 ${bgBar} rounded-full transition-colors`} title={`${format(new Date(s.data_agendamento), "dd/MM/yyyy")} — ${c.label}`} />

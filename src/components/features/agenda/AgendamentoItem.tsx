@@ -52,7 +52,6 @@ const STATUS_CONFIG: Record<string, { cardBg: string; border: string; iconText: 
   concluido:      { cardBg: 'bg-violet-50',  border: 'border-violet-600', iconText: 'text-violet-600', titleText: 'text-violet-900', subText: 'text-violet-800/70', badgeBg: 'bg-violet-600', label: 'Concluído',   Icon: CheckCheck },
   cancelado:      { cardBg: 'bg-red-50',     border: 'border-red-600',    iconText: 'text-red-600',    titleText: 'text-red-900',    subText: 'text-red-800/70',    badgeBg: 'bg-red-600',    label: 'Cancelado',   Icon: XCircle },
   falta:          { cardBg: 'bg-gray-100',   border: 'border-gray-500',   iconText: 'text-gray-500',   titleText: 'text-gray-800',   subText: 'text-gray-600/70',   badgeBg: 'bg-gray-500',   label: 'Falta',       Icon: UserX },
-  reposicao:      { cardBg: 'bg-cyan-50',    border: 'border-cyan-600',   iconText: 'text-cyan-600',   titleText: 'text-cyan-900',   subText: 'text-cyan-800/70',   badgeBg: 'bg-cyan-600',   label: 'Reposição',   Icon: RefreshCw },
   reagendado:     { cardBg: 'bg-orange-50',  border: 'border-orange-500', iconText: 'text-orange-600', titleText: 'text-orange-900', subText: 'text-orange-800/70', badgeBg: 'bg-orange-500', label: 'Reagendado',  Icon: CalendarClock },
 }
 const CONFIG_DEFAULT = { cardBg: 'bg-gray-100', border: 'border-gray-400', iconText: 'text-gray-500', titleText: 'text-gray-800', subText: 'text-gray-600', badgeBg: 'bg-gray-400', label: 'Agendado', Icon: CheckCircle }
@@ -64,7 +63,7 @@ const OPCOES_STATUS = [
   { valor: 'Concluído',      label: 'Concluído',      Icon: CheckCheck,  cor: 'text-[#4f625d]' },
   { valor: 'Cancelado',      label: 'Cancelado',      Icon: XCircle,     cor: 'text-[#ba1a1a]' },
   { valor: 'Falta',          label: 'Falta',          Icon: UserX,       cor: 'text-[#3d4945]' },
-  { valor: 'Reposição',      label: 'Reagendamento',  Icon: RefreshCw,   cor: 'text-[#779aad]' },
+  { valor: '__reagendar__',  label: 'Reagendar',      Icon: RefreshCw,   cor: 'text-[#779aad]' },
 ]
 
 function getConfig(status: string) {
@@ -259,7 +258,7 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
       return
     }
 
-    if (novoStatus === 'Reposição') {
+    if (novoStatus === '__reagendar__') {
       const proxima = agendamento.agendamento_id ? await obterProximaData(agendamento.id) : null
       const horaAtual = format(new Date(agendamento.data_agendamento), 'HH:mm')
       setReagendamentoData(proxima?.data ?? undefined)

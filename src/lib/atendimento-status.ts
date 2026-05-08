@@ -5,7 +5,6 @@ export type AtendimentoStatusKey =
   | 'concluido'
   | 'cancelado'
   | 'falta'
-  | 'reposicao'
   | 'reagendado'
   | 'desconhecido'
 
@@ -16,7 +15,6 @@ const STATUS_LABELS: Record<Exclude<AtendimentoStatusKey, 'desconhecido'>, strin
   concluido: 'Concluído',
   cancelado: 'Cancelado',
   falta: 'Falta',
-  reposicao: 'Reposição',
   reagendado: 'Reagendado',
 }
 
@@ -54,7 +52,7 @@ export function getAtendimentoStatusKey(value: string | null | undefined): Atend
     case 'falta':
       return 'falta'
     case 'reposicao':
-      return 'reposicao'
+      return 'reagendado'
     case 'reagendado':
       return 'reagendado'
     default:
@@ -88,6 +86,27 @@ export function isStatusNaoEfetivo(value: string | null | undefined) {
 export function isStatusFabril(value: string | null | undefined) {
   const key = getAtendimentoStatusKey(value)
   return key === 'concluido' || key === 'em_atendimento'
+}
+
+export const STATUS_RAW_VALUES_BY_KEY: Record<Exclude<AtendimentoStatusKey, 'desconhecido'>, string[]> = {
+  confirmado: ['Confirmado', 'confirmado'],
+  aguardando: ['Aguardando', 'aguardando'],
+  em_atendimento: ['Em Atendimento', 'em atendimento'],
+  concluido: ['Concluído', 'Concluido', 'concluído', 'concluido'],
+  cancelado: ['Cancelado', 'cancelado'],
+  falta: ['Falta', 'falta'],
+  reagendado: ['Reagendado', 'reagendado', 'Reposição', 'reposição', 'reposicao', 'reposiçao'],
+}
+
+export function getStatusRawValuesForKeys(keys: AtendimentoStatusKey[]) {
+  const values = new Set<string>()
+  for (const key of keys) {
+    if (key === 'desconhecido') continue
+    for (const value of STATUS_RAW_VALUES_BY_KEY[key]) {
+      values.add(value)
+    }
+  }
+  return [...values]
 }
 
 export const STATUS_CONCLUIDO_RAW_VALUES = ['Concluído', 'Concluido', 'concluído', 'concluido']

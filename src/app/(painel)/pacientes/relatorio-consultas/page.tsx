@@ -54,7 +54,7 @@ type LinhaProfissional = {
   canceladosOuFalta: number
 }
 
-const STATUS_PENDENTES = new Set(['aguardando', 'confirmado', 'em atendimento', 'reposicao', 'reposição'])
+const STATUS_PENDENTES = new Set(['aguardando', 'confirmado', 'em atendimento'])
 const STATUS_CANCELADOS = new Set(['cancelado', 'falta', 'reagendado'])
 
 function lowerSafe(value: string | null | undefined) {
@@ -82,8 +82,6 @@ function formatarStatus(status: string) {
       return 'Falta'
     case 'Reagendado':
       return 'Reagendado'
-    case 'Reposição':
-      return 'Reposição'
     default:
       return status
   }
@@ -327,7 +325,7 @@ export default async function RelatorioConsultasPage({
     .map((item: { nome: string }) => item.nome)
     .sort((a, b) => a.localeCompare(b))
 
-  const opcoesStatus = ['Confirmado', 'Aguardando', 'Em Atendimento', 'Concluído', 'Cancelado', 'Falta', 'Reposição']
+  const opcoesStatus = ['Confirmado', 'Aguardando', 'Em Atendimento', 'Concluído', 'Cancelado', 'Falta']
   const periodoLabel = data_inicio === data_fim
     ? data_inicio
     : `${data_inicio} até ${data_fim}`

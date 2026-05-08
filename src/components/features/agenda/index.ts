@@ -2,3 +2,4 @@ export { AgendamentoItemDia, AgendamentoItemSemana, type AgendamentoDetalhe } fr
 export { CartaoAgendamento } from './CartaoAgendamento';
 export { SlideNovoAgendamento } from './SlideNovoAgendamento';
 export { MenuAcoesAgendamento } from './MenuAcoesAgendamento';
+export { AgendaFiltrosAutoSubmit } from './AgendaFiltrosAutoSubmit';
