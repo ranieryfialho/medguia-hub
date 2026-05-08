@@ -17,6 +17,36 @@ async function contarMastersAtivosAdmin(supabaseAdmin: SupabaseClient) {
   return count ?? 0
 }
 
+type GestorOuMasterContext =
+  | { error: string }
+  | {
+      supabase: Awaited<ReturnType<typeof createServerClient>>
+      user: NonNullable<Awaited<ReturnType<Awaited<ReturnType<typeof createServerClient>>['auth']['getUser']>>['data']['user']>
+      self: { nivel_acesso: 'gestor' | 'master' }
+    }
+
+async function requireGestorOuMaster(): Promise<GestorOuMasterContext> {
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const { data: self } = await supabase
+    .from('profiles')
+    .select('nivel_acesso')
+    .eq('id', user.id)
+    .single()
+
+  if (!self || !['gestor', 'master'].includes(self.nivel_acesso)) {
+    return { error: 'Sem permissão para gerenciar colaboradores' }
+  }
+
+  return {
+    supabase,
+    user,
+    self: { nivel_acesso: self.nivel_acesso as 'gestor' | 'master' },
+  }
+}
+
 export async function cadastrarColaborador(_prevState: { error?: string } | null, formData: FormData) {
   const nome = formData.get('nome') as string
   const cpf = formData.get('cpf') as string
@@ -28,6 +58,12 @@ export async function cadastrarColaborador(_prevState: { error?: string } | null
   const senhaProvisoria = formData.get('senha') as string
   const nivelAcesso = (formData.get('nivel_acesso') as string) || 'basico'
   const modulosLiberados = obterModulosPadraoParaUsuario(cargo, nivelAcesso)
+
+  const ctx = await requireGestorOuMaster()
+  if ('error' in ctx) return { error: ctx.error }
+  if (nivelAcesso === 'master' && ctx.self.nivel_acesso !== 'master') {
+    return { error: 'Apenas master pode conceder nível master' }
+  }
 
   const supabaseAdmin = createSupabaseAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -93,19 +129,9 @@ export async function editarColaborador(_prevState: { error?: string } | null, f
 
   const retornoErro = (mensagem: string) => ({ error: mensagem })
 
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return retornoErro('Não autenticado')
-
-  const { data: self } = await supabase
-    .from('profiles')
-    .select('nivel_acesso')
-    .eq('id', user.id)
-    .single()
-
-  if (!self || !['gestor', 'master'].includes(self.nivel_acesso)) {
-    return retornoErro('Sem permissão para editar colaborador')
-  }
+  const ctx = await requireGestorOuMaster()
+  if ('error' in ctx) return retornoErro(ctx.error)
+  const { self } = ctx
 
   const supabaseAdmin = createSupabaseAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -177,10 +203,30 @@ export async function editarColaborador(_prevState: { error?: string } | null, f
 }
 
 export async function alternarAtivoColaborador(id: string, ativarAgora: boolean) {
+  const ctx = await requireGestorOuMaster()
+  if ('error' in ctx) return { error: ctx.error }
+
   const supabaseAdmin = createSupabaseAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
+
+  const { data: alvo } = await supabaseAdmin
+    .from('profiles')
+    .select('nivel_acesso')
+    .eq('id', id)
+    .single()
+
+  if (alvo?.nivel_acesso === 'master' && ctx.self.nivel_acesso !== 'master') {
+    return { error: 'Apenas master pode alterar o acesso de outro usuário master' }
+  }
+
+  if (alvo?.nivel_acesso === 'master' && !ativarAgora) {
+    const totalMastersAtivos = await contarMastersAtivosAdmin(supabaseAdmin)
+    if (totalMastersAtivos === 1) {
+      return { error: 'Não é possível inativar o último master ativo' }
+    }
+  }
 
   const { error: profileError } = await supabaseAdmin
     .from('profiles')
@@ -209,10 +255,23 @@ export async function redefinirSenha(id: string, novaSenha: string) {
     return { error: 'A senha deve ter no mínimo 6 caracteres.' }
   }
 
+  const ctx = await requireGestorOuMaster()
+  if ('error' in ctx) return { error: ctx.error }
+
   const supabaseAdmin = createSupabaseAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
+
+  const { data: alvo } = await supabaseAdmin
+    .from('profiles')
+    .select('nivel_acesso')
+    .eq('id', id)
+    .single()
+
+  if (alvo?.nivel_acesso === 'master' && ctx.self.nivel_acesso !== 'master') {
+    return { error: 'Apenas master pode redefinir a senha de outro usuário master' }
+  }
 
   const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(id, {
     password: novaSenha,
