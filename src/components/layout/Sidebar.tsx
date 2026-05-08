@@ -28,6 +28,7 @@ import {
   ShieldCheck,
   UserPlus,
 } from 'lucide-react'
+import { ProntuariosBadge } from './ProntuariosBadge'
 import { temAcesso, temAcessoGrupo } from '@/lib/modulos'
 import type { ModuloChave } from '@/lib/modulos'
 
@@ -207,11 +208,7 @@ export function Sidebar({
           <Link href="/prontuarios" onClick={handleNavClick} className={linkCls(!!isActive('/prontuarios'))}>
             <FileText size={20} />
             <span className="flex-1">Prontuários</span>
-            {prontuariosPendentes > 0 && (
-              <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                {prontuariosPendentes}
-              </span>
-            )}
+            <ProntuariosBadge initialCount={prontuariosPendentes} />
           </Link>
         )}
 

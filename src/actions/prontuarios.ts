@@ -2,6 +2,8 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { temAcesso } from '@/lib/modulos'
+import { STATUS_CONCLUIDO_RAW_VALUES } from '@/lib/atendimento-status'
 
 export type ProntuarioData = {
   id: string
@@ -71,7 +73,39 @@ export async function salvarProntuario(
 
   if (error) return { error: error.message }
 
-  revalidatePath('/(painel)', 'layout')
+  revalidatePath('/', 'layout')
   revalidatePath('/prontuarios')
   return {}
+}
+
+export async function contarProntuariosPendentes(): Promise<number> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return 0
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role, modulos_liberados')
+    .eq('id', user.id)
+    .single()
+
+  const modulos: string[] = profile?.modulos_liberados ?? []
+  if (!temAcesso(modulos, 'prontuarios')) return 0
+
+  const role = profile?.role || ''
+  const isFisio = role !== 'gestor' && role !== 'master'
+
+  let query = supabase
+    .from('atendimentos')
+    .select('id')
+    .in('status', STATUS_CONCLUIDO_RAW_VALUES)
+  if (isFisio) query = query.eq('profissional_id', user.id)
+
+  const [{ data: comProntuario }, { data: concluidos }] = await Promise.all([
+    supabase.from('prontuarios').select('atendimento_id'),
+    query,
+  ])
+
+  const idsComProntuario = new Set((comProntuario ?? []).map(p => p.atendimento_id))
+  return (concluidos ?? []).filter(a => !idsComProntuario.has(a.id)).length
 }
