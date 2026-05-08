@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { requireModulo } from '@/lib/guard'
+import { getAppDayRangeUTC } from '@/lib/datetime'
 import {
   BarChart3,
   CalendarCheck2,
@@ -144,8 +145,8 @@ export default async function RelatorioConsultasPage({
   const tipos_filtro = Array.isArray(params.tipo) ? params.tipo : params.tipo ? [params.tipo] : []
   const status_filtro = (params.status as string) || ''
 
-  const dataInicioIso = `${data_inicio}T00:00:00`
-  const dataFimIso = `${data_fim}T23:59:59`
+  const dataInicioIso = getAppDayRangeUTC(data_inicio).start
+  const dataFimIso = getAppDayRangeUTC(data_fim).end
 
   const [{ data: profissionaisRaw }, { data: medicosRaw }, { data: disponibilidadeRaw }] = await Promise.all([
     supabase
