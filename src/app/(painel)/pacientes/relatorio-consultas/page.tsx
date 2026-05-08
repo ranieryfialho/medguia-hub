@@ -275,7 +275,19 @@ export default async function RelatorioConsultasPage({
     return tiposMap.get(tipo)!
   }
 
-  for (const agendamento of agendamentos) {
+  // Filtra atendimentos para apenas os vinculados a agendamentos do período,
+  // garantindo que totalAtendimentos ≤ totalAgendamentos sempre.
+  const agendamentoIdsDoPeriodo = new Set(agendamentos.map(a => a.id))
+  const atendimentosDoPeriodo = atendimentos.filter(
+    a => a.agendamento_id && agendamentoIdsDoPeriodo.has(a.agendamento_id)
+  )
+
+  // Quando há filtro de status, agendamentos também reflete só os que têm atendimento com esse status
+  const agendamentosEfetivos = status_filtro
+    ? agendamentos.filter(ag => atendimentosDoPeriodo.some(at => at.agendamento_id === ag.id))
+    : agendamentos
+
+  for (const agendamento of agendamentosEfetivos) {
     const tipo = garantirTipo(agendamento.tipo)
     tipo.agendamentos++
 
@@ -284,7 +296,7 @@ export default async function RelatorioConsultasPage({
     if (agendamento.is_recorrente) linhaProf.recorrentes++
   }
 
-  for (const atendimento of atendimentos) {
+  for (const atendimento of atendimentosDoPeriodo) {
     const tipo = garantirTipo(atendimento.tipo)
     tipo.atendimentos++
 
@@ -312,15 +324,21 @@ export default async function RelatorioConsultasPage({
   const linhasProfissionalOrdenadas = Array.from(linhasProfissional.values())
     .sort((a, b) => b.atendimentos - a.atendimentos || b.agendamentos - a.agendamentos)
 
-  const totalAgendamentos = agendamentos.length
-  const totalAtendimentos = atendimentos.length
-  const totalRecorrentes = agendamentos.filter((item) => item.is_recorrente).length
-  const totalConcluidos = atendimentos.filter((item) => {
+  const mostrarPctProfissional = linhasProfissionalOrdenadas.length > 1
+
+  const totalAgendamentos = agendamentosEfetivos.length
+  const totalAtendimentos = atendimentosDoPeriodo.length
+  const totalRecorrentes = agendamentosEfetivos.filter((item) => item.is_recorrente).length
+  const totalConcluidos = atendimentosDoPeriodo.filter((item) => {
     const status = lowerSafe(item.status)
     return status === 'concluido' || status === 'concluído'
   }).length
-  const totalPendentes = atendimentos.filter((item) => STATUS_PENDENTES.has(lowerSafe(item.status))).length
-  const totalCanceladosOuFalta = atendimentos.filter((item) => STATUS_CANCELADOS.has(lowerSafe(item.status))).length
+  const totalPendentes = atendimentosDoPeriodo.filter((item) => STATUS_PENDENTES.has(lowerSafe(item.status))).length
+  const totalCanceladosOuFalta = atendimentosDoPeriodo.filter((item) => STATUS_CANCELADOS.has(lowerSafe(item.status))).length
+
+  function pct(n: number, total: number) {
+    return total > 0 ? `${Math.round((n / total) * 100)}%` : '—'
+  }
 
   const opcoesTipos = (tiposConsultaRaw ?? [])
     .map((item: { nome: string }) => item.nome)
@@ -508,10 +526,22 @@ export default async function RelatorioConsultasPage({
               {linhasTipo.map((linha) => (
                 <tr key={linha.tipo}>
                   <td className="px-4 py-3 font-medium text-slate-900">{linha.tipo}</td>
-                  <td className="px-4 py-3 text-right">{linha.agendamentos}</td>
-                  <td className="px-4 py-3 text-right">{linha.atendimentos}</td>
-                  <td className="px-4 py-3 text-right">{linha.concluidos}</td>
-                  <td className="px-4 py-3 text-right">{linha.pendentes}</td>
+                  <td className="px-4 py-3 text-right text-base font-medium">
+                    {linha.agendamentos}
+                    <span className="block text-sm text-slate-400">{pct(linha.agendamentos, totalAgendamentos)}</span>
+                  </td>
+                  <td className="px-4 py-3 text-right text-base font-medium">
+                    {linha.atendimentos}
+                    <span className="block text-sm text-slate-400">{pct(linha.atendimentos, totalAtendimentos)}</span>
+                  </td>
+                  <td className="px-4 py-3 text-right text-base font-medium">
+                    {linha.concluidos}
+                    <span className="block text-sm text-slate-400">{pct(linha.concluidos, totalConcluidos)}</span>
+                  </td>
+                  <td className="px-4 py-3 text-right text-base font-medium">
+                    {linha.pendentes}
+                    <span className="block text-sm text-slate-400">{pct(linha.pendentes, totalPendentes)}</span>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -553,12 +583,30 @@ export default async function RelatorioConsultasPage({
               {linhasProfissionalOrdenadas.map((linha) => (
                 <tr key={linha.profissionalId}>
                   <td className="px-4 py-3 font-medium text-slate-900">{linha.profissionalNome}</td>
-                  <td className="px-4 py-3 text-right">{linha.agendamentos}</td>
-                  <td className="px-4 py-3 text-right">{linha.recorrentes}</td>
-                  <td className="px-4 py-3 text-right">{linha.atendimentos}</td>
-                  <td className="px-4 py-3 text-right">{linha.concluidos}</td>
-                  <td className="px-4 py-3 text-right">{linha.pendentes}</td>
-                  <td className="px-4 py-3 text-right">{linha.canceladosOuFalta}</td>
+                  <td className="px-4 py-3 text-right text-base font-medium">
+                    {linha.agendamentos}
+                    {mostrarPctProfissional && <span className="block text-sm text-slate-400">{pct(linha.agendamentos, totalAgendamentos)}</span>}
+                  </td>
+                  <td className="px-4 py-3 text-right text-base font-medium">
+                    {linha.recorrentes}
+                    {mostrarPctProfissional && <span className="block text-sm text-slate-400">{pct(linha.recorrentes, totalRecorrentes)}</span>}
+                  </td>
+                  <td className="px-4 py-3 text-right text-base font-medium">
+                    {linha.atendimentos}
+                    {mostrarPctProfissional && <span className="block text-sm text-slate-400">{pct(linha.atendimentos, totalAtendimentos)}</span>}
+                  </td>
+                  <td className="px-4 py-3 text-right text-base font-medium">
+                    {linha.concluidos}
+                    {mostrarPctProfissional && <span className="block text-sm text-slate-400">{pct(linha.concluidos, totalConcluidos)}</span>}
+                  </td>
+                  <td className="px-4 py-3 text-right text-base font-medium">
+                    {linha.pendentes}
+                    {mostrarPctProfissional && <span className="block text-sm text-slate-400">{pct(linha.pendentes, totalPendentes)}</span>}
+                  </td>
+                  <td className="px-4 py-3 text-right text-base font-medium">
+                    {linha.canceladosOuFalta}
+                    {mostrarPctProfissional && <span className="block text-sm text-slate-400">{pct(linha.canceladosOuFalta, totalCanceladosOuFalta)}</span>}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -591,7 +639,10 @@ export default async function RelatorioConsultasPage({
                 .map(([status, quantidade]) => (
                   <tr key={status}>
                     <td className="px-4 py-3 font-medium text-slate-900">{status}</td>
-                    <td className="px-4 py-3 text-right">{quantidade}</td>
+                    <td className="px-4 py-3 text-right text-base font-medium">
+                      {quantidade}
+                      <span className="block text-sm text-slate-400">{pct(quantidade, totalAtendimentos)}</span>
+                    </td>
                   </tr>
                 ))}
             </tbody>
