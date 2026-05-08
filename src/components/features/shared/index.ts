@@ -6,6 +6,8 @@ export { BtnImprimirRelatorio } from './BtnImprimirRelatorio';
 export { BtnWhatsApp } from './BtnWhatsApp';
 export { SelectCheckbox } from './SelectCheckbox';
 export { FiltrosConsultas } from './FiltrosConsultas';
+export { FiltrosCadastros } from './FiltrosCadastros';
+export { BtnGerarPdfCadastros } from './BtnGerarPdfCadastros';
 export { Tooltip } from './Tooltip';
 export { AbasVisualizacao } from './AbasVisualizacao';
 export { EvolucaoSemanal } from './EvolucaoSemanal';
