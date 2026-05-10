@@ -263,14 +263,14 @@ export default async function RelatorioConsultasPage({
     return tiposMap.get(tipo)!
   }
 
-  // Filtra atendimentos para apenas os vinculados a agendamentos do período,
-  // garantindo que totalAtendimentos ≤ totalAgendamentos sempre.
+  // Mantém o relatório gerencial consistente: só conta atendimentos vinculados
+  // a agendamentos do período, garantindo que totalAtendimentos <= totalAgendamentos.
   const agendamentoIdsDoPeriodo = new Set(agendamentos.map(a => a.id))
   const atendimentosVinculadosAoPeriodo = atendimentos.filter(
     a => a.agendamento_id && agendamentoIdsDoPeriodo.has(a.agendamento_id)
   )
 
-  const atendimentosDoPeriodo = atendimentos
+  const atendimentosDoPeriodo = atendimentosVinculadosAoPeriodo
 
   // Quando há filtro de status, agendamentos também reflete só os que têm atendimento com esse status
   const agendamentosEfetivos = status_filtro
