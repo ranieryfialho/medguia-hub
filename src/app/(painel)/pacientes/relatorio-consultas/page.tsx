@@ -76,27 +76,6 @@ function normalizarTipo(tipo: string | null | undefined) {
   return texto || 'Sem tipo'
 }
 
-function formatarStatus(status: string) {
-  switch (status) {
-    case 'Aguardando':
-      return 'Aguardando'
-    case 'Confirmado':
-      return 'Confirmado'
-    case 'Em Atendimento':
-      return 'Em Atendimento'
-    case 'Concluído':
-      return 'Concluído'
-    case 'Cancelado':
-      return 'Cancelado'
-    case 'Falta':
-      return 'Falta'
-    case 'Reagendado':
-      return 'Reagendado'
-    default:
-      return status
-  }
-}
-
 function buildRelatorioConsultasUrl({
   visao,
   data_inicio,
@@ -481,7 +460,7 @@ export default async function RelatorioConsultasPage({
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
           <div className="flex items-center gap-2 text-slate-500 mb-2">
             <CalendarCheck2 size={16} />
-            <span className="text-xs font-semibold uppercase tracking-wide">Concluídos</span>
+            <span className="text-xs font-semibold uppercase tracking-wide">Produtivos</span>
           </div>
           <p className="text-3xl font-bold text-[#006b5a]">{totalConcluidos}</p>
         </div>
@@ -522,7 +501,7 @@ export default async function RelatorioConsultasPage({
                 <th className="text-left px-4 py-3">Tipo</th>
                 <th className="text-right px-4 py-3">Agendamentos</th>
                 <th className="text-right px-4 py-3">Atendimentos</th>
-                <th className="text-right px-4 py-3">Concluídos</th>
+                <th className="text-right px-4 py-3">Produtivos</th>
                 <th className="text-right px-4 py-3">Pendentes</th>
               </tr>
             </thead>
@@ -576,7 +555,7 @@ export default async function RelatorioConsultasPage({
                 <th className="text-right px-4 py-3">Agend.</th>
                 <th className="text-right px-4 py-3">Recorr.</th>
                 <th className="text-right px-4 py-3">Atend.</th>
-                <th className="text-right px-4 py-3">Concl.</th>
+                <th className="text-right px-4 py-3">Produt.</th>
                 <th className="text-right px-4 py-3">Pend.</th>
                 <th className="text-right px-4 py-3">Canc./Falta</th>
               </tr>
