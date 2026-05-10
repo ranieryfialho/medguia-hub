@@ -3,6 +3,10 @@ import Link from 'next/link'
 import { requireModulo } from '@/lib/guard'
 import { getAppDayRangeUTC } from '@/lib/datetime'
 import {
+  getAtendimentoStatusKey,
+  normalizeAtendimentoStatus,
+} from '@/lib/atendimento-status'
+import {
   BarChart3,
   CalendarCheck2,
   ClipboardList,
@@ -40,7 +44,7 @@ type MetricaTipo = {
   tipo: string
   agendamentos: number
   atendimentos: number
-  concluidos: number
+  produtivos: number
   pendentes: number
 }
 
@@ -50,16 +54,21 @@ type LinhaProfissional = {
   agendamentos: number
   recorrentes: number
   atendimentos: number
-  concluidos: number
+  produtivos: number
   pendentes: number
   canceladosOuFalta: number
 }
 
-const STATUS_PENDENTES = new Set(['aguardando', 'confirmado', 'em atendimento'])
+const STATUS_PENDENTES = new Set(['aguardando', 'confirmado'])
 const STATUS_CANCELADOS = new Set(['cancelado', 'falta', 'reagendado'])
 
 function lowerSafe(value: string | null | undefined) {
-  return (value ?? '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim()
+  const key = getAtendimentoStatusKey(value)
+  if (key === 'em_atendimento') return 'concluido'
+  if (key === 'desconhecido') {
+    return (value ?? '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim()
+  }
+  return key.replace('_', ' ')
 }
 
 function normalizarTipo(tipo: string | null | undefined) {
@@ -197,8 +206,8 @@ export default async function RelatorioConsultasPage({
   let agendamentosQuery = supabase
     .from('agendamentos')
     .select('id, profissional_id, tipo, data_inicio, is_recorrente, gerou_venda, marcou_retorno')
-    .gte('data_inicio', data_inicio)
-    .lte('data_inicio', data_fim)
+    .gte('data_inicio', dataInicioIso)
+    .lte('data_inicio', dataFimIso)
 
   if (profissionaisFiltroEfetivos.length === 1) {
     agendamentosQuery = agendamentosQuery.eq('profissional_id', profissionaisFiltroEfetivos[0])
@@ -253,7 +262,7 @@ export default async function RelatorioConsultasPage({
         agendamentos: 0,
         recorrentes: 0,
         atendimentos: 0,
-        concluidos: 0,
+        produtivos: 0,
         pendentes: 0,
         canceladosOuFalta: 0,
       })
@@ -268,7 +277,7 @@ export default async function RelatorioConsultasPage({
         tipo,
         agendamentos: 0,
         atendimentos: 0,
-        concluidos: 0,
+        produtivos: 0,
         pendentes: 0,
       })
     }
@@ -278,13 +287,15 @@ export default async function RelatorioConsultasPage({
   // Filtra atendimentos para apenas os vinculados a agendamentos do período,
   // garantindo que totalAtendimentos ≤ totalAgendamentos sempre.
   const agendamentoIdsDoPeriodo = new Set(agendamentos.map(a => a.id))
-  const atendimentosDoPeriodo = atendimentos.filter(
+  const atendimentosVinculadosAoPeriodo = atendimentos.filter(
     a => a.agendamento_id && agendamentoIdsDoPeriodo.has(a.agendamento_id)
   )
 
+  const atendimentosDoPeriodo = atendimentos
+
   // Quando há filtro de status, agendamentos também reflete só os que têm atendimento com esse status
   const agendamentosEfetivos = status_filtro
-    ? agendamentos.filter(ag => atendimentosDoPeriodo.some(at => at.agendamento_id === ag.id))
+    ? agendamentos.filter(ag => atendimentosVinculadosAoPeriodo.some(at => at.agendamento_id === ag.id))
     : agendamentos
 
   for (const agendamento of agendamentosEfetivos) {
@@ -301,15 +312,15 @@ export default async function RelatorioConsultasPage({
     tipo.atendimentos++
 
     const statusNormalizado = lowerSafe(atendimento.status)
-    const statusLabel = formatarStatus(atendimento.status || 'Sem status')
+    const statusLabel = normalizeAtendimentoStatus(atendimento.status || 'Sem status')
     statusMap[statusLabel] = (statusMap[statusLabel] || 0) + 1
 
     const linhaProf = garantirLinhaProfissional(atendimento.profissional_id)
     linhaProf.atendimentos++
 
     if (statusNormalizado === 'concluido' || statusNormalizado === 'concluído') {
-      tipo.concluidos++
-      linhaProf.concluidos++
+      tipo.produtivos++
+      linhaProf.produtivos++
     } else if (STATUS_CANCELADOS.has(statusNormalizado)) {
       linhaProf.canceladosOuFalta++
     } else if (STATUS_PENDENTES.has(statusNormalizado)) {
@@ -382,7 +393,7 @@ export default async function RelatorioConsultasPage({
                 tipo: linha.tipo,
                 agendamentos: linha.agendamentos,
                 atendimentos: linha.atendimentos,
-                concluidos: linha.concluidos,
+                concluidos: linha.produtivos,
                 pendentes: linha.pendentes,
               }))}
               porProfissional={linhasProfissionalOrdenadas.map((linha) => ({
@@ -390,7 +401,7 @@ export default async function RelatorioConsultasPage({
                 agendamentos: linha.agendamentos,
                 recorrentes: linha.recorrentes,
                 atendimentos: linha.atendimentos,
-                concluidos: linha.concluidos,
+                concluidos: linha.produtivos,
                 pendentes: linha.pendentes,
                 canceladosOuFalta: linha.canceladosOuFalta,
               }))}
@@ -535,8 +546,8 @@ export default async function RelatorioConsultasPage({
                     <span className="block text-sm text-slate-400">{pct(linha.atendimentos, totalAtendimentos)}</span>
                   </td>
                   <td className="px-4 py-3 text-right text-base font-medium">
-                    {linha.concluidos}
-                    <span className="block text-sm text-slate-400">{pct(linha.concluidos, totalConcluidos)}</span>
+                    {linha.produtivos}
+                    <span className="block text-sm text-slate-400">{pct(linha.produtivos, totalConcluidos)}</span>
                   </td>
                   <td className="px-4 py-3 text-right text-base font-medium">
                     {linha.pendentes}
@@ -596,8 +607,8 @@ export default async function RelatorioConsultasPage({
                     {mostrarPctProfissional && <span className="block text-sm text-slate-400">{pct(linha.atendimentos, totalAtendimentos)}</span>}
                   </td>
                   <td className="px-4 py-3 text-right text-base font-medium">
-                    {linha.concluidos}
-                    {mostrarPctProfissional && <span className="block text-sm text-slate-400">{pct(linha.concluidos, totalConcluidos)}</span>}
+                    {linha.produtivos}
+                    {mostrarPctProfissional && <span className="block text-sm text-slate-400">{pct(linha.produtivos, totalConcluidos)}</span>}
                   </td>
                   <td className="px-4 py-3 text-right text-base font-medium">
                     {linha.pendentes}

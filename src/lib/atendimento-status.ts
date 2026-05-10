@@ -78,6 +78,15 @@ export function isStatusFalta(value: string | null | undefined) {
   return getAtendimentoStatusKey(value) === 'falta'
 }
 
+export function isStatusPendente(value: string | null | undefined) {
+  const key = getAtendimentoStatusKey(value)
+  return key === 'aguardando' || key === 'confirmado'
+}
+
+export function isStatusReagendado(value: string | null | undefined) {
+  return getAtendimentoStatusKey(value) === 'reagendado'
+}
+
 export function isStatusNaoEfetivo(value: string | null | undefined) {
   const key = getAtendimentoStatusKey(value)
   return key === 'falta' || key === 'cancelado' || key === 'reagendado'
