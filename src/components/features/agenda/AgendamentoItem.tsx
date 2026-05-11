@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import {
   Phone, Mail, Calendar, Clock, ChevronDown,
-  CheckCircle, Hourglass, Stethoscope, CheckCheck, XCircle, UserX, RefreshCw, User, CalendarClock,
+  CheckCircle, Hourglass, Stethoscope, CheckCheck, XCircle, UserX, RefreshCw, User, CalendarClock, Timer,
   MessageCircle, Pencil, Trash2, MapPin, ClipboardList
 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -46,24 +46,26 @@ export type AgendamentoDetalhe = {
 }
 
 const STATUS_CONFIG: Record<string, { cardBg: string; border: string; iconText: string; titleText: string; subText: string; badgeBg: string; label: string; Icon: React.ElementType }> = {
-  confirmado:     { cardBg: 'bg-green-50',   border: 'border-green-600',  iconText: 'text-green-700',  titleText: 'text-green-900',  subText: 'text-green-800/70',  badgeBg: 'bg-green-600',  label: 'Confirmado',  Icon: User },
-  aguardando:     { cardBg: 'bg-amber-50',   border: 'border-amber-500',  iconText: 'text-amber-600',  titleText: 'text-amber-900',  subText: 'text-amber-800/70',  badgeBg: 'bg-amber-500',  label: 'Aguardando',  Icon: Hourglass },
-  em_atendimento: { cardBg: 'bg-blue-50',    border: 'border-blue-600',   iconText: 'text-blue-600',   titleText: 'text-blue-900',   subText: 'text-blue-800/70',   badgeBg: 'bg-blue-600',   label: 'Em Atend.',   Icon: Stethoscope },
-  concluido:      { cardBg: 'bg-violet-50',  border: 'border-violet-600', iconText: 'text-violet-600', titleText: 'text-violet-900', subText: 'text-violet-800/70', badgeBg: 'bg-violet-600', label: 'Concluído',   Icon: CheckCheck },
-  cancelado:      { cardBg: 'bg-red-50',     border: 'border-red-600',    iconText: 'text-red-600',    titleText: 'text-red-900',    subText: 'text-red-800/70',    badgeBg: 'bg-red-600',    label: 'Cancelado',   Icon: XCircle },
-  falta:          { cardBg: 'bg-gray-100',   border: 'border-gray-500',   iconText: 'text-gray-500',   titleText: 'text-gray-800',   subText: 'text-gray-600/70',   badgeBg: 'bg-gray-500',   label: 'Falta',       Icon: UserX },
-  reagendado:     { cardBg: 'bg-orange-50',  border: 'border-orange-500', iconText: 'text-orange-600', titleText: 'text-orange-900', subText: 'text-orange-800/70', badgeBg: 'bg-orange-500', label: 'Reagendado',  Icon: CalendarClock },
+  confirmado:          { cardBg: 'bg-green-50',  border: 'border-green-600',  iconText: 'text-green-700',  titleText: 'text-green-900',  subText: 'text-green-800/70',  badgeBg: 'bg-green-600',  label: 'Confirmado',    Icon: User },
+  aguardando:          { cardBg: 'bg-amber-50',  border: 'border-amber-500',  iconText: 'text-amber-600',  titleText: 'text-amber-900',  subText: 'text-amber-800/70',  badgeBg: 'bg-amber-500',  label: 'Aguardando',    Icon: Hourglass },
+  aguardando_consulta: { cardBg: 'bg-teal-50',   border: 'border-teal-500',   iconText: 'text-teal-600',   titleText: 'text-teal-900',   subText: 'text-teal-800/70',   badgeBg: 'bg-teal-500',   label: 'Ag. Consulta',  Icon: Timer },
+  em_atendimento:      { cardBg: 'bg-blue-50',   border: 'border-blue-600',   iconText: 'text-blue-600',   titleText: 'text-blue-900',   subText: 'text-blue-800/70',   badgeBg: 'bg-blue-600',   label: 'Em Atend.',     Icon: Stethoscope },
+  concluido:           { cardBg: 'bg-violet-50', border: 'border-violet-600', iconText: 'text-violet-600', titleText: 'text-violet-900', subText: 'text-violet-800/70', badgeBg: 'bg-violet-600', label: 'Concluído',     Icon: CheckCheck },
+  cancelado:           { cardBg: 'bg-red-50',    border: 'border-red-600',    iconText: 'text-red-600',    titleText: 'text-red-900',    subText: 'text-red-800/70',    badgeBg: 'bg-red-600',    label: 'Cancelado',     Icon: XCircle },
+  falta:               { cardBg: 'bg-gray-100',  border: 'border-gray-500',   iconText: 'text-gray-500',   titleText: 'text-gray-800',   subText: 'text-gray-600/70',   badgeBg: 'bg-gray-500',   label: 'Falta',         Icon: UserX },
+  reagendado:          { cardBg: 'bg-orange-50', border: 'border-orange-500', iconText: 'text-orange-600', titleText: 'text-orange-900', subText: 'text-orange-800/70', badgeBg: 'bg-orange-500', label: 'Reagendado',    Icon: CalendarClock },
 }
 const CONFIG_DEFAULT = { cardBg: 'bg-gray-100', border: 'border-gray-400', iconText: 'text-gray-500', titleText: 'text-gray-800', subText: 'text-gray-600', badgeBg: 'bg-gray-400', label: 'Agendado', Icon: CheckCircle }
 
 const OPCOES_STATUS = [
-  { valor: 'Confirmado',     label: 'Confirmado',     Icon: CheckCircle, cor: 'text-[#006b5a]' },
-  { valor: 'Aguardando',     label: 'Aguardando',     Icon: Hourglass,   cor: 'text-[#6d7a75]' },
-  { valor: 'Em Atendimento', label: 'Em Atendimento', Icon: Stethoscope, cor: 'text-[#406375]' },
-  { valor: 'Concluído',      label: 'Concluído',      Icon: CheckCheck,  cor: 'text-[#4f625d]' },
-  { valor: 'Cancelado',      label: 'Cancelado',      Icon: XCircle,     cor: 'text-[#ba1a1a]' },
-  { valor: 'Falta',          label: 'Falta',          Icon: UserX,       cor: 'text-[#3d4945]' },
-  { valor: '__reagendar__',  label: 'Reagendar',      Icon: RefreshCw,   cor: 'text-[#779aad]' },
+  { valor: 'Confirmado',          label: 'Confirmado',          Icon: CheckCircle, cor: 'text-[#006b5a]' },
+  { valor: 'Aguardando',          label: 'Aguardando',          Icon: Hourglass,   cor: 'text-[#6d7a75]' },
+  { valor: 'Aguardando Consulta', label: 'Aguardando Consulta', Icon: Timer,       cor: 'text-teal-600' },
+  { valor: 'Em Atendimento',      label: 'Em Atendimento',      Icon: Stethoscope, cor: 'text-[#406375]' },
+  { valor: 'Concluído',           label: 'Concluído',           Icon: CheckCheck,  cor: 'text-[#4f625d]' },
+  { valor: 'Cancelado',           label: 'Cancelado',           Icon: XCircle,     cor: 'text-[#ba1a1a]' },
+  { valor: 'Falta',               label: 'Falta',               Icon: UserX,       cor: 'text-[#3d4945]' },
+  { valor: '__reagendar__',       label: 'Reagendar',           Icon: RefreshCw,   cor: 'text-[#779aad]' },
 ]
 
 function getConfig(status: string) {

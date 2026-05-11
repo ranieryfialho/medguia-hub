@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { MoreVertical, CheckCircle, Hourglass, Stethoscope, CheckCheck, XCircle, UserX, RefreshCw } from 'lucide-react'
+import { MoreVertical, CheckCircle, Hourglass, Stethoscope, CheckCheck, XCircle, UserX, RefreshCw, Timer } from 'lucide-react'
 import { mudarStatusAgendamento } from '@/actions/agenda'
 import { obterProximaData, registrarContato, criarAtendimentoReagendado, adicionarSessaoReposicao } from '@/actions/confirmacoes'
 import { ModalSessaoReposicao } from '../shared'
@@ -11,17 +11,18 @@ import { format } from 'date-fns'
 import toast from 'react-hot-toast'
 
 const OPCOES_STATUS = [
-  { valor: 'Confirmado', label: 'Confirmado', Icon: CheckCircle, cor: 'text-[#006b5a]' },
-  { valor: 'Aguardando', label: 'Aguardando', Icon: Hourglass, cor: 'text-[#6d7a75]' },
-  { valor: 'Em Atendimento', label: 'Em Atendimento', Icon: Stethoscope, cor: 'text-[#406375]' },
-  { valor: 'Concluído', label: 'Concluído', Icon: CheckCheck, cor: 'text-[#4f625d]' },
-  { valor: 'Cancelado', label: 'Cancelado', Icon: XCircle, cor: 'text-[#ba1a1a]' },
-  { valor: 'Falta', label: 'Falta', Icon: UserX, cor: 'text-[#3d4945]' },
-  { valor: '__reagendar__', label: 'Reagendar', Icon: RefreshCw, cor: 'text-[#779aad]' },
+  { valor: 'Confirmado',          label: 'Confirmado',          Icon: CheckCircle, cor: 'text-[#006b5a]' },
+  { valor: 'Aguardando',          label: 'Aguardando',          Icon: Hourglass,   cor: 'text-[#6d7a75]' },
+  { valor: 'Aguardando Consulta', label: 'Aguardando Consulta', Icon: Timer,       cor: 'text-teal-600' },
+  { valor: 'Em Atendimento',      label: 'Em Atendimento',      Icon: Stethoscope, cor: 'text-[#406375]' },
+  { valor: 'Concluído',           label: 'Concluído',           Icon: CheckCheck,  cor: 'text-[#4f625d]' },
+  { valor: 'Cancelado',           label: 'Cancelado',           Icon: XCircle,     cor: 'text-[#ba1a1a]' },
+  { valor: 'Falta',               label: 'Falta',               Icon: UserX,       cor: 'text-[#3d4945]' },
+  { valor: '__reagendar__',       label: 'Reagendar',           Icon: RefreshCw,   cor: 'text-[#779aad]' },
 ]
 
-const MENU_WIDTH = 192  // w-48
-const MENU_HEIGHT = 310 // estimated: header + 7 items
+const MENU_WIDTH = 210  // largo o suficiente para "Aguardando Consulta"
+const MENU_HEIGHT = 352 // header + 8 items
 
 interface MenuAcoesAgendamentoProps {
   id: string

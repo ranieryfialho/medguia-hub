@@ -41,13 +41,14 @@ type AgendaQueryOverrides = {
 }
 
 const STATUS_FILTER_OPTIONS = [
-  { value: 'confirmado', label: 'Confirmado', badgeBg: 'bg-green-600' },
-  { value: 'aguardando', label: 'Aguardando', badgeBg: 'bg-amber-500' },
-  { value: 'em_atendimento', label: 'Em Atendimento', badgeBg: 'bg-blue-600' },
-  { value: 'concluido', label: 'Concluído', badgeBg: 'bg-violet-600' },
-  { value: 'cancelado', label: 'Cancelado', badgeBg: 'bg-red-600' },
-  { value: 'falta', label: 'Falta', badgeBg: 'bg-gray-500' },
-  { value: 'reagendado', label: 'Reagendado', badgeBg: 'bg-orange-500' },
+  { value: 'confirmado',          label: 'Confirmado',          badgeBg: 'bg-green-600' },
+  { value: 'aguardando',          label: 'Aguardando',          badgeBg: 'bg-amber-500' },
+  { value: 'aguardando_consulta', label: 'Ag. Consulta',        badgeBg: 'bg-teal-500' },
+  { value: 'em_atendimento',      label: 'Em Atendimento',      badgeBg: 'bg-blue-600' },
+  { value: 'concluido',           label: 'Concluído',           badgeBg: 'bg-violet-600' },
+  { value: 'cancelado',           label: 'Cancelado',           badgeBg: 'bg-red-600' },
+  { value: 'falta',               label: 'Falta',               badgeBg: 'bg-gray-500' },
+  { value: 'reagendado',          label: 'Reagendado',          badgeBg: 'bg-orange-500' },
 ] as const
 
 const ALL_STATUS_FILTER_VALUES = STATUS_FILTER_OPTIONS.map((status) => status.value)
@@ -88,14 +89,15 @@ function buildAgendaUrl(base: {
 
 const getStatusConfig = (status: string) => {
   const configs: Record<string, StatusConfig> = {
-    confirmado:     { badgeBg: 'bg-green-600',  label: 'Confirmado' },
-    aguardando:     { badgeBg: 'bg-amber-500',  label: 'Aguardando' },
-    em_atendimento: { badgeBg: 'bg-blue-600',   label: 'Em Atend.' },
-    concluido:      { badgeBg: 'bg-violet-600', label: 'Concluído' },
-    cancelado:      { badgeBg: 'bg-red-600',    label: 'Cancelado' },
-    falta:          { badgeBg: 'bg-gray-500',   label: 'Falta' },
-    reagendado:     { badgeBg: 'bg-orange-500', label: 'Reagendado' },
-    desconhecido:   { badgeBg: 'bg-gray-400',   label: 'Agendado' },
+    confirmado:          { badgeBg: 'bg-green-600',  label: 'Confirmado' },
+    aguardando:          { badgeBg: 'bg-amber-500',  label: 'Aguardando' },
+    aguardando_consulta: { badgeBg: 'bg-teal-500',   label: 'Ag. Consulta' },
+    em_atendimento:      { badgeBg: 'bg-blue-600',   label: 'Em Atend.' },
+    concluido:           { badgeBg: 'bg-violet-600', label: 'Concluído' },
+    cancelado:           { badgeBg: 'bg-red-600',    label: 'Cancelado' },
+    falta:               { badgeBg: 'bg-gray-500',   label: 'Falta' },
+    reagendado:          { badgeBg: 'bg-orange-500', label: 'Reagendado' },
+    desconhecido:        { badgeBg: 'bg-gray-400',   label: 'Agendado' },
   }
   return configs[getAtendimentoStatusKey(status)] || configs.desconhecido
 }

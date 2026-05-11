@@ -1,6 +1,7 @@
 export type AtendimentoStatusKey =
   | 'confirmado'
   | 'aguardando'
+  | 'aguardando_consulta'
   | 'em_atendimento'
   | 'concluido'
   | 'cancelado'
@@ -9,13 +10,14 @@ export type AtendimentoStatusKey =
   | 'desconhecido'
 
 const STATUS_LABELS: Record<Exclude<AtendimentoStatusKey, 'desconhecido'>, string> = {
-  confirmado: 'Confirmado',
-  aguardando: 'Aguardando',
-  em_atendimento: 'Em Atendimento',
-  concluido: 'Concluído',
-  cancelado: 'Cancelado',
-  falta: 'Falta',
-  reagendado: 'Reagendado',
+  confirmado:          'Confirmado',
+  aguardando:          'Aguardando',
+  aguardando_consulta: 'Aguardando Consulta',
+  em_atendimento:      'Em Atendimento',
+  concluido:           'Concluído',
+  cancelado:           'Cancelado',
+  falta:               'Falta',
+  reagendado:          'Reagendado',
 }
 
 function lowerSafe(value: string | null | undefined) {
@@ -43,6 +45,8 @@ export function getAtendimentoStatusKey(value: string | null | undefined): Atend
       return 'confirmado'
     case 'aguardando':
       return 'aguardando'
+    case 'aguardando consulta':
+      return 'aguardando_consulta'
     case 'em atendimento':
       return 'em_atendimento'
     case 'concluido':
@@ -80,7 +84,7 @@ export function isStatusFalta(value: string | null | undefined) {
 
 export function isStatusPendente(value: string | null | undefined) {
   const key = getAtendimentoStatusKey(value)
-  return key === 'aguardando' || key === 'confirmado'
+  return key === 'aguardando' || key === 'aguardando_consulta' || key === 'confirmado'
 }
 
 export function isStatusReagendado(value: string | null | undefined) {
@@ -98,13 +102,14 @@ export function isStatusFabril(value: string | null | undefined) {
 }
 
 export const STATUS_RAW_VALUES_BY_KEY: Record<Exclude<AtendimentoStatusKey, 'desconhecido'>, string[]> = {
-  confirmado: ['Confirmado', 'confirmado'],
-  aguardando: ['Aguardando', 'aguardando'],
-  em_atendimento: ['Em Atendimento', 'em atendimento'],
-  concluido: ['Concluído', 'Concluido', 'concluído', 'concluido'],
-  cancelado: ['Cancelado', 'cancelado'],
-  falta: ['Falta', 'falta'],
-  reagendado: ['Reagendado', 'reagendado', 'Reposição', 'reposição', 'reposicao', 'reposiçao'],
+  confirmado:          ['Confirmado', 'confirmado'],
+  aguardando:          ['Aguardando', 'aguardando'],
+  aguardando_consulta: ['Aguardando Consulta', 'aguardando consulta'],
+  em_atendimento:      ['Em Atendimento', 'em atendimento'],
+  concluido:           ['Concluído', 'Concluido', 'concluído', 'concluido'],
+  cancelado:           ['Cancelado', 'cancelado'],
+  falta:               ['Falta', 'falta'],
+  reagendado:          ['Reagendado', 'reagendado', 'Reposição', 'reposição', 'reposicao', 'reposiçao'],
 }
 
 export function getStatusRawValuesForKeys(keys: AtendimentoStatusKey[]) {
