@@ -866,6 +866,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
           {[
             { cor: 'bg-green-600',  label: 'Confirmado' },
             { cor: 'bg-amber-500',  label: 'Aguardando' },
+            { cor: 'bg-teal-500',   label: 'Ag. Consulta' },
             { cor: 'bg-blue-600',   label: 'Em Atendimento' },
             { cor: 'bg-violet-600', label: 'Concluído' },
             { cor: 'bg-red-600',    label: 'Cancelado' },

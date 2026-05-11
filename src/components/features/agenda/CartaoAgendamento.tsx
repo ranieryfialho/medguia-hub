@@ -38,19 +38,19 @@ type AgendamentoComSessoes = {
   sessoes: Sessao[]
 }
 
-const STATUS_CONFIG: Record<string, { label: string; cor: string; bg: string; Icon: React.ElementType }> = {
-  confirmado:          { label: 'Confirmado',          cor: 'text-green-700',  bg: 'bg-green-50',  Icon: CheckCircle },
-  aguardando:          { label: 'Aguardando',          cor: 'text-amber-600',  bg: 'bg-amber-50',  Icon: Hourglass },
-  aguardando_consulta: { label: 'Ag. Consulta',        cor: 'text-teal-600',   bg: 'bg-teal-50',   Icon: Timer },
-  em_atendimento:      { label: 'Em Atendimento',      cor: 'text-blue-600',   bg: 'bg-blue-50',   Icon: Stethoscope },
-  concluido:           { label: 'Concluído',           cor: 'text-violet-600', bg: 'bg-violet-50', Icon: CheckCheck },
-  cancelado:           { label: 'Cancelado',           cor: 'text-red-600',    bg: 'bg-red-50',    Icon: XCircle },
-  falta:               { label: 'Falta',               cor: 'text-gray-500',   bg: 'bg-gray-100',  Icon: UserX },
-  reagendado:          { label: 'Reagendado',          cor: 'text-orange-600', bg: 'bg-orange-50', Icon: CalendarClock },
+const STATUS_CONFIG: Record<string, { label: string; cor: string; bg: string; border: string; Icon: React.ElementType }> = {
+  confirmado:          { label: 'Confirmado',     cor: 'text-green-700',  bg: 'bg-green-50',  border: 'border-green-500',  Icon: CheckCircle  },
+  aguardando:          { label: 'Aguardando',     cor: 'text-amber-600',  bg: 'bg-amber-50',  border: 'border-amber-500',  Icon: Hourglass    },
+  aguardando_consulta: { label: 'Ag. Consulta',  cor: 'text-teal-600',   bg: 'bg-teal-50',   border: 'border-teal-500',   Icon: Timer        },
+  em_atendimento:      { label: 'Em Atendimento',cor: 'text-blue-600',   bg: 'bg-blue-50',   border: 'border-blue-500',   Icon: Stethoscope  },
+  concluido:           { label: 'Concluído',      cor: 'text-violet-600', bg: 'bg-violet-50', border: 'border-violet-500', Icon: CheckCheck   },
+  cancelado:           { label: 'Cancelado',      cor: 'text-red-600',    bg: 'bg-red-50',    border: 'border-red-500',    Icon: XCircle      },
+  falta:               { label: 'Falta',          cor: 'text-gray-500',   bg: 'bg-gray-100',  border: 'border-gray-400',   Icon: UserX        },
+  reagendado:          { label: 'Reagendado',     cor: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-500', Icon: CalendarClock },
 }
 
 function getStatusConfig(status: string) {
-  return STATUS_CONFIG[getAtendimentoStatusKey(status)] ?? { label: normalizeAtendimentoStatus(status), cor: 'text-slate-500', bg: 'bg-slate-100', Icon: CheckCircle }
+  return STATUS_CONFIG[getAtendimentoStatusKey(status)] ?? { label: normalizeAtendimentoStatus(status), cor: 'text-slate-500', bg: 'bg-slate-100', border: 'border-slate-300', Icon: CheckCircle }
 }
 
 function dorBadgeClass(n: number): string {
@@ -113,7 +113,7 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
         )}
 
         {/* Card principal */}
-        <div style={{ zIndex: 3 }} className={`relative bg-white rounded-xl ${expandido ? 'shadow-sm' : 'shadow-md'} border border-slate-100 border-l-4 ${config.cor.replace('text-', 'border-')} transition-all duration-300`}>
+        <div style={{ zIndex: 3 }} className={`relative bg-white rounded-xl ${expandido ? 'shadow-sm' : 'shadow-md'} border border-slate-100 border-l-4 ${config.border} transition-all duration-300`}>
         {/* Cabeçalho do card */}
         <div className="p-4 bg-gradient-to-b from-slate-50/40 to-transparent">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
@@ -161,6 +161,8 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
                     : statusKey === 'confirmado' ? 'bg-green-500'
                     : statusKey === 'em_atendimento' ? 'bg-blue-500'
                     : statusKey === 'reagendado' ? 'bg-orange-500'
+                    : statusKey === 'aguardando_consulta' ? 'bg-teal-400'
+                    : statusKey === 'aguardando' ? 'bg-amber-400'
                     : 'bg-slate-200'
                   return <div key={s.id} className={`flex-1 ${bgBar} rounded-full transition-colors`} title={`${format(new Date(s.data_agendamento), "dd/MM/yyyy")} — ${c.label}`} />
                 })}

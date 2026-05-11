@@ -42,15 +42,12 @@ export function useRealtimeDisponibilidade(initial: StatusRow[]) {
           'postgres_changes',
           { event: '*', schema: 'public', table: 'status_disponibilidade' },
           (payload) => {
-            console.log('[realtime][status_disponibilidade] payload', payload)
             if (payload.new && typeof payload.new === 'object') {
               upsert(payload.new as StatusRow)
             }
           }
         )
-        .subscribe((status, err) => {
-          console.log('[realtime][status_disponibilidade] subscribe', { channelName, status, err, hasSession: !!session })
-        })
+        .subscribe()
 
       return channel
     }
