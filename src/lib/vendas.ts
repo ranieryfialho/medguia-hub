@@ -1,3 +1,15 @@
+export const STATUS_VENDA = [
+  { value: 'venda_confirmada',   label: 'Venda confirmada' },
+  { value: 'orcamento_pendente', label: 'Orçamento pendente' },
+  { value: 'orcamento_recusado', label: 'Orçamento recusado' },
+] as const
+
+export type StatusVenda = (typeof STATUS_VENDA)[number]['value']
+
+export const STATUS_VENDA_LABEL: Record<string, string> = Object.fromEntries(
+  STATUS_VENDA.map((s) => [s.value, s.label]),
+)
+
 export const FORMAS_PAGAMENTO = [
   { value: 'pix', label: 'Pix' },
   { value: 'cartao_credito', label: 'Cartão de crédito' },

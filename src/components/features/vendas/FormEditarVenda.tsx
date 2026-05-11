@@ -37,6 +37,7 @@ interface VendaInicial {
   medico_referenciador_nome?: string | null
   data_venda: string
   observacoes?: string | null
+  status?: string | null
   pacientes?: {
     nome: string
   } | null
@@ -86,6 +87,9 @@ export function FormEditarVenda({
   const [buscaMedico, setBuscaMedico] = useState('')
   const [dataVenda, setDataVenda] = useState(() => formatAppDateKey(vendaInicial.data_venda))
   const [observacoes, setObservacoes] = useState(vendaInicial.observacoes || '')
+  const [statusVenda, setStatusVenda] = useState<'venda_confirmada' | 'orcamento_pendente' | 'orcamento_recusado'>(
+    (vendaInicial.status as 'venda_confirmada' | 'orcamento_pendente' | 'orcamento_recusado') ?? 'venda_confirmada'
+  )
 
   const medicosFiltrados = buscaMedico.trim()
     ? medicos.filter((p) => p.nome.toLowerCase().includes(buscaMedico.toLowerCase()))
@@ -343,6 +347,30 @@ export function FormEditarVenda({
         />
       </div>
 
+      <div>
+        <label className="block text-sm font-medium text-text-primary mb-2">Status</label>
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { value: 'venda_confirmada',   label: 'Venda confirmada',  activeClass: 'border-emerald-500 bg-emerald-50 text-emerald-700' },
+            { value: 'orcamento_pendente', label: 'Orç. pendente',     activeClass: 'border-amber-500 bg-amber-50 text-amber-700' },
+            { value: 'orcamento_recusado', label: 'Orç. recusado',     activeClass: 'border-red-500 bg-red-50 text-red-700' },
+          ].map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setStatusVenda(opt.value as typeof statusVenda)}
+              className={`p-2.5 rounded-lg border text-xs font-medium transition-colors ${
+                statusVenda === opt.value
+                  ? opt.activeClass
+                  : 'border-border hover:bg-page text-text-secondary'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Produtos */}
       <div className="space-y-4 pt-4 border-t border-border">
         <h3 className="text-sm font-semibold text-text-primary">Produtos</h3>
@@ -452,6 +480,7 @@ export function FormEditarVenda({
       <input type="hidden" name="data_venda" value={dataVenda} />
       <input type="hidden" name="observacoes" value={observacoes} />
       <input type="hidden" name="itens_venda_json" value={JSON.stringify(itens)} />
+      <input type="hidden" name="status" value={statusVenda} />
 
       {/* Botões */}
       <div className="flex items-center justify-end gap-4 pt-4 border-t border-border">

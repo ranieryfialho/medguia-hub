@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { BarChart3, TrendingUp, Users, Package, Stethoscope } from 'lucide-react'
+import { BarChart3, TrendingUp, Users, Package, Stethoscope, FileText, CheckCircle, XCircle, Clock } from 'lucide-react'
 import { RelatorioVendasClient } from '@/components/features/relatorios'
 import { BtnGerarPdfVendas } from '@/components/features/shared'
 import { FiltroProdutosMultiSelect } from '@/components/features/produtos'
@@ -41,7 +41,7 @@ export default async function RelatorioVendasPage({
   let query = supabase
     .from('vendas')
     .select(`
-      id, origem, forma_pagamento, data_venda, profissional_id, medico_referenciador_nome,
+      id, origem, forma_pagamento, data_venda, profissional_id, medico_referenciador_nome, status,
       profiles:profissional_id ( full_name, role ),
       itens_venda ( quantidade, preco_unitario, produtos:produto_id ( id, nome ) )
     `)
@@ -88,6 +88,13 @@ export default async function RelatorioVendasPage({
   const porReferenciador: Record<string, AgregacaoNome> = {}
   const porPeriodo: Record<string, number> = {}
 
+  // Agregações de orçamentos
+  let orcamentoPendenteCount = 0
+  let orcamentoPendenteValor = 0
+  let orcamentoRecusadoCount = 0
+  let orcamentoRecusadoValor = 0
+  let orcamentoConvertidoCount = 0
+
   const agora = new Date()
   const dias90 = new Date(agora.getTime() - 90 * 24 * 60 * 60 * 1000)
 
@@ -100,11 +107,27 @@ export default async function RelatorioVendasPage({
     if (itens.length === 0) continue
 
     const perfil: any = (venda as any).profiles
+    const statusVenda: string = (venda as any).status ?? 'venda_confirmada'
 
     const totalVenda = itens.reduce(
       (s: number, i: any) => s + i.quantidade * i.preco_unitario,
       0
     )
+
+    // Acumular orçamentos separadamente (não entram nos KPIs principais)
+    if (statusVenda === 'orcamento_pendente') {
+      orcamentoPendenteCount += 1
+      orcamentoPendenteValor += totalVenda
+      continue
+    }
+    if (statusVenda === 'orcamento_recusado') {
+      orcamentoRecusadoCount += 1
+      orcamentoRecusadoValor += totalVenda
+      continue
+    }
+
+    // A partir daqui, apenas vendas confirmadas
+    orcamentoConvertidoCount += 1
 
     // Por origem
     if (!porOrigem[venda.origem]) porOrigem[venda.origem] = { quantidade: 0, faturamento: 0 }
@@ -149,8 +172,11 @@ export default async function RelatorioVendasPage({
   }
 
   const totalFaturado = Object.values(porOrigem).reduce((s, o) => s + o.faturamento, 0)
-  const totalVendas = (vendas || []).length
+  const totalVendas = orcamentoConvertidoCount
   const vendaMedia = totalVendas > 0 ? totalFaturado / totalVendas : 0
+
+  const totalOrcamentos = orcamentoPendenteCount + orcamentoRecusadoCount + orcamentoConvertidoCount
+  const taxaConversao = totalOrcamentos > 0 ? (orcamentoConvertidoCount / totalOrcamentos) * 100 : null
 
   return (
     <div className="space-y-6">
@@ -300,6 +326,55 @@ export default async function RelatorioVendasPage({
           </p>
         </div>
       </div>
+
+      {/* Funil de Orçamentos */}
+      {(orcamentoPendenteCount > 0 || orcamentoRecusadoCount > 0 || orcamentoConvertidoCount > 0) && (
+        <div className="bg-surface rounded-lg border border-border p-6">
+          <h2 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
+            <FileText size={20} className="text-primary-500" />
+            Funil de Orçamentos
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-amber-50 rounded-lg border border-amber-200 p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <Clock size={16} className="text-amber-600" />
+                <p className="text-xs text-amber-700 font-semibold uppercase">Pendentes</p>
+              </div>
+              <p className="text-2xl font-bold text-amber-800">{orcamentoPendenteCount}</p>
+              <p className="text-sm text-amber-600 mt-0.5">
+                R$ {orcamentoPendenteValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div className="bg-emerald-50 rounded-lg border border-emerald-200 p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <CheckCircle size={16} className="text-emerald-600" />
+                <p className="text-xs text-emerald-700 font-semibold uppercase">Convertidos</p>
+              </div>
+              <p className="text-2xl font-bold text-emerald-800">{orcamentoConvertidoCount}</p>
+              <p className="text-sm text-emerald-600 mt-0.5">Vendas confirmadas</p>
+            </div>
+            <div className="bg-red-50 rounded-lg border border-red-200 p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <XCircle size={16} className="text-red-600" />
+                <p className="text-xs text-red-700 font-semibold uppercase">Recusados</p>
+              </div>
+              <p className="text-2xl font-bold text-red-800">{orcamentoRecusadoCount}</p>
+              <p className="text-sm text-red-600 mt-0.5">
+                R$ {orcamentoRecusadoValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div className="bg-page rounded-lg border border-border p-4">
+              <p className="text-xs text-text-secondary font-semibold uppercase mb-1">Taxa de Conversão</p>
+              <p className="text-2xl font-bold text-text-primary">
+                {taxaConversao !== null ? `${taxaConversao.toFixed(1)}%` : '—'}
+              </p>
+              <p className="text-xs text-text-secondary mt-0.5">
+                {totalOrcamentos} orçamento{totalOrcamentos !== 1 ? 's' : ''} no período
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Gráficos (cliente) */}
       <RelatorioVendasClient
@@ -506,9 +581,9 @@ export default async function RelatorioVendasPage({
         </div>
       )}
 
-      {totalVendas === 0 && (
+      {totalVendas === 0 && orcamentoPendenteCount === 0 && orcamentoRecusadoCount === 0 && (
         <div className="bg-surface rounded-lg border border-border p-12 text-center">
-          <p className="text-text-secondary">Nenhuma venda encontrada para os filtros selecionados.</p>
+          <p className="text-text-secondary">Nenhuma venda ou orçamento encontrado para os filtros selecionados.</p>
         </div>
       )}
     </div>

@@ -1,17 +1,25 @@
 'use client'
 
-import { Trash2 } from 'lucide-react'
+import { Trash2, LoaderCircle } from 'lucide-react'
 import { deletarVenda } from '@/actions/vendas'
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 
-export function BtnDeletarVenda({ id }: { id: string }) {
+interface Props {
+  id: string
+  status?: string | null
+}
+
+export function BtnDeletarVenda({ id, status }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
 
+  const isOrcamento = status === 'orcamento_pendente' || status === 'orcamento_recusado'
+  const label = isOrcamento ? 'orçamento' : 'venda'
+
   const handleDelete = () => {
-    if (!confirm('Tem certeza que deseja deletar esta venda?')) return
+    if (!confirm(`Tem certeza que deseja deletar este ${label}?`)) return
 
     startTransition(async () => {
       const result = await deletarVenda(id)
@@ -19,7 +27,7 @@ export function BtnDeletarVenda({ id }: { id: string }) {
         setError(result.error)
         setTimeout(() => setError(null), 4000)
       } else {
-        router.refresh()
+        router.push('/vendas')
       }
     })
   }
@@ -30,9 +38,9 @@ export function BtnDeletarVenda({ id }: { id: string }) {
         onClick={handleDelete}
         disabled={isPending}
         className="p-2 text-text-secondary hover:text-red-500 hover:bg-page rounded transition-colors disabled:opacity-50"
-        title="Deletar"
+        title={`Deletar ${label}`}
       >
-        <Trash2 size={16} />
+        {isPending ? <LoaderCircle size={16} className="animate-spin" /> : <Trash2 size={16} />}
       </button>
 
       {error && (

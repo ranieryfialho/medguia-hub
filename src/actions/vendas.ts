@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { FORMAS_PAGAMENTO } from '@/lib/vendas'
+import { FORMAS_PAGAMENTO, STATUS_VENDA } from '@/lib/vendas'
 import { formatAppDateKey, getAppDayRangeUTC, parseAppDate } from '@/lib/datetime'
 
 const USUARIO_AUTORIZADO_VENDA_ZERADA = '46581234-19dd-4e7d-904d-db0357fa2219'
@@ -74,6 +74,10 @@ function formaPagamentoValida(value: string) {
   return FORMAS_PAGAMENTO.some((forma) => forma.value === value)
 }
 
+function statusValido(value: string) {
+  return STATUS_VENDA.some((s) => s.value === value)
+}
+
 function normalizeVendaDate(value: string | null | undefined) {
   const dateKey = value?.trim() ? value.split('T')[0] : formatAppDateKey(new Date())
   return parseAppDate(dateKey).toISOString()
@@ -90,6 +94,8 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
   const data_venda = formData.get('data_venda') as string
   const observacoes = formData.get('observacoes') as string
   const itensJson = formData.get('itens_venda_json') as string
+  const statusRaw = (formData.get('status') as string) || 'venda_confirmada'
+  const status = statusValido(statusRaw) ? statusRaw : 'venda_confirmada'
 
   if (!paciente_id || !profissional_id || !origem || !forma_pagamento) {
     return { error: 'Paciente, profissional, origem e forma de pagamento são obrigatórios.' }
@@ -130,7 +136,7 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
     return { error: 'O valor da venda não pode ser maior ou igual a R$ 999.999,99.' }
   }
 
-  if (total === 0) {
+  if (total === 0 && status === 'venda_confirmada') {
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (!user || userError) {
       return { error: 'Usuário não autenticado.' }
@@ -163,6 +169,7 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
     medico_referenciador_nome,
     data_venda: normalizeVendaDate(data_venda),
     observacoes: observacoes || null,
+    status,
   }
 
   // Inserir venda
@@ -209,6 +216,8 @@ export async function editarVenda(_prevState: unknown, formData: FormData) {
   const data_venda = formData.get('data_venda') as string
   const observacoes = formData.get('observacoes') as string
   const itensJson = formData.get('itens_venda_json') as string
+  const statusRaw = (formData.get('status') as string) || 'venda_confirmada'
+  const status = statusValido(statusRaw) ? statusRaw : 'venda_confirmada'
 
   if (!paciente_id || !origem || !forma_pagamento) {
     return { error: 'Paciente, origem e forma de pagamento são obrigatórios.' }
@@ -249,7 +258,7 @@ export async function editarVenda(_prevState: unknown, formData: FormData) {
     return { error: 'O valor da venda não pode ser maior ou igual a R$ 999.999,99.' }
   }
 
-  if (total === 0) {
+  if (total === 0 && status === 'venda_confirmada') {
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (!user || userError) {
       return { error: 'Usuário não autenticado.' }
@@ -281,6 +290,7 @@ export async function editarVenda(_prevState: unknown, formData: FormData) {
     medico_referenciador_nome,
     data_venda: normalizeVendaDate(data_venda),
     observacoes: observacoes || null,
+    status,
     atualizado_em: new Date().toISOString(),
   }
 
@@ -320,21 +330,6 @@ export async function editarVenda(_prevState: unknown, formData: FormData) {
 export async function deletarVenda(id: string) {
   const supabase = await createClient()
 
-  // Validar se tem agendamentos
-  const { data: agendamentos, error: erroQuery } = await supabase
-    .from('agendamentos')
-    .select('id', { count: 'exact' })
-    .eq('venda_id', id)
-    .limit(1)
-
-  if (erroQuery) {
-    return { error: 'Erro ao verificar agendamentos.' }
-  }
-
-  if (agendamentos && agendamentos.length > 0) {
-    return { error: 'Não é possível deletar uma venda que possui agendamentos associados.' }
-  }
-
   // Deletar venda (cascata: itens_venda também serão deletados)
   const { error } = await supabase
     .from('vendas')
@@ -356,6 +351,7 @@ interface FiltrosVendas {
   profissional_id?: string
   data_inicio?: string
   data_fim?: string
+  status?: string
   offset?: number
   limit?: number
 }
@@ -370,6 +366,7 @@ export async function listarVendas(filtros: FiltrosVendas = {}) {
     profissional_id,
     data_inicio,
     data_fim,
+    status,
     offset = 0,
     limit = 20,
   } = filtros
@@ -388,6 +385,7 @@ export async function listarVendas(filtros: FiltrosVendas = {}) {
       medico_referenciador_nome,
       data_venda,
       observacoes,
+      status,
       criado_em,
       atualizado_em
     `,
@@ -420,6 +418,10 @@ export async function listarVendas(filtros: FiltrosVendas = {}) {
     query = query.lte('data_venda', getAppDayRangeUTC(data_fim).end)
   }
 
+  if (status) {
+    query = query.eq('status', status)
+  }
+
   const { data, error, count } = await query
 
   if (error) {
@@ -448,6 +450,27 @@ export async function listarVendas(filtros: FiltrosVendas = {}) {
   }))
 
   return { vendas, total: count || 0, error: null }
+}
+
+export async function atualizarStatusVenda(id: string, novoStatus: string) {
+  if (!statusValido(novoStatus)) {
+    return { error: 'Status inválido.' }
+  }
+
+  const supabase = await createClient()
+
+  const { error } = await supabase
+    .from('vendas')
+    .update({ status: novoStatus, atualizado_em: new Date().toISOString() })
+    .eq('id', id)
+
+  if (error) {
+    return { error: `Erro ao atualizar status: ${error.message}` }
+  }
+
+  revalidatePath('/vendas')
+  revalidatePath(`/vendas/${id}`)
+  return { success: true }
 }
 
 interface FiltrosRelatorio {

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ShoppingCart, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
+import { ShoppingCart, ChevronDown, ChevronUp, ExternalLink, Clock, XCircle } from 'lucide-react'
 import Link from 'next/link'
 import { formatAppDate } from '@/lib/datetime'
 
@@ -11,6 +11,12 @@ const ORIGEM_CONFIG: Record<string, { label: string; cor: string; bg: string }> 
   indicacao: { label: 'Indicação', cor: 'text-purple-700', bg: 'bg-purple-50' },
   renovacao: { label: 'Renovação', cor: 'text-green-700',  bg: 'bg-green-50' },
   campanha:  { label: 'Campanha',  cor: 'text-rose-700',   bg: 'bg-rose-50' },
+}
+
+const STATUS_CONFIG: Record<string, { label: string; cor: string; bg: string; borderL: string }> = {
+  venda_confirmada:   { label: 'Venda',             cor: 'text-emerald-700', bg: 'bg-emerald-50',  borderL: 'border-l-emerald-500' },
+  orcamento_pendente: { label: 'Orçamento pendente', cor: 'text-amber-700',  bg: 'bg-amber-50',    borderL: 'border-l-amber-400' },
+  orcamento_recusado: { label: 'Orçamento recusado', cor: 'text-red-700',    bg: 'bg-red-50',      borderL: 'border-l-red-400' },
 }
 
 type ItemVendaResumido = {
@@ -23,6 +29,7 @@ type ItemVendaResumido = {
 export type VendaTimeline = {
   id: string
   origem: string
+  status?: string | null
   medico_referenciador_nome?: string | null
   data_venda: string
   observacoes?: string | null
@@ -34,25 +41,39 @@ export function CartaoVenda({ venda }: { venda: VendaTimeline }) {
   const [expandido, setExpandido] = useState(false)
 
   const origemCfg = ORIGEM_CONFIG[venda.origem] ?? { label: venda.origem, cor: 'text-slate-600', bg: 'bg-slate-100' }
+  const statusKey = venda.status ?? 'venda_confirmada'
+  const statusCfg = STATUS_CONFIG[statusKey] ?? STATUS_CONFIG.venda_confirmada
   const total = venda.itens_venda.reduce((sum, item) => sum + item.quantidade * item.preco_unitario, 0)
   const formatarValor = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
+  const iconeStatus = statusKey === 'orcamento_pendente'
+    ? <Clock size={18} className="text-amber-500" />
+    : statusKey === 'orcamento_recusado'
+      ? <XCircle size={18} className="text-red-500" />
+      : <ShoppingCart size={18} className="text-emerald-600" />
+
+  const bgIcone = statusKey === 'orcamento_pendente'
+    ? 'bg-amber-50'
+    : statusKey === 'orcamento_recusado'
+      ? 'bg-red-50'
+      : 'bg-emerald-50'
+
   return (
     <div className="relative mb-8 last:mb-0 animate-in fade-in duration-300">
-      <div className="absolute -left-[10px] top-0 w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center border-4 border-white z-10 shadow-md ring-2 ring-white/50">
-        <ShoppingCart size={18} className="text-emerald-600" />
+      <div className={`absolute -left-[10px] top-0 w-10 h-10 rounded-full ${bgIcone} flex items-center justify-center border-4 border-white z-10 shadow-md ring-2 ring-white/50`}>
+        {iconeStatus}
       </div>
 
       <div className="relative ml-14 md:ml-16">
-        <div className="relative bg-white rounded-xl shadow-md border border-slate-100 border-l-4 border-l-emerald-500 transition-all duration-300">
+        <div className={`relative bg-white rounded-xl shadow-md border border-slate-100 border-l-4 ${statusCfg.borderL} transition-all duration-300`}>
           <div className="p-4 bg-gradient-to-b from-slate-50/40 to-transparent">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className={`px-2 py-0.5 ${origemCfg.bg} ${origemCfg.cor} text-[10px] font-extrabold rounded uppercase tracking-wider`}>
                   {origemCfg.label}
                 </span>
-                <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-extrabold rounded uppercase tracking-wider">
-                  Venda
+                <span className={`px-2 py-0.5 ${statusCfg.bg} ${statusCfg.cor} text-[10px] font-extrabold rounded uppercase tracking-wider`}>
+                  {statusCfg.label}
                 </span>
               </div>
               <span className="text-xs font-medium text-slate-500">

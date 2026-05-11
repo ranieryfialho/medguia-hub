@@ -1,10 +1,16 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { ArrowLeft, Edit } from 'lucide-react'
-import { BtnDeletarVenda } from '@/components/features/vendas'
+import { BtnDeletarVenda, BtnAtualizarStatusVenda } from '@/components/features/vendas'
 import { requireModulo } from '@/lib/guard'
-import { FORMA_PAGAMENTO_LABEL } from '@/lib/vendas'
+import { FORMA_PAGAMENTO_LABEL, STATUS_VENDA_LABEL } from '@/lib/vendas'
 import { formatAppDate } from '@/lib/datetime'
+
+const STATUS_BADGE: Record<string, { classes: string }> = {
+  venda_confirmada:   { classes: 'bg-emerald-100 text-emerald-800' },
+  orcamento_pendente: { classes: 'bg-amber-100 text-amber-800' },
+  orcamento_recusado: { classes: 'bg-red-100 text-red-800' },
+}
 
 export default async function VendaDetalhePage({
   params,
@@ -30,6 +36,7 @@ export default async function VendaDetalhePage({
       medico_referenciador_nome,
       data_venda,
       observacoes,
+      status,
       criado_em,
       atualizado_em
     `
@@ -86,6 +93,10 @@ export default async function VendaDetalhePage({
             ? 'Renovação'
             : 'Campanha'
 
+  const statusAtual = (v.status ?? 'venda_confirmada') as string
+  const statusCfg = STATUS_BADGE[statusAtual] ?? STATUS_BADGE.venda_confirmada
+  const tituloPage = statusAtual === 'venda_confirmada' ? 'Detalhes da Venda' : 'Detalhes do Orçamento'
+
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
@@ -99,7 +110,12 @@ export default async function VendaDetalhePage({
         </Link>
 
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-text-primary">Detalhes da Venda</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-semibold text-text-primary">{tituloPage}</h1>
+            <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${statusCfg.classes}`}>
+              {STATUS_VENDA_LABEL[statusAtual] ?? statusAtual}
+            </span>
+          </div>
           <div className="flex items-center gap-2">
             <Link
               href={`/vendas/${id}/editar`}
@@ -108,7 +124,7 @@ export default async function VendaDetalhePage({
               <Edit size={16} />
               Editar
             </Link>
-            <BtnDeletarVenda id={id} />
+            <BtnDeletarVenda id={id} status={statusAtual} />
           </div>
         </div>
       </div>
@@ -168,6 +184,11 @@ export default async function VendaDetalhePage({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Ações de status */}
+      <div className="bg-surface rounded-lg border border-border p-4">
+        <BtnAtualizarStatusVenda vendaId={id} statusAtual={statusAtual} />
       </div>
 
       {/* Produtos */}

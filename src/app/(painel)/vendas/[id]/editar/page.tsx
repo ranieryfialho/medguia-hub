@@ -19,6 +19,7 @@ interface VendaRow {
   medico_referenciador_nome?: string | null
   data_venda: string
   observacoes?: string | null
+  status?: string | null
   pacientes?: {
     nome: string
   } | null
@@ -59,6 +60,7 @@ export default async function EditarVendaPage({
       medico_referenciador_nome,
       data_venda,
       observacoes,
+      status,
       pacientes(nome)
     `)
     .eq('id', id)
@@ -121,6 +123,7 @@ export default async function EditarVendaPage({
     medico_referenciador_nome: venda.medico_referenciador_nome,
     data_venda: venda.data_venda,
     observacoes: venda.observacoes,
+    status: (venda as any).status ?? 'venda_confirmada',
     pacientes: firstRelation(venda.pacientes as VendaRow['pacientes'] | VendaRow['pacientes'][]),
   }
 

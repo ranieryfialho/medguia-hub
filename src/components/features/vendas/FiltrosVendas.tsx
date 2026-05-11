@@ -12,6 +12,11 @@ const OPCOES_ORIGEM = [
   { value: 'renovacao', label: 'Renovação' },
   { value: 'campanha', label: 'Campanha' },
 ]
+const OPCOES_STATUS = [
+  { value: 'venda_confirmada',   label: 'Venda confirmada' },
+  { value: 'orcamento_pendente', label: 'Orçamento pendente' },
+  { value: 'orcamento_recusado', label: 'Orçamento recusado' },
+]
 
 export function FiltrosVendas() {
   const router = useRouter()
@@ -22,6 +27,7 @@ export function FiltrosVendas() {
   const dataInicioAtual = searchParams.get('data_inicio') || ''
   const dataFimAtual = searchParams.get('data_fim') || ''
   const limiteAtual = searchParams.get('limite') || '25'
+  const statusAtual = searchParams.get('status') || ''
 
   const [busca, setBusca] = useState(buscaAtual)
   const montado = useRef(false)
@@ -46,6 +52,17 @@ export function FiltrosVendas() {
     return () => clearTimeout(timer)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busca])
+
+  const mudarStatus = (valor: string) => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (valor) {
+      params.set('status', valor)
+    } else {
+      params.delete('status')
+    }
+    params.delete('pagina')
+    router.replace(`?${params.toString()}`)
+  }
 
   const mudarOrigem = (valor: string) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -86,7 +103,7 @@ export function FiltrosVendas() {
     router.replace('?')
   }
 
-  const temFiltros = busca || origemAtual || dataInicioAtual || dataFimAtual
+  const temFiltros = busca || origemAtual || dataInicioAtual || dataFimAtual || statusAtual
 
   return (
     <div className="p-4 space-y-3 border-b border-border">
@@ -121,6 +138,19 @@ export function FiltrosVendas() {
 
       {/* Row 2: Origem e Período */}
       <div className="flex items-center gap-4 flex-wrap">
+        <select
+          value={statusAtual}
+          onChange={(e) => mudarStatus(e.target.value)}
+          className="bg-input border border-border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary-500"
+        >
+          <option value="">Todos os status</option>
+          {OPCOES_STATUS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+
         <select
           value={origemAtual}
           onChange={(e) => mudarOrigem(e.target.value)}

@@ -68,6 +68,7 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [] }: FormNov
   const [formaPagamento, setFormaPagamento] = useState('')
   const [dataVenda, setDataVenda] = useState(() => formatAppDateKey(new Date()))
   const [observacoes, setObservacoes] = useState('')
+  const [statusVenda, setStatusVenda] = useState<'venda_confirmada' | 'orcamento_pendente'>('venda_confirmada')
 
   // Aba 2
   const [itens, setItens] = useState<ItemVenda[]>([])
@@ -418,6 +419,39 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [] }: FormNov
                 className="w-full px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500 resize-none"
               />
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-2">Tipo de Registro</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStatusVenda('venda_confirmada')}
+                  className={`p-3 rounded-lg border text-sm font-medium transition-colors ${
+                    statusVenda === 'venda_confirmada'
+                      ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                      : 'border-border hover:bg-page text-text-secondary'
+                  }`}
+                >
+                  Venda direta
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusVenda('orcamento_pendente')}
+                  className={`p-3 rounded-lg border text-sm font-medium transition-colors ${
+                    statusVenda === 'orcamento_pendente'
+                      ? 'border-amber-500 bg-amber-50 text-amber-700'
+                      : 'border-border hover:bg-page text-text-secondary'
+                  }`}
+                >
+                  Orçamento
+                </button>
+              </div>
+              <p className="text-xs text-text-secondary mt-1.5">
+                {statusVenda === 'orcamento_pendente'
+                  ? 'Salvo como orçamento pendente — pode ser confirmado como venda depois.'
+                  : 'Venda confirmada imediatamente.'}
+              </p>
+            </div>
           </div>
         </div>
       )}
@@ -591,6 +625,7 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [] }: FormNov
       <input type="hidden" name="data_venda" value={dataVenda} />
       <input type="hidden" name="observacoes" value={observacoes} />
       <input type="hidden" name="itens_venda_json" value={JSON.stringify(itens)} />
+      <input type="hidden" name="status" value={statusVenda} />
 
       {/* Navegação */}
       <div className="flex items-center justify-between pt-6 border-t border-border">

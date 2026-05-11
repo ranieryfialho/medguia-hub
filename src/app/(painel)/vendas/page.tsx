@@ -7,6 +7,12 @@ import { requireModulo } from '@/lib/guard'
 import { FORMA_PAGAMENTO_LABEL } from '@/lib/vendas'
 import { formatAppDate, getAppDayRangeUTC } from '@/lib/datetime'
 
+const STATUS_BADGE: Record<string, { label: string; classes: string }> = {
+  venda_confirmada:   { label: 'Venda',      classes: 'bg-emerald-50 text-emerald-700' },
+  orcamento_pendente: { label: 'Pendente',   classes: 'bg-amber-50 text-amber-700' },
+  orcamento_recusado: { label: 'Recusado',   classes: 'bg-red-50 text-red-700' },
+}
+
 export default async function VendasListPage({
   searchParams,
 }: {
@@ -21,6 +27,7 @@ export default async function VendasListPage({
   const origem = (resolvedParams.origem as string) || ''
   const data_inicio = (resolvedParams.data_inicio as string) || ''
   const data_fim = (resolvedParams.data_fim as string) || ''
+  const status = (resolvedParams.status as string) || ''
   const limite = Math.max(1, parseInt((resolvedParams.limite as string) || '25'))
   const pagina = Math.max(1, parseInt((resolvedParams.pagina as string) || '1'))
   const offset = (pagina - 1) * limite
@@ -39,6 +46,7 @@ export default async function VendasListPage({
       medico_referenciador_nome,
       data_venda,
       observacoes,
+      status,
       criado_em
     `,
       { count: 'exact' }
@@ -56,6 +64,10 @@ export default async function VendasListPage({
 
   if (data_fim) {
     query = query.lte('data_venda', getAppDayRangeUTC(data_fim).end)
+  }
+
+  if (status) {
+    query = query.eq('status', status)
   }
 
   // Busca por paciente ou profissional (realizado em memória após fetch)
@@ -108,6 +120,7 @@ export default async function VendasListPage({
               <tr className="border-b border-border">
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Paciente</th>
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Profissional</th>
+                <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Status</th>
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Origem</th>
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Pagamento</th>
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Referenciador</th>
@@ -118,7 +131,7 @@ export default async function VendasListPage({
             <tbody className="divide-y divide-border">
               {vendasFiltradas.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center text-sm text-text-secondary">
+                  <td colSpan={8} className="px-6 py-8 text-center text-sm text-text-secondary">
                     {busca ? `Nenhuma venda encontrada para "${busca}".` : 'Nenhuma venda encontrada.'}
                   </td>
                 </tr>
@@ -130,6 +143,17 @@ export default async function VendasListPage({
                   <tr key={venda.id} className="hover:bg-page/50 transition-colors">
                     <td className="px-6 py-4 text-sm text-text-primary">{venda.pacientes?.nome || '—'}</td>
                     <td className="px-6 py-4 text-sm text-text-primary">{venda.profiles?.full_name || '—'}</td>
+                    <td className="px-6 py-4">
+                      {(() => {
+                        const s = venda.status ?? 'venda_confirmada'
+                        const cfg = STATUS_BADGE[s] ?? STATUS_BADGE.venda_confirmada
+                        return (
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${cfg.classes}`}>
+                            {cfg.label}
+                          </span>
+                        )
+                      })()}
+                    </td>
                     <td className="px-6 py-4 text-sm text-text-secondary capitalize">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-page text-text-primary">
                         {venda.origem === 'medico'
@@ -164,7 +188,7 @@ export default async function VendasListPage({
                         >
                           <Edit size={16} />
                         </Link>
-                        <BtnDeletarVenda id={venda.id} />
+                        <BtnDeletarVenda id={venda.id} status={venda.status} />
                       </div>
                     </td>
                   </tr>
@@ -191,17 +215,28 @@ export default async function VendasListPage({
                       <p className="font-medium text-text-primary">{venda.pacientes?.nome}</p>
                       <p className="text-xs text-text-secondary">{venda.profiles?.full_name}</p>
                     </div>
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-page text-text-primary capitalize">
-                      {venda.origem === 'medico'
-                        ? 'Médico'
-                        : venda.origem === 'leads'
-                          ? 'Leads'
-                          : venda.origem === 'indicacao'
-                            ? 'Indicação'
-                            : venda.origem === 'renovacao'
-                              ? 'Renovação'
-                              : 'Campanha'}
-                    </span>
+                    <div className="flex flex-col items-end gap-1">
+                      {(() => {
+                        const s = venda.status ?? 'venda_confirmada'
+                        const cfg = STATUS_BADGE[s] ?? STATUS_BADGE.venda_confirmada
+                        return (
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cfg.classes}`}>
+                            {cfg.label}
+                          </span>
+                        )
+                      })()}
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-page text-text-primary capitalize">
+                        {venda.origem === 'medico'
+                          ? 'Médico'
+                          : venda.origem === 'leads'
+                            ? 'Leads'
+                            : venda.origem === 'indicacao'
+                              ? 'Indicação'
+                              : venda.origem === 'renovacao'
+                                ? 'Renovação'
+                                : 'Campanha'}
+                      </span>
+                    </div>
                   </div>
                   <p className="text-xs text-text-secondary">{dataFormatada}</p>
                   <p className="text-xs text-text-secondary">
