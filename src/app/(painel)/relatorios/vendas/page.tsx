@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { BarChart3, TrendingUp, Users, Package } from 'lucide-react'
+import { BarChart3, TrendingUp, Users, Package, Stethoscope } from 'lucide-react'
 import { RelatorioVendasClient } from '@/components/features/relatorios'
 import { BtnGerarPdfVendas } from '@/components/features/shared'
 import { FiltroProdutosMultiSelect } from '@/components/features/produtos'
@@ -41,7 +41,7 @@ export default async function RelatorioVendasPage({
   let query = supabase
     .from('vendas')
     .select(`
-      id, origem, forma_pagamento, data_venda, profissional_id,
+      id, origem, forma_pagamento, data_venda, profissional_id, medico_referenciador_nome,
       profiles:profissional_id ( full_name, role ),
       itens_venda ( quantidade, preco_unitario, produtos:produto_id ( id, nome ) )
     `)
@@ -85,6 +85,7 @@ export default async function RelatorioVendasPage({
   const porFormaPagamento: Record<string, { quantidade: number; faturamento: number }> = {}
   const porProfissional: Record<string, AgregacaoNome> = {}
   const porProduto: Record<string, AgregacaoNome> = {}
+  const porReferenciador: Record<string, AgregacaoNome> = {}
   const porPeriodo: Record<string, number> = {}
 
   const agora = new Date()
@@ -121,6 +122,14 @@ export default async function RelatorioVendasPage({
     }
     porProfissional[venda.profissional_id].quantidade += 1
     porProfissional[venda.profissional_id].faturamento += totalVenda
+
+    // Por referenciador
+    const refNome = (venda as Record<string, unknown>).medico_referenciador_nome as string | null
+    if (refNome) {
+      if (!porReferenciador[refNome]) porReferenciador[refNome] = { nome: refNome, quantidade: 0, faturamento: 0 }
+      porReferenciador[refNome].quantidade += 1
+      porReferenciador[refNome].faturamento += totalVenda
+    }
 
     // Por produto
     for (const item of itens) {
@@ -387,6 +396,57 @@ export default async function RelatorioVendasPage({
                             <div className="w-20 bg-border rounded-full h-1.5">
                               <div
                                 className="bg-amber-500 h-1.5 rounded-full"
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                            <span className="text-sm text-text-primary font-medium w-12 text-right">
+                              {pct.toFixed(1)}%
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Tabela por Referenciador */}
+      {Object.keys(porReferenciador).length > 0 && (
+        <div className="bg-surface rounded-lg border border-border p-6">
+          <h2 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
+            <Stethoscope size={20} className="text-primary-500" />
+            Desempenho por Médico Referenciador
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="px-4 py-2 text-xs font-semibold text-text-secondary uppercase">Médico Referenciador</th>
+                  <th className="px-4 py-2 text-xs font-semibold text-text-secondary uppercase text-right">Vendas</th>
+                  <th className="px-4 py-2 text-xs font-semibold text-text-secondary uppercase text-right">Faturamento</th>
+                  <th className="px-4 py-2 text-xs font-semibold text-text-secondary uppercase text-right">% Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {Object.values(porReferenciador)
+                  .sort((a, b) => b.faturamento - a.faturamento)
+                  .map((ref) => {
+                    const pct = totalFaturado > 0 ? (ref.faturamento / totalFaturado) * 100 : 0
+                    return (
+                      <tr key={ref.nome} className="hover:bg-page/50">
+                        <td className="px-4 py-3 text-sm text-text-primary font-medium">{ref.nome}</td>
+                        <td className="px-4 py-3 text-sm text-text-primary text-right">{ref.quantidade}</td>
+                        <td className="px-4 py-3 text-sm text-text-primary text-right font-medium">
+                          R$ {ref.faturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <div className="w-20 bg-border rounded-full h-1.5">
+                              <div
+                                className="bg-teal-500 h-1.5 rounded-full"
                                 style={{ width: `${pct}%` }}
                               />
                             </div>
