@@ -35,6 +35,9 @@ const TRADUCAO_ORIGEM: Record<string, string> = {
 }
 
 const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const fmtMisto = (v: any, name: string | number | undefined): [string, string] =>
+  name === 'Vendas' ? [String(Number(v ?? 0)), String(name)] : [fmt(Number(v ?? 0)), String(name ?? '')]
 
 export function RelatorioVendasClient({
   porOrigem,
@@ -160,8 +163,7 @@ export function RelatorioVendasClient({
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                 <YAxis tickFormatter={(v: number) => `R$${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 12 }} />
-                <Tooltip // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  formatter={(v: any) => fmt(Number(v ?? 0))} />
+                <Tooltip formatter={fmtMisto} />
                 <Legend />
                 <Bar dataKey="faturamento" fill="#C73E1D" name="Faturamento" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="quantidade" fill="#6A994E" name="Vendas" radius={[4, 4, 0, 0]} />
@@ -181,8 +183,7 @@ export function RelatorioVendasClient({
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                 <YAxis tickFormatter={(v: number) => `R$${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 12 }} />
-                <Tooltip // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  formatter={(v: any) => fmt(Number(v ?? 0))} />
+                <Tooltip formatter={fmtMisto} />
                 <Legend />
                 <Bar dataKey="faturamento" fill="#0A4D68" name="Faturamento" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="vendas" fill="#6A994E" name="Vendas" radius={[4, 4, 0, 0]} />
