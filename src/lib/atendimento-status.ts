@@ -9,6 +9,12 @@ export type AtendimentoStatusKey =
   | 'reagendado'
   | 'desconhecido'
 
+export const STATUS_PENDENTE_KEYS = [
+  'confirmado',
+  'aguardando',
+  'aguardando_consulta',
+] as const satisfies readonly Exclude<AtendimentoStatusKey, 'desconhecido'>[]
+
 const STATUS_LABELS: Record<Exclude<AtendimentoStatusKey, 'desconhecido'>, string> = {
   confirmado:          'Confirmado',
   aguardando:          'Aguardando',
@@ -84,7 +90,7 @@ export function isStatusFalta(value: string | null | undefined) {
 
 export function isStatusPendente(value: string | null | undefined) {
   const key = getAtendimentoStatusKey(value)
-  return key === 'aguardando' || key === 'aguardando_consulta' || key === 'confirmado'
+  return STATUS_PENDENTE_KEYS.includes(key as (typeof STATUS_PENDENTE_KEYS)[number])
 }
 
 export function isStatusReagendado(value: string | null | undefined) {

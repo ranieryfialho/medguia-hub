@@ -15,6 +15,7 @@ import {
   recorrenciaSemanalAtiva,
 } from '@/lib/recorrencia'
 import {
+  getAtendimentoStatusKey,
   isStatusNaoEfetivo,
   normalizeAtendimentoStatus,
 } from '@/lib/atendimento-status'
@@ -583,6 +584,11 @@ export async function editarAtendimento(id: string, formData: FormData) {
 
 export async function mudarStatusAgendamento(id: string, novoStatus: string) {
   const supabase = await createClient()
+  const statusKey = getAtendimentoStatusKey(novoStatus)
+  if (statusKey === 'desconhecido') {
+    return { error: `Status inválido: ${novoStatus}` }
+  }
+
   const statusCanonico = normalizeAtendimentoStatus(novoStatus)
 
   const { error } = await supabase
@@ -592,7 +598,7 @@ export async function mudarStatusAgendamento(id: string, novoStatus: string) {
 
   if (error) {
     console.error('Erro ao mudar status:', error.message)
-    return { error: 'Não foi possível alterar o status.' }
+    return { error: `Não foi possível alterar o status para "${statusCanonico}": ${error.message}` }
   }
 
   revalidatePath('/agenda')

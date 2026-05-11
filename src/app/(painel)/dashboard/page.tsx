@@ -10,6 +10,7 @@ import { requireModulo } from '@/lib/guard'
 import {
   getAtendimentoStatusKey,
   isStatusConcluido,
+  STATUS_PENDENTE_KEYS,
 } from '@/lib/atendimento-status'
 
 type Atendimento = {
@@ -138,7 +139,7 @@ export default async function DashboardPage() {
   const concluidos = atendimentos.filter(a => isStatusConcluido(a.status)).length
   const cancelados = atendimentos.filter(a => getAtendimentoStatusKey(a.status) === 'cancelado').length
   const faltas = atendimentos.filter(a => getAtendimentoStatusKey(a.status) === 'falta').length
-  const emAberto = atendimentos.filter(a => ['confirmado', 'aguardando'].includes(getAtendimentoStatusKey(a.status))).length
+  const emAberto = atendimentos.filter(a => STATUS_PENDENTE_KEYS.includes(getAtendimentoStatusKey(a.status) as (typeof STATUS_PENDENTE_KEYS)[number])).length
   const taxaConclusao = totalAtend > 0 ? Math.round((concluidos / totalAtend) * 100) : 0
 
   // 8. Bloco 3: Pacientes

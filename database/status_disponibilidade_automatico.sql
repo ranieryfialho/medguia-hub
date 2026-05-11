@@ -20,7 +20,7 @@ begin
     now()
   from atendimentos
   where
-    status in ('Aguardando', 'Confirmado')
+    status in ('Aguardando', 'Aguardando Consulta', 'Confirmado')
     and data_agendamento <= now()
     and data_agendamento + (coalesce(duracao_minutos, 60) || ' minutes')::interval >= now()
   on conflict (profissional_id)
@@ -59,7 +59,7 @@ begin
     where
       profissional_id = NEW.profissional_id
       and id <> NEW.id
-      and status in ('Aguardando', 'Confirmado')
+      and status in ('Aguardando', 'Aguardando Consulta', 'Confirmado')
       and data_agendamento > now()
       and data_agendamento <= now() + interval '90 minutes'
   ) into v_tem_proximo;

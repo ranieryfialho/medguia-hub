@@ -2,9 +2,11 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { useRouter } from 'next/navigation'
 import { MoreVertical, CheckCircle, Hourglass, Stethoscope, CheckCheck, XCircle, UserX, RefreshCw, Timer } from 'lucide-react'
 import { mudarStatusAgendamento } from '@/actions/agenda'
 import { obterProximaData, registrarContato, criarAtendimentoReagendado, adicionarSessaoReposicao } from '@/actions/confirmacoes'
+import { normalizeAtendimentoStatus } from '@/lib/atendimento-status'
 import { ModalSessaoReposicao } from '../shared'
 import { ConfirmacaoFaltaModal } from './AgendamentoItem'
 import { format } from 'date-fns'
@@ -35,19 +37,15 @@ interface MenuAcoesAgendamentoProps {
 }
 
 export function MenuAcoesAgendamento({ id, statusAtual, onOpenChange, atendimentoId, agendamentoId, pacienteNome, dataAgendamento }: MenuAcoesAgendamentoProps) {
+  const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
   const [modalAberto, setModalAberto] = useState<'confirmacao_falta' | 'reagendamento' | null>(null)
   const [proximaData, setProximaData] = useState<string | undefined>()
   const [proximaHora, setProximaHora] = useState<string | undefined>()
-  const [mounted, setMounted] = useState(false)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
 
   function setOpen(value: boolean) {
     setIsOpen(value)
@@ -63,12 +61,13 @@ export function MenuAcoesAgendamento({ id, statusAtual, onOpenChange, atendiment
         menuRef.current && !menuRef.current.contains(event.target as Node) &&
         buttonRef.current && !buttonRef.current.contains(event.target as Node)
       ) {
-        setOpen(false)
+        setIsOpen(false)
+        onOpenChange?.(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [modalAberto])
+  }, [modalAberto, onOpenChange])
 
   function handleOpen(e: React.MouseEvent) {
     e.preventDefault()
@@ -117,16 +116,26 @@ export function MenuAcoesAgendamento({ id, statusAtual, onOpenChange, atendiment
 
     // Demais status: muda diretamente
     setIsUpdating(true)
-    await mudarStatusAgendamento(id, novoStatus)
+    const result = await mudarStatusAgendamento(id, novoStatus)
     setIsUpdating(false)
     setOpen(false)
+    if (result?.error) {
+      toast.error(result.error)
+      return
+    }
+    toast.success(`${pacienteNome || 'Paciente'} — status alterado para ${normalizeAtendimentoStatus(novoStatus)}`)
+    router.refresh()
   }
 
   async function handleConfirmarFalta(reagendar: boolean) {
     setModalAberto(null)
     setIsUpdating(true)
-    await mudarStatusAgendamento(id, 'Falta')
+    const result = await mudarStatusAgendamento(id, 'Falta')
     setIsUpdating(false)
+    if (result?.error) {
+      toast.error(result.error)
+      return
+    }
     toast.success(`${pacienteNome} — Falta registrada`)
     if (reagendar && atendimentoId && dataAgendamento) {
       const proxima = agendamentoId ? await obterProximaData(atendimentoId) : null
@@ -206,7 +215,7 @@ export function MenuAcoesAgendamento({ id, statusAtual, onOpenChange, atendiment
         )}
       </div>
 
-      {mounted && modalAberto === 'confirmacao_falta' && createPortal(
+      {typeof document !== 'undefined' && modalAberto === 'confirmacao_falta' && createPortal(
         <ConfirmacaoFaltaModal
           onConfirmar={handleConfirmarFalta}
           onCancelar={() => setModalAberto(null)}
@@ -214,7 +223,7 @@ export function MenuAcoesAgendamento({ id, statusAtual, onOpenChange, atendiment
         document.body
       )}
 
-      {mounted && modalAberto === 'reagendamento' && atendimentoId && createPortal(
+      {typeof document !== 'undefined' && modalAberto === 'reagendamento' && atendimentoId && createPortal(
         <ModalSessaoReposicao
           pacienteNome={pacienteNome || 'Paciente'}
           defaultData={proximaData}

@@ -84,7 +84,7 @@ begin
     now(),
     'automatico'
   from public.atendimentos a
-  where a.status in ('Aguardando', 'Confirmado')
+  where a.status in ('Aguardando', 'Aguardando Consulta', 'Confirmado')
     and a.data_agendamento <= now()
     and a.data_agendamento + (coalesce(a.duracao_minutos, 60) || ' minutes')::interval >= now()
   on conflict (profissional_id)
@@ -107,7 +107,7 @@ begin
       select 1
       from public.atendimentos a
       where a.profissional_id = sd.profissional_id
-        and a.status in ('Aguardando', 'Confirmado')
+        and a.status in ('Aguardando', 'Aguardando Consulta', 'Confirmado')
         and a.data_agendamento <= now()
         and a.data_agendamento + (coalesce(a.duracao_minutos, 60) || ' minutes')::interval >= now()
     );
@@ -160,7 +160,7 @@ begin
     from public.atendimentos a
     where a.profissional_id = new.profissional_id
       and a.id <> new.id
-      and a.status in ('Aguardando', 'Confirmado')
+      and a.status in ('Aguardando', 'Aguardando Consulta', 'Confirmado')
       and a.data_agendamento > now()
       and a.data_agendamento <= now() + interval '90 minutes'
   ) into v_tem_proximo;
