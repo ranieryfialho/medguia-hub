@@ -58,20 +58,10 @@ export default async function TempoFabrilPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  await requireModulo('equipe:tempo_fabril')
+  const { user, profile } = await requireModulo('equipe:tempo_fabril')
 
   const supabase = await createClient()
   const params = await searchParams
-
-  // Auth
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role, nivel_acesso, full_name')
-    .eq('id', user.id)
-    .single()
 
   const isGestorOuMaster = profile?.nivel_acesso === 'gestor' || profile?.nivel_acesso === 'master'
 

@@ -103,19 +103,10 @@ export default async function RelatorioConsultasPage({
 }: {
   searchParams: SearchParams
 }) {
-  await requireModulo('pacientes')
+  const { user, profile } = await requireModulo('pacientes')
 
   const supabase = await createClient()
   const params = await searchParams
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('nivel_acesso, role')
-    .eq('id', user.id)
-    .single()
 
   const isGestorOuMaster = profile?.nivel_acesso === 'gestor' || profile?.nivel_acesso === 'master'
   const roleUsuario = profile?.role ?? null
@@ -136,17 +127,11 @@ export default async function RelatorioConsultasPage({
   const dataInicioIso = getAppDayRangeUTC(data_inicio).start
   const dataFimIso = getAppDayRangeUTC(data_fim).end
 
-  const [{ data: profissionaisRaw }, { data: medicosRaw }, { data: disponibilidadeRaw }] = await Promise.all([
+  const [{ data: perfisProfissionaisRaw }, { data: disponibilidadeRaw }] = await Promise.all([
     supabase
       .from('profiles')
       .select('id, full_name, role')
-      .in('role', ['fisioterapeuta', 'gestor'])
-      .eq('ativo', true)
-      .order('full_name'),
-    supabase
-      .from('profiles')
-      .select('id, full_name, role')
-      .eq('role', 'medico')
+      .in('role', ['fisioterapeuta', 'gestor', 'medico'])
       .eq('ativo', true)
       .order('full_name'),
     supabase
@@ -159,7 +144,14 @@ export default async function RelatorioConsultasPage({
     (disponibilidadeRaw ?? []).map((item: { profissional_id: string }) => item.profissional_id)
   )
 
-  const profissionais = (profissionaisRaw ?? [])
+  const perfisProfissionais = (perfisProfissionaisRaw ?? []) as Array<{
+    id: string
+    full_name: string | null
+    role: string | null
+  }>
+
+  const profissionais = perfisProfissionais
+    .filter((item) => item.role !== 'medico')
     .filter((item: { id: string; full_name: string | null; role: string | null }) =>
       podeEntrarNoWidgetDisponibilidade(item, profissionaisComJornada),
     )
@@ -168,7 +160,8 @@ export default async function RelatorioConsultasPage({
       nome: item.full_name || 'Sem nome',
     }))
 
-  const medicos = (medicosRaw ?? [])
+  const medicos = perfisProfissionais
+    .filter((item) => item.role === 'medico')
     .map((item: { id: string; full_name: string | null; role: string | null }) => ({
       id: item.id,
       nome: item.full_name || 'Sem nome',

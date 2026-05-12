@@ -109,22 +109,6 @@ type PageProps = {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }
 
-async function fetchAll<T>(
-  fetcher: (from: number, to: number) => PromiseLike<{ data: T[] | null }>
-): Promise<T[]> {
-  const SIZE = 1000
-  const acc: T[] = []
-  let page = 0
-  while (true) {
-    const { data } = await fetcher(page * SIZE, (page + 1) * SIZE - 1)
-    if (!data?.length) break
-    acc.push(...data)
-    if (data.length < SIZE) break
-    page++
-  }
-  return acc
-}
-
 export default async function AgendaPage({ searchParams }: PageProps) {
   const { user, profile } = await requireModulo('agenda')
 
@@ -399,11 +383,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
     agendamentosMesFiltrados.map(a => formatAppDateKey(a.data_agendamento))
   )
 
-  const listaPacientes = view === 'mes'
-    ? []
-    : await fetchAll((from, to) =>
-        supabase.from('pacientes').select('id, nome').eq('ativo', true).order('nome').range(from, to)
-      )
+  const listaPacientes: Array<{ id: string; nome: string }> = []
 
   const { data: listaProfissionais } = await supabase
     .from('profiles')

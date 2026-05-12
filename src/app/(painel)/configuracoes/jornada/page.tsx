@@ -9,19 +9,10 @@ export default async function JornadaPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
-  await requireModulo('configuracoes:jornada')
+  const { user, profile } = await requireModulo('configuracoes:jornada')
 
   const supabase = await createClient()
   const params = await searchParams
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role, nivel_acesso, full_name')
-    .eq('id', user.id)
-    .single()
 
   const isGestor = profile?.nivel_acesso === 'gestor' || profile?.nivel_acesso === 'master'
 

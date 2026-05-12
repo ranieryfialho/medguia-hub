@@ -34,23 +34,12 @@ type ContatoComDados = {
 const HISTORICO_ATENDIMENTOS_ANOS = 2
 
 export default async function RelatorioContatosPage() {
-  await requireModulo('contatos:relatorio')
+  const { user, profile } = await requireModulo('contatos:relatorio')
 
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
   const atendimentoCutoff = new Date()
   atendimentoCutoff.setFullYear(atendimentoCutoff.getFullYear() - HISTORICO_ATENDIMENTOS_ANOS)
   const atendimentoCutoffIso = atendimentoCutoff.toISOString()
-
-  if (!user) notFound()
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role, nivel_acesso, full_name')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile) notFound()
 
   const isGestorOuMaster = profile.nivel_acesso === 'gestor' || profile.nivel_acesso === 'master'
 
@@ -86,6 +75,7 @@ export default async function RelatorioContatosPage() {
 
   const kanbanColumns = normalizarColunasContato((kanbanColumnsRaw ?? null) as KanbanColunaContato[] | null)
   const kanbanColumnMap = new Map(kanbanColumns.map((column) => [column.chave, column]))
+  const pacientesIds = contatosRaw.map(c => c.paciente_id)
 
   // Buscar notas para calcular última atividade
   let notasQuery = supabase
@@ -93,10 +83,8 @@ export default async function RelatorioContatosPage() {
     .select('paciente_id, criado_em')
     .order('criado_em', { ascending: false })
 
-  if (!isGestorOuMaster) {
-    // Para fisio, apenas notas de contatos que são responsáveis
-    const pacientesIds = new Set(contatosRaw.map(c => c.paciente_id))
-    notasQuery = notasQuery.in('paciente_id', Array.from(pacientesIds))
+  if (pacientesIds.length > 0) {
+    notasQuery = notasQuery.in('paciente_id', pacientesIds)
   }
 
   const { data: notas } = await notasQuery
@@ -112,7 +100,6 @@ export default async function RelatorioContatosPage() {
   }
 
   // Buscar atendimentos para cada paciente
-  const pacientesIds = contatosRaw.map(c => c.paciente_id)
   const atendimentos = await listarUltimosAtendimentosPorPacientes(
     supabase as unknown as UltimoAtendimentoClient,
     pacientesIds,
