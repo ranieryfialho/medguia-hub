@@ -743,19 +743,43 @@ export default async function RelatorioVendasPage({
                 </tbody>
               </table>
             </div>
-            {totalPaginasVendas > 1 && (
-              <div className="mt-4 flex items-center justify-center gap-2 flex-wrap">
-                {paginaAtual > 1 && (
-                  <Link href={buildPaginaUrl(paginaAtual - 1)} className="px-3 py-1 rounded-md bg-page text-text-primary hover:bg-page/80 transition-colors text-sm">← Anterior</Link>
-                )}
-                {Array.from({ length: totalPaginasVendas }, (_, i) => i + 1).map((p) => (
-                  <Link key={p} href={buildPaginaUrl(p)} className={`px-3 py-1 rounded-md text-sm transition-colors ${p === paginaAtual ? 'bg-primary-500 text-white font-medium' : 'bg-page text-text-primary hover:bg-page/80'}`}>{p}</Link>
-                ))}
-                {paginaAtual < totalPaginasVendas && (
-                  <Link href={buildPaginaUrl(paginaAtual + 1)} className="px-3 py-1 rounded-md bg-page text-text-primary hover:bg-page/80 transition-colors text-sm">Próxima →</Link>
-                )}
-              </div>
-            )}
+            <div className="mt-4 pt-4 border-t border-border flex items-center justify-between gap-4 flex-wrap">
+              <p className="text-xs text-text-secondary">
+                Exibindo {offsetVendas + 1}–{Math.min(offsetVendas + LIMITE_DETALHE, vendasDetalhadas.length)} de {vendasDetalhadas.length} venda{vendasDetalhadas.length !== 1 ? 's' : ''}
+              </p>
+              {totalPaginasVendas > 1 && (() => {
+                const delta = 2
+                const pages: (number | '...')[] = []
+                for (let p = 1; p <= totalPaginasVendas; p++) {
+                  if (p === 1 || p === totalPaginasVendas || (p >= paginaAtual - delta && p <= paginaAtual + delta)) {
+                    pages.push(p)
+                  } else if (pages[pages.length - 1] !== '...') {
+                    pages.push('...')
+                  }
+                }
+                return (
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <Link
+                      href={buildPaginaUrl(paginaAtual - 1)}
+                      className={`px-3 py-1 rounded-md text-sm transition-colors ${paginaAtual === 1 ? 'pointer-events-none opacity-30 bg-page text-text-secondary' : 'bg-page text-text-primary hover:bg-border'}`}
+                    >
+                      ← Anterior
+                    </Link>
+                    {pages.map((p, i) =>
+                      p === '...'
+                        ? <span key={`el-${i}`} className="px-2 py-1 text-sm text-text-secondary select-none">…</span>
+                        : <Link key={p} href={buildPaginaUrl(p)} className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${p === paginaAtual ? 'bg-primary-500 text-white' : 'bg-page text-text-primary hover:bg-border'}`}>{p}</Link>
+                    )}
+                    <Link
+                      href={buildPaginaUrl(paginaAtual + 1)}
+                      className={`px-3 py-1 rounded-md text-sm transition-colors ${paginaAtual === totalPaginasVendas ? 'pointer-events-none opacity-30 bg-page text-text-secondary' : 'bg-page text-text-primary hover:bg-border'}`}
+                    >
+                      Próxima →
+                    </Link>
+                  </div>
+                )
+              })()}
+            </div>
           </div>
         )
       })()}
