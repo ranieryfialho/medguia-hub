@@ -31,6 +31,13 @@ export type ProfileSimples = { id: string; full_name: string }
 
 const HISTORICO_ATENDIMENTOS_ANOS = 2
 
+type ContatoBaseRelacionamento = {
+  paciente_id: string
+  status: StatusContato
+  kanban_coluna_chave: string | null
+  responsavel_id: string | null
+}
+
 async function fetchAll<T>(
   fetcher: (from: number, to: number) => PromiseLike<{ data: T[] | null }>
 ): Promise<T[]> {
@@ -55,12 +62,26 @@ export default async function ContatosPage() {
   atendimentoCutoff.setFullYear(atendimentoCutoff.getFullYear() - HISTORICO_ATENDIMENTOS_ANOS)
   const atendimentoCutoffIso = atendimentoCutoff.toISOString()
 
-  const [pacientes, contatos, { data: profiles }, templates, { data: kanbanColumnsRaw }] = await Promise.all([
+  const [pacientes, { data: profiles }, templates, { data: kanbanColumnsRaw }] = await Promise.all([
     fetchAll((from, to) =>
-      supabase.from('pacientes').select('id, nome, telefone, email, recuperacao_base').eq('ativo', true).order('nome').range(from, to)
-    ),
-    fetchAll((from, to) =>
-      supabase.from('contatos_base').select('paciente_id, status, kanban_coluna_chave, responsavel_id').range(from, to)
+      supabase
+        .from('pacientes')
+        .select(`
+          id,
+          nome,
+          telefone,
+          email,
+          recuperacao_base,
+          contatos_base (
+            paciente_id,
+            status,
+            kanban_coluna_chave,
+            responsavel_id
+          )
+        `)
+        .eq('ativo', true)
+        .order('nome')
+        .range(from, to)
     ),
     supabase.from('profiles').select('id, full_name').eq('ativo', true).neq('role', 'master').neq('role', 'medico').order('full_name'),
     user
@@ -83,13 +104,13 @@ export default async function ContatosPage() {
     atendimentoCutoffIso
   )
 
-  const contatosMap = new Map(contatos.map(c => [c.paciente_id, c]))
   const profilesMap = new Map((profiles ?? []).map(p => [p.id, p]))
   const kanbanColumns = normalizarColunasContato((kanbanColumnsRaw ?? null) as KanbanColunaContato[] | null)
   const ultimoAtendimentoMap = criarMapaUltimoAtendimento(atendimentos)
 
   const data: ContatoPaciente[] = pacientes.map(p => {
-    const c = contatosMap.get(p.id)
+    const contatoRelacao = Array.isArray(p.contatos_base) ? p.contatos_base[0] : p.contatos_base
+    const c = (contatoRelacao ?? null) as ContatoBaseRelacionamento | null
     const ua = ultimoAtendimentoMap.get(p.id)
     const responsavelNome = c?.responsavel_id ? profilesMap.get(c.responsavel_id)?.full_name ?? null : null
     return {
