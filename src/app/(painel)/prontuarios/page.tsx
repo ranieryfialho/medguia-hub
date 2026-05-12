@@ -17,7 +17,7 @@ export default async function ProntuariosPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
-  await requireModulo('prontuarios')
+  const { user, profile } = await requireModulo('prontuarios')
 
   const supabase = await createClient()
   const resolvedParams = await searchParams
@@ -26,15 +26,6 @@ export default async function ProntuariosPage({
   const busca = ((resolvedParams.busca as string) || '').trim()
   const filtroProf = (resolvedParams.profissional_id as string) || ''
   const pagina = Math.max(1, parseInt((resolvedParams.pagina as string) || '1'))
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
 
   const role = profile?.role ?? ''
   const isFisio = role !== 'gestor' && role !== 'master'

@@ -6,12 +6,10 @@ import { Toaster } from 'react-hot-toast'
 import { listarTodasDisponibilidades } from '@/actions/disponibilidade'
 import { normalizarDisponibilidade, type DisponibilidadeDia } from '@/lib/disponibilidade'
 import { podeEntrarNaAgendaOuRelatorio, podeEntrarNoWidgetDisponibilidade } from '@/lib/profissionais'
-import { temAcesso } from '@/lib/modulos'
 import { WidgetDisponibilidade } from '@/components/features/configuracoes'
 import { listarStatusDisponibilidade } from '@/actions/status-disponibilidade'
 import { listarTiposConsultaAtivos } from '@/actions/tipos-consulta'
 import { listarPlanosSaudeAtivos } from '@/actions/planos-saude'
-import { STATUS_CONCLUIDO_RAW_VALUES } from '@/lib/atendimento-status'
 
 export default async function DashboardLayout({
   children,
@@ -49,29 +47,10 @@ export default async function DashboardLayout({
   const avatarUrl = profile?.avatar_url ||
     `https://ui-avatars.com/api/?name=${encodeURIComponent(nomeUsuario)}&background=cce2da&color=006b5a&bold=true`
 
-  let prontuariosPendentes = 0
-  if (user && temAcesso(modulosLiberados, 'prontuarios')) {
-    const isFisio = userRole !== 'gestor' && userRole !== 'master'
+  const prontuariosPendentes = 0
 
-    const atendimentosQuery = supabase
-      .from('atendimentos')
-      .select('id')
-      .in('status', STATUS_CONCLUIDO_RAW_VALUES)
-
-    if (isFisio) atendimentosQuery.eq('profissional_id', user.id)
-
-    const [{ data: comProntuario }, { data: concluidos }] = await Promise.all([
-      supabase.from('prontuarios').select('atendimento_id'),
-      atendimentosQuery,
-    ])
-
-    const idsComProntuario = new Set(comProntuario?.map(p => p.atendimento_id) ?? [])
-    prontuariosPendentes = (concluidos ?? []).filter(a => !idsComProntuario.has(a.id)).length
-  }
-
-  const [{ data: listaProfissionais }, { data: listaProfissionaisWidget }, todasDisponibilidades, tiposConsulta, planosSaude] = await Promise.all([
-    supabase.from('profiles').select('id, full_name, role').neq('ativo', false).in('role', ['fisioterapeuta', 'gestor', 'medico']).order('full_name'),
-    supabase.from('profiles').select('id, full_name, role').eq('ativo', true).in('role', ['fisioterapeuta', 'gestor']).order('full_name'),
+  const [{ data: listaProfissionais }, todasDisponibilidades, tiposConsulta, planosSaude] = await Promise.all([
+    supabase.from('profiles').select('id, full_name, role, ativo').in('role', ['fisioterapeuta', 'gestor', 'medico']).order('full_name'),
     listarTodasDisponibilidades(),
     listarTiposConsultaAtivos(),
     listarPlanosSaudeAtivos(),
@@ -85,7 +64,8 @@ export default async function DashboardLayout({
 
   const profissionaisComJornada = new Set(todasDisponibilidades.map((d) => d.profissional_id))
   const profissionais = (listaProfissionais ?? [])
-    .filter((p: { id: string; full_name: string; role: string }) =>
+    .filter((p: { id: string; full_name: string; role: string; ativo?: boolean | null }) =>
+      p.ativo !== false &&
       podeEntrarNaAgendaOuRelatorio(p, profissionaisComJornada),
     )
     .map((p: { id: string; full_name: string; role: string }) => ({
@@ -94,8 +74,9 @@ export default async function DashboardLayout({
       cargo: p.role || 'Profissional',
     }))
 
-  const profissionaisWidget = (listaProfissionaisWidget ?? [])
-    .filter((p: { id: string; full_name: string; role: string }) =>
+  const profissionaisWidget = (listaProfissionais ?? [])
+    .filter((p: { id: string; full_name: string; role: string; ativo?: boolean | null }) =>
+      p.ativo === true &&
       podeEntrarNoWidgetDisponibilidade(p, profissionaisComJornada),
     )
     .map((p: { id: string; full_name: string; role: string }) => ({

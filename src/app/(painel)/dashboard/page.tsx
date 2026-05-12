@@ -45,19 +45,11 @@ type Contato = {
 }
 
 export default async function DashboardPage() {
-  await requireModulo('dashboard')
+  const { user, profile } = await requireModulo('dashboard')
 
   const supabase = await createClient()
   const hoje = new Date()
   const inicioMes = startOfMonth(hoje)
-
-  // 1. Buscar perfil do usuário logado
-  const { data: { user } } = await supabase.auth.getUser()
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role, nivel_acesso, full_name')
-    .eq('id', user!.id)
-    .single()
 
   const isGestorOuMaster = profile?.nivel_acesso === 'gestor' || profile?.nivel_acesso === 'master'
 
@@ -79,9 +71,9 @@ export default async function DashboardPage() {
     profissionaisParaKPI = profissionais.map(p => ({ id: p.id, nome: p.full_name || 'Sem nome' }))
   } else {
     // Fisioterapeuta vê apenas a si mesmo
-    profissionais = [{ id: user!.id, full_name: profile?.full_name || 'Você', role: 'fisioterapeuta' }]
-    profIds = [user!.id]
-    profissionaisParaKPI = [{ id: user!.id, nome: profile?.full_name || 'Você' }]
+    profissionais = [{ id: user.id, full_name: profile?.full_name || 'Você', role: 'fisioterapeuta' }]
+    profIds = [user.id]
+    profissionaisParaKPI = [{ id: user.id, nome: profile?.full_name || 'Você' }]
   }
 
   // 3. Buscar dados em paralelo
@@ -108,7 +100,7 @@ export default async function DashboardPage() {
       .lte('created_at', hoje_UTC),
     isGestorOuMaster
       ? supabase.from('contatos_base').select('status, responsavel_id')
-      : supabase.from('contatos_base').select('status, responsavel_id').eq('responsavel_id', user!.id),
+      : supabase.from('contatos_base').select('status, responsavel_id').eq('responsavel_id', user.id),
   ])
 
   const atendimentos: Atendimento[] = atendimentosRes.data || []

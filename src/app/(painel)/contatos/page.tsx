@@ -48,15 +48,14 @@ async function fetchAll<T>(
 }
 
 export default async function ContatosPage() {
-  await requireModulo('contatos:base')
+  const { user, profile } = await requireModulo('contatos:base')
 
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
   const atendimentoCutoff = new Date()
   atendimentoCutoff.setFullYear(atendimentoCutoff.getFullYear() - HISTORICO_ATENDIMENTOS_ANOS)
   const atendimentoCutoffIso = atendimentoCutoff.toISOString()
 
-  const [pacientes, contatos, { data: profiles }, templates, { data: profile }, { data: kanbanColumnsRaw }] = await Promise.all([
+  const [pacientes, contatos, { data: profiles }, templates, { data: kanbanColumnsRaw }] = await Promise.all([
     fetchAll((from, to) =>
       supabase.from('pacientes').select('id, nome, telefone, email, recuperacao_base').eq('ativo', true).order('nome').range(from, to)
     ),
@@ -73,9 +72,6 @@ export default async function ContatosPage() {
           .order('criado_em', { ascending: true })
           .then(({ data }) => data ?? [])
       : Promise.resolve([]),
-    user
-      ? supabase.from('profiles').select('role, nivel_acesso').eq('id', user.id).maybeSingle()
-      : Promise.resolve({ data: null }),
     supabase
       .from('kanban_colunas_contatos')
       .select('chave, nome, tipo, status_base, cor_chave, ordem')

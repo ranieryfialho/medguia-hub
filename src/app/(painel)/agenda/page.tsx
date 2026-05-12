@@ -126,16 +126,9 @@ async function fetchAll<T>(
 }
 
 export default async function AgendaPage({ searchParams }: PageProps) {
-  await requireModulo('agenda')
+  const { user, profile } = await requireModulo('agenda')
 
   const supabase = await createClient()
-
-  const { data: { user } } = await supabase.auth.getUser()
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user!.id)
-    .single()
 
   const isFisioterapeuta = profile?.role === 'fisioterapeuta'
 
@@ -219,7 +212,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
 
   let { start: fetchInicio, end: fetchFim } = getAppDayRangeUTC(dataString)
   const shouldFilterByProfissional = isFisioterapeuta || myAppointmentsOnly
-  const profissionalIdFiltro = shouldFilterByProfissional ? user!.id : profissionalSelecionado || ''
+  const profissionalIdFiltro = shouldFilterByProfissional ? user.id : profissionalSelecionado || ''
 
   if (view === 'semana') {
     fetchInicio = getAppDayRangeUTC(formatAppDateKey(inicioDaSemana)).start
@@ -446,7 +439,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
   })) || []
 
   // Disponibilidade do usuário logado (para highlight na semana)
-  const dispLogado = disponibilidadesMap[user!.id] ?? null
+  const dispLogado = disponibilidadesMap[user.id] ?? null
 
   const agendamentosHoje = agendamentosComEfetivo.filter(a => formatAppDateKey(a.data_agendamento) === dataString)
   const totalAgendamentos = agendamentosHoje.length

@@ -123,7 +123,6 @@ export async function registrarContato(
 
   revalidatePath('/confirmacoes')
   revalidatePath('/agenda')
-  revalidatePath('/(painel)', 'layout')
   return { success: true }
 }
 
@@ -189,7 +188,6 @@ export async function adicionarSessaoReposicao(
 
   revalidatePath('/agenda')
   revalidatePath('/confirmacoes')
-  revalidatePath('/(painel)', 'layout')
   return { success: true }
 }
 
@@ -243,7 +241,6 @@ export async function criarAtendimentoReagendado(
 
   revalidatePath('/agenda')
   revalidatePath('/confirmacoes')
-  revalidatePath('/(painel)', 'layout')
   return { success: true }
 }
 
