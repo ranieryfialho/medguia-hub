@@ -117,6 +117,7 @@ export default async function ProdutosListPage({
             <thead>
               <tr className="border-b border-border bg-page/50">
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Nome</th>
+                <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Categoria</th>
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Atendimentos</th>
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase text-right">Preço Padrão</th>
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Status</th>
@@ -126,7 +127,7 @@ export default async function ProdutosListPage({
             <tbody className="divide-y divide-border">
               {produtos && produtos.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-sm text-text-secondary">
+                  <td colSpan={6} className="px-6 py-8 text-center text-sm text-text-secondary">
                     {busca ? `Nenhum produto encontrado para "${busca}".` : 'Nenhum produto encontrado.'}
                   </td>
                 </tr>
@@ -134,6 +135,17 @@ export default async function ProdutosListPage({
                 produtos?.map((produto: any) => (
                   <tr key={produto.id} className={`hover:bg-page/50 transition-colors ${!produto.ativo ? 'opacity-50' : ''}`}>
                     <td className="px-6 py-4 text-sm text-text-primary font-medium">{produto.nome}</td>
+                    <td className="px-6 py-4">
+                      {produto.categoria === 'tratamento' && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Tratamento</span>
+                      )}
+                      {produto.categoria === 'consulta' && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Consulta</span>
+                      )}
+                      {!produto.categoria && (
+                        <span className="text-sm text-text-secondary">—</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-sm text-text-secondary">{produto.numero_atendimentos || '—'}</td>
                     <td className="px-6 py-4 text-sm text-text-primary text-right font-medium">
                       R$ {produto.preco_padrao.toFixed(2)}

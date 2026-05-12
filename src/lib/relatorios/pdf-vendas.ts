@@ -2,6 +2,23 @@ import type { jsPDF } from 'jspdf'
 
 export type AgregacaoNome = { nome: string; quantidade: number; faturamento: number }
 
+export type ItemDetalheVenda = {
+  produto_nome: string
+  categoria: string | null
+  quantidade: number
+  subtotal: number
+}
+
+export type VendaDetalhe = {
+  id: string
+  data_venda: string
+  paciente_nome: string
+  profissional_nome: string
+  status: string
+  itens: ItemDetalheVenda[]
+  total: number
+}
+
 export type GerarPdfVendasInput = {
   periodoLabel: string
   totalFaturado: number
@@ -10,6 +27,8 @@ export type GerarPdfVendasInput = {
   porOrigem: Record<string, { quantidade: number; faturamento: number }>
   porProfissional: AgregacaoNome[]
   porProduto: AgregacaoNome[]
+  porCategoria?: Record<string, { quantidade: number; faturamento: number }>
+  vendasDetalhadas?: VendaDetalhe[]
 }
 
 type RGB = readonly [number, number, number]
@@ -47,6 +66,16 @@ export async function gerarPdfVendas(input: GerarPdfVendasInput) {
   desenharPaginaProfissionais(doc, profOrdenados, input.totalFaturado)
   doc.addPage()
   desenharPaginaProdutos(doc, prodOrdenados, input.totalFaturado, input.porOrigem, input.totalFaturado)
+
+  if (input.porCategoria && Object.keys(input.porCategoria).some(k => k !== 'sem_categoria')) {
+    doc.addPage()
+    desenharPaginaCategorias(doc, input.porCategoria, input.totalFaturado)
+  }
+
+  if (input.vendasDetalhadas && input.vendasDetalhadas.length > 0) {
+    doc.addPage()
+    desenharPaginaVendasDetalhadas(doc, input.vendasDetalhadas)
+  }
 
   aplicarRodape(doc, input.periodoLabel)
   doc.save('relatorio-vendas.pdf')
@@ -304,6 +333,113 @@ function aplicarRodape(doc: jsPDF, periodoLabel: string) {
     doc.setTextColor(...MUTED)
     doc.text(periodoLabel, MARGIN_X, PAGE_HEIGHT - 7)
     doc.text(`Página ${page} de ${pages}`, PAGE_WIDTH - MARGIN_X, PAGE_HEIGHT - 7, { align: 'right' })
+  }
+}
+
+const CATEGORIA_LABEL: Record<string, string> = {
+  tratamento: 'Tratamento',
+  consulta: 'Consulta',
+  sem_categoria: 'Sem categoria',
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  venda_confirmada: 'Confirmada',
+  orcamento_pendente: 'Orçamento',
+  orcamento_recusado: 'Recusado',
+}
+
+function desenharPaginaCategorias(
+  doc: jsPDF,
+  porCategoria: Record<string, { quantidade: number; faturamento: number }>,
+  totalFaturado: number,
+) {
+  let y = desenharCabecalhoInterno(doc, 'Faturamento por Categoria', 'Breakdown por tipo de produto')
+
+  y += 4
+  const headers = ['Categoria', 'Itens vendidos', 'Faturamento', '% do Total']
+  const widths = [60, 30, 52, 36]
+  y = desenharLinhaTabela(doc, y, headers, widths, true)
+
+  const ordem = ['tratamento', 'consulta', 'sem_categoria']
+  const entradas = ordem
+    .filter(k => porCategoria[k])
+    .map(k => [k, porCategoria[k]] as const)
+
+  for (const [cat, d] of entradas) {
+    if (y > PAGE_HEIGHT - 22) {
+      doc.addPage()
+      y = desenharCabecalhoInterno(doc, 'Faturamento por Categoria', 'Continuação')
+      y = desenharLinhaTabela(doc, y + 4, headers, widths, true)
+    }
+    const pct = totalFaturado > 0 ? ((d.faturamento / totalFaturado) * 100).toFixed(1) : '0.0'
+    y = desenharLinhaTabela(doc, y, [
+      CATEGORIA_LABEL[cat] || cat,
+      String(d.quantidade),
+      fmt(d.faturamento),
+      `${pct}%`,
+    ], widths)
+  }
+
+  // Linha de total
+  y = desenharLinhaTabela(doc, y, [
+    'TOTAL',
+    String(Object.values(porCategoria).reduce((s, d) => s + d.quantidade, 0)),
+    fmt(totalFaturado),
+    '100%',
+  ], widths, true)
+}
+
+function desenharPaginaVendasDetalhadas(doc: jsPDF, vendas: VendaDetalhe[]) {
+  let y = desenharCabecalhoInterno(
+    doc,
+    'Vendas Detalhadas',
+    `${vendas.length} venda${vendas.length !== 1 ? 's' : ''} no período`,
+  )
+
+  y += 4
+  const headers = ['Data', 'Paciente', 'Itens', 'Total', 'Status']
+  const widths = [20, 40, 74, 26, 18]
+  y = desenharLinhaTabela(doc, y, headers, widths, true)
+
+  for (const venda of vendas) {
+    const itensTexto = venda.itens
+      .map(i => `${i.quantidade > 1 ? `${i.quantidade}x ` : ''}${i.produto_nome}`)
+      .join(', ')
+
+    const linhasItens = doc.splitTextToSize(itensTexto, widths[2] - 4)
+    const rowH = Math.max(8, linhasItens.length * 4 + 4)
+
+    if (y + rowH > PAGE_HEIGHT - 22) {
+      doc.addPage()
+      y = desenharCabecalhoInterno(doc, 'Vendas Detalhadas', 'Continuação')
+      y = desenharLinhaTabela(doc, y + 4, headers, widths, true)
+    }
+
+    const data = new Date(venda.data_venda).toLocaleDateString('pt-BR')
+    const status = STATUS_LABEL[venda.status] || venda.status
+    const cols = [data, venda.paciente_nome, itensTexto, fmt(venda.total), status]
+
+    let x = MARGIN_X
+    cols.forEach((val, idx) => {
+      doc.setDrawColor(...LINE)
+      doc.setFillColor(255, 255, 255)
+      doc.rect(x, y, widths[idx], rowH, 'FD')
+
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(7)
+      doc.setTextColor(...TEXT)
+
+      const alignRight = idx === 3
+      const linhas = doc.splitTextToSize(val, widths[idx] - 4)
+      doc.text(linhas, alignRight ? x + widths[idx] - 2 : x + 2, y + 4.5, {
+        align: alignRight ? 'right' : 'left',
+        maxWidth: widths[idx] - 4,
+      })
+
+      x += widths[idx]
+    })
+
+    y += rowH
   }
 }
 

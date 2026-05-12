@@ -1,11 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { BarChart3, TrendingUp, Users, Package, Stethoscope, FileText, CheckCircle, XCircle, Clock } from 'lucide-react'
+import { BarChart3, TrendingUp, Users, Package, Stethoscope, FileText, CheckCircle, XCircle, Clock, Tag, List } from 'lucide-react'
 import { RelatorioVendasClient } from '@/components/features/relatorios'
 import { BtnGerarPdfVendas } from '@/components/features/shared'
 import { FiltroProdutosMultiSelect } from '@/components/features/produtos'
 import { requireModulo } from '@/lib/guard'
 import { FORMAS_PAGAMENTO } from '@/lib/vendas'
+import type { VendaDetalhe, ItemDetalheVenda } from '@/lib/relatorios/pdf-vendas'
 import { formatAppDateKey, getAppDayRangeUTC } from '@/lib/datetime'
 
 const ORIGENS = [
@@ -37,13 +38,30 @@ export default async function RelatorioVendasPage({
       ? [resolvedParams.produto_id]
       : []
 
+  const LIMITE_DETALHE = 20
+  const paginaVendas = Math.max(1, parseInt((resolvedParams.pagina_vendas as string) || '1'))
+
+  function buildPaginaUrl(p: number) {
+    const sp = new URLSearchParams()
+    if (data_inicio) sp.set('data_inicio', data_inicio)
+    if (data_fim) sp.set('data_fim', data_fim)
+    if (origem) sp.set('origem', origem)
+    if (forma_pagamento) sp.set('forma_pagamento', forma_pagamento)
+    if (profissional_id) sp.set('profissional_id', profissional_id)
+    produtoIds.forEach(id => sp.append('produto_id', id))
+    if (p > 1) sp.set('pagina_vendas', String(p))
+    const qs = sp.toString()
+    return qs ? `/relatorios/vendas?${qs}` : '/relatorios/vendas'
+  }
+
   // Query única com join em profissional e itens+produto
   let query = supabase
     .from('vendas')
     .select(`
-      id, origem, forma_pagamento, data_venda, profissional_id, medico_referenciador_nome, status,
+      id, origem, forma_pagamento, data_venda, profissional_id, paciente_id, medico_referenciador_nome, status,
+      pacientes:paciente_id ( nome ),
       profiles:profissional_id ( full_name, role ),
-      itens_venda ( quantidade, preco_unitario, produtos:produto_id ( id, nome ) )
+      itens_venda ( quantidade, preco_unitario, produtos:produto_id ( id, nome, categoria ) )
     `)
 
   if (data_inicio) query = query.gte('data_venda', getAppDayRangeUTC(data_inicio).start)
@@ -87,6 +105,8 @@ export default async function RelatorioVendasPage({
   const porProduto: Record<string, AgregacaoNome> = {}
   const porReferenciador: Record<string, AgregacaoNome> = {}
   const porPeriodo: Record<string, number> = {}
+  const porCategoria: Record<string, { quantidade: number; faturamento: number }> = {}
+  const vendasDetalhadas: VendaDetalhe[] = []
 
   // Agregações de orçamentos
   let orcamentoPendenteCount = 0
@@ -107,12 +127,29 @@ export default async function RelatorioVendasPage({
     if (itens.length === 0) continue
 
     const perfil: any = (venda as any).profiles
+    const paciente: any = (venda as any).pacientes
     const statusVenda: string = (venda as any).status ?? 'venda_confirmada'
 
     const totalVenda = itens.reduce(
       (s: number, i: any) => s + i.quantidade * i.preco_unitario,
       0
     )
+
+    // Registro de detalhe para todas as vendas (todos os status)
+    vendasDetalhadas.push({
+      id: venda.id,
+      data_venda: venda.data_venda,
+      paciente_nome: paciente?.nome || '—',
+      profissional_nome: perfil?.full_name || 'Desconhecido',
+      status: statusVenda,
+      itens: itens.map((i: any): ItemDetalheVenda => ({
+        produto_nome: i.produtos?.nome || 'Produto removido',
+        categoria: i.produtos?.categoria || null,
+        quantidade: i.quantidade,
+        subtotal: i.quantidade * i.preco_unitario,
+      })),
+      total: totalVenda,
+    })
 
     // Acumular orçamentos separadamente (não entram nos KPIs principais)
     if (statusVenda === 'orcamento_pendente') {
@@ -154,13 +191,18 @@ export default async function RelatorioVendasPage({
       porReferenciador[refNome].faturamento += totalVenda
     }
 
-    // Por produto
+    // Por produto e por categoria
     for (const item of itens) {
       const prodNome = (item.produtos as any)?.nome || 'Produto removido'
       const prodKey = prodNome
       if (!porProduto[prodKey]) porProduto[prodKey] = { nome: prodNome, quantidade: 0, faturamento: 0 }
       porProduto[prodKey].quantidade += item.quantidade
       porProduto[prodKey].faturamento += item.quantidade * item.preco_unitario
+
+      const cat: string = (item.produtos as any)?.categoria || 'sem_categoria'
+      if (!porCategoria[cat]) porCategoria[cat] = { quantidade: 0, faturamento: 0 }
+      porCategoria[cat].quantidade += item.quantidade
+      porCategoria[cat].faturamento += item.quantidade * item.preco_unitario
     }
 
     // Por período (últimos 90 dias)
@@ -209,6 +251,8 @@ export default async function RelatorioVendasPage({
               porOrigem={porOrigem}
               porProfissional={Object.values(porProfissional)}
               porProduto={Object.values(porProduto)}
+              porCategoria={porCategoria}
+              vendasDetalhadas={vendasDetalhadas}
             />
           )}
         </div>
@@ -580,6 +624,141 @@ export default async function RelatorioVendasPage({
           </div>
         </div>
       )}
+
+      {/* Faturamento por Categoria */}
+      {Object.keys(porCategoria).some(k => k !== 'sem_categoria') && (
+        <div className="bg-surface rounded-lg border border-border p-6">
+          <h2 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
+            <Tag size={20} className="text-primary-500" />
+            Faturamento por Categoria
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {(['tratamento', 'consulta'] as const).map((cat) => {
+              const d = porCategoria[cat]
+              if (!d) return null
+              const pct = totalFaturado > 0 ? (d.faturamento / totalFaturado) * 100 : 0
+              const label = cat === 'tratamento' ? 'Tratamento' : 'Consulta'
+              const colorBg = cat === 'tratamento' ? 'bg-blue-50 border-blue-200' : 'bg-purple-50 border-purple-200'
+              const colorText = cat === 'tratamento' ? 'text-blue-800' : 'text-purple-800'
+              const colorBar = cat === 'tratamento' ? 'bg-blue-500' : 'bg-purple-500'
+              return (
+                <div key={cat} className={`rounded-lg border p-4 ${colorBg}`}>
+                  <p className={`text-xs font-semibold uppercase mb-1 ${colorText}`}>{label}</p>
+                  <p className={`text-2xl font-bold ${colorText}`}>
+                    R$ {d.faturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </p>
+                  <p className={`text-sm mt-0.5 ${colorText} opacity-75`}>{d.quantidade} item{d.quantidade !== 1 ? 's' : ''} vendido{d.quantidade !== 1 ? 's' : ''}</p>
+                  <div className="mt-3 w-full bg-white/60 rounded-full h-1.5">
+                    <div className={`${colorBar} h-1.5 rounded-full`} style={{ width: `${pct}%` }} />
+                  </div>
+                  <p className={`text-xs mt-1 ${colorText} opacity-75`}>{pct.toFixed(1)}% do faturamento total</p>
+                </div>
+              )
+            })}
+            {porCategoria['sem_categoria'] && (
+              <div className="rounded-lg border border-border bg-page p-4">
+                <p className="text-xs font-semibold uppercase mb-1 text-text-secondary">Sem Categoria</p>
+                <p className="text-2xl font-bold text-text-primary">
+                  R$ {porCategoria['sem_categoria'].faturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
+                <p className="text-sm mt-0.5 text-text-secondary">{porCategoria['sem_categoria'].quantidade} item{porCategoria['sem_categoria'].quantidade !== 1 ? 's' : ''}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Vendas Detalhadas */}
+      {vendasDetalhadas.length > 0 && (() => {
+        const totalPaginasVendas = Math.ceil(vendasDetalhadas.length / LIMITE_DETALHE)
+        const paginaAtual = Math.min(paginaVendas, totalPaginasVendas)
+        const offsetVendas = (paginaAtual - 1) * LIMITE_DETALHE
+        const vendasPaginadas = vendasDetalhadas.slice(offsetVendas, offsetVendas + LIMITE_DETALHE)
+
+        const statusConfig: Record<string, { label: string; cls: string }> = {
+          venda_confirmada: { label: 'Confirmada', cls: 'bg-emerald-100 text-emerald-800' },
+          orcamento_pendente: { label: 'Orçamento', cls: 'bg-amber-100 text-amber-800' },
+          orcamento_recusado: { label: 'Recusado', cls: 'bg-red-100 text-red-800' },
+        }
+
+        return (
+          <div className="bg-surface rounded-lg border border-border p-6">
+            <h2 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
+              <List size={20} className="text-primary-500" />
+              Vendas Detalhadas
+              <span className="ml-auto text-sm font-normal text-text-secondary">
+                {vendasDetalhadas.length} venda{vendasDetalhadas.length !== 1 ? 's' : ''}
+              </span>
+            </h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left min-w-[700px]">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="px-4 py-2 text-xs font-semibold text-text-secondary uppercase">Data</th>
+                    <th className="px-4 py-2 text-xs font-semibold text-text-secondary uppercase">Paciente</th>
+                    <th className="px-4 py-2 text-xs font-semibold text-text-secondary uppercase">Itens</th>
+                    <th className="px-4 py-2 text-xs font-semibold text-text-secondary uppercase text-right">Total</th>
+                    <th className="px-4 py-2 text-xs font-semibold text-text-secondary uppercase">Profissional</th>
+                    <th className="px-4 py-2 text-xs font-semibold text-text-secondary uppercase">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {vendasPaginadas.map((venda) => {
+                    const sc = statusConfig[venda.status] ?? { label: venda.status, cls: 'bg-gray-100 text-gray-800' }
+                    return (
+                      <tr key={venda.id} className="hover:bg-page/50">
+                        <td className="px-4 py-3 text-sm text-text-secondary whitespace-nowrap">
+                          {new Date(venda.data_venda).toLocaleDateString('pt-BR')}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-text-primary font-medium">{venda.paciente_nome}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-1">
+                            {venda.itens.map((item, idx) => (
+                              <span key={idx} className="inline-flex items-center gap-1 text-xs text-text-secondary">
+                                {item.quantidade > 1 && <span className="font-semibold text-text-primary">{item.quantidade}×</span>}
+                                {item.produto_nome}
+                                {item.categoria === 'tratamento' && (
+                                  <span className="px-1 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700">T</span>
+                                )}
+                                {item.categoria === 'consulta' && (
+                                  <span className="px-1 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700">C</span>
+                                )}
+                                {idx < venda.itens.length - 1 && <span className="text-border">·</span>}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-text-primary text-right font-medium whitespace-nowrap">
+                          R$ {venda.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-text-secondary">{venda.profissional_nome.split(' ')[0]}</td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${sc.cls}`}>
+                            {sc.label}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {totalPaginasVendas > 1 && (
+              <div className="mt-4 flex items-center justify-center gap-2 flex-wrap">
+                {paginaAtual > 1 && (
+                  <Link href={buildPaginaUrl(paginaAtual - 1)} className="px-3 py-1 rounded-md bg-page text-text-primary hover:bg-page/80 transition-colors text-sm">← Anterior</Link>
+                )}
+                {Array.from({ length: totalPaginasVendas }, (_, i) => i + 1).map((p) => (
+                  <Link key={p} href={buildPaginaUrl(p)} className={`px-3 py-1 rounded-md text-sm transition-colors ${p === paginaAtual ? 'bg-primary-500 text-white font-medium' : 'bg-page text-text-primary hover:bg-page/80'}`}>{p}</Link>
+                ))}
+                {paginaAtual < totalPaginasVendas && (
+                  <Link href={buildPaginaUrl(paginaAtual + 1)} className="px-3 py-1 rounded-md bg-page text-text-primary hover:bg-page/80 transition-colors text-sm">Próxima →</Link>
+                )}
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {totalVendas === 0 && orcamentoPendenteCount === 0 && orcamentoRecusadoCount === 0 && (
         <div className="bg-surface rounded-lg border border-border p-12 text-center">

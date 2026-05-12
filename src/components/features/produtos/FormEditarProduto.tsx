@@ -9,6 +9,7 @@ interface ProdutoInicial {
   numero_atendimentos?: number
   preco_padrao: number
   descricao?: string
+  categoria?: string | null
   ativo: boolean
 }
 
@@ -61,6 +62,20 @@ export function FormEditarProduto({ produtoInicial }: { produtoInicial: ProdutoI
             className="w-full px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
           />
         </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-text-primary mb-2">Categoria</label>
+        <select
+          name="categoria"
+          defaultValue={produtoInicial.categoria || ''}
+          className="w-full px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
+        >
+          <option value="">Sem categoria</option>
+          <option value="tratamento">Tratamento</option>
+          <option value="consulta">Consulta</option>
+        </select>
+        <p className="text-xs text-text-secondary mt-1">Usado para separar faturamento no relatório de vendas</p>
       </div>
 
       <div>

@@ -11,6 +11,7 @@ export async function criarProduto(prevState: any, formData: FormData) {
   const numero_atendimentos = formData.get('numero_atendimentos') as string
   const preco_padrao = formData.get('preco_padrao') as string
   const descricao = formData.get('descricao') as string
+  const categoria = formData.get('categoria') as string
 
   if (!nome?.trim()) {
     return { error: 'Nome do produto é obrigatório.' }
@@ -25,6 +26,7 @@ export async function criarProduto(prevState: any, formData: FormData) {
     numero_atendimentos: numero_atendimentos ? parseInt(numero_atendimentos) : null,
     preco_padrao: parseFloat(preco_padrao),
     descricao: descricao || null,
+    categoria: categoria || null,
     ativo: true,
   }
 
@@ -60,6 +62,7 @@ export async function editarProduto(prevState: any, formData: FormData) {
   const preco_padrao = formData.get('preco_padrao') as string
   const descricao = formData.get('descricao') as string
   const ativo = formData.get('ativo') === 'true'
+  const categoria = formData.get('categoria') as string
 
   if (!nome?.trim()) {
     return { error: 'Nome do produto é obrigatório.' }
@@ -74,6 +77,7 @@ export async function editarProduto(prevState: any, formData: FormData) {
     numero_atendimentos: numero_atendimentos ? parseInt(numero_atendimentos) : null,
     preco_padrao: parseFloat(preco_padrao),
     descricao: descricao || null,
+    categoria: categoria || null,
     ativo,
     atualizado_em: new Date().toISOString(),
   }
