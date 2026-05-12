@@ -31,6 +31,28 @@ export default async function VendasListPage({
   const limite = Math.max(1, parseInt((resolvedParams.limite as string) || '25'))
   const pagina = Math.max(1, parseInt((resolvedParams.pagina as string) || '1'))
   const offset = (pagina - 1) * limite
+  const buscaNormalizada = busca.toLowerCase()
+
+  let pacienteIdsBusca: string[] = []
+  let profissionalIdsBusca: string[] = []
+
+  if (buscaNormalizada) {
+    const [{ data: pacientesBusca }, { data: profissionaisBusca }] = await Promise.all([
+      supabase
+        .from('pacientes')
+        .select('id')
+        .ilike('nome', `%${buscaNormalizada}%`)
+        .limit(200),
+      supabase
+        .from('profiles')
+        .select('id')
+        .ilike('full_name', `%${buscaNormalizada}%`)
+        .limit(200),
+    ])
+
+    pacienteIdsBusca = (pacientesBusca ?? []).map((item) => item.id)
+    profissionalIdsBusca = (profissionaisBusca ?? []).map((item) => item.id)
+  }
 
   let query = supabase
     .from('vendas')
@@ -70,20 +92,26 @@ export default async function VendasListPage({
     query = query.eq('status', status)
   }
 
-  // Busca por paciente ou profissional (realizado em memória após fetch)
-  const { data: vendas, count } = await query.range(offset, offset + limite - 1)
+  let vendas: any[] = []
+  let total = 0
 
-  // Filtrar por busca em memória
-  let vendasFiltradas = vendas || []
-  if (busca) {
-    vendasFiltradas = vendasFiltradas.filter((v: any) => {
-      const nomePaciente = v.pacientes?.nome?.toLowerCase() || ''
-      const nomeProfissional = v.profiles?.nome?.toLowerCase() || ''
-      return nomePaciente.includes(busca.toLowerCase()) || nomeProfissional.includes(busca.toLowerCase())
-    })
+  if (!buscaNormalizada || pacienteIdsBusca.length > 0 || profissionalIdsBusca.length > 0) {
+    if (buscaNormalizada) {
+      const filtrosBusca: string[] = []
+      if (pacienteIdsBusca.length > 0) {
+        filtrosBusca.push(`paciente_id.in.(${pacienteIdsBusca.join(',')})`)
+      }
+      if (profissionalIdsBusca.length > 0) {
+        filtrosBusca.push(`profissional_id.in.(${profissionalIdsBusca.join(',')})`)
+      }
+      query = query.or(filtrosBusca.join(','))
+    }
+
+    const { data, count } = await query.range(offset, offset + limite - 1)
+    vendas = data ?? []
+    total = count ?? 0
   }
 
-  const total = count ?? 0
   const totalPaginas = Math.ceil(total / limite)
 
   return (
@@ -129,14 +157,14 @@ export default async function VendasListPage({
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {vendasFiltradas.length === 0 && (
+              {vendas.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-6 py-8 text-center text-sm text-text-secondary">
                     {busca ? `Nenhuma venda encontrada para "${busca}".` : 'Nenhuma venda encontrada.'}
                   </td>
                 </tr>
               )}
-              {vendasFiltradas.map((venda: any) => {
+              {vendas.map((venda: any) => {
                 const dataFormatada = formatAppDate(venda.data_venda)
 
                 return (
@@ -200,12 +228,12 @@ export default async function VendasListPage({
 
         {/* Lista — Mobile */}
         <div className="md:hidden divide-y divide-border">
-          {vendasFiltradas.length === 0 ? (
+          {vendas.length === 0 ? (
             <div className="px-4 py-8 text-center text-sm text-text-secondary">
               {busca ? `Nenhuma venda encontrada para "${busca}".` : 'Nenhuma venda encontrada.'}
             </div>
           ) : (
-            vendasFiltradas.map((venda: any) => {
+            vendas.map((venda: any) => {
               const dataFormatada = formatAppDate(venda.data_venda)
 
               return (

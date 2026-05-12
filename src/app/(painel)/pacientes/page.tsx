@@ -26,7 +26,10 @@ export default async function PacientesListPage({
 
   let query = supabase
     .from('pacientes')
-    .select('*', { count: 'exact' })
+    .select(
+      'id, nome, cpf, email, telefone, recuperacao_base, convenio, ativo, observacoes_gerais',
+      { count: 'exact' }
+    )
     .order('nome', { ascending: true })
 
   if (!mostrarInativos) {

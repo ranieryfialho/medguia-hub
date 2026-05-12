@@ -26,6 +26,7 @@ export default async function ProntuariosPage({
   const busca = ((resolvedParams.busca as string) || '').trim()
   const filtroProf = (resolvedParams.profissional_id as string) || ''
   const pagina = Math.max(1, parseInt((resolvedParams.pagina as string) || '1'))
+  const offsetHistorico = (pagina - 1) * LIMITE
 
   const role = profile?.role ?? ''
   const isFisio = role !== 'gestor' && role !== 'master'
@@ -36,8 +37,7 @@ export default async function ProntuariosPage({
   let pendentes: any[] = []
 
   if (aba === 'pendentes') {
-    const [{ data: comProntuario }, atendimentosRes, { data: profissionaisRaw }] = await Promise.all([
-      supabase.from('prontuarios').select('atendimento_id'),
+    const [atendimentosRes, { data: profissionaisRaw }] = await Promise.all([
       (() => {
         const q = supabase
           .from('atendimentos')
@@ -59,8 +59,21 @@ export default async function ProntuariosPage({
     ])
 
     profissionaisMap = new Map((profissionaisRaw ?? []).map(p => [p.id, p.full_name]))
-    const idsComProntuario = new Set(comProntuario?.map(p => p.atendimento_id) ?? [])
-    pendentes = (atendimentosRes.data ?? []).filter(a => !idsComProntuario.has(a.id))
+    const atendimentosConcluidos = atendimentosRes.data ?? []
+    const atendimentoIds = atendimentosConcluidos.map((atendimento) => atendimento.id)
+
+    let idsComProntuario = new Set<string>()
+
+    if (atendimentoIds.length > 0) {
+      const { data: comProntuario } = await supabase
+        .from('prontuarios')
+        .select('atendimento_id')
+        .in('atendimento_id', atendimentoIds)
+
+      idsComProntuario = new Set(comProntuario?.map((prontuario) => prontuario.atendimento_id) ?? [])
+    }
+
+    pendentes = atendimentosConcluidos.filter((atendimento) => !idsComProntuario.has(atendimento.id))
   }
 
   // ── ABA HISTÓRICO ──────────────────────────────────────────────
@@ -69,6 +82,20 @@ export default async function ProntuariosPage({
   let profissionaisFiltro: { id: string; nome: string }[] = []
 
   if (aba === 'historico') {
+    let pacienteIdsBusca: string[] = []
+
+    if (busca) {
+      const { data: pacientesBusca } = await supabase
+        .from('pacientes')
+        .select('id')
+        .ilike('nome', `%${busca}%`)
+        .limit(200)
+
+      pacienteIdsBusca = (pacientesBusca ?? []).map((paciente) => paciente.id)
+    }
+
+    const semResultadosParaBusca = busca.length > 0 && pacienteIdsBusca.length === 0
+
     let query = supabase
       .from('prontuarios')
       .select(`
@@ -82,15 +109,18 @@ export default async function ProntuariosPage({
           agendamento:agendamentos(tipo)
         ),
         pacientes:paciente_id(id, nome)
-      `)
+      `, { count: 'exact' })
       .order('created_at', { ascending: false })
-      .limit(500)
+      .range(offsetHistorico, offsetHistorico + LIMITE - 1)
 
     if (isFisio) query = query.eq('profissional_id', user.id)
     else if (filtroProf) query = query.eq('profissional_id', filtroProf)
+    if (pacienteIdsBusca.length > 0) query = query.in('paciente_id', pacienteIdsBusca)
 
-    const [{ data: historicoRaw }, { data: profissionaisRaw }] = await Promise.all([
-      query,
+    const [{ data: historicoRaw, count }, { data: profissionaisRaw }] = await Promise.all([
+      semResultadosParaBusca
+        ? Promise.resolve({ data: [] as any[], count: 0 })
+        : query,
       !isFisio
         ? supabase.from('profiles').select('id, full_name').in('role', ['fisioterapeuta', 'gestor']).order('full_name')
         : Promise.resolve({ data: [] as Array<{ id: string; full_name: string | null }> }),
@@ -102,16 +132,8 @@ export default async function ProntuariosPage({
       nome: p.full_name ?? 'Sem nome',
     }))
 
-    const filtrado = busca
-      ? (historicoRaw ?? []).filter(p => {
-          const pac = p.pacientes as { nome?: string } | null
-          return pac?.nome?.toLowerCase().includes(busca.toLowerCase())
-        })
-      : (historicoRaw ?? [])
-
-    historicoTotal = filtrado.length
-    const offset = (pagina - 1) * LIMITE
-    historicoPaginado = filtrado.slice(offset, offset + LIMITE)
+    historicoPaginado = historicoRaw ?? []
+    historicoTotal = count ?? 0
   }
 
   const totalPaginasHistorico = Math.ceil(historicoTotal / LIMITE)
