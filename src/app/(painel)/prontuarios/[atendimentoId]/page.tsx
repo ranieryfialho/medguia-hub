@@ -13,29 +13,42 @@ function iniciais(nome: string) {
 
 export default async function ProntuarioFormPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ atendimentoId: string }>
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
   await requireModulo('prontuarios')
 
   const { atendimentoId } = await params
+  const { from } = await searchParams
   const supabase = await createClient()
 
-  const { data: atendimento } = await supabase
-    .from('atendimentos')
-    .select(`
-      id,
-      data_agendamento,
-      tipo,
-      paciente_id,
-      status,
-      pacientes(id, nome, convenio, telefone),
-      agendamento:agendamentos(tipo, is_recorrente)
-    `)
-    .eq('id', atendimentoId)
-    .single()
+  const [{ data: atendimento }, { data: prontuarioExistente }] = await Promise.all([
+    supabase
+      .from('atendimentos')
+      .select(`
+        id,
+        data_agendamento,
+        tipo,
+        paciente_id,
+        status,
+        pacientes(id, nome, convenio, telefone),
+        agendamento:agendamentos(tipo, is_recorrente)
+      `)
+      .eq('id', atendimentoId)
+      .single(),
+    supabase
+      .from('prontuarios')
+      .select('atendimento_id')
+      .eq('atendimento_id', atendimentoId)
+      .maybeSingle(),
+  ])
 
   if (!atendimento) notFound()
+
+  const jaPreenchido = !!prontuarioExistente
+  const voltarHref = from === 'historico' ? '/prontuarios?aba=historico' : '/prontuarios'
 
   const paciente = atendimento.pacientes as unknown as {
     id: string
@@ -55,11 +68,13 @@ export default async function ProntuarioFormPage({
 
       {/* Top bar — sticky */}
       <div className="sticky top-0 z-20 flex items-center gap-3 bg-white px-4 py-3 rounded-xl shadow-sm border border-slate-100">
-        <BtnVoltar href="/prontuarios" />
+        <BtnVoltar href={voltarHref} />
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <ClipboardList size={18} className="text-[#006b5a] shrink-0" />
           <div className="min-w-0">
-            <h2 className="text-base font-bold text-[#006b5a] leading-tight">Registrar Evolução</h2>
+            <h2 className="text-base font-bold text-[#006b5a] leading-tight">
+              {jaPreenchido ? 'Evolução Clínica' : 'Registrar Evolução'}
+            </h2>
             <p className="text-xs text-slate-500 truncate">{nomeExibido}</p>
           </div>
         </div>
