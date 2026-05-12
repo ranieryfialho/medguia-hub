@@ -5,6 +5,7 @@ import { editarPaciente } from '@/actions/pacientes'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import type { OrigemPaciente } from '@/actions/origens-paciente'
+import type { PlanoSaude } from '@/actions/planos-saude'
 import { ComboboxPaciente } from '@/components/features/pacientes'
 import { extrairMetadataInativacao } from '@/lib/paciente-inativacao'
 
@@ -30,7 +31,7 @@ function tipoOrigem(nome: string) {
   return 'outro'
 }
 
-export function FormEditarPaciente({ paciente, origens = [] }: { paciente: any; origens?: OrigemPaciente[] }) {
+export function FormEditarPaciente({ paciente, origens = [], planos = [] }: { paciente: any; origens?: OrigemPaciente[]; planos?: PlanoSaude[] }) {
   const [state, formAction, isPending] = useActionState<any, FormData>(editarPaciente, { error: '', fields: {} })
 
   useEffect(() => {
@@ -298,11 +299,14 @@ export function FormEditarPaciente({ paciente, origens = [] }: { paciente: any; 
       <div className="mb-8">
         <h2 className="text-lg font-semibold text-text-primary mb-4">Planos de Saúde</h2>
         <div className="md:w-1/3">
-          <select name="convenio" defaultValue={getValue('convenio') || 'particular'} className="w-full bg-input border border-border-input rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-primary-500">
-            <option value="particular">Particular</option>
-            <option value="unimed">Unimed</option>
-            <option value="ipm">IPM</option>
-            <option value="issec">ISSEC</option>
+          <select name="convenio" defaultValue={getValue('convenio') || ''} className="w-full bg-input border border-border-input rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-primary-500">
+            <option value="">Selecione um plano...</option>
+            {planos.map(p => (
+              <option key={p.id} value={p.nome}>{p.nome}</option>
+            ))}
+            {getValue('convenio') && !planos.some(p => p.nome === getValue('convenio')) && (
+              <option value={getValue('convenio')}>{getValue('convenio')} (inativo)</option>
+            )}
           </select>
         </div>
       </div>

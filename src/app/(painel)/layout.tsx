@@ -10,6 +10,7 @@ import { temAcesso } from '@/lib/modulos'
 import { WidgetDisponibilidade } from '@/components/features/configuracoes'
 import { listarStatusDisponibilidade } from '@/actions/status-disponibilidade'
 import { listarTiposConsultaAtivos } from '@/actions/tipos-consulta'
+import { listarPlanosSaudeAtivos } from '@/actions/planos-saude'
 import { STATUS_CONCLUIDO_RAW_VALUES } from '@/lib/atendimento-status'
 
 export default async function DashboardLayout({
@@ -68,11 +69,12 @@ export default async function DashboardLayout({
     prontuariosPendentes = (concluidos ?? []).filter(a => !idsComProntuario.has(a.id)).length
   }
 
-  const [{ data: listaProfissionais }, { data: listaProfissionaisWidget }, todasDisponibilidades, tiposConsulta] = await Promise.all([
+  const [{ data: listaProfissionais }, { data: listaProfissionaisWidget }, todasDisponibilidades, tiposConsulta, planosSaude] = await Promise.all([
     supabase.from('profiles').select('id, full_name, role').neq('ativo', false).in('role', ['fisioterapeuta', 'gestor', 'medico']).order('full_name'),
     supabase.from('profiles').select('id, full_name, role').eq('ativo', true).in('role', ['fisioterapeuta', 'gestor']).order('full_name'),
     listarTodasDisponibilidades(),
     listarTiposConsultaAtivos(),
+    listarPlanosSaudeAtivos(),
   ])
 
   const disponibilidadesMap: Record<string, Record<number, DisponibilidadeDia>> = {}
@@ -109,6 +111,7 @@ export default async function DashboardLayout({
       profissionais={profissionais}
       disponibilidades={disponibilidadesMap}
       tiposConsulta={tiposConsulta}
+      planosSaude={planosSaude}
       headerData={{ nomeUsuario, cargoUsuario, avatarUrl, userRole, userNivelAcesso, modulosLiberados, prontuariosPendentes }}
     >
       <Header nomeUsuario={nomeUsuario} cargoUsuario={cargoUsuario} avatarUrl={avatarUrl} />

@@ -2,10 +2,14 @@ import Link from 'next/link'
 import { FormCadastroPaciente } from '@/components/features/pacientes'
 import { requireModulo } from '@/lib/guard'
 import { listarOrigensAtivasPaciente } from '@/actions/origens-paciente'
+import { listarPlanosSaudeAtivos } from '@/actions/planos-saude'
 
 export default async function NovoPacientePage() {
   await requireModulo('pacientes')
-  const origens = await listarOrigensAtivasPaciente()
+  const [origens, planos] = await Promise.all([
+    listarOrigensAtivasPaciente(),
+    listarPlanosSaudeAtivos(),
+  ])
 
   return (
     <div className="relative min-h-full">
@@ -22,7 +26,7 @@ export default async function NovoPacientePage() {
       </div>
 
       <div className="bg-surface p-8 rounded-lg shadow-sm border border-border">
-        <FormCadastroPaciente origens={origens} />
+        <FormCadastroPaciente origens={origens} planos={planos} />
       </div>
     </div>
   )

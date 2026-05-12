@@ -14,6 +14,7 @@ import {
 import { formatarFaixasJornada } from '@/lib/jornada'
 import { useTiposConsulta } from '@/components/layout/TiposConsultaContext'
 import type { TipoConsulta } from '@/actions/tipos-consulta'
+import type { PlanoSaude } from '@/actions/planos-saude'
 
 type Paciente = { id: string, nome: string }
 type Profissional = { id: string, nome: string, cargo: string }
@@ -54,6 +55,7 @@ interface SlideProps {
   profissionais: Profissional[]
   disponibilidades?: Record<string, Record<number, DisponibilidadeDia>>
   tiposConsulta?: TipoConsulta[]
+  planos?: PlanoSaude[]
   controlledOpen?: boolean
   onControlledClose?: () => void
   defaultPacienteId?: string
@@ -67,7 +69,7 @@ const DIAS_SEMANA = [
   { val: 4, label: 'Qui' }, { val: 5, label: 'Sex' }, { val: 6, label: 'Sáb' }, { val: 0, label: 'Dom' },
 ]
 
-export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionais, disponibilidades, tiposConsulta: tiposConsultaProp, controlledOpen, onControlledClose, defaultPacienteId, defaultData, defaultHora, atendimentoParaEditar }: SlideProps) {
+export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionais, disponibilidades, tiposConsulta: tiposConsultaProp, planos = [], controlledOpen, onControlledClose, defaultPacienteId, defaultData, defaultHora, atendimentoParaEditar }: SlideProps) {
   const isControlled = controlledOpen !== undefined
   const modoEdicao = !!atendimentoParaEditar
   const tiposConsultaContexto = useTiposConsulta()
@@ -96,6 +98,7 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
   const [horaInicioValue, setHoraInicioValue] = useState('')
   const [horaFimValue, setHoraFimValue] = useState('')
   const [observacoesValue, setObservacoesValue] = useState('')
+  const [selectedPlanoSaude, setSelectedPlanoSaude] = useState('')
 
   // Estados da Recorrência
   const [isRecorrente, setIsRecorrente] = useState(false)
@@ -256,6 +259,7 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
     }
     setSelectedTipo(primeiroTipoDisponivel)
     setTipoProfissional('fisioterapeuta')
+    setSelectedPlanoSaude('')
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -271,6 +275,9 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
     formData.set('hora_fim', horaFimValue)
     formData.set('tipo', selectedTipo)
     formData.set('observacoes', observacoesValue)
+    if (tipoProfissional === 'medico') {
+      formData.set('plano_saude', selectedPlanoSaude)
+    }
 
     if (!selectedPacienteId || !selectedProfissionalId || !dataAgendamento || !horaInicioValue || !horaFimValue) {
       setError('Preencha todos os campos obrigatórios.')
@@ -437,6 +444,22 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
                   {profissionaisFiltrados.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
                 </select>
               </div>
+              {tipoProfissional === 'medico' && (
+                <div className="space-y-1 relative">
+                  <label className="text-xs font-semibold text-[#6d7a75] absolute -top-2 left-3 bg-white px-1 z-10">Plano de Saúde</label>
+                  <select
+                    name="plano_saude"
+                    value={selectedPlanoSaude}
+                    onChange={e => setSelectedPlanoSaude(e.target.value)}
+                    className="w-full bg-white border border-[#bcc9c4] rounded-lg px-4 py-3 text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/50 focus:border-[#006b5a] transition-all font-medium appearance-none shadow-sm"
+                  >
+                    <option value="">Selecione um plano...</option>
+                    {planos.map(p => (
+                      <option key={p.id} value={p.nome}>{p.nome}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
             <div className="space-y-1 relative">

@@ -8,6 +8,7 @@ import type { DisponibilidadeDia } from '@/lib/disponibilidade'
 import { SlideNovoAgendamentoProvider } from './SlideNovoAgendamentoContext'
 import { TiposConsultaProvider } from './TiposConsultaContext'
 import type { TipoConsulta } from '@/actions/tipos-consulta'
+import type { PlanoSaude } from '@/actions/planos-saude'
 
 type Profissional = { id: string; nome: string; cargo: string }
 
@@ -26,12 +27,14 @@ export function AppShell({
   profissionais,
   disponibilidades,
   tiposConsulta,
+  planosSaude = [],
   headerData,
 }: {
   children: React.ReactNode
   profissionais: Profissional[]
   disponibilidades?: Record<string, Record<number, DisponibilidadeDia>>
   tiposConsulta: TipoConsulta[]
+  planosSaude?: PlanoSaude[]
   headerData: HeaderData
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -94,6 +97,7 @@ export function AppShell({
         <SlideNovoAgendamento
           profissionais={profissionais}
           disponibilidades={disponibilidades}
+          planos={planosSaude}
           controlledOpen={slideNovoAberto}
           onControlledClose={() => setSlideNovoAberto(false)}
         />

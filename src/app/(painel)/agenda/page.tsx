@@ -17,6 +17,7 @@ import { AgendamentoItemDia, AgendamentoItemSemana } from '@/components/features
 import type { AgendamentoDetalhe } from '@/components/features/agenda'
 import { buildSessaoEfetivaMap } from '@/lib/sessoes'
 import { listarTodasDisponibilidades } from '@/actions/disponibilidade'
+import { listarPlanosSaudeAtivos } from '@/actions/planos-saude'
 import { formatAppDateKey, formatAppTime, getAppDayRangeUTC, getAppHour, parseAppDate } from '@/lib/datetime'
 import { normalizarDisponibilidade, type DisponibilidadeDia } from '@/lib/disponibilidade'
 import { podeEntrarNaAgendaOuRelatorio } from '@/lib/profissionais'
@@ -424,7 +425,10 @@ export default async function AgendaPage({ searchParams }: PageProps) {
     cargo: p.role || 'Profissional'
   })) || []
 
-  const todasDisponibilidades = await listarTodasDisponibilidades()
+  const [todasDisponibilidades, planosSaude] = await Promise.all([
+    listarTodasDisponibilidades(),
+    listarPlanosSaudeAtivos(),
+  ])
 
   const disponibilidadesMap: Record<string, Record<number, DisponibilidadeDia>> = {}
   for (const d of todasDisponibilidades) {
@@ -798,6 +802,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
             <SlideNovoAgendamento
               profissionais={profissionaisElegiveisAgenda}
               disponibilidades={disponibilidadesMap}
+              planos={planosSaude}
             />
           </div>
 

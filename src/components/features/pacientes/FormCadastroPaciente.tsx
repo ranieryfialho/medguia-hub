@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Loader2, UploadCloud } from 'lucide-react'
 import toast from 'react-hot-toast'
 import type { OrigemPaciente } from '@/actions/origens-paciente'
+import type { PlanoSaude } from '@/actions/planos-saude'
 import { ComboboxPaciente } from '@/components/features/pacientes'
 
 type CadastroPacienteState = PacienteFormState
@@ -37,7 +38,7 @@ function tipoOrigem(nome: string) {
   return 'outro'
 }
 
-export function FormCadastroPaciente({ origens = [] }: { origens?: OrigemPaciente[] }) {
+export function FormCadastroPaciente({ origens = [], planos = [] }: { origens?: OrigemPaciente[]; planos?: PlanoSaude[] }) {
   const [state, formAction, isPending] = useActionState<CadastroPacienteState, FormData>(criarPaciente, { error: '', fields: {} })
   const [isBuscandoNome, startBuscaNome] = useTransition()
   const origemInicial = parseOrigem(state?.fields?.origem as string || '')
@@ -380,15 +381,15 @@ export function FormCadastroPaciente({ origens = [] }: { origens?: OrigemPacient
         <h2 className="text-lg font-semibold text-text-primary mb-4">Planos de Saúde</h2>
         <div className="md:w-1/3">
           <label className="block text-xs font-medium text-text-secondary mb-1">Planos de Saúde</label>
-          <select 
-            name="convenio" 
-            defaultValue={state?.fields?.convenio as string || 'particular'}
+          <select
+            name="convenio"
+            defaultValue={state?.fields?.convenio as string || ''}
             className="w-full bg-input border border-border-input rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-primary-500"
           >
-            <option value="particular">Particular</option>
-            <option value="unimed">Unimed</option>
-            <option value="ipm">IPM</option>
-            <option value="issec">ISSEC</option>
+            <option value="">Selecione um plano...</option>
+            {planos.map(p => (
+              <option key={p.id} value={p.nome}>{p.nome}</option>
+            ))}
           </select>
         </div>
       </div>
