@@ -32,13 +32,14 @@ export default async function RelatorioVendasPage({
   const origem = (resolvedParams.origem as string) || ''
   const forma_pagamento = (resolvedParams.forma_pagamento as string) || ''
   const profissional_id = (resolvedParams.profissional_id as string) || ''
+  const nome_protocolo = (resolvedParams.nome_protocolo as string) || ''
   const produtoIds = Array.isArray(resolvedParams.produto_id)
     ? resolvedParams.produto_id.filter((value): value is string => typeof value === 'string' && value.length > 0)
     : typeof resolvedParams.produto_id === 'string' && resolvedParams.produto_id
       ? [resolvedParams.produto_id]
       : []
 
-  const LIMITE_DETALHE = 20
+  const LIMITE_DETALHE = 10
   const paginaVendas = Math.max(1, parseInt((resolvedParams.pagina_vendas as string) || '1'))
 
   function buildPaginaUrl(p: number) {
@@ -48,6 +49,7 @@ export default async function RelatorioVendasPage({
     if (origem) sp.set('origem', origem)
     if (forma_pagamento) sp.set('forma_pagamento', forma_pagamento)
     if (profissional_id) sp.set('profissional_id', profissional_id)
+    if (nome_protocolo) sp.set('nome_protocolo', nome_protocolo)
     produtoIds.forEach(id => sp.append('produto_id', id))
     if (p > 1) sp.set('pagina_vendas', String(p))
     const qs = sp.toString()
@@ -58,7 +60,7 @@ export default async function RelatorioVendasPage({
   let query = supabase
     .from('vendas')
     .select(`
-      id, origem, forma_pagamento, data_venda, profissional_id, paciente_id, medico_referenciador_nome, status,
+      id, origem, forma_pagamento, data_venda, profissional_id, paciente_id, medico_referenciador_nome, status, nome,
       pacientes:paciente_id ( nome ),
       profiles:profissional_id ( full_name, role ),
       itens_venda ( quantidade, preco_unitario, produtos:produto_id ( id, nome, categoria ) )
@@ -69,21 +71,20 @@ export default async function RelatorioVendasPage({
   if (origem) query = query.eq('origem', origem)
   if (forma_pagamento) query = query.eq('forma_pagamento', forma_pagamento)
   if (profissional_id) query = query.eq('profissional_id', profissional_id)
+  if (nome_protocolo === '__sem_protocolo__') {
+    query = query.is('nome', null)
+  } else if (nome_protocolo) {
+    query = query.eq('nome', nome_protocolo)
+  }
 
   const { data: vendas } = await query
 
-  // Buscar profissionais para o filtro
-  const { data: profissionaisRaw } = await supabase
-    .from('profiles')
-    .select('id, full_name, role')
-    .in('role', ['fisioterapeuta', 'gestor'])
-    .order('full_name')
-
-  const { data: produtosRaw } = await supabase
-    .from('produtos')
-    .select('id, nome')
-    .eq('ativo', true)
-    .order('nome')
+  // Buscar profissionais, produtos e protocolos para os filtros
+  const [{ data: profissionaisRaw }, { data: produtosRaw }, { data: protocolosRaw }] = await Promise.all([
+    supabase.from('profiles').select('id, full_name, role').in('role', ['fisioterapeuta', 'gestor']).order('full_name'),
+    supabase.from('produtos').select('id, nome').eq('ativo', true).order('nome'),
+    supabase.from('protocolos').select('nome').eq('ativo', true).order('nome'),
+  ])
 
   const profissionaisFiltro = (profissionaisRaw || []).map((p: any) => ({
     id: p.id,
@@ -94,6 +95,7 @@ export default async function RelatorioVendasPage({
     id: produto.id,
     nome: produto.nome,
   }))
+  const protocolosFiltro = (protocolosRaw || []).map((p: { nome: string }) => p.nome)
 
   // ── Agregações ──────────────────────────────────────────────
 
@@ -141,6 +143,7 @@ export default async function RelatorioVendasPage({
       data_venda: venda.data_venda,
       paciente_nome: paciente?.nome || '—',
       profissional_nome: perfil?.full_name || 'Desconhecido',
+      nome: (venda as any).nome || null,
       status: statusVenda,
       itens: itens.map((i: any): ItemDetalheVenda => ({
         produto_nome: i.produtos?.nome || 'Produto removido',
@@ -319,6 +322,22 @@ export default async function RelatorioVendasPage({
               ))}
             </select>
           </div>
+          {protocolosFiltro.length > 0 && (
+            <div>
+              <label className="block text-xs text-text-secondary uppercase mb-1">Protocolo</label>
+              <select
+                name="nome_protocolo"
+                defaultValue={nome_protocolo}
+                className="px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
+              >
+                <option value="">Todos</option>
+                <option value="__sem_protocolo__">Sem protocolo</option>
+                {protocolosFiltro.map((nome) => (
+                  <option key={nome} value={nome}>{nome}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="min-w-[260px] flex-1">
             <FiltroProdutosMultiSelect
               name="produto_id"
@@ -334,7 +353,7 @@ export default async function RelatorioVendasPage({
           >
             Filtrar
           </button>
-          {(data_inicio || data_fim || origem || forma_pagamento || profissional_id || produtoIds.length > 0) && (
+          {(data_inicio || data_fim || origem || forma_pagamento || profissional_id || nome_protocolo || produtoIds.length > 0) && (
             <Link
               href="/relatorios/vendas"
               className="px-4 py-2 bg-page hover:bg-page/80 border border-border text-text-secondary rounded-md text-sm transition-colors"
@@ -710,7 +729,12 @@ export default async function RelatorioVendasPage({
                         <td className="px-4 py-3 text-sm text-text-secondary whitespace-nowrap">
                           {new Date(venda.data_venda).toLocaleDateString('pt-BR')}
                         </td>
-                        <td className="px-4 py-3 text-sm text-text-primary font-medium">{venda.paciente_nome}</td>
+                        <td className="px-4 py-3">
+                          <p className="text-sm text-text-primary font-medium">{venda.paciente_nome}</p>
+                          {venda.nome && (
+                            <p className="text-xs text-primary-500 font-medium mt-0.5">{venda.nome}</p>
+                          )}
+                        </td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap gap-1">
                             {venda.itens.map((item, idx) => (

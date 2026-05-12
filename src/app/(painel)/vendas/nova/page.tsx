@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { FormNovaVenda } from '@/components/features/vendas'
 import { requireModulo } from '@/lib/guard'
+import { listarProtocolosAtivos } from '@/actions/protocolos'
 
 interface JornadaRow {
   profissional_id: string | null
@@ -27,7 +28,7 @@ export default async function NovaVendaPage() {
 
   const supabase = await createClient()
 
-  const [{ data: produtos }, { data: comJornada }, { data: fisioterapeutas }, { data: medicos }] = await Promise.all([
+  const [{ data: produtos }, { data: comJornada }, { data: fisioterapeutas }, { data: medicos }, protocolos] = await Promise.all([
     supabase
       .from('produtos')
       .select('id, nome, numero_atendimentos, preco_padrao')
@@ -44,6 +45,7 @@ export default async function NovaVendaPage() {
       .from('profiles')
       .select('id, full_name, role')
       .eq('role', 'medico'),
+    listarProtocolosAtivos(),
   ])
 
   const idsComJornada = [
@@ -90,6 +92,7 @@ export default async function NovaVendaPage() {
           profissionais={profissionais}
           produtos={produtos || []}
           medicos={medicosFormatados}
+          protocolos={protocolos}
         />
       </div>
     </div>

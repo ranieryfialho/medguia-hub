@@ -28,6 +28,7 @@ import {
   ShieldCheck,
   Heart,
   UserPlus,
+  Layers,
 } from 'lucide-react'
 import { ProntuariosBadge } from './ProntuariosBadge'
 import { temAcesso, temAcessoGrupo } from '@/lib/modulos'
@@ -51,7 +52,7 @@ export function Sidebar({
   const [contatosOpen, setContatosOpen] = useState(() => pathname?.startsWith('/contatos') ?? false)
   const [configOpen, setConfigOpen] = useState(() => pathname?.startsWith('/configuracoes') ?? false)
   const [equipeOpen, setEquipeOpen] = useState(() => (pathname?.startsWith('/equipe') || pathname?.startsWith('/relatorios/tempo-fabril')) ?? false)
-  const [comercialOpen, setComercialOpen] = useState(() => (pathname?.startsWith('/vendas') || pathname?.startsWith('/produtos') || pathname?.startsWith('/relatorios/vendas')) ?? false)
+  const [comercialOpen, setComercialOpen] = useState(() => (pathname?.startsWith('/vendas') || pathname?.startsWith('/produtos') || pathname?.startsWith('/relatorios/vendas') || pathname?.startsWith('/vendas/protocolos')) ?? false)
   const [pacientesOpen, setPacientesOpen] = useState(() => pathname?.startsWith('/pacientes') ?? false)
   const modulos = modulosLiberadosProp ?? []
   const prontuariosPendentes = prontuariosPendentesProp ?? 0
@@ -230,7 +231,7 @@ export function Sidebar({
             {comercialOpen && (
               <div className="mt-1 ml-4 space-y-0.5 border-l-2 border-[#bcc9c4]/40 pl-3">
                 {pv('comercial:vendas') && (
-                  <Link href="/vendas" onClick={handleNavClick} className={subLinkCls(!!isActive('/vendas'))}>
+                  <Link href="/vendas" onClick={handleNavClick} className={subLinkCls(!!isActive('/vendas') && !isActive('/vendas/protocolos'))}>
                     <ShoppingCart size={14} />
                     Vendas
                   </Link>
@@ -239,6 +240,12 @@ export function Sidebar({
                   <Link href="/produtos" onClick={handleNavClick} className={subLinkCls(!!isActive('/produtos'))}>
                     <Package size={14} />
                     Produtos
+                  </Link>
+                )}
+                {pv('comercial:produtos') && (
+                  <Link href="/vendas/protocolos" onClick={handleNavClick} className={subLinkCls(!!isActive('/vendas/protocolos'))}>
+                    <Layers size={14} />
+                    Protocolos
                   </Link>
                 )}
                 {pv('comercial:relatorio_vendas') && (

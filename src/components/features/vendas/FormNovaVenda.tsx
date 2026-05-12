@@ -2,11 +2,12 @@
 
 import { criarVenda } from '@/actions/vendas'
 import { useActionState, useEffect, useState, useRef, useTransition } from 'react'
-import { ChevronRight, ChevronLeft, LoaderCircle, Plus, Trash2 } from 'lucide-react'
+import { ChevronRight, ChevronLeft, LoaderCircle, Plus, Trash2, Layers } from 'lucide-react'
 import { ComboboxPaciente } from '@/components/features/pacientes'
 import { FORMAS_PAGAMENTO } from '@/lib/vendas'
 import { createClient } from '@/lib/supabase/client'
 import { formatAppDateKey } from '@/lib/datetime'
+import type { Protocolo } from '@/actions/protocolos'
 
 interface Profissional {
   id: string
@@ -31,6 +32,7 @@ interface FormNovaVendaProps {
   profissionais: Profissional[]
   produtos: Produto[]
   medicos?: Profissional[]
+  protocolos?: Protocolo[]
 }
 
 const OPCOES_ORIGEM = [
@@ -50,7 +52,7 @@ const ROLE_LABEL: Record<string, string> = {
 const ABAS = ['Paciente & Profissional', 'Origem da Venda', 'Produtos']
 const USUARIO_AUTORIZADO_VENDA_ZERADA = '46581234-19dd-4e7d-904d-db0357fa2219'
 
-export function FormNovaVenda({ profissionais, produtos, medicos = [] }: FormNovaVendaProps) {
+export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolos = [] }: FormNovaVendaProps) {
   const [state, formAction] = useActionState(criarVenda, null)
 
   const [abaAtual, setAbaAtual] = useState(0)
@@ -71,6 +73,8 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [] }: FormNov
   const [statusVenda, setStatusVenda] = useState<'venda_confirmada' | 'orcamento_pendente'>('venda_confirmada')
 
   // Aba 2
+  const [nome, setNome] = useState('')
+  const [protocoloId, setProtocoloId] = useState('')
   const [itens, setItens] = useState<ItemVenda[]>([])
   const [produtoSelecionado, setProdutoSelecionado] = useState('')
   const [quantidadeSelecionada, setQuantidadeSelecionada] = useState(1)
@@ -134,6 +138,21 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [] }: FormNov
   }
 
   const removerItem = (idx: number) => setItens(itens.filter((_, i) => i !== idx))
+
+  const aplicarProtocolo = (id: string) => {
+    const protocolo = protocolos.find(p => p.id === id)
+    if (!protocolo) return
+    const novosItens = protocolo.itens
+      .map(item => {
+        const prod = produtos.find(p => p.id === item.produto_id)
+        if (!prod) return null
+        return { produto_id: item.produto_id, quantidade: item.quantidade, preco_unitario: prod.preco_padrao }
+      })
+      .filter((item): item is ItemVenda => item !== null)
+    setItens(novosItens)
+    setNome(protocolo.nome)
+    setProtocoloId(id)
+  }
 
   useEffect(() => {
     const supabase = createClient()
@@ -458,7 +477,46 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [] }: FormNov
 
       {/* ─── ABA 2: Produtos ─── */}
       {abaAtual === 2 && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-4">
+        <div className="space-y-6 pt-4">
+
+          {/* Nome e Protocolo */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4 rounded-lg bg-page border border-border">
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-2">Nome da Venda <span className="text-text-secondary font-normal">(opcional)</span></label>
+              <input
+                type="text"
+                value={nome}
+                onChange={e => { setNome(e.target.value); if (!e.target.value) setProtocoloId('') }}
+                placeholder="Ex: Artrose+, Protocolo Joelho..."
+                className="w-full px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
+              />
+            </div>
+            {protocolos.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">
+                  <span className="flex items-center gap-1.5"><Layers size={14} />Aplicar Protocolo</span>
+                </label>
+                <select
+                  value={protocoloId}
+                  onChange={e => {
+                    if (e.target.value) aplicarProtocolo(e.target.value)
+                    else { setProtocoloId(''); setItens([]); setNome('') }
+                  }}
+                  className="w-full px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
+                >
+                  <option value="">Selecionar protocolo...</option>
+                  {protocolos.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.nome} ({p.itens.length} {p.itens.length === 1 ? 'item' : 'itens'})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-text-secondary mt-1">Pre-preenche nome e produtos. Itens são editáveis.</p>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Seletor de produto */}
           <div className="space-y-4">
             <h2 className="text-base font-semibold text-text-primary border-b border-border pb-2">Adicionar Produto</h2>
@@ -613,10 +671,12 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [] }: FormNov
               </div>
             )}
           </div>
+          </div>
         </div>
       )}
 
       {/* Campos ocultos */}
+      <input type="hidden" name="nome" value={nome} />
       <input type="hidden" name="paciente_id" value={pacienteId} />
       <input type="hidden" name="profissional_id" value={profissionalId} />
       <input type="hidden" name="origem" value={origem} />

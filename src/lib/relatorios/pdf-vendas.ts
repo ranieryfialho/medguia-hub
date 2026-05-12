@@ -14,6 +14,7 @@ export type VendaDetalhe = {
   data_venda: string
   paciente_nome: string
   profissional_nome: string
+  nome?: string | null
   status: string
   itens: ItemDetalheVenda[]
   total: number
@@ -407,7 +408,8 @@ function desenharPaginaVendasDetalhadas(doc: jsPDF, vendas: VendaDetalhe[]) {
       .join(', ')
 
     const linhasItens = doc.splitTextToSize(itensTexto, widths[2] - 4)
-    const rowH = Math.max(8, linhasItens.length * 4 + 4)
+    const temNome = !!venda.nome
+    const rowH = Math.max(temNome ? 12 : 8, linhasItens.length * 4 + 4)
 
     if (y + rowH > PAGE_HEIGHT - 22) {
       doc.addPage()
@@ -435,6 +437,14 @@ function desenharPaginaVendasDetalhadas(doc: jsPDF, vendas: VendaDetalhe[]) {
         align: alignRight ? 'right' : 'left',
         maxWidth: widths[idx] - 4,
       })
+
+      // Nome do protocolo/venda abaixo do paciente
+      if (idx === 1 && temNome) {
+        doc.setFont('helvetica', 'italic')
+        doc.setFontSize(6)
+        doc.setTextColor(...MUTED)
+        doc.text(venda.nome!, x + 2, y + 9, { maxWidth: widths[idx] - 4 })
+      }
 
       x += widths[idx]
     })

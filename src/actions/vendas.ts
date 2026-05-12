@@ -93,6 +93,7 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
   const medico_referenciador_id = origem === 'medico' ? (formData.get('medico_referenciador_id') as string) : null
   const data_venda = formData.get('data_venda') as string
   const observacoes = formData.get('observacoes') as string
+  const nome = ((formData.get('nome') as string) || '').trim() || null
   const itensJson = formData.get('itens_venda_json') as string
   const statusRaw = (formData.get('status') as string) || 'venda_confirmada'
   const status = statusValido(statusRaw) ? statusRaw : 'venda_confirmada'
@@ -169,6 +170,7 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
     medico_referenciador_nome,
     data_venda: normalizeVendaDate(data_venda),
     observacoes: observacoes || null,
+    nome,
     status,
   }
 
@@ -215,6 +217,7 @@ export async function editarVenda(_prevState: unknown, formData: FormData) {
   const medico_referenciador_id = origem === 'medico' ? (formData.get('medico_referenciador_id') as string) : null
   const data_venda = formData.get('data_venda') as string
   const observacoes = formData.get('observacoes') as string
+  const nome = ((formData.get('nome') as string) || '').trim() || null
   const itensJson = formData.get('itens_venda_json') as string
   const statusRaw = (formData.get('status') as string) || 'venda_confirmada'
   const status = statusValido(statusRaw) ? statusRaw : 'venda_confirmada'
@@ -290,6 +293,7 @@ export async function editarVenda(_prevState: unknown, formData: FormData) {
     medico_referenciador_nome,
     data_venda: normalizeVendaDate(data_venda),
     observacoes: observacoes || null,
+    nome,
     status,
     atualizado_em: new Date().toISOString(),
   }

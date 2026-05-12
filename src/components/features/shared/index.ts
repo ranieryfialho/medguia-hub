@@ -17,6 +17,7 @@ export { ModalSessaoReposicao } from './ModalSessaoReposicao';
 export { OrigensManager } from './OrigensManager';
 export { TiposConsultaManager } from './TiposConsultaManager';
 export { PlanosSaudeManager } from './PlanosSaudeManager';
+export { ProtocolosManager } from './ProtocolosManager';
 export { CartaoEvento } from './CartaoEvento';
 export { FormAdicionarNotaEvento } from './FormAdicionarNotaEvento';
 export { FormNovoEvento } from './FormNovoEvento';
