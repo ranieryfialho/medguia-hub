@@ -17,6 +17,47 @@ const ORIGENS = [
   { value: 'campanha', label: 'Campanha' },
 ]
 
+type PerfilVenda = {
+  full_name: string | null
+  role: string | null
+}
+
+type PacienteVenda = {
+  nome: string | null
+}
+
+type ProdutoVenda = {
+  id: string
+  nome: string | null
+  categoria: string | null
+}
+
+type ItemVendaRow = {
+  quantidade: number
+  preco_unitario: number
+  produtos: ProdutoVenda | null
+}
+
+type VendaRow = {
+  id: string
+  origem: string
+  forma_pagamento: string
+  data_venda: string
+  profissional_id: string
+  paciente_id: string
+  medico_referenciador_nome: string | null
+  status: string | null
+  nome: string | null
+  pacientes: PacienteVenda | PacienteVenda[] | null
+  profiles: PerfilVenda | PerfilVenda[] | null
+  itens_venda: ItemVendaRow[] | null
+}
+
+function firstRelation<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) return value[0] ?? null
+  return value ?? null
+}
+
 export default async function RelatorioVendasPage({
   searchParams,
 }: {
@@ -77,16 +118,21 @@ export default async function RelatorioVendasPage({
     query = query.eq('nome', nome_protocolo)
   }
 
-  const { data: vendas } = await query
-
-  // Buscar profissionais, produtos e protocolos para os filtros
-  const [{ data: profissionaisRaw }, { data: produtosRaw }, { data: protocolosRaw }] = await Promise.all([
+  // Buscar vendas e dados auxiliares em paralelo
+  const [
+    { data: vendasRaw },
+    { data: profissionaisRaw },
+    { data: produtosRaw },
+    { data: protocolosRaw },
+  ] = await Promise.all([
+    query,
     supabase.from('profiles').select('id, full_name, role').in('role', ['fisioterapeuta', 'gestor']).order('full_name'),
     supabase.from('produtos').select('id, nome').eq('ativo', true).order('nome'),
     supabase.from('protocolos').select('nome').eq('ativo', true).order('nome'),
   ])
+  const vendas = (vendasRaw ?? []) as unknown as VendaRow[]
 
-  const profissionaisFiltro = (profissionaisRaw || []).map((p: any) => ({
+  const profissionaisFiltro = (profissionaisRaw || []).map((p: { id: string; full_name: string | null; role: string | null }) => ({
     id: p.id,
     nome: p.full_name || 'Sem nome',
     role: p.role,
@@ -119,21 +165,25 @@ export default async function RelatorioVendasPage({
 
   const agora = new Date()
   const dias90 = new Date(agora.getTime() - 90 * 24 * 60 * 60 * 1000)
+  const produtoIdsSet = produtoIds.length > 0 ? new Set(produtoIds) : null
 
-  for (const venda of vendas || []) {
-    const itensOriginais: any[] = (venda as any).itens_venda || []
-    const itens = produtoIds.length > 0
-      ? itensOriginais.filter((item) => produtoIds.includes(item.produtos?.id ?? ''))
+  for (const venda of vendas) {
+    const itensOriginais = venda.itens_venda ?? []
+    const itens = produtoIdsSet
+      ? itensOriginais.filter((item) => {
+          const produtoId = item.produtos?.id
+          return produtoId ? produtoIdsSet.has(produtoId) : false
+        })
       : itensOriginais
 
     if (itens.length === 0) continue
 
-    const perfil: any = (venda as any).profiles
-    const paciente: any = (venda as any).pacientes
-    const statusVenda: string = (venda as any).status ?? 'venda_confirmada'
+    const perfil = firstRelation(venda.profiles)
+    const paciente = firstRelation(venda.pacientes)
+    const statusVenda = venda.status ?? 'venda_confirmada'
 
     const totalVenda = itens.reduce(
-      (s: number, i: any) => s + i.quantidade * i.preco_unitario,
+      (s, item) => s + item.quantidade * item.preco_unitario,
       0
     )
 
@@ -143,13 +193,13 @@ export default async function RelatorioVendasPage({
       data_venda: venda.data_venda,
       paciente_nome: paciente?.nome || '—',
       profissional_nome: perfil?.full_name || 'Desconhecido',
-      nome: (venda as any).nome || null,
+      nome: venda.nome || null,
       status: statusVenda,
-      itens: itens.map((i: any): ItemDetalheVenda => ({
-        produto_nome: i.produtos?.nome || 'Produto removido',
-        categoria: i.produtos?.categoria || null,
-        quantidade: i.quantidade,
-        subtotal: i.quantidade * i.preco_unitario,
+      itens: itens.map((item): ItemDetalheVenda => ({
+        produto_nome: item.produtos?.nome || 'Produto removido',
+        categoria: item.produtos?.categoria || null,
+        quantidade: item.quantidade,
+        subtotal: item.quantidade * item.preco_unitario,
       })),
       total: totalVenda,
     })
@@ -187,7 +237,7 @@ export default async function RelatorioVendasPage({
     porProfissional[venda.profissional_id].faturamento += totalVenda
 
     // Por referenciador
-    const refNome = (venda as Record<string, unknown>).medico_referenciador_nome as string | null
+    const refNome = venda.medico_referenciador_nome
     if (refNome) {
       if (!porReferenciador[refNome]) porReferenciador[refNome] = { nome: refNome, quantidade: 0, faturamento: 0 }
       porReferenciador[refNome].quantidade += 1
@@ -196,13 +246,13 @@ export default async function RelatorioVendasPage({
 
     // Por produto e por categoria
     for (const item of itens) {
-      const prodNome = (item.produtos as any)?.nome || 'Produto removido'
+      const prodNome = item.produtos?.nome || 'Produto removido'
       const prodKey = prodNome
       if (!porProduto[prodKey]) porProduto[prodKey] = { nome: prodNome, quantidade: 0, faturamento: 0 }
       porProduto[prodKey].quantidade += item.quantidade
       porProduto[prodKey].faturamento += item.quantidade * item.preco_unitario
 
-      const cat: string = (item.produtos as any)?.categoria || 'sem_categoria'
+      const cat = item.produtos?.categoria || 'sem_categoria'
       if (!porCategoria[cat]) porCategoria[cat] = { quantidade: 0, faturamento: 0 }
       porCategoria[cat].quantidade += item.quantidade
       porCategoria[cat].faturamento += item.quantidade * item.preco_unitario
@@ -222,6 +272,8 @@ export default async function RelatorioVendasPage({
 
   const totalOrcamentos = orcamentoPendenteCount + orcamentoRecusadoCount + orcamentoConvertidoCount
   const taxaConversao = totalOrcamentos > 0 ? (orcamentoConvertidoCount / totalOrcamentos) * 100 : null
+  const profissionaisResumo = Object.values(porProfissional)
+  const produtosResumo = Object.values(porProduto)
 
   return (
     <div className="space-y-6">
@@ -252,8 +304,8 @@ export default async function RelatorioVendasPage({
               totalVendas={totalVendas}
               vendaMedia={vendaMedia}
               porOrigem={porOrigem}
-              porProfissional={Object.values(porProfissional)}
-              porProduto={Object.values(porProduto)}
+              porProfissional={profissionaisResumo}
+              porProduto={produtosResumo}
               porCategoria={porCategoria}
               vendasDetalhadas={vendasDetalhadas}
             />
@@ -385,7 +437,7 @@ export default async function RelatorioVendasPage({
         <div className="bg-surface rounded-lg border border-border p-4">
           <p className="text-xs text-text-secondary uppercase font-medium mb-2">Profissionais Ativos</p>
           <p className="text-2xl font-bold text-text-primary">
-            {Object.keys(porProfissional).length}
+            {profissionaisResumo.length}
           </p>
         </div>
       </div>
@@ -444,13 +496,13 @@ export default async function RelatorioVendasPage({
         porOrigem={porOrigem}
         porFormaPagamento={porFormaPagamento}
         porPeriodo={porPeriodo}
-        porProfissional={Object.values(porProfissional)}
-        porProduto={Object.values(porProduto)}
+        porProfissional={profissionaisResumo}
+        porProduto={produtosResumo}
         totalFaturado={totalFaturado}
       />
 
       {/* Tabela por Profissional */}
-      {Object.keys(porProfissional).length > 0 && (
+      {profissionaisResumo.length > 0 && (
         <div className="bg-surface rounded-lg border border-border p-6">
           <h2 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
             <Users size={20} className="text-primary-500" />
@@ -467,7 +519,7 @@ export default async function RelatorioVendasPage({
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {Object.values(porProfissional)
+                {profissionaisResumo
                   .sort((a, b) => b.faturamento - a.faturamento)
                   .map((prof) => {
                     const pct = totalFaturado > 0 ? (prof.faturamento / totalFaturado) * 100 : 0
@@ -501,7 +553,7 @@ export default async function RelatorioVendasPage({
       )}
 
       {/* Tabela por Produto */}
-      {Object.keys(porProduto).length > 0 && (
+      {produtosResumo.length > 0 && (
         <div className="bg-surface rounded-lg border border-border p-6">
           <h2 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
             <Package size={20} className="text-primary-500" />
@@ -518,7 +570,7 @@ export default async function RelatorioVendasPage({
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {Object.values(porProduto)
+                {produtosResumo
                   .sort((a, b) => b.faturamento - a.faturamento)
                   .map((prod) => {
                     const pct = totalFaturado > 0 ? (prod.faturamento / totalFaturado) * 100 : 0

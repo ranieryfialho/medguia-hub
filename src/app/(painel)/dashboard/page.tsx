@@ -44,6 +44,12 @@ type Contato = {
   responsavel_id: string | null
 }
 
+type TendenciaDia = {
+  dia: string
+  count: number
+  concluidos: number
+}
+
 export default async function DashboardPage() {
   const { user, profile } = await requireModulo('dashboard')
 
@@ -126,16 +132,48 @@ export default async function DashboardPage() {
   const totalFabrilMin = kpis.reduce((s, k) => s + k.tempoFabrilMin, 0)
   const taxaOcupacaoGlobal = totalJornadaMin > 0 ? Math.round((totalFabrilMin / totalJornadaMin) * 100) : 0
 
+  const tendenciaSeed = new Map<string, TendenciaDia>()
+  for (let i = 0; i < 7; i++) {
+    const dia = addDays(subDays(hoje, 6), i)
+    const diaKey = formatAppDateKey(dia)
+    tendenciaSeed.set(diaKey, {
+      dia: format(dia, 'EEE', { locale: ptBR }),
+      count: 0,
+      concluidos: 0,
+    })
+  }
+
+  let concluidos = 0
+  let cancelados = 0
+  let faltas = 0
+  let emAberto = 0
+  const pacientesAtivosIds = new Set<string>()
+
+  for (const atendimento of atendimentos) {
+    pacientesAtivosIds.add(atendimento.paciente_id)
+
+    const statusKey = getAtendimentoStatusKey(atendimento.status)
+    const concluido = isStatusConcluido(atendimento.status)
+
+    if (concluido) concluidos++
+    if (statusKey === 'cancelado') cancelados++
+    if (statusKey === 'falta') faltas++
+    if (STATUS_PENDENTE_KEYS.includes(statusKey as (typeof STATUS_PENDENTE_KEYS)[number])) emAberto++
+
+    const diaKey = formatAppDateKey(atendimento.data_agendamento)
+    const tendenciaDia = tendenciaSeed.get(diaKey)
+    if (tendenciaDia) {
+      tendenciaDia.count++
+      if (concluido) tendenciaDia.concluidos++
+    }
+  }
+
   // 7. Bloco 2: Volume de Atendimentos
   const totalAtend = atendimentos.length
-  const concluidos = atendimentos.filter(a => isStatusConcluido(a.status)).length
-  const cancelados = atendimentos.filter(a => getAtendimentoStatusKey(a.status) === 'cancelado').length
-  const faltas = atendimentos.filter(a => getAtendimentoStatusKey(a.status) === 'falta').length
-  const emAberto = atendimentos.filter(a => STATUS_PENDENTE_KEYS.includes(getAtendimentoStatusKey(a.status) as (typeof STATUS_PENDENTE_KEYS)[number])).length
   const taxaConclusao = totalAtend > 0 ? Math.round((concluidos / totalAtend) * 100) : 0
 
   // 8. Bloco 3: Pacientes
-  const pacientesComAtendimento = new Set(atendimentos.map(a => a.paciente_id)).size
+  const pacientesComAtendimento = pacientesAtivosIds.size
   const novosPacientes = pacientesNovos.length
 
   // 8b. Bloco Contatos: Funil de Conversão
@@ -149,15 +187,7 @@ export default async function DashboardPage() {
   const semResponsavel = contatos.filter(c => !c.responsavel_id).length
 
   // 9. Bloco 4: Tendência 7 dias
-  const tendencia7Dias = Array.from({ length: 7 }, (_, i) => {
-    const dia = addDays(subDays(hoje, 6), i)
-    const diaKey = formatAppDateKey(dia)
-    const count = atendimentos.filter(a => formatAppDateKey(a.data_agendamento) === diaKey).length
-    const concluidos = atendimentos.filter(
-      a => formatAppDateKey(a.data_agendamento) === diaKey && isStatusConcluido(a.status)
-    ).length
-    return { dia: format(dia, 'EEE', { locale: ptBR }), count, concluidos }
-  })
+  const tendencia7Dias = Array.from(tendenciaSeed.values())
 
   const maxTendencia = Math.max(...tendencia7Dias.map(d => d.count), 1)
 

@@ -11,6 +11,34 @@ import { listarStatusDisponibilidade } from '@/actions/status-disponibilidade'
 import { listarTiposConsultaAtivos } from '@/actions/tipos-consulta'
 import { listarPlanosSaudeAtivos } from '@/actions/planos-saude'
 
+function buildAvatarFallbackDataUrl(nomeUsuario: string) {
+  const iniciais = nomeUsuario
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((parte) => parte[0]?.toUpperCase() ?? '')
+    .join('')
+    || 'U'
+
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80">
+      <rect width="80" height="80" rx="16" fill="#cce2da" />
+      <text
+        x="50%"
+        y="50%"
+        text-anchor="middle"
+        dominant-baseline="central"
+        font-family="Arial, sans-serif"
+        font-size="28"
+        font-weight="700"
+        fill="#006b5a"
+      >${iniciais}</text>
+    </svg>
+  `.trim()
+
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`
+}
+
 export default async function DashboardLayout({
   children,
 }: {
@@ -32,7 +60,7 @@ export default async function DashboardLayout({
     if (!error && data) {
       profile = data
     } else if (error) {
-      console.error('Erro ao carregar profile no layout:', error)
+      console.warn('Erro ao carregar profile no layout:', error.message || error.code || 'erro_desconhecido')
     }
     if (profile?.primeiro_acesso || user?.user_metadata?.primeiro_acesso) {
       primeiroAcesso = true
@@ -44,8 +72,7 @@ export default async function DashboardLayout({
   const userRole = profile?.role || ''
   const userNivelAcesso = profile?.nivel_acesso || ''
   const modulosLiberados: string[] = profile?.modulos_liberados ?? []
-  const avatarUrl = profile?.avatar_url ||
-    `https://ui-avatars.com/api/?name=${encodeURIComponent(nomeUsuario)}&background=cce2da&color=006b5a&bold=true`
+  const avatarUrl = profile?.avatar_url || buildAvatarFallbackDataUrl(nomeUsuario)
 
   const prontuariosPendentes = 0
 

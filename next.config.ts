@@ -7,6 +7,17 @@ const nextConfig: NextConfig = {
     // faster restarts for lower disk I/O and CPU load.
     turbopackFileSystemCacheForDev: false,
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'ui-avatars.com',
+        port: '',
+        pathname: '/api/**',
+        search: '',
+      },
+    ],
+  },
 };
 
 export default nextConfig;

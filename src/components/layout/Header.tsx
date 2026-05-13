@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import { Search, Bell } from 'lucide-react'
 
 type HeaderProps = {
@@ -32,9 +33,11 @@ export function Header({ nomeUsuario, cargoUsuario, avatarUrl }: HeaderProps) {
             <p className="text-[11px] text-[#3d4945] font-medium mt-1 capitalize">{cargoUsuario}</p>
           </div>
           <div className="w-10 h-10 rounded-xl bg-slate-200 overflow-hidden shadow-sm border border-slate-200 flex items-center justify-center">
-            <img
+            <Image
               src={avatarUrl}
               alt={`Foto de perfil de ${nomeUsuario}`}
+              width={40}
+              height={40}
               className="w-full h-full object-cover"
             />
           </div>

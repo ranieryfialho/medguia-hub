@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { Sidebar } from './Sidebar'
 import { SlideNovoAgendamento } from '@/components/features/agenda'
 import { Menu } from 'lucide-react'
@@ -82,9 +83,11 @@ export function AppShell({
                 <Menu size={22} />
               </button>
               <span className="font-bold text-[#006b5a] text-base tracking-tight flex-1">MedGuia Hub</span>
-              <img
+              <Image
                 src={headerData.avatarUrl}
                 alt={headerData.nomeUsuario}
+                width={32}
+                height={32}
                 className="w-8 h-8 rounded-xl object-cover border border-slate-200"
               />
             </div>
