@@ -1,7 +1,7 @@
 'use client'
 
 import { editarProduto } from '@/actions/produtos'
-import { useActionState, useEffect, useState } from 'react'
+import { useActionState } from 'react'
 
 interface ProdutoInicial {
   id: string
@@ -15,15 +15,6 @@ interface ProdutoInicial {
 
 export function FormEditarProduto({ produtoInicial }: { produtoInicial: ProdutoInicial }) {
   const [state, formAction] = useActionState(editarProduto, null)
-  const [showError, setShowError] = useState(false)
-
-  useEffect(() => {
-    if (state?.error) {
-      setShowError(true)
-      const timer = setTimeout(() => setShowError(false), 3000)
-      return () => clearTimeout(timer)
-    }
-  }, [state?.error])
 
   return (
     <form action={formAction} className="space-y-6">
@@ -122,7 +113,7 @@ export function FormEditarProduto({ produtoInicial }: { produtoInicial: ProdutoI
         </button>
       </div>
 
-      {showError && state?.error && (
+      {state?.error && (
         <div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-800 text-sm">
           {state.error}
         </div>

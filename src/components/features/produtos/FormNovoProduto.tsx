@@ -1,19 +1,10 @@
 'use client'
 
 import { criarProduto } from '@/actions/produtos'
-import { useActionState, useEffect, useState } from 'react'
+import { useActionState } from 'react'
 
 export function FormNovoProduto() {
   const [state, formAction] = useActionState(criarProduto, null)
-  const [showError, setShowError] = useState(false)
-
-  useEffect(() => {
-    if (state?.error) {
-      setShowError(true)
-      const timer = setTimeout(() => setShowError(false), 3000)
-      return () => clearTimeout(timer)
-    }
-  }, [state?.error])
 
   return (
     <form action={formAction} className="space-y-6">
@@ -88,7 +79,7 @@ export function FormNovoProduto() {
         </button>
       </div>
 
-      {showError && state?.error && (
+      {state?.error && (
         <div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-800 text-sm">
           {state.error}
         </div>

@@ -122,13 +122,11 @@ export function ConfirmacaoFaltaModal({ onConfirmar, onCancelar }: { onConfirmar
 
 function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDetalhe; onClose: () => void; onEditar: () => void }) {
   const router = useRouter()
-  const [mounted, setMounted] = useState(false)
   const [status, setStatus] = useState(agendamento.status)
   const [activeTab, setActiveTab] = useState<'detalhes' | 'evolucao'>('detalhes')
   const [showStatusMenu, setShowStatusMenu] = useState(false)
   const [showOpcoes, setShowOpcoes] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [loadingDetalhes, setLoadingDetalhes] = useState(false)
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false)
   const [confirmacaoFalta, setConfirmacaoFalta] = useState(false)
   const [modalReagendamento, setModalReagendamento] = useState(false)
@@ -139,19 +137,21 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
   const opcoesRef = useRef<HTMLDivElement>(null)
   const statusRef = useRef<HTMLDivElement>(null)
   const statusMenuRef = useRef<HTMLDivElement>(null)
-  const [detalhesExtras, setDetalhesExtras] = useState<{
+  const [detalhesPorAgendamento, setDetalhesPorAgendamento] = useState<Record<string, {
     telefone?: string | null
     email?: string | null
     full_name?: string | null
     role?: string | null
     duracao_minutos?: number | null
     observacoes?: string | null
-  } | null>(null)
+  }>>({})
+  const [falhasDetalhes, setFalhasDetalhes] = useState<Record<string, true>>({})
 
   const isRecorrente = !!(agendamento.agendamento_id && (agendamento.total_sessoes ?? 0) > 1)
   const nomePaciente = agendamento.pacientes?.nome || 'Paciente'
   const inicial = nomePaciente.charAt(0).toUpperCase()
   const dataObj = new Date(agendamento.data_agendamento)
+  const detalhesExtras = detalhesPorAgendamento[agendamento.id] ?? null
   const telefone = detalhesExtras?.telefone ?? agendamento.pacientes?.telefone
   const emailPaciente = detalhesExtras?.email ?? agendamento.pacientes?.email
   const nomeProfissional = detalhesExtras?.full_name ?? agendamento.profissional?.full_name
@@ -166,50 +166,47 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
     && roleProfissional == null
     && duracaoMinutos == null
     && observacoes == null
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  const loadingDetalhes = precisaCarregarDetalhes
+    && !(agendamento.id in detalhesPorAgendamento)
+    && !falhasDetalhes[agendamento.id]
 
   useEffect(() => {
     contarAtendimentosPaciente(agendamento.paciente_id).then(setContagem)
   }, [agendamento.paciente_id])
 
   useEffect(() => {
-    setDetalhesExtras(null)
-  }, [agendamento.id])
-
-  useEffect(() => {
-    if (!precisaCarregarDetalhes) return
+    if (!loadingDetalhes) return
 
     let active = true
-    setLoadingDetalhes(true)
 
     buscarDetalhesAgendamento(agendamento.id).then((result) => {
       if (!active) return
       if (!result || 'error' in result || !result.data) {
-        setLoadingDetalhes(false)
+        setFalhasDetalhes((prev) => ({ ...prev, [agendamento.id]: true }))
         return
       }
+      const detalhes = result.data
 
-      const paciente = firstRelation(result.data.pacientes as AgendamentoDetalhe['pacientes'] | AgendamentoDetalhe['pacientes'][])
-      const profissional = firstRelation(result.data.profissional as AgendamentoDetalhe['profissional'] | AgendamentoDetalhe['profissional'][])
+      const paciente = firstRelation(detalhes.pacientes as AgendamentoDetalhe['pacientes'] | AgendamentoDetalhe['pacientes'][])
+      const profissional = firstRelation(detalhes.profissional as AgendamentoDetalhe['profissional'] | AgendamentoDetalhe['profissional'][])
 
-      setDetalhesExtras({
-        telefone: paciente?.telefone ?? null,
-        email: paciente?.email ?? null,
-        full_name: profissional?.full_name ?? null,
-        role: profissional?.role ?? null,
-        duracao_minutos: result.data.duracao_minutos ?? null,
-        observacoes: result.data.observacoes ?? null,
-      })
-      setLoadingDetalhes(false)
+      setDetalhesPorAgendamento((prev) => ({
+        ...prev,
+        [agendamento.id]: {
+          telefone: paciente?.telefone ?? null,
+          email: paciente?.email ?? null,
+          full_name: profissional?.full_name ?? null,
+          role: profissional?.role ?? null,
+          duracao_minutos: detalhes.duracao_minutos ?? null,
+          observacoes: detalhes.observacoes ?? null,
+        },
+      }))
     })
 
     return () => {
       active = false
     }
-  }, [agendamento.id, precisaCarregarDetalhes])
+  }, [agendamento.id, loadingDetalhes])
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -601,7 +598,7 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
     </div>
   )
 
-  if (!mounted) return null
+  if (typeof document === 'undefined') return null
 
   return (
     <>

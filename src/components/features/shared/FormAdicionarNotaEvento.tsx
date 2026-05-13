@@ -10,24 +10,15 @@ export function FormAdicionarNotaEvento({ eventoId, pacienteId }: { eventoId: st
   const [isOpen, setIsOpen] = useState(false)
   const [state, formAction, isPending] = useActionState(adicionarNotaEvento, null)
   const formRef = useRef<HTMLFormElement>(null)
-  const [portalNode, setPortalNode] = useState<HTMLElement | null>(null);
-
-  useEffect(() => {
-    let element = document.getElementById('modal-portal');
-    if (!element) {
-      element = document.createElement('div');
-      element.id = 'modal-portal';
-      document.body.appendChild(element);
-    }
-    setPortalNode(element);
-  }, []);
 
   useEffect(() => {
     if (state?.error) toast.error(state.error)
     if (state?.success) {
       toast.success('Nota adicionada ao evento!')
-      setIsOpen(false)
-      formRef.current?.reset()
+      queueMicrotask(() => {
+        setIsOpen(false)
+        formRef.current?.reset()
+      })
     }
   }, [state])
 
@@ -53,7 +44,7 @@ export function FormAdicionarNotaEvento({ eventoId, pacienteId }: { eventoId: st
     </button>
   );
 
-  if (!portalNode) return BotaoAbrir;
+  if (typeof document === 'undefined') return BotaoAbrir;
 
   return (
     <>
@@ -109,7 +100,7 @@ export function FormAdicionarNotaEvento({ eventoId, pacienteId }: { eventoId: st
             </form>
           </div>
         </div>,
-        portalNode
+        document.body
       )}
     </>
   )

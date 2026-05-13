@@ -10,24 +10,15 @@ export function FormNovaObservacao({ pacienteId }: { pacienteId: string }) {
   const [isOpen, setIsOpen] = useState(false)
   const [state, formAction, isPending] = useActionState(adicionarObservacao, null)
   const formRef = useRef<HTMLFormElement>(null)
-  const [portalNode, setPortalNode] = useState<HTMLElement | null>(null);
-
-  useEffect(() => {
-    let element = document.getElementById('modal-portal');
-    if (!element) {
-      element = document.createElement('div');
-      element.id = 'modal-portal';
-      document.body.appendChild(element);
-    }
-    setPortalNode(element);
-  }, []);
 
   useEffect(() => {
     if (state?.error) toast.error(state.error)
     if (state?.success) {
       toast.success('Observação adicionada com sucesso!')
-      setIsOpen(false)
-      formRef.current?.reset()
+      queueMicrotask(() => {
+        setIsOpen(false)
+        formRef.current?.reset()
+      })
     }
   }, [state])
 
@@ -52,7 +43,7 @@ export function FormNovaObservacao({ pacienteId }: { pacienteId: string }) {
     </button>
   );
 
-  if (!portalNode) return BotaoAbrir;
+  if (typeof document === 'undefined') return BotaoAbrir;
 
   return (
     <>
@@ -107,7 +98,7 @@ export function FormNovaObservacao({ pacienteId }: { pacienteId: string }) {
             </form>
           </div>
         </div>,
-        portalNode
+        document.body
       )}
     </>
   )

@@ -79,12 +79,11 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
   const formId = useId()
   const [supabase] = useState(createClient)
   const [isOpen, setIsOpen] = useState(false)
-  const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [loadingPacientes, setLoadingPacientes] = useState(false)
-  const [loadingDetalhesAtendimento, setLoadingDetalhesAtendimento] = useState(false)
   const [error, setError] = useState('')
   const [pacientes, setPacientes] = useState<Paciente[]>(pacientesInicial ?? [])
+  const [detalhesEdicaoCarregados, setDetalhesEdicaoCarregados] = useState<Record<string, true>>({})
+  const [detalhesEdicaoFalhos, setDetalhesEdicaoFalhos] = useState<Record<string, true>>({})
 
   const [dataAgendamento, setDataAgendamento] = useState('')
   const diaDoMes = dataAgendamento ? dataAgendamento.split('-')[2] : '--'
@@ -110,14 +109,21 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
     (atendimentoParaEditar.duracao_minutos == null || atendimentoParaEditar.observacoes == null),
   )
   const open = isControlled ? Boolean(controlledOpen) : isOpen
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  const loadingDetalhesAtendimento = Boolean(
+    atendimentoParaEditar &&
+    precisaCarregarDetalhesEdicao &&
+    !detalhesEdicaoCarregados[atendimentoParaEditar.id] &&
+    !detalhesEdicaoFalhos[atendimentoParaEditar.id],
+  )
 
   // Inicializa campos quando em modo edição
   useEffect(() => {
-    if (atendimentoParaEditar) {
+    if (!atendimentoParaEditar) return
+
+    let cancelled = false
+    queueMicrotask(() => {
+      if (cancelled) return
+
       const dataObj = new Date(atendimentoParaEditar.data_agendamento)
       setSelectedPacienteId(atendimentoParaEditar.paciente_id)
       const pacienteEdit = pacientes.find(p => p.id === atendimentoParaEditar.paciente_id)
@@ -133,25 +139,37 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
       }
       setSelectedTipo(atendimentoParaEditar.tipo ?? primeiroTipoDisponivel)
       setObservacoesValue(atendimentoParaEditar.observacoes ?? '')
+    })
+
+    return () => {
+      cancelled = true
     }
-  }, [atendimentoParaEditar, pacientes, primeiroTipoDisponivel])
+  }, [atendimentoParaEditar, pacientes, primeiroTipoDisponivel, profissionais])
 
   useEffect(() => {
     if (modoEdicao || selectedTipo || !primeiroTipoDisponivel) return
-    setSelectedTipo(primeiroTipoDisponivel)
+
+    let cancelled = false
+    queueMicrotask(() => {
+      if (!cancelled) setSelectedTipo(primeiroTipoDisponivel)
+    })
+
+    return () => {
+      cancelled = true
+    }
   }, [modoEdicao, primeiroTipoDisponivel, selectedTipo])
 
   useEffect(() => {
-    if (!atendimentoParaEditar || !precisaCarregarDetalhesEdicao) return
+    if (!atendimentoParaEditar || !loadingDetalhesAtendimento) return
 
     let active = true
-    setLoadingDetalhesAtendimento(true)
 
     buscarDetalhesAgendamento(atendimentoParaEditar.id).then((result) => {
       if (!active) return
-      setLoadingDetalhesAtendimento(false)
-
-      if (!result || 'error' in result || !result.data) return
+      if (!result || 'error' in result || !result.data) {
+        setDetalhesEdicaoFalhos((prev) => ({ ...prev, [atendimentoParaEditar.id]: true }))
+        return
+      }
 
       const dataObj = new Date(result.data.data_agendamento)
       if (result.data.duracao_minutos) {
@@ -159,33 +177,48 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
         setHoraFimValue(format(fim, 'HH:mm'))
       }
       setObservacoesValue(result.data.observacoes ?? '')
+      setDetalhesEdicaoCarregados((prev) => ({ ...prev, [atendimentoParaEditar.id]: true }))
     })
 
     return () => {
       active = false
     }
-  }, [atendimentoParaEditar, precisaCarregarDetalhesEdicao])
+  }, [atendimentoParaEditar, loadingDetalhesAtendimento])
 
   // Fetch de pacientes quando o modal abre (modo controlado ou autônomo)
   useEffect(() => {
     if (!open || pacientes.length > 0) return
 
-    setLoadingPacientes(true)
     fetchAllPacientes(supabase)
       .then(setPacientes)
-      .finally(() => setLoadingPacientes(false))
   }, [open, pacientes.length, supabase])
 
   useEffect(() => {
     if (!isControlled || !open) return
 
+    let cancelled = false
     if (defaultPacienteId) {
-      setSelectedPacienteId(defaultPacienteId)
-      const p = pacientes.find((paciente) => paciente.id === defaultPacienteId)
-      if (p) setPacienteSearch(p.nome)
+      queueMicrotask(() => {
+        if (cancelled) return
+        setSelectedPacienteId(defaultPacienteId)
+        const p = pacientes.find((paciente) => paciente.id === defaultPacienteId)
+        if (p) setPacienteSearch(p.nome)
+      })
     }
-    if (defaultData) setDataAgendamento(defaultData)
-    if (defaultHora) setHoraInicioValue(defaultHora)
+    if (defaultData) {
+      queueMicrotask(() => {
+        if (!cancelled) setDataAgendamento(defaultData)
+      })
+    }
+    if (defaultHora) {
+      queueMicrotask(() => {
+        if (!cancelled) setHoraInicioValue(defaultHora)
+      })
+    }
+
+    return () => {
+      cancelled = true
+    }
   }, [isControlled, open, defaultPacienteId, defaultData, defaultHora, pacientes])
 
   useEffect(() => {
@@ -223,7 +256,13 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
   useEffect(() => {
     if (isRecorrente && dataAgendamento && diasSelecionados.length === 0) {
       const dateObj = new Date(`${dataAgendamento}T00:00:00`)
-      setDiasSelecionados([dateObj.getDay()])
+      let cancelled = false
+      queueMicrotask(() => {
+        if (!cancelled) setDiasSelecionados([dateObj.getDay()])
+      })
+      return () => {
+        cancelled = true
+      }
     }
   }, [isRecorrente, dataAgendamento, diasSelecionados.length])
 
@@ -684,7 +723,7 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
         </button>
       )}
 
-      {mounted ? createPortal(slide, document.body) : null}
+      {typeof document !== 'undefined' ? createPortal(slide, document.body) : null}
     </>
   )
 }

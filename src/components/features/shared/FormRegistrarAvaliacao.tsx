@@ -13,34 +13,15 @@ export function FormRegistrarAvaliacao({ pacienteId }: { pacienteId: string }) {
   const [state, formAction, isPending] = useActionState(registrarAvaliacao, null)
   const formRef = useRef<HTMLFormElement>(null)
 
-  // Gerencia o Portal para o Modal
-  const [portalNode, setPortalNode] = useState<HTMLElement | null>(null);
-
-  useEffect(() => {
-    // Cria um container na raiz do body para o modal se não existir
-    let element = document.getElementById('modal-portal');
-    if (!element) {
-      element = document.createElement('div');
-      element.id = 'modal-portal';
-      document.body.appendChild(element);
-    }
-    setPortalNode(element);
-    
-    // Limpa o portal se o modal fechar (preventivo)
-    return () => {
-      if (!isOpen && element && element.childNodes.length === 0) {
-        // element.remove(); // Opcional: remover o div vazio
-      }
-    };
-  }, [isOpen]);
-
   useEffect(() => {
     if (state?.error) toast.error(state.error)
     if (state?.success) {
       toast.success('Avaliação registrada com sucesso!')
-      setIsOpen(false)
-      setFechou('')
-      formRef.current?.reset()
+      queueMicrotask(() => {
+        setIsOpen(false)
+        setFechou('')
+        formRef.current?.reset()
+      })
     }
   }, [state])
 
@@ -56,7 +37,7 @@ export function FormRegistrarAvaliacao({ pacienteId }: { pacienteId: string }) {
   }, [isOpen]);
 
   // Se o Portal não estiver pronto, mostra apenas o botão
-  if (!portalNode) {
+  if (typeof document === 'undefined') {
      return (
        <button 
          onClick={() => setIsOpen(true)}
@@ -155,7 +136,7 @@ export function FormRegistrarAvaliacao({ pacienteId }: { pacienteId: string }) {
 
           </div>
         </div>,
-        portalNode
+        document.body
       )}
     </>
   )

@@ -10,24 +10,15 @@ export function FormNovoEvento({ pacienteId }: { pacienteId: string }) {
   const [isOpen, setIsOpen] = useState(false)
   const [state, formAction, isPending] = useActionState(criarEvento, null)
   const formRef = useRef<HTMLFormElement>(null)
-  const [portalNode, setPortalNode] = useState<HTMLElement | null>(null);
-
-  useEffect(() => {
-    let element = document.getElementById('modal-portal');
-    if (!element) {
-      element = document.createElement('div');
-      element.id = 'modal-portal';
-      document.body.appendChild(element);
-    }
-    setPortalNode(element);
-  }, []);
 
   useEffect(() => {
     if (state?.error) toast.error(state.error)
     if (state?.success) {
       toast.success('Evento adicionado à linha do tempo!')
-      setIsOpen(false)
-      formRef.current?.reset()
+      queueMicrotask(() => {
+        setIsOpen(false)
+        formRef.current?.reset()
+      })
     }
   }, [state])
 
@@ -42,7 +33,7 @@ export function FormNovoEvento({ pacienteId }: { pacienteId: string }) {
     return () => { window.removeEventListener('keydown', handleEsc); document.body.style.overflow = ''; };
   }, [isOpen]);
 
-  if (!portalNode) {
+  if (typeof document === 'undefined') {
      return (
        <button onClick={() => setIsOpen(true)} className="px-5 py-2 bg-gradient-to-br from-[#006b5a] to-[#33A68F] text-white text-sm font-bold rounded-full shadow-md shadow-[#006b5a]/20 hover:scale-[0.98] transition-transform">
          + Novo Evento
@@ -118,7 +109,7 @@ export function FormNovoEvento({ pacienteId }: { pacienteId: string }) {
 
           </div>
         </div>,
-        portalNode
+        document.body
       )}
     </>
   )
