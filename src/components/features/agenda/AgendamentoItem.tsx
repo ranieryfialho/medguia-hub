@@ -25,6 +25,7 @@ import { adicionarSessaoReposicao, criarAtendimentoReagendado, obterProximaData,
 import { format } from 'date-fns'
 import { formatAppDateLabel, formatAppTime } from '@/lib/datetime'
 import { getAtendimentoStatusKey } from '@/lib/atendimento-status'
+import type { PlanoSaude } from '@/actions/planos-saude'
 
 type Paciente = { id: string; nome: string }
 type Profissional = { id: string; nome: string; cargo: string }
@@ -644,7 +645,17 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
   )
 }
 
-export function AgendamentoItemDia({ agendamento, pacientes, profissionais }: { agendamento: AgendamentoDetalhe; pacientes: Paciente[]; profissionais: Profissional[] }) {
+export function AgendamentoItemDia({
+  agendamento,
+  pacientes,
+  profissionais,
+  planos = [],
+}: {
+  agendamento: AgendamentoDetalhe
+  pacientes: Paciente[]
+  profissionais: Profissional[]
+  planos?: PlanoSaude[]
+}) {
   const [modalAberto, setModalAberto] = useState(false)
   const [slideEditarAberto, setSlideEditarAberto] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -720,6 +731,7 @@ export function AgendamentoItemDia({ agendamento, pacientes, profissionais }: { 
       <SlideNovoAgendamento
         pacientes={pacientes}
         profissionais={profissionais}
+        planos={planos}
         controlledOpen={slideEditarAberto}
         onControlledClose={() => setSlideEditarAberto(false)}
         atendimentoParaEditar={slideEditarAberto ? agendamento : undefined}
@@ -729,7 +741,17 @@ export function AgendamentoItemDia({ agendamento, pacientes, profissionais }: { 
   )
 }
 
-export function AgendamentoItemSemana({ agendamento, pacientes, profissionais }: { agendamento: AgendamentoDetalhe; pacientes: Paciente[]; profissionais: Profissional[] }) {
+export function AgendamentoItemSemana({
+  agendamento,
+  pacientes,
+  profissionais,
+  planos = [],
+}: {
+  agendamento: AgendamentoDetalhe
+  pacientes: Paciente[]
+  profissionais: Profissional[]
+  planos?: PlanoSaude[]
+}) {
   const [modalAberto, setModalAberto] = useState(false)
   const [slideEditarAberto, setSlideEditarAberto] = useState(false)
   const config = getConfig(agendamento.status)
@@ -761,6 +783,7 @@ export function AgendamentoItemSemana({ agendamento, pacientes, profissionais }:
       <SlideNovoAgendamento
         pacientes={pacientes}
         profissionais={profissionais}
+        planos={planos}
         controlledOpen={slideEditarAberto}
         onControlledClose={() => setSlideEditarAberto(false)}
         atendimentoParaEditar={slideEditarAberto ? agendamento : undefined}
