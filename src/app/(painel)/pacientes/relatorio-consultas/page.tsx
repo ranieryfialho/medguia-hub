@@ -49,10 +49,15 @@ type MetricaTipo = {
   pendentes: number
 }
 
-type LinhaPlanoSaude = {
+type LinhaPlanoSaudePorMedico = {
   profissionalId: string
   profissionalNome: string
-  planoSaude: string
+  planos: Record<string, number>
+  total: number
+}
+
+type PlanoSaudeColuna = {
+  nome: string
   agendamentos: number
 }
 
@@ -236,7 +241,8 @@ export default async function RelatorioConsultasPage({
 
   const tiposMap = new Map<string, MetricaTipo>()
   const linhasProfissional = new Map<string, LinhaProfissional>()
-  const linhasPlanoSaude = new Map<string, LinhaPlanoSaude>()
+  const linhasPlanoSaude = new Map<string, LinhaPlanoSaudePorMedico>()
+  const colunasPlanoSaude = new Map<string, PlanoSaudeColuna>()
   const statusMap: Record<string, number> = {}
 
   function garantirLinhaProfissional(profissionalId: string | null) {
@@ -274,16 +280,31 @@ export default async function RelatorioConsultasPage({
     const id = profissionalId ?? 'sem_profissional'
     const profissionalNome = profissionaisMap.get(id) ?? 'Sem responsável'
     const planoSaude = normalizarPlanoSaude(planoBruto)
-    const chave = `${id}::${planoSaude}`
-    if (!linhasPlanoSaude.has(chave)) {
-      linhasPlanoSaude.set(chave, {
+
+    if (!linhasPlanoSaude.has(id)) {
+      linhasPlanoSaude.set(id, {
         profissionalId: id,
         profissionalNome,
-        planoSaude,
+        planos: {},
+        total: 0,
+      })
+    }
+
+    if (!colunasPlanoSaude.has(planoSaude)) {
+      colunasPlanoSaude.set(planoSaude, {
+        nome: planoSaude,
         agendamentos: 0,
       })
     }
-    return linhasPlanoSaude.get(chave)!
+
+    const linha = linhasPlanoSaude.get(id)!
+    linha.planos[planoSaude] = linha.planos[planoSaude] ?? 0
+
+    return {
+      linha,
+      coluna: colunasPlanoSaude.get(planoSaude)!,
+      planoSaude,
+    }
   }
 
   // Mantém o relatório gerencial consistente: só conta atendimentos vinculados
@@ -308,8 +329,10 @@ export default async function RelatorioConsultasPage({
     linhaProf.agendamentos++
     if (agendamento.is_recorrente) linhaProf.recorrentes++
 
-    const linhaPlano = garantirPlanoSaude(agendamento.profissional_id, agendamento.plano_saude)
-    linhaPlano.agendamentos++
+    const { linha: linhaPlano, coluna: colunaPlano, planoSaude } = garantirPlanoSaude(agendamento.profissional_id, agendamento.plano_saude)
+    linhaPlano.planos[planoSaude]++
+    linhaPlano.total++
+    colunaPlano.agendamentos++
   }
 
   for (const atendimento of atendimentosDoPeriodo) {
@@ -339,12 +362,10 @@ export default async function RelatorioConsultasPage({
 
   const linhasProfissionalOrdenadas = Array.from(linhasProfissional.values())
     .sort((a, b) => b.atendimentos - a.atendimentos || b.agendamentos - a.agendamentos)
+  const colunasPlanoSaudeOrdenadas = Array.from(colunasPlanoSaude.values())
+    .sort((a, b) => b.agendamentos - a.agendamentos || a.nome.localeCompare(b.nome))
   const linhasPlanoSaudeOrdenadas = Array.from(linhasPlanoSaude.values())
-    .sort((a, b) =>
-      a.profissionalNome.localeCompare(b.profissionalNome)
-      || b.agendamentos - a.agendamentos
-      || a.planoSaude.localeCompare(b.planoSaude)
-    )
+    .sort((a, b) => b.total - a.total || a.profissionalNome.localeCompare(b.profissionalNome))
 
   const mostrarPctProfissional = linhasProfissionalOrdenadas.length > 1
 
@@ -646,25 +667,34 @@ export default async function RelatorioConsultasPage({
               <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
                 <tr>
                   <th className="text-left px-4 py-3">Médico</th>
-                  <th className="text-left px-4 py-3">Plano</th>
-                  <th className="text-right px-4 py-3">Agendamentos</th>
+                  {colunasPlanoSaudeOrdenadas.map((coluna) => (
+                    <th key={coluna.nome} className="text-right px-4 py-3 whitespace-nowrap">{coluna.nome}</th>
+                  ))}
+                  <th className="text-right px-4 py-3">Total</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {linhasPlanoSaudeOrdenadas.length === 0 && (
                   <tr>
-                    <td colSpan={3} className="px-4 py-8 text-center text-slate-500">
+                    <td colSpan={colunasPlanoSaudeOrdenadas.length + 2} className="px-4 py-8 text-center text-slate-500">
                       Nenhum plano de saúde registrado no período.
                     </td>
                   </tr>
                 )}
                 {linhasPlanoSaudeOrdenadas.map((linha) => (
-                  <tr key={`${linha.profissionalId}-${linha.planoSaude}`}>
+                  <tr key={linha.profissionalId}>
                     <td className="px-4 py-3 font-medium text-slate-900">{linha.profissionalNome}</td>
-                    <td className="px-4 py-3 font-medium text-slate-900">{linha.planoSaude}</td>
+                    {colunasPlanoSaudeOrdenadas.map((coluna) => {
+                      const quantidade = linha.planos[coluna.nome] ?? 0
+                      return (
+                        <td key={`${linha.profissionalId}-${coluna.nome}`} className="px-4 py-3 text-right text-base font-medium">
+                          {quantidade > 0 ? quantidade : '—'}
+                        </td>
+                      )
+                    })}
                     <td className="px-4 py-3 text-right text-base font-medium">
-                      {linha.agendamentos}
-                      <span className="block text-sm text-slate-400">{pct(linha.agendamentos, totalAgendamentos)}</span>
+                      {linha.total}
+                      <span className="block text-sm text-slate-400">{pct(linha.total, totalAgendamentos)}</span>
                     </td>
                   </tr>
                 ))}
