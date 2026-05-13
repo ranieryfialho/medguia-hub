@@ -50,6 +50,8 @@ type MetricaTipo = {
 }
 
 type LinhaPlanoSaude = {
+  profissionalId: string
+  profissionalNome: string
   planoSaude: string
   agendamentos: number
 }
@@ -268,15 +270,20 @@ export default async function RelatorioConsultasPage({
     return tiposMap.get(tipo)!
   }
 
-  function garantirPlanoSaude(planoBruto: string | null | undefined) {
+  function garantirPlanoSaude(profissionalId: string | null, planoBruto: string | null | undefined) {
+    const id = profissionalId ?? 'sem_profissional'
+    const profissionalNome = profissionaisMap.get(id) ?? 'Sem responsável'
     const planoSaude = normalizarPlanoSaude(planoBruto)
-    if (!linhasPlanoSaude.has(planoSaude)) {
-      linhasPlanoSaude.set(planoSaude, {
+    const chave = `${id}::${planoSaude}`
+    if (!linhasPlanoSaude.has(chave)) {
+      linhasPlanoSaude.set(chave, {
+        profissionalId: id,
+        profissionalNome,
         planoSaude,
         agendamentos: 0,
       })
     }
-    return linhasPlanoSaude.get(planoSaude)!
+    return linhasPlanoSaude.get(chave)!
   }
 
   // Mantém o relatório gerencial consistente: só conta atendimentos vinculados
@@ -301,7 +308,7 @@ export default async function RelatorioConsultasPage({
     linhaProf.agendamentos++
     if (agendamento.is_recorrente) linhaProf.recorrentes++
 
-    const linhaPlano = garantirPlanoSaude(agendamento.plano_saude)
+    const linhaPlano = garantirPlanoSaude(agendamento.profissional_id, agendamento.plano_saude)
     linhaPlano.agendamentos++
   }
 
@@ -333,7 +340,11 @@ export default async function RelatorioConsultasPage({
   const linhasProfissionalOrdenadas = Array.from(linhasProfissional.values())
     .sort((a, b) => b.atendimentos - a.atendimentos || b.agendamentos - a.agendamentos)
   const linhasPlanoSaudeOrdenadas = Array.from(linhasPlanoSaude.values())
-    .sort((a, b) => b.agendamentos - a.agendamentos || a.planoSaude.localeCompare(b.planoSaude))
+    .sort((a, b) =>
+      a.profissionalNome.localeCompare(b.profissionalNome)
+      || b.agendamentos - a.agendamentos
+      || a.planoSaude.localeCompare(b.planoSaude)
+    )
 
   const mostrarPctProfissional = linhasProfissionalOrdenadas.length > 1
 
@@ -634,6 +645,7 @@ export default async function RelatorioConsultasPage({
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
                 <tr>
+                  <th className="text-left px-4 py-3">Médico</th>
                   <th className="text-left px-4 py-3">Plano</th>
                   <th className="text-right px-4 py-3">Agendamentos</th>
                 </tr>
@@ -641,13 +653,14 @@ export default async function RelatorioConsultasPage({
               <tbody className="divide-y divide-slate-100">
                 {linhasPlanoSaudeOrdenadas.length === 0 && (
                   <tr>
-                    <td colSpan={2} className="px-4 py-8 text-center text-slate-500">
+                    <td colSpan={3} className="px-4 py-8 text-center text-slate-500">
                       Nenhum plano de saúde registrado no período.
                     </td>
                   </tr>
                 )}
                 {linhasPlanoSaudeOrdenadas.map((linha) => (
-                  <tr key={linha.planoSaude}>
+                  <tr key={`${linha.profissionalId}-${linha.planoSaude}`}>
+                    <td className="px-4 py-3 font-medium text-slate-900">{linha.profissionalNome}</td>
                     <td className="px-4 py-3 font-medium text-slate-900">{linha.planoSaude}</td>
                     <td className="px-4 py-3 text-right text-base font-medium">
                       {linha.agendamentos}
