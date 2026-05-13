@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useEffectEvent, useState, useTransition } from 'react'
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -33,7 +33,6 @@ import {
   removerColunaKanbanContato,
   type StatusContato,
 } from '@/actions/contatos'
-import type { ContatoPaciente, ProfileSimples } from '@/app/(painel)/contatos/page'
 import {
   LABEL_POR_STATUS_CONTATO,
   getVisualColunaContato,
@@ -41,6 +40,17 @@ import {
   type ColunaCorContato,
   type KanbanColunaContato,
 } from '@/lib/contatos-kanban'
+import {
+  CONTATOS_KANBAN_PAGE_SIZE,
+  type ContatoPaciente,
+  type ContatosKanbanBoardData,
+  type ContatosKanbanColumnPage,
+  type ProfileSimples,
+} from '@/lib/contatos-kanban-data'
+import {
+  listarUltimosAtendimentosPorPacientes,
+  type UltimoAtendimentoClient,
+} from '@/lib/ultimo-atendimento'
 import { differenceInCalendarDays, format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import toast from 'react-hot-toast'
@@ -67,7 +77,8 @@ type ColumnFormState = {
   corChave: ColunaCorContato
 }
 
-const INITIAL_PER_COLUMN = 50
+const HISTORICO_ATENDIMENTOS_ANOS = 2
+const ATTENDANCE_BATCH_SIZE = 200
 
 function getInitials(name: string) {
   return name
@@ -133,10 +144,6 @@ function interpolarTemplate(conteudo: string, contato: ContatoPaciente): string 
     .replace(/\{\{sessao\}\}/g, '')
 }
 
-function createVisibleCount(columns: KanbanColunaContato[]) {
-  return Object.fromEntries(columns.map((column) => [column.chave, INITIAL_PER_COLUMN])) as Record<string, number>
-}
-
 function defaultColumnForm(): ColumnFormState {
   return {
     chave: null,
@@ -159,24 +166,30 @@ type NotaContatoRealtimeRow = {
 }
 
 export function KanbanContatos({
-  contatos: initialContatos,
+  initialBoard,
   profiles,
+  responsavelCounts,
+  semResponsavelCount,
   templates,
   columns: initialColumns,
   userNivelAcesso,
 }: {
-  contatos: ContatoPaciente[]
+  initialBoard: ContatosKanbanBoardData
   profiles: ProfileSimples[]
+  responsavelCounts: Record<string, number>
+  semResponsavelCount: number
   templates: Template[]
   columns: KanbanColunaContato[]
   userNivelAcesso: string
 }) {
-  const [contatos, setContatos] = useState<ContatoPaciente[]>(initialContatos)
+  const [contatos, setContatos] = useState<ContatoPaciente[]>(initialBoard.contatos)
+  const [columnTotals, setColumnTotals] = useState<Record<string, number>>(initialBoard.columnTotals)
+  const [columnOffsets, setColumnOffsets] = useState<Record<string, number>>(initialBoard.columnOffsets)
+  const [totalFiltered, setTotalFiltered] = useState(initialBoard.totalFiltered)
   const [columns, setColumns] = useState<KanbanColunaContato[]>(initialColumns)
   const [search, setSearch] = useState('')
   const [responsavelFilter, setResponsavelFilter] = useState<string | null>(null)
   const [activeColuna, setActiveColuna] = useState<string>(initialColumns[0]?.chave ?? 'a_contactar')
-  const [visibleCount, setVisibleCount] = useState<Record<string, number>>(() => createVisibleCount(initialColumns))
   const [selected, setSelected] = useState<ContatoPaciente | null>(null)
   const [notas, setNotas] = useState<Nota[]>([])
   const [loadingNotas, setLoadingNotas] = useState(false)
@@ -189,8 +202,14 @@ export function KanbanContatos({
   const [teamFilterOpen, setTeamFilterOpen] = useState(false)
   const [columnModalTab, setColumnModalTab] = useState<'lista' | 'form'>('lista')
   const [localTemplates, setLocalTemplates] = useState<Template[]>(templates)
+  const [loadingBoard, setLoadingBoard] = useState(false)
+  const [loadingColumns, setLoadingColumns] = useState<Record<string, boolean>>({})
   const [, startTransition] = useTransition()
   const [supabase] = useState(createClient)
+  const contatosRef = useRef<ContatoPaciente[]>(initialBoard.contatos)
+  const attendanceLoadedIdsRef = useRef<Set<string>>(new Set())
+  const attendanceLoadingIdsRef = useRef<Set<string>>(new Set())
+  const didHydrateFiltersRef = useRef(false)
 
   const router = useRouter()
   const canManageColumns = userNivelAcesso === 'gestor' || userNivelAcesso === 'master'
@@ -205,6 +224,9 @@ export function KanbanContatos({
   }
 
   const applyContatoRealtime = useEffectEvent((row: ContatoBaseRealtimeRow) => {
+    const previousContato = contatosRef.current.find((contato) => contato.id === row.paciente_id)
+    const previousColumnKey = previousContato?.kanban_coluna_chave ?? null
+
     setContatos((prev) =>
       prev.map((contato) =>
         contato.id === row.paciente_id
@@ -234,6 +256,14 @@ export function KanbanContatos({
           }
         : prev
     )
+
+    if (previousColumnKey && previousColumnKey !== row.kanban_coluna_chave) {
+      setColumnTotals((prev) => ({
+        ...prev,
+        [previousColumnKey]: Math.max(0, (prev[previousColumnKey] ?? 0) - 1),
+        [row.kanban_coluna_chave]: (prev[row.kanban_coluna_chave] ?? 0) + 1,
+      }))
+    }
   })
 
   const reloadNotas = useCallback(async (pacienteId: string) => {
@@ -244,8 +274,24 @@ export function KanbanContatos({
   }, [])
 
   useEffect(() => {
-    setContatos(initialContatos)
-  }, [initialContatos])
+    contatosRef.current = contatos
+  }, [contatos])
+
+  useEffect(() => {
+    setContatos(initialBoard.contatos)
+    setColumnTotals(initialBoard.columnTotals)
+    setColumnOffsets(initialBoard.columnOffsets)
+    setTotalFiltered(initialBoard.totalFiltered)
+  }, [initialBoard])
+
+  useEffect(() => {
+    attendanceLoadedIdsRef.current = new Set(
+      initialBoard.contatos
+        .filter((contato) => contato.ultimo_atendimento_data !== null)
+        .map((contato) => contato.id)
+    )
+    attendanceLoadingIdsRef.current = new Set()
+  }, [initialBoard])
 
   useEffect(() => {
     setColumns(initialColumns)
@@ -257,14 +303,6 @@ export function KanbanContatos({
     if (!columns.some((column) => column.chave === activeColuna)) {
       setActiveColuna(columns[0].chave)
     }
-
-    setVisibleCount((prev) => {
-      const next = createVisibleCount(columns)
-      for (const key of Object.keys(next)) {
-        if (prev[key]) next[key] = prev[key]
-      }
-      return next
-    })
   }, [columns, activeColuna])
 
   useEffect(() => {
@@ -302,6 +340,18 @@ export function KanbanContatos({
                   }
                 })
               )
+
+              const previousContato = contatosRef.current.find((contato) => contato.id === row.paciente_id)
+              const previousColumnKey = previousContato?.kanban_coluna_chave ?? null
+              const fallbackColumnKey = previousContato ? getFallbackStatus(previousContato) : null
+
+              if (previousColumnKey && fallbackColumnKey && previousColumnKey !== fallbackColumnKey) {
+                setColumnTotals((prev) => ({
+                  ...prev,
+                  [previousColumnKey]: Math.max(0, (prev[previousColumnKey] ?? 0) - 1),
+                  [fallbackColumnKey]: (prev[fallbackColumnKey] ?? 0) + 1,
+                }))
+              }
 
               setSelected((prev) => {
                 if (!prev || prev.id !== row.paciente_id) return prev
@@ -388,10 +438,6 @@ export function KanbanContatos({
   }, [reloadNotas, selected, selectedId])
 
   useEffect(() => {
-    setVisibleCount(createVisibleCount(columns))
-  }, [search, responsavelFilter, columns])
-
-  useEffect(() => {
     try {
       const stored = localStorage.getItem('medguia_template_order')
       if (!stored) return
@@ -425,30 +471,214 @@ export function KanbanContatos({
     })
   }
 
-  const filtered = contatos.filter((c) => {
-    if (search && !c.nome.toLowerCase().includes(search.toLowerCase())) return false
-    if (responsavelFilter === '__none__' && c.responsavel_id !== null) return false
-    if (responsavelFilter && responsavelFilter !== '__none__' && c.responsavel_id !== responsavelFilter) return false
-    return true
+  const visibleAttendanceIds = useMemo(() => {
+    const ids = contatos.map((contato) => contato.id)
+    if (selectedId && !ids.includes(selectedId)) {
+      ids.push(selectedId)
+    }
+    return ids
+  }, [contatos, selectedId])
+
+  const profilesComContagem = useMemo(
+    () =>
+      profiles.map((profile) => ({
+        ...profile,
+        count: responsavelCounts[profile.id] ?? 0,
+      })),
+    [profiles, responsavelCounts]
+  )
+
+  const contatosByColumn = useMemo(() => {
+    const grouped = new Map<string, ContatoPaciente[]>()
+    for (const contato of contatos) {
+      const contatosDaColuna = grouped.get(contato.kanban_coluna_chave)
+      if (contatosDaColuna) {
+        contatosDaColuna.push(contato)
+      } else {
+        grouped.set(contato.kanban_coluna_chave, [contato])
+      }
+    }
+    return grouped
+  }, [contatos])
+
+  const refreshBoard = useEffectEvent(async (nextSearch: string, nextResponsavelFilter: string | null) => {
+    const params = new URLSearchParams()
+    const trimmedSearch = nextSearch.trim()
+    if (trimmedSearch) params.set('search', trimmedSearch)
+    if (nextResponsavelFilter) params.set('responsavel', nextResponsavelFilter)
+    params.set('limit', String(CONTATOS_KANBAN_PAGE_SIZE))
+
+    setLoadingBoard(true)
+    try {
+      const response = await fetch(`/api/contatos/kanban?${params.toString()}`, { cache: 'no-store' })
+      if (!response.ok) {
+        throw new Error('Erro ao atualizar kanban.')
+      }
+
+      const data = (await response.json()) as ContatosKanbanBoardData
+      setContatos(data.contatos)
+      setColumnTotals(data.columnTotals)
+      setColumnOffsets(data.columnOffsets)
+      setTotalFiltered(data.totalFiltered)
+      setSelected(null)
+    } catch {
+      toast.error('Nao foi possivel atualizar os contatos.')
+    } finally {
+      setLoadingBoard(false)
+    }
   })
 
-  const profilesComContagem = profiles.map((p) => ({
-    ...p,
-    count: contatos.filter((c) => c.responsavel_id === p.id).length,
-  }))
-  const semResponsavelCount = contatos.filter((c) => c.responsavel_id === null).length
+  useEffect(() => {
+    if (!didHydrateFiltersRef.current) {
+      didHydrateFiltersRef.current = true
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void refreshBoard(search, responsavelFilter)
+    }, 250)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [responsavelFilter, search])
+
+  async function handleLoadMore(columnKey: string) {
+    const currentOffset = columnOffsets[columnKey] ?? 0
+    const total = columnTotals[columnKey] ?? 0
+
+    if (loadingColumns[columnKey] || currentOffset >= total) {
+      return
+    }
+
+    setLoadingColumns((prev) => ({ ...prev, [columnKey]: true }))
+
+    try {
+      const params = new URLSearchParams({
+        columnKey,
+        offset: String(currentOffset),
+        limit: String(CONTATOS_KANBAN_PAGE_SIZE),
+      })
+
+      const trimmedSearch = search.trim()
+      if (trimmedSearch) params.set('search', trimmedSearch)
+      if (responsavelFilter) params.set('responsavel', responsavelFilter)
+
+      const response = await fetch(`/api/contatos/kanban?${params.toString()}`, { cache: 'no-store' })
+      if (!response.ok) {
+        throw new Error('Erro ao carregar mais contatos.')
+      }
+
+      const page = (await response.json()) as ContatosKanbanColumnPage
+      setContatos((prev) => {
+        const existingIds = new Set(prev.map((contato) => contato.id))
+        const merged = [...prev]
+        for (const contato of page.items) {
+          if (!existingIds.has(contato.id)) {
+            merged.push(contato)
+          }
+        }
+        return merged
+      })
+      setColumnTotals((prev) => ({ ...prev, [columnKey]: page.total }))
+      setColumnOffsets((prev) => ({ ...prev, [columnKey]: page.nextOffset }))
+    } catch {
+      toast.error('Nao foi possivel carregar mais contatos.')
+    } finally {
+      setLoadingColumns((prev) => ({ ...prev, [columnKey]: false }))
+    }
+  }
+
+  useEffect(() => {
+    const idsToLoad = visibleAttendanceIds.filter(
+      (id) => !attendanceLoadedIdsRef.current.has(id) && !attendanceLoadingIdsRef.current.has(id)
+    )
+
+    if (!idsToLoad.length) return
+
+    const atendimentoCutoff = new Date()
+    atendimentoCutoff.setFullYear(atendimentoCutoff.getFullYear() - HISTORICO_ATENDIMENTOS_ANOS)
+    const atendimentoCutoffIso = atendimentoCutoff.toISOString()
+    let cancelled = false
+
+    for (const id of idsToLoad) {
+      attendanceLoadingIdsRef.current.add(id)
+    }
+
+    const chunks: string[][] = []
+    for (let index = 0; index < idsToLoad.length; index += ATTENDANCE_BATCH_SIZE) {
+      chunks.push(idsToLoad.slice(index, index + ATTENDANCE_BATCH_SIZE))
+    }
+
+    const loadAttendance = async () => {
+      try {
+        const results = await Promise.all(
+          chunks.map((ids) =>
+            listarUltimosAtendimentosPorPacientes(
+              supabase as unknown as UltimoAtendimentoClient,
+              ids,
+              atendimentoCutoffIso
+            )
+          )
+        )
+
+        if (cancelled) return
+
+        const attendanceMap = new Map(
+          results.flat().map((atendimento) => [
+            atendimento.paciente_id,
+            {
+              ultimo_atendimento_data: atendimento.data_agendamento,
+              ultimo_atendimento_tipo: atendimento.tipo,
+            },
+          ])
+        )
+
+        setContatos((prev) =>
+          prev.map((contato) => {
+            const attendance = attendanceMap.get(contato.id)
+            return attendance ? { ...contato, ...attendance } : contato
+          })
+        )
+
+        setSelected((prev) => {
+          if (!prev) return prev
+          const attendance = attendanceMap.get(prev.id)
+          return attendance ? { ...prev, ...attendance } : prev
+        })
+
+        for (const id of idsToLoad) {
+          attendanceLoadingIdsRef.current.delete(id)
+          attendanceLoadedIdsRef.current.add(id)
+        }
+      } catch {
+        for (const id of idsToLoad) {
+          attendanceLoadingIdsRef.current.delete(id)
+        }
+      }
+    }
+
+    void loadAttendance()
+
+    return () => {
+      cancelled = true
+    }
+  }, [supabase, visibleAttendanceIds])
 
   function getColumnByKey(chave: string) {
     return columns.find((column) => column.chave === chave) ?? null
   }
 
   function getColumnCardCount(chave: string) {
-    return contatos.filter((contato) => contato.kanban_coluna_chave === chave).length
+    return columnTotals[chave] ?? 0
   }
 
   async function moveContato(pacienteId: string, columnKey: string) {
     const targetColumn = getColumnByKey(columnKey)
     if (!targetColumn) return
+
+    const currentContato = contatos.find((contato) => contato.id === pacienteId)
+    const previousColumnKey = currentContato?.kanban_coluna_chave ?? null
 
     setContatos((prev) =>
       prev.map((contato) =>
@@ -457,6 +687,14 @@ export function KanbanContatos({
           : contato
       )
     )
+
+    if (previousColumnKey && previousColumnKey !== targetColumn.chave) {
+      setColumnTotals((prev) => ({
+        ...prev,
+        [previousColumnKey]: Math.max(0, (prev[previousColumnKey] ?? 0) - 1),
+        [targetColumn.chave]: (prev[targetColumn.chave] ?? 0) + 1,
+      }))
+    }
 
     if (selected?.id === pacienteId) {
       setSelected((prev) =>
@@ -582,6 +820,8 @@ export function KanbanContatos({
           ordem: nextOrder,
         },
       ])
+      setColumnTotals((prev) => ({ ...prev, [createdKey]: 0 }))
+      setColumnOffsets((prev) => ({ ...prev, [createdKey]: 0 }))
     }
 
     setColumnSaving(false)
@@ -602,6 +842,16 @@ export function KanbanContatos({
     if (result?.error) return
 
     setColumns((prev) => prev.filter((item) => item.chave !== column.chave))
+    setColumnTotals((prev) => {
+      const next = { ...prev }
+      delete next[column.chave]
+      return next
+    })
+    setColumnOffsets((prev) => {
+      const next = { ...prev }
+      delete next[column.chave]
+      return next
+    })
     setContatos((prev) =>
       prev.map((contato) =>
         contato.kanban_coluna_chave === column.chave
@@ -714,7 +964,7 @@ export function KanbanContatos({
           {/* Contadores — só desktop */}
           <div className="hidden lg:flex items-center gap-2.5 border-l border-[#dee3e3] pl-3 shrink-0">
             {columns.map((column) => {
-              const count = filtered.filter((c) => c.kanban_coluna_chave === column.chave).length
+              const count = columnTotals[column.chave] ?? 0
               const visual = getVisualColunaContato(column)
               return (
                 <span key={column.chave} className="text-[11px] font-bold" style={{ color: visual.cor }}>
@@ -723,7 +973,7 @@ export function KanbanContatos({
               )
             })}
             <span className="text-[11px] font-bold text-[#9BB0AD] bg-[#f0f5f4] px-2 py-1 rounded-lg border border-[#dee3e3]">
-              {filtered.length} total
+              {totalFiltered} total
             </span>
           </div>
         </div>
@@ -798,7 +1048,7 @@ export function KanbanContatos({
         {/* Info strip mobile — compacto, sem linha extra desnecessária */}
         <div className="flex items-center gap-2 sm:hidden">
           <span className="text-[11px] text-[#9BB0AD] font-medium">
-            {filtered.length} de {contatos.length} pacientes
+            {contatos.length} de {totalFiltered} pacientes
           </span>
           {responsavelFilter && (
             <button
@@ -814,7 +1064,7 @@ export function KanbanContatos({
 
       <div className="flex lg:hidden gap-2 overflow-x-auto pb-2 hide-scrollbar snap-x snap-mandatory">
         {columns.map((column) => {
-          const count = filtered.filter((c) => c.kanban_coluna_chave === column.chave).length
+          const count = columnTotals[column.chave] ?? 0
           const visual = getVisualColunaContato(column)
 
           return (
@@ -878,10 +1128,9 @@ export function KanbanContatos({
         }}
       >
         {columns.map((column, colIdx) => {
-          const cards = filtered.filter((c) => c.kanban_coluna_chave === column.chave)
-          const limit = search || responsavelFilter ? cards.length : visibleCount[column.chave] ?? INITIAL_PER_COLUMN
-          const visibleCards = cards.slice(0, limit)
-          const hiddenCount = cards.length - visibleCards.length
+          const cards = contatosByColumn.get(column.chave) ?? []
+          const totalCards = columnTotals[column.chave] ?? 0
+          const hiddenCount = Math.max(0, totalCards - cards.length)
           const visual = getVisualColunaContato(column)
 
           return (
@@ -907,7 +1156,7 @@ export function KanbanContatos({
                   className="text-xs font-extrabold px-2.5 py-0.5 rounded-full shadow-sm"
                   style={{ backgroundColor: visual.corBadgeBg, color: visual.corBadgeText }}
                 >
-                  {cards.length}
+                  {totalCards}
                 </span>
               </div>
 
@@ -961,10 +1210,10 @@ export function KanbanContatos({
 
                 {cards.length === 0 ? (
                   <div className="flex items-center justify-center h-16 text-xs text-[#9BB0AD]">
-                    Vazio
+                    {loadingBoard ? 'Carregando...' : 'Vazio'}
                   </div>
                 ) : (
-                  visibleCards.map((contato) => {
+                  cards.map((contato) => {
                     const dias = diasDesde(contato.ultimo_atendimento_data)
                     const cor = dias !== null ? diasCor(dias) : '#9BB0AD'
 
@@ -1080,16 +1329,12 @@ export function KanbanContatos({
 
                 {hiddenCount > 0 && (
                   <button
-                    onClick={() =>
-                      setVisibleCount((prev) => ({
-                        ...prev,
-                        [column.chave]: (prev[column.chave] ?? INITIAL_PER_COLUMN) + INITIAL_PER_COLUMN,
-                      }))
-                    }
+                    onClick={() => void handleLoadMore(column.chave)}
+                    disabled={loadingColumns[column.chave]}
                     className="w-full mt-1 py-2 text-xs font-semibold rounded-lg border border-dashed transition-colors"
                     style={{ borderColor: visual.cor + '60', color: visual.cor, backgroundColor: visual.corBg }}
                   >
-                    Ver mais {hiddenCount} -&gt;
+                    {loadingColumns[column.chave] ? 'Carregando...' : `Ver mais ${hiddenCount} ->`}
                   </button>
                 )}
               </div>

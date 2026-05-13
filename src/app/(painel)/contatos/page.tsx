@@ -1,88 +1,23 @@
 import { createClient } from '@/lib/supabase/server'
 import { KanbanContatos } from '@/components/features/contatos'
-import type { StatusContato } from '@/actions/contatos'
 import {
   normalizarColunasContato,
   type KanbanColunaContato,
 } from '@/lib/contatos-kanban'
 import {
-  criarMapaUltimoAtendimento,
-  listarUltimosAtendimentosPorPacientes,
-  type UltimoAtendimentoClient,
-} from '@/lib/ultimo-atendimento'
+  CONTATOS_KANBAN_PAGE_SIZE,
+  listarContatosKanbanBoard,
+  listarResponsavelStatsContatosKanban,
+} from '@/lib/contatos-kanban-data'
 import { Target } from 'lucide-react'
 import { requireModulo } from '@/lib/guard'
-
-export type ContatoPaciente = {
-  id: string
-  nome: string
-  telefone: string
-  email: string | null
-  recuperacao_base: boolean
-  status: StatusContato
-  kanban_coluna_chave: string
-  responsavel_id: string | null
-  responsavel_nome: string | null
-  ultimo_atendimento_data: string | null
-  ultimo_atendimento_tipo: string | null
-}
-
-export type ProfileSimples = { id: string; full_name: string }
-
-const HISTORICO_ATENDIMENTOS_ANOS = 2
-
-type ContatoBaseRelacionamento = {
-  paciente_id: string
-  status: StatusContato
-  kanban_coluna_chave: string | null
-  responsavel_id: string | null
-}
-
-async function fetchAll<T>(
-  fetcher: (from: number, to: number) => PromiseLike<{ data: T[] | null }>
-): Promise<T[]> {
-  const SIZE = 1000
-  const acc: T[] = []
-  let page = 0
-  while (true) {
-    const { data } = await fetcher(page * SIZE, (page + 1) * SIZE - 1)
-    if (!data?.length) break
-    acc.push(...data)
-    if (data.length < SIZE) break
-    page++
-  }
-  return acc
-}
 
 export default async function ContatosPage() {
   const { user, profile } = await requireModulo('contatos:base')
 
   const supabase = await createClient()
-  const atendimentoCutoff = new Date()
-  atendimentoCutoff.setFullYear(atendimentoCutoff.getFullYear() - HISTORICO_ATENDIMENTOS_ANOS)
-  const atendimentoCutoffIso = atendimentoCutoff.toISOString()
 
-  const [pacientes, { data: profiles }, templates, { data: kanbanColumnsRaw }] = await Promise.all([
-    fetchAll((from, to) =>
-      supabase
-        .from('pacientes')
-        .select(`
-          id,
-          nome,
-          telefone,
-          email,
-          recuperacao_base,
-          contatos_base (
-            paciente_id,
-            status,
-            kanban_coluna_chave,
-            responsavel_id
-          )
-        `)
-        .eq('ativo', true)
-        .order('nome')
-        .range(from, to)
-    ),
+  const [{ data: profiles }, templates, { data: kanbanColumnsRaw }] = await Promise.all([
     supabase.from('profiles').select('id, full_name').eq('ativo', true).neq('role', 'master').neq('role', 'medico').order('full_name'),
     user
       ? supabase
@@ -98,37 +33,16 @@ export default async function ContatosPage() {
       .select('chave, nome, tipo, status_base, cor_chave, ordem')
       .order('ordem', { ascending: true }),
   ])
-  const atendimentos = await listarUltimosAtendimentosPorPacientes(
-    supabase as unknown as UltimoAtendimentoClient,
-    pacientes.map((paciente) => paciente.id),
-    atendimentoCutoffIso
-  )
 
-  const profilesMap = new Map((profiles ?? []).map(p => [p.id, p]))
   const kanbanColumns = normalizarColunasContato((kanbanColumnsRaw ?? null) as KanbanColunaContato[] | null)
-  const ultimoAtendimentoMap = criarMapaUltimoAtendimento(atendimentos)
-
-  const data: ContatoPaciente[] = pacientes.map(p => {
-    const contatoRelacao = Array.isArray(p.contatos_base) ? p.contatos_base[0] : p.contatos_base
-    const c = (contatoRelacao ?? null) as ContatoBaseRelacionamento | null
-    const ua = ultimoAtendimentoMap.get(p.id)
-    const responsavelNome = c?.responsavel_id ? profilesMap.get(c.responsavel_id)?.full_name ?? null : null
-    return {
-      id: p.id,
-      nome: p.nome,
-      telefone: p.telefone,
-      email: p.email,
-      recuperacao_base: p.recuperacao_base,
-      status: (c?.status ?? (p.recuperacao_base ? 'recuperacao_base' : 'a_contactar')) as StatusContato,
-      kanban_coluna_chave: c?.kanban_coluna_chave ?? c?.status ?? (p.recuperacao_base ? 'recuperacao_base' : 'a_contactar'),
-      responsavel_id: c?.responsavel_id ?? null,
-      responsavel_nome: responsavelNome,
-      ultimo_atendimento_data: ua?.data ?? null,
-      ultimo_atendimento_tipo: ua?.tipo ?? null,
-    }
-  })
-
-  const totalPacientes = data.length
+  const [initialBoard, responsavelStats] = await Promise.all([
+    listarContatosKanbanBoard(supabase, {
+      columns: kanbanColumns,
+      pageSize: CONTATOS_KANBAN_PAGE_SIZE,
+    }),
+    listarResponsavelStatsContatosKanban(supabase),
+  ])
+  const totalPacientes = initialBoard.totalFiltered
 
   return (
     <div className="space-y-6 sm:space-y-8 pb-6">
@@ -149,8 +63,10 @@ export default async function ContatosPage() {
       </div>
 
       <KanbanContatos
-        contatos={data}
+        initialBoard={initialBoard}
         profiles={profiles ?? []}
+        responsavelCounts={responsavelStats.responsavelCounts}
+        semResponsavelCount={responsavelStats.semResponsavelCount}
         templates={templates}
         columns={kanbanColumns}
         userNivelAcesso={profile?.nivel_acesso ?? ''}
