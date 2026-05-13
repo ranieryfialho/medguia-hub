@@ -31,6 +31,7 @@ import {
 type StatusConfig = { badgeBg: string; label: string }
 type RelacaoPaciente = AgendamentoDetalhe['pacientes'] | AgendamentoDetalhe['pacientes'][]
 type RelacaoProfissional = AgendamentoDetalhe['profissional'] | AgendamentoDetalhe['profissional'][]
+type RelacaoAgendamentoPai = NonNullable<AgendamentoDetalhe['agendamento_pai']> | NonNullable<AgendamentoDetalhe['agendamento_pai']>[]
 
 type AgendaQueryOverrides = {
   data?: string
@@ -255,6 +256,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 observacoes,
                 numero_sessao,
                 total_sessoes,
+                agendamento_pai:agendamentos(plano_saude),
                 pacientes (nome),
                 profissional:profiles!profissional_id(full_name)
               `)
@@ -275,6 +277,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 observacoes,
                 numero_sessao,
                 total_sessoes,
+                agendamento_pai:agendamentos(plano_saude),
                 pacientes (nome),
                 profissional:profiles!profissional_id(full_name)
               `)
@@ -298,6 +301,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 observacoes,
                 numero_sessao,
                 total_sessoes,
+                agendamento_pai:agendamentos(plano_saude),
                 pacientes (nome, telefone, email),
                 profissional:profiles!profissional_id(full_name, role)
               `)
@@ -319,6 +323,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 observacoes,
                 numero_sessao,
                 total_sessoes,
+                agendamento_pai:agendamentos(plano_saude),
                 pacientes (nome, telefone, email),
                 profissional:profiles!profissional_id(full_name, role)
               `)
@@ -353,6 +358,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
         ...a,
         pacientes: firstRelation(a.pacientes as RelacaoPaciente),
         profissional: firstRelation(a.profissional as RelacaoProfissional) ?? undefined,
+        agendamento_pai: firstRelation(a.agendamento_pai as RelacaoAgendamentoPai) ?? undefined,
         numero_sessao: efetivo?.sessao_efetiva ?? a.numero_sessao,
         total_sessoes: efetivo?.total_efetivo ?? a.total_sessoes,
       }

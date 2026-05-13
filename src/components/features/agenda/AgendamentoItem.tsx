@@ -34,6 +34,7 @@ export type AgendamentoDetalhe = {
   paciente_id: string
   profissional_id?: string | null
   agendamento_id?: string | null
+  agendamento_pai?: { plano_saude?: string | null } | null
   data_agendamento: string
   status: string
   tipo: string
@@ -142,6 +143,7 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
     email?: string | null
     full_name?: string | null
     role?: string | null
+    plano_saude?: string | null
     duracao_minutos?: number | null
     observacoes?: string | null
   }>>({})
@@ -156,6 +158,7 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
   const emailPaciente = detalhesExtras?.email ?? agendamento.pacientes?.email
   const nomeProfissional = detalhesExtras?.full_name ?? agendamento.profissional?.full_name
   const roleProfissional = detalhesExtras?.role ?? agendamento.profissional?.role
+  const planoSaude = detalhesExtras?.plano_saude ?? agendamento.agendamento_pai?.plano_saude
   const duracaoMinutos = detalhesExtras?.duracao_minutos ?? agendamento.duracao_minutos
   const observacoes = detalhesExtras?.observacoes ?? agendamento.observacoes
   const horaInicio = formatAppTime(dataObj)
@@ -164,6 +167,7 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
   const precisaCarregarDetalhes = telefone == null
     && emailPaciente == null
     && roleProfissional == null
+    && planoSaude == null
     && duracaoMinutos == null
     && observacoes == null
   const loadingDetalhes = precisaCarregarDetalhes
@@ -197,6 +201,7 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
           email: paciente?.email ?? null,
           full_name: profissional?.full_name ?? null,
           role: profissional?.role ?? null,
+          plano_saude: (detalhes.agendamento as { plano_saude?: string | null } | null)?.plano_saude ?? null,
           duracao_minutos: detalhes.duracao_minutos ?? null,
           observacoes: detalhes.observacoes ?? null,
         },
@@ -512,6 +517,13 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
                     </span>
                   </div>
                 )}
+
+                {planoSaude ? (
+                  <div className="flex items-center gap-3">
+                    <ClipboardList size={16} className="shrink-0 text-[#006b5a]" />
+                    <span className="text-sm font-medium text-[#3d4945]">Plano de saúde: {planoSaude}</span>
+                  </div>
+                ) : null}
 
                 <div className="flex items-start gap-3">
                   <Calendar size={16} className="mt-0.5 shrink-0 text-[#006b5a]" />

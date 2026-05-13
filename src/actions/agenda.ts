@@ -105,6 +105,7 @@ export async function criarAgendamento(formData: FormData) {
   const horaFim = formData.get('hora_fim') as string // HH:mm
   const tipo = formData.get('tipo') as string
   const observacoes = formData.get('observacoes') as string
+  const plano_saude = ((formData.get('plano_saude') as string) || '').trim()
   const gerou_venda = formData.get('gerou_venda') === 'on'
   const marcou_retorno = formData.get('marcou_retorno') === 'on'
 
@@ -276,6 +277,7 @@ export async function criarAgendamento(formData: FormData) {
       data_fim: null,
       total_ocorrencias: isRecorrente ? ocorrencias : null,
       observacoes,
+      plano_saude: plano_saude || null,
       gerou_venda,
       marcou_retorno,
       criado_por: user?.id ?? null,
@@ -321,6 +323,7 @@ export async function buscarDetalhesAgendamento(atendimentoId: string) {
       tipo,
       duracao_minutos,
       observacoes,
+      agendamento:agendamentos(plano_saude),
       numero_sessao,
       total_sessoes,
       pacientes (nome, telefone, email),
@@ -523,6 +526,7 @@ export async function editarAtendimento(id: string, formData: FormData) {
   const horaFim = formData.get('hora_fim') as string
   const tipo = formData.get('tipo') as string
   const observacoes = formData.get('observacoes') as string
+  const plano_saude = ((formData.get('plano_saude') as string) || '').trim()
 
   if (!dataStr || !horaInicio || !horaFim) {
     return { error: 'Preencha todos os campos obrigatórios.' }
@@ -560,6 +564,17 @@ export async function editarAtendimento(id: string, formData: FormData) {
   let duracao = (end.getTime() - start.getTime()) / 60000
   if (duracao <= 0) duracao = 30
 
+  const { data: atendimentoAtual, error: atendimentoAtualError } = await supabase
+    .from('atendimentos')
+    .select('agendamento_id')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (atendimentoAtualError) {
+    console.error('Erro ao localizar agendamento pai:', atendimentoAtualError.message)
+    return { error: 'Não foi possível editar o agendamento.' }
+  }
+
   const { error } = await supabase
     .from('atendimentos')
     .update({
@@ -574,6 +589,27 @@ export async function editarAtendimento(id: string, formData: FormData) {
   if (error) {
     console.error('Erro ao editar:', error.message)
     return { error: 'Não foi possível editar o agendamento.' }
+  }
+
+  if (atendimentoAtual?.agendamento_id) {
+    const { error: parentError } = await supabase
+      .from('agendamentos')
+      .update({
+        profissional_id: profissional_id || null,
+        tipo: tipo || 'Sessão',
+        data_inicio: dataStr,
+        hora_inicio: horaInicio,
+        hora_fim: horaFim,
+        duracao_minutos: duracao,
+        observacoes: observacoes || null,
+        plano_saude: plano_saude || null,
+      })
+      .eq('id', atendimentoAtual.agendamento_id)
+
+    if (parentError) {
+      console.error('Erro ao editar agendamento pai:', parentError.message)
+      return { error: 'O atendimento foi atualizado, mas não foi possível sincronizar o agendamento.' }
+    }
   }
 
   revalidatePath('/agenda')

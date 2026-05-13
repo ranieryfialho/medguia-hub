@@ -71,13 +71,13 @@ export default async function PacienteDetailsPage({
     status: string
     tipo?: string | null
     observacoes?: string | null
-    agendamento?: { tipo?: string | null; is_recorrente?: boolean | null } | null
+    agendamento?: { tipo?: string | null; is_recorrente?: boolean | null; plano_saude?: string | null } | null
   }
 
   const [{ data: atendimentos }, prontuariosRaw, { data: vendasRaw }] = await Promise.all([
     supabase
       .from('atendimentos')
-      .select(`*, agendamento:agendamentos(tipo, is_recorrente)`)
+      .select(`*, agendamento:agendamentos(tipo, is_recorrente, plano_saude)`)
       .eq('paciente_id', pacienteId)
       .order('data_agendamento', { ascending: false }),
     buscarProntuariosPorPaciente(pacienteId),
@@ -117,7 +117,13 @@ export default async function PacienteDetailsPage({
   const observacoesGeraisLimpa = metadataInativacao.observacoesLimpa
 
   // Agrupar atendimentos por agendamento_id
-  const gruposMap = new Map<string, { agendamento_id: string | null; tipo: string; is_recorrente: boolean; sessoes: Array<AtendimentoComRelacoes & { prontuario: ProntuarioResumo | null }> }>()
+  const gruposMap = new Map<string, {
+    agendamento_id: string | null
+    tipo: string
+    plano_saude: string | null
+    is_recorrente: boolean
+    sessoes: Array<AtendimentoComRelacoes & { prontuario: ProntuarioResumo | null }>
+  }>()
 
   for (const atend of atendimentosComProntuario) {
     const prontuario = prontuariosMap.get(atend.id) ?? null
@@ -126,6 +132,7 @@ export default async function PacienteDetailsPage({
       gruposMap.set(chave, {
         agendamento_id: atend.agendamento_id ?? null,
         tipo: atend.agendamento?.tipo ?? atend.tipo ?? 'Sessão',
+        plano_saude: atend.agendamento?.plano_saude ?? null,
         is_recorrente: atend.agendamento?.is_recorrente ?? false,
         sessoes: [],
       })

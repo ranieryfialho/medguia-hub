@@ -34,6 +34,7 @@ type Sessao = {
 type AgendamentoComSessoes = {
   agendamento_id: string | null
   tipo: string
+  plano_saude?: string | null
   is_recorrente: boolean
   sessoes: Sessao[]
 }
@@ -76,7 +77,7 @@ function calcularStatusGeral(sessoes: Sessao[]): string {
 export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
   const [expandido, setExpandido] = useState(false)
 
-  const { sessoes, tipo, is_recorrente } = grupo
+  const { sessoes, tipo, plano_saude, is_recorrente } = grupo
   const statusGeral = calcularStatusGeral(sessoes)
   const config = getStatusConfig(statusGeral)
 
@@ -139,6 +140,9 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
           </div>
 
           <h5 className="font-bold text-slate-900 text-[15px] mb-1">{tipo}</h5>
+          {plano_saude && (
+            <p className="text-[11px] font-medium text-slate-500">Plano de saúde: {plano_saude}</p>
+          )}
 
           {/* Barra de progresso das sessões */}
           {sessoes.length > 1 && (

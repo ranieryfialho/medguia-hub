@@ -44,6 +44,7 @@ interface AtendimentoParaEditar {
   id: string
   paciente_id: string
   profissional_id?: string | null
+  agendamento_pai?: { plano_saude?: string | null } | null
   data_agendamento: string
   duracao_minutos?: number | null
   tipo: string
@@ -131,6 +132,7 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
       setSelectedProfissionalId(atendimentoParaEditar.profissional_id ?? '')
       const profEdit = profissionais.find(p => p.id === atendimentoParaEditar.profissional_id)
       setTipoProfissional(profEdit?.cargo === 'medico' ? 'medico' : 'fisioterapeuta')
+      setSelectedPlanoSaude(atendimentoParaEditar.agendamento_pai?.plano_saude ?? '')
       setDataAgendamento(format(dataObj, 'yyyy-MM-dd'))
       setHoraInicioValue(format(dataObj, 'HH:mm'))
       if (atendimentoParaEditar.duracao_minutos) {
@@ -177,6 +179,10 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
         setHoraFimValue(format(fim, 'HH:mm'))
       }
       setObservacoesValue(result.data.observacoes ?? '')
+      const agendamentoPai = Array.isArray(result.data.agendamento)
+        ? result.data.agendamento[0]
+        : result.data.agendamento
+      setSelectedPlanoSaude(agendamentoPai?.plano_saude ?? '')
       setDetalhesEdicaoCarregados((prev) => ({ ...prev, [atendimentoParaEditar.id]: true }))
     })
 
