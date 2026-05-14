@@ -19,6 +19,18 @@ import type { PlanoSaude } from '@/actions/planos-saude'
 type Paciente = { id: string, nome: string }
 type Profissional = { id: string, nome: string, cargo: string }
 
+function somarUmaHora(horario: string) {
+  if (!horario || !horario.includes(':')) return ''
+
+  const [horaStr, minutoStr] = horario.split(':')
+  const hora = Number(horaStr)
+  const minuto = Number(minutoStr)
+
+  if (Number.isNaN(hora) || Number.isNaN(minuto)) return ''
+
+  return `${String((hora + 1) % 24).padStart(2, '0')}:${String(minuto).padStart(2, '0')}`
+}
+
 async function fetchAllPacientes(
   supabase: ReturnType<typeof createClient>,
 ): Promise<Paciente[]> {
@@ -99,6 +111,11 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
   const [horaFimValue, setHoraFimValue] = useState('')
   const [observacoesValue, setObservacoesValue] = useState('')
   const [selectedPlanoSaude, setSelectedPlanoSaude] = useState('')
+
+  function handleHoraInicioChange(novaHoraInicio: string) {
+    setHoraInicioValue(novaHoraInicio)
+    setHoraFimValue(somarUmaHora(novaHoraInicio))
+  }
 
   // Estados da Recorrência
   const [isRecorrente, setIsRecorrente] = useState(false)
@@ -218,7 +235,9 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
     }
     if (defaultHora) {
       queueMicrotask(() => {
-        if (!cancelled) setHoraInicioValue(defaultHora)
+        if (cancelled) return
+        setHoraInicioValue(defaultHora)
+        setHoraFimValue(somarUmaHora(defaultHora))
       })
     }
 
@@ -536,7 +555,7 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
               </div>
               <div className="col-span-6 sm:col-span-3 space-y-1 relative mt-2">
                 <label className="text-xs font-semibold text-[#6d7a75] absolute -top-2 left-3 bg-white px-1 z-10">Início *</label>
-                <input type="time" name="hora_inicio" required value={horaInicioValue} onChange={e => setHoraInicioValue(e.target.value)} className="w-full min-w-0 bg-white border border-[#bcc9c4] rounded-lg px-3 py-2.5 text-sm text-[#171d1c] focus:ring-2 focus:ring-[#006b5a] transition-all font-medium shadow-sm" />
+                <input type="time" name="hora_inicio" required value={horaInicioValue} onChange={e => handleHoraInicioChange(e.target.value)} className="w-full min-w-0 bg-white border border-[#bcc9c4] rounded-lg px-3 py-2.5 text-sm text-[#171d1c] focus:ring-2 focus:ring-[#006b5a] transition-all font-medium shadow-sm" />
               </div>
               <div className="col-span-6 sm:col-span-3 space-y-1 relative mt-2">
                 <label className="text-xs font-semibold text-[#6d7a75] absolute -top-2 left-3 bg-white px-1 z-10">Fim *</label>
