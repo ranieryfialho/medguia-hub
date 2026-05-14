@@ -39,6 +39,7 @@ export type AgendamentoDetalhe = {
   agendamento_id?: string | null
   agendamento_pai?: { plano_saude?: string | null } | null
   data_agendamento: string
+  created_at?: string | null
   status: string
   tipo: string
   duracao_minutos?: number | null
@@ -47,6 +48,7 @@ export type AgendamentoDetalhe = {
   total_sessoes?: number | null
   pacientes: { nome: string; telefone?: string | null; email?: string | null } | null
   profissional?: { full_name?: string | null; role?: string | null } | null
+  criador?: { full_name?: string | null } | null
 }
 
 const STATUS_CONFIG: Record<string, { cardBg: string; border: string; iconText: string; titleText: string; subText: string; badgeBg: string; label: string; Icon: React.ElementType }> = {
@@ -151,6 +153,8 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
     email?: string | null
     full_name?: string | null
     role?: string | null
+    criador_nome?: string | null
+    created_at?: string | null
     plano_saude?: string | null
     duracao_minutos?: number | null
     observacoes?: string | null
@@ -167,18 +171,23 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
   const emailPaciente = detalhesExtras?.email ?? agendamento.pacientes?.email
   const nomeProfissional = detalhesExtras?.full_name ?? agendamento.profissional?.full_name
   const roleProfissional = detalhesExtras?.role ?? agendamento.profissional?.role
+  const nomeCriador = detalhesExtras?.criador_nome ?? agendamento.criador?.full_name ?? null
+  const criadoEm = detalhesExtras?.created_at ?? agendamento.created_at ?? null
   const planoSaude = detalhesExtras?.plano_saude ?? agendamento.agendamento_pai?.plano_saude
   const duracaoMinutos = detalhesExtras?.duracao_minutos ?? agendamento.duracao_minutos
   const observacoes = detalhesExtras?.observacoes ?? agendamento.observacoes
   const horaInicio = formatAppTime(dataObj)
   const horaFim = duracaoMinutos ? formatAppTime(new Date(dataObj.getTime() + duracaoMinutos * 60000)) : null
   const dataFormatada = formatAppDateLabel(dataObj)
+  const criadoEmFormatado = criadoEm ? format(new Date(criadoEm), "dd/MM/yyyy 'às' HH:mm") : null
   const precisaCarregarDetalhes = telefone == null
-    && emailPaciente == null
-    && roleProfissional == null
-    && planoSaude == null
-    && duracaoMinutos == null
-    && observacoes == null
+    || emailPaciente == null
+    || roleProfissional == null
+    || nomeCriador == null
+    || criadoEm == null
+    || planoSaude == null
+    || duracaoMinutos == null
+    || observacoes == null
   const loadingDetalhes = precisaCarregarDetalhes
     && !(agendamento.id in detalhesPorAgendamento)
     && !falhasDetalhes[agendamento.id]
@@ -210,6 +219,8 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
           email: paciente?.email ?? null,
           full_name: profissional?.full_name ?? null,
           role: profissional?.role ?? null,
+          criador_nome: (detalhes.criador as { full_name?: string | null } | null)?.full_name ?? null,
+          created_at: detalhes.created_at ?? null,
           plano_saude: (detalhes.agendamento as { plano_saude?: string | null } | null)?.plano_saude ?? null,
           duracao_minutos: detalhes.duracao_minutos ?? null,
           observacoes: detalhes.observacoes ?? null,
@@ -397,6 +408,16 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
               </div>
               <div className="min-w-0 flex-1">
                 <h3 className="truncate text-lg sm:text-xl font-bold text-[#083142]">{nomePaciente}</h3>
+                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] sm:text-xs font-semibold text-[#3d4945]">
+                  <span className="flex items-center gap-1">
+                    <Calendar size={12} />
+                    <span className="capitalize">{dataFormatada}</span>
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Clock size={12} />
+                    {horaInicio}{horaFim ? ` - ${horaFim}` : ''}
+                  </span>
+                </div>
                 <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 sm:gap-x-4">
                   <span className="flex items-center gap-1 text-[10px] sm:text-xs text-[#6d7a75]">
                     <Phone size={12} />
@@ -415,6 +436,13 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
                         {' '}· {contagem.cancelados} faltas
                       </span>
                     )}
+                  </p>
+                )}
+                {(loadingDetalhes || nomeCriador || criadoEmFormatado) && (
+                  <p className="mt-1.5 text-[10px] sm:text-xs text-[#6d7a75]">
+                    {loadingDetalhes
+                      ? 'Carregando responsável pelo agendamento...'
+                      : `Agendado${nomeCriador ? ` por ${nomeCriador}` : ''}${criadoEmFormatado ? ` em ${criadoEmFormatado}` : ''}`}
                   </p>
                 )}
               </div>

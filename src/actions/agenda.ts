@@ -318,12 +318,14 @@ export async function buscarDetalhesAgendamento(atendimentoId: string) {
       paciente_id,
       profissional_id,
       agendamento_id,
+      criado_por,
       data_agendamento,
+      created_at,
       status,
       tipo,
       duracao_minutos,
       observacoes,
-      agendamento:agendamentos(plano_saude),
+      agendamento:agendamentos(plano_saude, criado_por, created_at),
       numero_sessao,
       total_sessoes,
       pacientes (nome, telefone, email),
@@ -336,7 +338,33 @@ export async function buscarDetalhesAgendamento(atendimentoId: string) {
     return { error: error.message }
   }
 
-  return { data }
+  if (!data) {
+    return { data }
+  }
+
+  const agendamentoPai = Array.isArray(data.agendamento) ? data.agendamento[0] ?? null : data.agendamento
+  const criadorId = agendamentoPai?.criado_por ?? data.criado_por ?? null
+
+  let criador: { full_name?: string | null } | null = null
+
+  if (criadorId) {
+    const { data: criadorProfile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', criadorId)
+      .maybeSingle()
+
+    criador = criadorProfile ?? null
+  }
+
+  return {
+    data: {
+      ...data,
+      agendamento: agendamentoPai,
+      criador,
+      created_at: agendamentoPai?.created_at ?? data.created_at ?? null,
+    },
+  }
 }
 
 export async function contarAtendimentosPaciente(pacienteId: string): Promise<{ total: number; cancelados: number }> {
