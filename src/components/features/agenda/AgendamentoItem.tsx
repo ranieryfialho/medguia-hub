@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import {
   Phone, Mail, Calendar, Clock, ChevronDown,
   CheckCircle, Hourglass, Stethoscope, CheckCheck, XCircle, UserX, RefreshCw, User, CalendarClock, Timer,
-  MessageCircle, Pencil, Trash2, MapPin, ClipboardList
+  MessageCircle, Pencil, Trash2, MapPin, ClipboardList, Check
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import {
@@ -16,6 +16,8 @@ import {
   deletarAtendimentoPontualDaRecorrencia,
   deletarTodasRecorrencias,
   buscarDetalhesAgendamento,
+  buscarAtendimentosPendentesRecorrencia,
+  deletarAtendimentosSelecionados,
 } from '@/actions/agenda'
 import { MenuAcoesAgendamento } from './MenuAcoesAgendamento'
 import { SlideNovoAgendamento } from './SlideNovoAgendamento'
@@ -131,6 +133,11 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
   const [loading, setLoading] = useState(false)
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false)
   const [confirmacaoFalta, setConfirmacaoFalta] = useState(false)
+  const [modalSelecao, setModalSelecao] = useState(false)
+  const [pendentes, setPendentes] = useState<{ id: string; data_agendamento: string; numero_sessao: number | null; total_sessoes: number | null; status: string }[]>([])
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
+  const [loadingPendentes, setLoadingPendentes] = useState(false)
+  const [excluindoSelecionados, setExcluindoSelecionados] = useState(false)
   const [modalReagendamento, setModalReagendamento] = useState(false)
   const [reagendamentoData, setReagendamentoData] = useState<string | undefined>()
   const [reagendamentoHora, setReagendamentoHora] = useState<string | undefined>()
@@ -151,6 +158,7 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
   const [falhasDetalhes, setFalhasDetalhes] = useState<Record<string, true>>({})
 
   const isRecorrente = !!(agendamento.agendamento_id && (agendamento.total_sessoes ?? 0) > 1)
+  const isConcluido = getAtendimentoStatusKey(status) === 'concluido'
   const nomePaciente = agendamento.pacientes?.nome || 'Paciente'
   const inicial = nomePaciente.charAt(0).toUpperCase()
   const dataObj = new Date(agendamento.data_agendamento)
@@ -327,6 +335,35 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
     onClose()
   }
 
+  async function handleAbrirSelecao() {
+    if (!agendamento.agendamento_id) return
+    setShowOpcoes(false)
+    setConfirmandoExclusao(false)
+    setLoadingPendentes(true)
+    const result = await buscarAtendimentosPendentesRecorrencia(agendamento.agendamento_id)
+    setLoadingPendentes(false)
+    if ('error' in result) {
+      toast.error(result.error ?? 'Erro ao buscar atendimentos.')
+      return
+    }
+    setPendentes(result.data)
+    setSelecionados(new Set(result.data.map(a => a.id)))
+    setModalSelecao(true)
+  }
+
+  async function handleExcluirSelecionados() {
+    if (!agendamento.agendamento_id || selecionados.size === 0) return
+    setExcluindoSelecionados(true)
+    const resultado = await deletarAtendimentosSelecionados(Array.from(selecionados), agendamento.agendamento_id)
+    setExcluindoSelecionados(false)
+    if (resultado.error) {
+      toast.error(resultado.error)
+      return
+    }
+    router.refresh()
+    onClose()
+  }
+
   const modalContent = (
     <div className="fixed inset-0 z-[60] overflow-y-auto pointer-events-none">
       <button
@@ -424,7 +461,12 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
 
                     <div className="my-1 h-px bg-[#bcc9c4]/30" />
 
-                    {confirmandoExclusao && isRecorrente ? (
+                    {isConcluido ? (
+                      <div className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-slate-400 cursor-not-allowed select-none">
+                        <Trash2 size={15} />
+                        Concluído — não pode excluir
+                      </div>
+                    ) : confirmandoExclusao && isRecorrente ? (
                       <div className="space-y-1 px-3 py-2">
                         <p className="px-1 pb-1 text-[11px] font-bold text-slate-400">Excluir:</p>
                         <button
@@ -437,11 +479,11 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleExcluir('todos')}
-                          disabled={loading}
+                          onClick={handleAbrirSelecao}
+                          disabled={loading || loadingPendentes}
                           className="w-full rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-[#ba1a1a] hover:bg-[#fbeaea] transition-colors disabled:opacity-50"
                         >
-                          Toda a recorrencia
+                          {loadingPendentes ? 'Carregando...' : 'Selecionar atendimentos'}
                         </button>
                         <button
                           type="button"
@@ -578,6 +620,102 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
               Fechar
             </button>
           </div>
+
+          {modalSelecao && (
+            <div className="absolute inset-0 z-20 flex flex-col rounded-2xl bg-white overflow-hidden">
+              <div
+                className="border-b border-[#bcc9c4]/30 px-5 pb-4"
+                style={{ paddingTop: 'calc(20px + env(safe-area-inset-top, 0px))' }}
+              >
+                <h4 className="font-bold text-[#083142]">Selecionar para excluir</h4>
+                <p className="mt-0.5 text-xs text-[#6d7a75]">Apenas atendimentos não concluídos são exibidos</p>
+              </div>
+
+              {pendentes.length === 0 ? (
+                <div className="flex flex-1 items-center justify-center p-6">
+                  <p className="text-sm text-slate-400">Nenhum atendimento pendente nesta recorrência</p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between px-5 py-2 border-b border-[#bcc9c4]/20">
+                    <span className="text-xs text-[#6d7a75]">{selecionados.size} de {pendentes.length} selecionados</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelecionados(
+                        selecionados.size === pendentes.length
+                          ? new Set()
+                          : new Set(pendentes.map(a => a.id))
+                      )}
+                      className="text-xs font-semibold text-[#006b5a]"
+                    >
+                      {selecionados.size === pendentes.length ? 'Desmarcar todos' : 'Selecionar todos'}
+                    </button>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
+                    {pendentes.map((a) => {
+                      const dataAppt = new Date(a.data_agendamento)
+                      const isSel = selecionados.has(a.id)
+                      return (
+                        <button
+                          key={a.id}
+                          type="button"
+                          onClick={() => setSelecionados(prev => {
+                            const next = new Set(prev)
+                            if (next.has(a.id)) next.delete(a.id)
+                            else next.add(a.id)
+                            return next
+                          })}
+                          className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
+                            isSel ? 'bg-red-50' : 'hover:bg-[#f0f5f4]'
+                          }`}
+                        >
+                          <div className={`h-5 w-5 shrink-0 rounded border-2 flex items-center justify-center transition-colors ${
+                            isSel ? 'border-[#ba1a1a] bg-[#ba1a1a]' : 'border-[#bcc9c4]'
+                          }`}>
+                            {isSel && <Check size={12} className="text-white" />}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-[#171d1c]">
+                              {formatAppDateLabel(dataAppt)} · {formatAppTime(dataAppt)}
+                            </p>
+                            {a.numero_sessao != null && (
+                              <p className="text-xs text-[#6d7a75]">
+                                Sessão {a.numero_sessao}{a.total_sessoes != null ? ` de ${a.total_sessoes}` : ''}
+                              </p>
+                            )}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
+
+              <div
+                className="border-t border-[#bcc9c4]/30 px-4 pt-3 pb-5 space-y-2"
+                style={{ paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))' }}
+              >
+                <button
+                  type="button"
+                  onClick={handleExcluirSelecionados}
+                  disabled={selecionados.size === 0 || excluindoSelecionados}
+                  className="w-full rounded-xl bg-[#ba1a1a] py-2.5 text-sm font-semibold text-white disabled:opacity-40 transition-opacity"
+                >
+                  {excluindoSelecionados
+                    ? 'Excluindo...'
+                    : `Excluir ${selecionados.size} atendimento${selecionados.size !== 1 ? 's' : ''}`}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalSelecao(false)}
+                  className="w-full py-2 text-sm text-[#6d7a75] hover:text-[#3d4945] transition-colors"
+                >
+                  Voltar
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

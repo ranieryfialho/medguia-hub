@@ -517,6 +517,34 @@ export async function deletarTodasRecorrencias(agendamentoId: string) {
   return { success: true }
 }
 
+export async function buscarAtendimentosPendentesRecorrencia(agendamentoId: string) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('atendimentos')
+    .select('id, data_agendamento, numero_sessao, total_sessoes, status')
+    .eq('agendamento_id', agendamentoId)
+    .neq('status', 'Concluído')
+    .order('data_agendamento', { ascending: true })
+  if (error) return { error: 'Não foi possível buscar os agendamentos.' }
+  return { data: data ?? [] }
+}
+
+export async function deletarAtendimentosSelecionados(ids: string[], agendamentoId: string) {
+  const supabase = await createClient()
+  const { error } = await supabase.from('atendimentos').delete().in('id', ids)
+  if (error) return { error: 'Não foi possível excluir os agendamentos.' }
+  const { count } = await supabase
+    .from('atendimentos')
+    .select('id', { count: 'exact', head: true })
+    .eq('agendamento_id', agendamentoId)
+  if (count === 0) {
+    await supabase.from('agendamentos').delete().eq('id', agendamentoId)
+  }
+  revalidatePath('/agenda')
+  revalidatePath('/confirmacoes')
+  return { success: true }
+}
+
 export async function editarAtendimento(id: string, formData: FormData) {
   const supabase = await createClient()
 
