@@ -37,6 +37,9 @@ export default async function ProntuariosPage({
   let pendentes: any[] = []
 
   if (aba === 'pendentes') {
+    if (role === 'medico') {
+      pendentes = []
+    } else {
     const [atendimentosRes, { data: profissionaisRaw }] = await Promise.all([
       (() => {
         const q = supabase
@@ -55,11 +58,12 @@ export default async function ProntuariosPage({
           .limit(300)
         return isFisio ? q.eq('profissional_id', user.id) : q
       })(),
-      supabase.from('profiles').select('id, full_name'),
+      supabase.from('profiles').select('id, full_name, role'),
     ])
 
     profissionaisMap = new Map((profissionaisRaw ?? []).map(p => [p.id, p.full_name]))
-    const atendimentosConcluidos = atendimentosRes.data ?? []
+    const medicoIds = new Set((profissionaisRaw ?? []).filter(p => p.role === 'medico').map(p => p.id))
+    const atendimentosConcluidos = (atendimentosRes.data ?? []).filter(a => !medicoIds.has(a.profissional_id))
     const atendimentoIds = atendimentosConcluidos.map((atendimento) => atendimento.id)
 
     let idsComProntuario = new Set<string>()
@@ -74,6 +78,7 @@ export default async function ProntuariosPage({
     }
 
     pendentes = atendimentosConcluidos.filter((atendimento) => !idsComProntuario.has(atendimento.id))
+  }
   }
 
   // ── ABA HISTÓRICO ──────────────────────────────────────────────

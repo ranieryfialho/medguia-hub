@@ -93,13 +93,24 @@ export async function contarProntuariosPendentes(): Promise<number> {
   if (!temAcesso(modulos, 'prontuarios')) return 0
 
   const role = profile?.role || ''
+  if (role === 'medico') return 0
+
   const isFisio = role !== 'gestor' && role !== 'master'
 
   let query = supabase
     .from('atendimentos')
     .select('id')
     .in('status', STATUS_CONCLUIDO_RAW_VALUES)
-  if (isFisio) query = query.eq('profissional_id', user.id)
+
+  if (isFisio) {
+    query = query.eq('profissional_id', user.id)
+  } else {
+    const { data: medicos } = await supabase.from('profiles').select('id').eq('role', 'medico')
+    const medicoIds = (medicos ?? []).map(m => m.id)
+    if (medicoIds.length > 0) {
+      query = query.not('profissional_id', 'in', `(${medicoIds.join(',')})`)
+    }
+  }
 
   const [{ data: comProntuario }, { data: concluidos }] = await Promise.all([
     supabase.from('prontuarios').select('atendimento_id'),
