@@ -8,6 +8,7 @@ import { normalizarDisponibilidade, type DisponibilidadeDia } from '@/lib/dispon
 import { podeEntrarNaAgendaOuRelatorio, podeEntrarNoWidgetDisponibilidade } from '@/lib/profissionais'
 import { WidgetDisponibilidade } from '@/components/features/configuracoes'
 import { listarStatusDisponibilidade } from '@/actions/status-disponibilidade'
+import { listarProtocolosAtendimentoAtivos } from '@/actions/protocolos-atendimento'
 import { listarTiposConsultaAtivos } from '@/actions/tipos-consulta'
 import { listarPlanosSaudeAtivos } from '@/actions/planos-saude'
 
@@ -76,10 +77,11 @@ export default async function DashboardLayout({
 
   const prontuariosPendentes = 0
 
-  const [{ data: listaProfissionais }, todasDisponibilidades, tiposConsulta, planosSaude] = await Promise.all([
+  const [{ data: listaProfissionais }, todasDisponibilidades, tiposConsulta, protocolosAtendimento, planosSaude] = await Promise.all([
     supabase.from('profiles').select('id, full_name, role, ativo').in('role', ['fisioterapeuta', 'gestor', 'medico']).order('full_name'),
     listarTodasDisponibilidades(),
     listarTiposConsultaAtivos(),
+    listarProtocolosAtendimentoAtivos(),
     listarPlanosSaudeAtivos(),
   ])
 
@@ -119,6 +121,7 @@ export default async function DashboardLayout({
       profissionais={profissionais}
       disponibilidades={disponibilidadesMap}
       tiposConsulta={tiposConsulta}
+      protocolosAtendimento={protocolosAtendimento}
       planosSaude={planosSaude}
       headerData={{ nomeUsuario, cargoUsuario, avatarUrl, userRole, userNivelAcesso, modulosLiberados, prontuariosPendentes }}
     >

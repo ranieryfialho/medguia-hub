@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useId, useRef } from 'react'
+import { useState, useEffect, useId, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { buscarDetalhesAgendamento, criarAgendamento, editarAtendimento } from '@/actions/agenda'
 import { createClient } from '@/lib/supabase/client'
@@ -12,7 +12,9 @@ import {
   type DisponibilidadeDia,
 } from '@/lib/disponibilidade'
 import { formatarFaixasJornada } from '@/lib/jornada'
+import { useProtocolosAtendimento } from '@/components/layout/ProtocolosAtendimentoContext'
 import { useTiposConsulta } from '@/components/layout/TiposConsultaContext'
+import type { ProtocoloAtendimento } from '@/actions/protocolos-atendimento'
 import type { TipoConsulta } from '@/actions/tipos-consulta'
 import type { PlanoSaude } from '@/actions/planos-saude'
 
@@ -29,6 +31,11 @@ function somarUmaHora(horario: string) {
   if (Number.isNaN(hora) || Number.isNaN(minuto)) return ''
 
   return `${String((hora + 1) % 24).padStart(2, '0')}:${String(minuto).padStart(2, '0')}`
+}
+
+function normalizarQuantidadeSessao(valor: string | number | undefined) {
+  const quantidade = typeof valor === 'number' ? valor : parseInt(String(valor ?? ''), 10)
+  return Math.max(1, Math.min(365, Number.isNaN(quantidade) ? 1 : quantidade))
 }
 
 async function fetchAllPacientes(
@@ -68,6 +75,7 @@ interface SlideProps {
   profissionais: Profissional[]
   disponibilidades?: Record<string, Record<number, DisponibilidadeDia>>
   tiposConsulta?: TipoConsulta[]
+  protocolosAtendimento?: ProtocoloAtendimento[]
   planos?: PlanoSaude[]
   controlledOpen?: boolean
   onControlledClose?: () => void
@@ -82,11 +90,13 @@ const DIAS_SEMANA = [
   { val: 4, label: 'Qui' }, { val: 5, label: 'Sex' }, { val: 6, label: 'Sáb' }, { val: 0, label: 'Dom' },
 ]
 
-export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionais, disponibilidades, tiposConsulta: tiposConsultaProp, planos = [], controlledOpen, onControlledClose, defaultPacienteId, defaultData, defaultHora, atendimentoParaEditar }: SlideProps) {
+export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionais, disponibilidades, tiposConsulta: tiposConsultaProp, protocolosAtendimento: protocolosAtendimentoProp, planos = [], controlledOpen, onControlledClose, defaultPacienteId, defaultData, defaultHora, atendimentoParaEditar }: SlideProps) {
   const isControlled = controlledOpen !== undefined
   const modoEdicao = !!atendimentoParaEditar
   const tiposConsultaContexto = useTiposConsulta()
+  const protocolosAtendimentoContexto = useProtocolosAtendimento()
   const tiposConsulta = tiposConsultaProp ?? tiposConsultaContexto
+  const protocolosAtendimento = protocolosAtendimentoProp ?? protocolosAtendimentoContexto
   const tiposAtivos = tiposConsulta.filter((tipo) => tipo.ativo)
   const primeiroTipoDisponivel = tiposAtivos[0]?.nome ?? ''
   const formId = useId()
@@ -106,6 +116,9 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
   const comboboxRef = useRef<HTMLDivElement>(null)
   const [tipoProfissional, setTipoProfissional] = useState<'fisioterapeuta' | 'medico'>('fisioterapeuta')
   const [selectedProfissionalId, setSelectedProfissionalId] = useState('')
+  const [modoAtendimento, setModoAtendimento] = useState<'avulso' | 'protocolo'>('avulso')
+  const [selectedProtocoloAtendimentoId, setSelectedProtocoloAtendimentoId] = useState('')
+  const [quantidadesItensProtocolo, setQuantidadesItensProtocolo] = useState<Record<string, number>>({})
   const [selectedTipo, setSelectedTipo] = useState(primeiroTipoDisponivel)
   const [horaInicioValue, setHoraInicioValue] = useState('')
   const [horaFimValue, setHoraFimValue] = useState('')
@@ -122,6 +135,19 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
   const [frequencia, setFrequencia] = useState('1')
   const [diasSelecionados, setDiasSelecionados] = useState<number[]>([])
   const [ocorrencias, setOcorrencias] = useState('1')
+  const protocoloAtendimentoSelecionado = protocolosAtendimento.find((protocolo) => protocolo.id === selectedProtocoloAtendimentoId) ?? null
+  const itensProtocoloConfigurados = useMemo(
+    () => protocoloAtendimentoSelecionado?.itens.map((item) => ({
+      ...item,
+      quantidade: quantidadesItensProtocolo[item.id] ?? item.quantidade,
+    })) ?? [],
+    [protocoloAtendimentoSelecionado, quantidadesItensProtocolo],
+  )
+  const tiposDoProtocolo = useMemo(
+    () => itensProtocoloConfigurados.flatMap((item) => Array.from({ length: item.quantidade }, () => item.tipo_consulta_nome)),
+    [itensProtocoloConfigurados],
+  )
+  const protocoloRecorrenteAtivo = !modoEdicao && modoAtendimento === 'protocolo' && tiposDoProtocolo.length > 1
   const precisaCarregarDetalhesEdicao = Boolean(
     atendimentoParaEditar &&
     (atendimentoParaEditar.duracao_minutos == null || atendimentoParaEditar.observacoes == null),
@@ -316,6 +342,9 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
     setFrequencia('1')
     setDiasSelecionados([])
     setOcorrencias('1')
+    setModoAtendimento('avulso')
+    setSelectedProtocoloAtendimentoId('')
+    setQuantidadesItensProtocolo({})
     setDataAgendamento('')
     if (!defaultPacienteId) {
       setSelectedPacienteId('')
@@ -338,6 +367,8 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
     formData.set('hora_inicio', horaInicioValue)
     formData.set('hora_fim', horaFimValue)
     formData.set('tipo', selectedTipo)
+    formData.set('protocolo_atendimento_tipos_json', JSON.stringify(modoAtendimento === 'protocolo' ? tiposDoProtocolo : []))
+    formData.set('protocolo_atendimento_nome', modoAtendimento === 'protocolo' ? (protocoloAtendimentoSelecionado?.nome ?? '') : '')
     formData.set('observacoes', observacoesValue)
     if (tipoProfissional === 'medico') {
       formData.set('plano_saude', selectedPlanoSaude)
@@ -353,6 +384,11 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
       setError('Cadastre e selecione um tipo de atendimento.')
       setLoading(false)
       return
+    }
+
+    if (!modoEdicao && modoAtendimento === 'protocolo' && protocoloAtendimentoSelecionado && tiposDoProtocolo.length > 1) {
+      formData.set('is_recorrente', 'true')
+      formData.set('ocorrencias', String(tiposDoProtocolo.length))
     }
 
     let res
@@ -389,6 +425,57 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
       setLoading(false)
       if (!modoEdicao) resetForm()
     }
+  }
+
+  function aplicarProtocoloAtendimento(protocoloId: string) {
+    setSelectedProtocoloAtendimentoId(protocoloId)
+
+    if (!protocoloId) {
+      setQuantidadesItensProtocolo({})
+      setIsRecorrente(false)
+      setOcorrencias('1')
+      setSelectedTipo('')
+      return
+    }
+
+    const protocolo = protocolosAtendimento.find((item) => item.id === protocoloId)
+    const quantidadesIniciais = Object.fromEntries(
+      (protocolo?.itens ?? []).map((item) => [item.id, normalizarQuantidadeSessao(item.quantidade)]),
+    )
+    const sequencia = (protocolo?.itens ?? []).flatMap((item) => Array.from(
+      { length: quantidadesIniciais[item.id] ?? item.quantidade },
+      () => item.tipo_consulta_nome,
+    ))
+
+    setQuantidadesItensProtocolo(quantidadesIniciais)
+
+    if (sequencia.length > 0) {
+      setSelectedTipo(sequencia[0] ?? '')
+      setOcorrencias(String(Math.max(1, sequencia.length)))
+      setIsRecorrente(sequencia.length > 1)
+    }
+  }
+
+  function atualizarQuantidadeItemProtocolo(itemId: string, valor: string | number) {
+    setQuantidadesItensProtocolo((prev) => {
+      const proximo = {
+        ...prev,
+        [itemId]: normalizarQuantidadeSessao(valor),
+      }
+
+      if (protocoloAtendimentoSelecionado) {
+        const proximaSequencia = protocoloAtendimentoSelecionado.itens.flatMap((item) => Array.from(
+          { length: item.id === itemId ? proximo[itemId] : (proximo[item.id] ?? item.quantidade) },
+          () => item.tipo_consulta_nome,
+        ))
+
+        setSelectedTipo(proximaSequencia[0] ?? '')
+        setOcorrencias(String(Math.max(1, proximaSequencia.length)))
+        setIsRecorrente(proximaSequencia.length > 1)
+      }
+
+      return proximo
+    })
   }
 
   const disponibilidadeSelecionada = (() => {
@@ -526,9 +613,112 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
               )}
             </div>
 
-            <div className="space-y-1 relative">
-              <label className="text-xs font-semibold text-[#6d7a75] absolute -top-2 left-3 bg-white px-1 z-10">Tipo de atendimento *</label>
-              <select name="tipo" required value={selectedTipo} onChange={e => setSelectedTipo(e.target.value)} className="w-full bg-white border border-[#bcc9c4] rounded-lg px-4 py-3 text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/50 transition-all font-medium appearance-none shadow-sm">
+            <div className="space-y-3">
+              <p className="text-xs font-semibold text-[#6d7a75]">Tipo de atendimento *</p>
+              {!modoEdicao && protocolosAtendimento.length > 0 && (
+                <div className="mb-4 space-y-4">
+                  <div className="space-y-2">
+                    <span className="block text-xs font-semibold text-[#6d7a75]">Como deseja montar o atendimento?</span>
+                    <div className="grid grid-cols-2 rounded-lg border border-[#bcc9c4] bg-[#f5faf9] p-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setModoAtendimento('avulso')
+                          setSelectedProtocoloAtendimentoId('')
+                          setQuantidadesItensProtocolo({})
+                          setIsRecorrente(false)
+                          setOcorrencias('1')
+                          setSelectedTipo(primeiroTipoDisponivel)
+                        }}
+                        className={`rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
+                          modoAtendimento === 'avulso'
+                            ? 'bg-white text-[#006b5a] shadow-sm'
+                            : 'text-[#6d7a75] hover:text-[#083142]'
+                        }`}
+                      >
+                        Atendimento avulso
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setModoAtendimento('protocolo')
+                          if (!selectedProtocoloAtendimentoId) {
+                            setSelectedTipo('')
+                          }
+                        }}
+                        className={`rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
+                          modoAtendimento === 'protocolo'
+                            ? 'bg-white text-[#006b5a] shadow-sm'
+                            : 'text-[#6d7a75] hover:text-[#083142]'
+                        }`}
+                      >
+                        Protocolo
+                      </button>
+                    </div>
+                  </div>
+
+                  {modoAtendimento === 'protocolo' && (
+                    <div className="space-y-1 relative">
+                  <label className="text-xs font-semibold text-[#6d7a75] absolute -top-2 left-3 bg-white px-1 z-10">Protocolo de atendimento</label>
+                  <select
+                    value={selectedProtocoloAtendimentoId}
+                    onChange={e => aplicarProtocoloAtendimento(e.target.value)}
+                    className="w-full bg-white border border-[#bcc9c4] rounded-lg px-4 py-3 text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/50 transition-all font-medium appearance-none shadow-sm"
+                  >
+                    <option value="">Selecione um protocolo...</option>
+                    {protocolosAtendimento.map((protocolo) => (
+                      <option key={protocolo.id} value={protocolo.id}>
+                        {protocolo.nome} ({protocolo.itens.reduce((sum, item) => sum + item.quantidade, 0)} sessoes)
+                      </option>
+                    ))}
+                  </select>
+                  {protocoloAtendimentoSelecionado && (
+                    <div className="rounded-lg border border-[#006b5a]/20 bg-[#f0fcf9] px-3 py-2 text-xs text-[#006b5a]">
+                      <p className="font-semibold">{protocoloAtendimentoSelecionado.nome}</p>
+                      <div className="mt-3 space-y-2">
+                        {itensProtocoloConfigurados.map((item) => (
+                          <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border border-[#006b5a]/15 bg-white/70 px-3 py-2">
+                            <div>
+                              <p className="font-semibold text-[#083142]">{item.tipo_consulta_nome}</p>
+                              <p className="text-[11px] text-[#4d635b]">Quantidade de sessoes deste item</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => atualizarQuantidadeItemProtocolo(item.id, (quantidadesItensProtocolo[item.id] ?? item.quantidade) - 1)}
+                                className="flex h-8 w-8 items-center justify-center rounded-md border border-[#bcc9c4] bg-white text-[#6d7a75] transition-colors hover:bg-[#f0f5f4]"
+                              >
+                                <Minus size={14} strokeWidth={1.8} />
+                              </button>
+                              <input
+                                type="number"
+                                min="1"
+                                max="365"
+                                value={quantidadesItensProtocolo[item.id] ?? item.quantidade}
+                                onChange={(e) => atualizarQuantidadeItemProtocolo(item.id, e.target.value)}
+                                onBlur={(e) => atualizarQuantidadeItemProtocolo(item.id, e.target.value)}
+                                className="h-8 w-16 rounded-md border border-[#bcc9c4] bg-white px-2 text-center text-sm font-semibold text-[#171d1c] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => atualizarQuantidadeItemProtocolo(item.id, (quantidadesItensProtocolo[item.id] ?? item.quantidade) + 1)}
+                                className="flex h-8 w-8 items-center justify-center rounded-md border border-[#bcc9c4] bg-white text-[#6d7a75] transition-colors hover:bg-[#f0f5f4]"
+                              >
+                                <Plus size={14} strokeWidth={1.8} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="font-medium">Total de sessoes: <span className="font-bold">{tiposDoProtocolo.length}</span></p>
+                      <p className="mt-1">Sequencia: {tiposDoProtocolo.join(' - ')}</p>
+                    </div>
+                  )}
+                </div>
+                  )}
+                </div>
+              )}
+              <select name="tipo" required value={selectedTipo} onChange={e => setSelectedTipo(e.target.value)} disabled={!modoEdicao && modoAtendimento === 'protocolo' && tiposDoProtocolo.length > 0} className="w-full bg-white border border-[#bcc9c4] rounded-lg px-4 py-3 text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/50 transition-all font-medium appearance-none shadow-sm disabled:opacity-60">
                 <option value="">Selecione uma opção</option>
                 {opcoesTipoConsulta.map((tipo) => (
                   <option key={tipo.id} value={tipo.nome}>{tipo.nome}</option>
@@ -608,11 +798,16 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
             <div className="pt-4 border-t border-[#bcc9c4]/30 space-y-6">
               <label className="flex items-center gap-3 cursor-pointer group">
                 <div className="relative">
-                  <input type="checkbox" className="sr-only peer" checked={isRecorrente} onChange={(e) => setIsRecorrente(e.target.checked)} />
+                  <input type="checkbox" className="sr-only peer" checked={isRecorrente} onChange={(e) => setIsRecorrente(e.target.checked)} disabled={protocoloRecorrenteAtivo} />
                   <div className="w-11 h-6 bg-[#dee3e3] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#006b5a]"></div>
                 </div>
                 <span className="font-semibold text-[#083142]">Agendamento recorrente</span>
               </label>
+              {protocoloRecorrenteAtivo && (
+                <p className="text-xs text-[#006b5a] font-medium -mt-3">
+                  Este protocolo possui múltiplas consultas e ativa a recorrência automaticamente.
+                </p>
+              )}
 
               {isRecorrente && (
                 <div className="pl-3 border-l-4 border-[#006b5a]/20 space-y-6 animate-in fade-in slide-in-from-left-2 duration-300">
@@ -664,7 +859,8 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
                             <button
                               type="button"
                               onClick={() => ajustarOcorrencias(-1)}
-                              className="w-10 h-full flex items-center justify-center text-[#6d7a75] hover:bg-[#f0f5f4] transition-colors rounded-l-lg"
+                              disabled={protocoloRecorrenteAtivo}
+                              className="w-10 h-full flex items-center justify-center text-[#6d7a75] hover:bg-[#f0f5f4] transition-colors rounded-l-lg disabled:opacity-40"
                             >
                               <Minus size={18} strokeWidth={1.5} />
                             </button>
@@ -680,11 +876,13 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
                               className="flex-1 w-full text-center focus:outline-none bg-transparent text-base font-medium text-[#171d1c] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 m-0"
                               min="1"
                               max="365"
+                              disabled={protocoloRecorrenteAtivo}
                             />
                             <button
                               type="button"
                               onClick={() => ajustarOcorrencias(1)}
-                              className="w-10 h-full flex items-center justify-center text-[#6d7a75] hover:bg-[#f0f5f4] transition-colors rounded-r-lg"
+                              disabled={protocoloRecorrenteAtivo}
+                              className="w-10 h-full flex items-center justify-center text-[#6d7a75] hover:bg-[#f0f5f4] transition-colors rounded-r-lg disabled:opacity-40"
                             >
                               <Plus size={18} strokeWidth={1.5} />
                             </button>

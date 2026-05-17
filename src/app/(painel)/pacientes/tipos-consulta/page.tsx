@@ -1,12 +1,24 @@
 import Link from 'next/link'
 import { requireModulo } from '@/lib/guard'
 import { listarTiposConsulta } from '@/actions/tipos-consulta'
-import { TiposConsultaManager } from '@/components/features/shared'
+import { createClient } from '@/lib/supabase/server'
+import { listarProtocolosAtendimento } from '@/actions/protocolos-atendimento'
+import { TiposConsultaTabs } from '@/components/features/shared'
 
 export default async function TiposConsultaPage() {
   await requireModulo('pacientes')
 
-  const tipos = await listarTiposConsulta()
+  const supabase = await createClient()
+  const [tipos, protocolosAtendimento, { data: tiposAtivos }] = await Promise.all([
+    listarTiposConsulta(),
+    listarProtocolosAtendimento(),
+    supabase
+      .from('tipos_consulta')
+      .select('id, nome, ativo')
+      .eq('ativo', true)
+      .order('ordem', { ascending: true })
+      .order('nome', { ascending: true }),
+  ])
 
   return (
     <div className="relative min-h-full">
@@ -21,12 +33,16 @@ export default async function TiposConsultaPage() {
 
         <h1 className="text-xl font-semibold text-text-primary">Tipos de Consulta</h1>
         <p className="text-sm text-text-secondary mt-1">
-          Gerencie os tipos exibidos no agendamento sem manter opções hardcoded no código.
+          Gerencie os tipos exibidos no agendamento.
         </p>
       </div>
 
-      <div className="bg-surface p-6 rounded-lg shadow-sm border border-border">
-        <TiposConsultaManager tipos={tipos} />
+      <div className="bg-surface rounded-lg shadow-sm border border-border">
+        <TiposConsultaTabs
+          tipos={tipos}
+          protocolosAtendimento={protocolosAtendimento}
+          tiposAtivos={tiposAtivos ?? []}
+        />
       </div>
     </div>
   )

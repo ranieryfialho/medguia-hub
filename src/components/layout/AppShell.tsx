@@ -7,7 +7,9 @@ import { SlideNovoAgendamento } from '@/components/features/agenda'
 import { Menu } from 'lucide-react'
 import type { DisponibilidadeDia } from '@/lib/disponibilidade'
 import { SlideNovoAgendamentoProvider } from './SlideNovoAgendamentoContext'
+import { ProtocolosAtendimentoProvider } from './ProtocolosAtendimentoContext'
 import { TiposConsultaProvider } from './TiposConsultaContext'
+import type { ProtocoloAtendimento } from '@/actions/protocolos-atendimento'
 import type { TipoConsulta } from '@/actions/tipos-consulta'
 import type { PlanoSaude } from '@/actions/planos-saude'
 
@@ -28,6 +30,7 @@ export function AppShell({
   profissionais,
   disponibilidades,
   tiposConsulta,
+  protocolosAtendimento,
   planosSaude = [],
   headerData,
 }: {
@@ -35,6 +38,7 @@ export function AppShell({
   profissionais: Profissional[]
   disponibilidades?: Record<string, Record<number, DisponibilidadeDia>>
   tiposConsulta: TipoConsulta[]
+  protocolosAtendimento: ProtocoloAtendimento[]
   planosSaude?: PlanoSaude[]
   headerData: HeaderData
 }) {
@@ -44,6 +48,7 @@ export function AppShell({
   return (
     <SlideNovoAgendamentoProvider aberto={slideNovoAberto}>
       <TiposConsultaProvider tiposConsulta={tiposConsulta}>
+      <ProtocolosAtendimentoProvider protocolosAtendimento={protocolosAtendimento}>
         <div className="flex min-h-[100dvh] bg-[#f5faf9]">
 
         {/* Mobile overlay */}
@@ -105,6 +110,7 @@ export function AppShell({
           onControlledClose={() => setSlideNovoAberto(false)}
         />
         </div>
+      </ProtocolosAtendimentoProvider>
       </TiposConsultaProvider>
     </SlideNovoAgendamentoProvider>
   )

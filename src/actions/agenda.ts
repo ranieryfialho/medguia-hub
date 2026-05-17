@@ -104,6 +104,8 @@ export async function criarAgendamento(formData: FormData) {
   const horaInicio = formData.get('hora_inicio') as string // HH:mm
   const horaFim = formData.get('hora_fim') as string // HH:mm
   const tipo = formData.get('tipo') as string
+  const protocoloAtendimentoTiposJson = (formData.get('protocolo_atendimento_tipos_json') as string) || ''
+  const protocoloAtendimentoNome = ((formData.get('protocolo_atendimento_nome') as string) || '').trim()
   const observacoes = formData.get('observacoes') as string
   const plano_saude = ((formData.get('plano_saude') as string) || '').trim()
   const gerou_venda = formData.get('gerou_venda') === 'on'
@@ -113,7 +115,23 @@ export async function criarAgendamento(formData: FormData) {
   const isRecorrente = formData.get('is_recorrente') === 'true'
   const frequencia = formData.get('frequencia') as string // '1', '2', '3', ou 'mes'
   const diasSemana = formData.get('dias_semana') as string // ex: "1,3,5"
-  const ocorrencias = Math.max(1, Math.min(365, parseInt(formData.get('ocorrencias') as string) || 1))
+  let ocorrencias = Math.max(1, Math.min(365, parseInt(formData.get('ocorrencias') as string) || 1))
+  let tiposDoProtocolo: string[] = []
+
+  if (protocoloAtendimentoTiposJson) {
+    try {
+      const parsed = JSON.parse(protocoloAtendimentoTiposJson) as unknown
+      if (Array.isArray(parsed)) {
+        tiposDoProtocolo = parsed.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+      }
+    } catch {
+      return { error: 'Erro ao processar protocolo de atendimento.' }
+    }
+  }
+
+  if (tiposDoProtocolo.length > 0) {
+    ocorrencias = tiposDoProtocolo.length
+  }
 
   if (!paciente_id || !profissional_id || !dataStr || !horaInicio || !horaFim) {
     return { error: 'Preencha todos os campos obrigatórios.' }
@@ -153,7 +171,7 @@ export async function criarAgendamento(formData: FormData) {
       paciente_id,
       profissional_id,
       data_agendamento: buildAppDateTimeISO(dataStr, horaInicio),
-      tipo,
+      tipo: tiposDoProtocolo[0] ?? tipo,
       duracao_minutos: duracao,
       observacoes,
       status: 'Aguardando',
@@ -180,7 +198,7 @@ export async function criarAgendamento(formData: FormData) {
 
         const dataFormatada = formatAppDateKey(dataBase)
         atendimentosParaInserir.push({
-          paciente_id, profissional_id, tipo, duracao_minutos: duracao, observacoes, status: 'Aguardando',
+          paciente_id, profissional_id, tipo: tiposDoProtocolo[count] ?? tipo, duracao_minutos: duracao, observacoes, status: 'Aguardando',
           criado_por: user?.id ?? null, gerou_venda, marcou_retorno, agendamento_id: '',
           data_agendamento: buildAppDateTimeISO(dataFormatada, horaInicio),
           data: dataFormatada,
@@ -205,7 +223,7 @@ export async function criarAgendamento(formData: FormData) {
           if (recorrenciaSemanalAtiva(dataAtual, dataInicio, semanasPulo)) {
             const dataFormatada = formatAppDateKey(dataAtual)
             atendimentosParaInserir.push({
-              paciente_id, profissional_id, tipo, duracao_minutos: duracao, observacoes, status: 'Aguardando',
+              paciente_id, profissional_id, tipo: tiposDoProtocolo[count] ?? tipo, duracao_minutos: duracao, observacoes, status: 'Aguardando',
               criado_por: user?.id ?? null, gerou_venda, marcou_retorno, agendamento_id: '',
               data_agendamento: buildAppDateTimeISO(dataFormatada, horaInicio),
               data: dataFormatada,
@@ -265,7 +283,7 @@ export async function criarAgendamento(formData: FormData) {
     .insert({
       paciente_id,
       profissional_id,
-      tipo: tipo || 'Sessão',
+      tipo: protocoloAtendimentoNome || (tiposDoProtocolo[0] ?? tipo) || 'Sessao',
       data_inicio: dataStr,
       hora_inicio: horaInicio,
       hora_fim: horaFim,
@@ -325,7 +343,7 @@ export async function buscarDetalhesAgendamento(atendimentoId: string) {
       tipo,
       duracao_minutos,
       observacoes,
-      agendamento:agendamentos(plano_saude, criado_por, created_at),
+      agendamento:agendamentos(plano_saude, tipo, criado_por, created_at),
       numero_sessao,
       total_sessoes,
       pacientes (nome, telefone, email),

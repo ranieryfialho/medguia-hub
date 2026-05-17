@@ -256,7 +256,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 observacoes,
                 numero_sessao,
                 total_sessoes,
-                agendamento_pai:agendamentos(plano_saude),
+                agendamento_pai:agendamentos(plano_saude, tipo),
                 pacientes (nome),
                 profissional:profiles!profissional_id(full_name)
               `)
@@ -277,7 +277,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 observacoes,
                 numero_sessao,
                 total_sessoes,
-                agendamento_pai:agendamentos(plano_saude),
+                agendamento_pai:agendamentos(plano_saude, tipo),
                 pacientes (nome),
                 profissional:profiles!profissional_id(full_name)
               `)
@@ -301,7 +301,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 observacoes,
                 numero_sessao,
                 total_sessoes,
-                agendamento_pai:agendamentos(plano_saude),
+                agendamento_pai:agendamentos(plano_saude, tipo),
                 pacientes (nome, telefone, email),
                 profissional:profiles!profissional_id(full_name, role)
               `)
@@ -323,7 +323,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 observacoes,
                 numero_sessao,
                 total_sessoes,
-                agendamento_pai:agendamentos(plano_saude),
+                agendamento_pai:agendamentos(plano_saude, tipo),
                 pacientes (nome, telefone, email),
                 profissional:profiles!profissional_id(full_name, role)
               `)
@@ -341,11 +341,16 @@ export default async function AgendaPage({ searchParams }: PageProps) {
         .filter(a => !!a.agendamento_id && (a.total_sessoes ?? 0) > 1)
         .map(a => a.agendamento_id) as string[]
     )]
-    let sessaoEfetivaMap = new Map<string, { sessao_efetiva: number; total_efetivo: number }>()
+    let sessaoEfetivaMap = new Map<string, {
+      sessao_efetiva: number
+      total_efetivo: number
+      sessao_tipo_efetiva: number
+      total_tipo_efetivo: number
+    }>()
     if (agendamentoIds.length > 0) {
       const { data: todasSessoes } = await supabase
         .from('atendimentos')
-        .select('id, agendamento_id, data_agendamento, status')
+        .select('id, agendamento_id, data_agendamento, status, tipo')
         .in('agendamento_id', agendamentoIds)
       if (todasSessoes) {
         sessaoEfetivaMap = buildSessaoEfetivaMap(todasSessoes)
@@ -361,6 +366,8 @@ export default async function AgendaPage({ searchParams }: PageProps) {
         agendamento_pai: firstRelation(a.agendamento_pai as RelacaoAgendamentoPai) ?? undefined,
         numero_sessao: efetivo?.sessao_efetiva ?? a.numero_sessao,
         total_sessoes: efetivo?.total_efetivo ?? a.total_sessoes,
+        numero_sessao_tipo: efetivo?.sessao_tipo_efetiva ?? null,
+        total_sessoes_tipo: efetivo?.total_tipo_efetivo ?? null,
       }
     }).filter((agendamento) =>
       matchesStatusFilter(agendamento.status)

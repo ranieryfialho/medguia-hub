@@ -37,7 +37,7 @@ export type AgendamentoDetalhe = {
   paciente_id: string
   profissional_id?: string | null
   agendamento_id?: string | null
-  agendamento_pai?: { plano_saude?: string | null } | null
+  agendamento_pai?: { plano_saude?: string | null; tipo?: string | null } | null
   data_agendamento: string
   created_at?: string | null
   status: string
@@ -46,6 +46,8 @@ export type AgendamentoDetalhe = {
   observacoes?: string | null
   numero_sessao?: number | null
   total_sessoes?: number | null
+  numero_sessao_tipo?: number | null
+  total_sessoes_tipo?: number | null
   pacientes: { nome: string; telefone?: string | null; email?: string | null } | null
   profissional?: { full_name?: string | null; role?: string | null } | null
   criador?: { full_name?: string | null } | null
@@ -174,6 +176,11 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
   const nomeCriador = detalhesExtras?.criador_nome ?? agendamento.criador?.full_name ?? null
   const criadoEm = detalhesExtras?.created_at ?? agendamento.created_at ?? null
   const planoSaude = detalhesExtras?.plano_saude ?? agendamento.agendamento_pai?.plano_saude
+  const nomeProtocolo = agendamento.agendamento_pai?.tipo?.trim() ?? ''
+  const tituloAtendimento = nomeProtocolo || agendamento.tipo
+  const descricaoTipoComContagem = agendamento.total_sessoes_tipo && agendamento.total_sessoes_tipo > 1
+    ? `${agendamento.tipo} (${agendamento.numero_sessao_tipo ?? 0}/${agendamento.total_sessoes_tipo})`
+    : agendamento.tipo
   const duracaoMinutos = detalhesExtras?.duracao_minutos ?? agendamento.duracao_minutos
   const observacoes = detalhesExtras?.observacoes ?? agendamento.observacoes
   const horaInicio = formatAppTime(dataObj)
@@ -571,13 +578,18 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
               <>
                 <div className="flex items-center gap-3">
                   <MapPin size={16} className="shrink-0 text-[#006b5a]" />
-                  <span className="text-sm font-medium text-[#3d4945]">{agendamento.tipo}</span>
+                  <span className="text-sm font-medium text-[#3d4945]">{tituloAtendimento}</span>
                   {agendamento.total_sessoes && agendamento.total_sessoes > 1 && (
                     <span className="rounded-full bg-[#006b5a]/10 px-2 py-0.5 text-xs font-bold text-[#006b5a]">
                       Sessao {agendamento.numero_sessao}/{agendamento.total_sessoes}
                     </span>
                   )}
                 </div>
+                {nomeProtocolo && (
+                  <div className="pl-7 -mt-2">
+                    <span className="text-xs font-medium text-[#6d7a75]">{descricaoTipoComContagem}</span>
+                  </div>
+                )}
 
                 {nomeProfissional && (
                   <div className="flex items-center gap-3">
@@ -852,7 +864,14 @@ export function AgendamentoItemDia({
                     </span>
                   )}
                 </div>
-                <p className={`text-[11px] ${config.subText} mt-1 font-medium italic`}>{agendamento.tipo}</p>
+                <p className={`text-[11px] ${config.subText} mt-1 font-medium italic`}>{agendamento.agendamento_pai?.tipo?.trim() || agendamento.tipo}</p>
+                {agendamento.agendamento_pai?.tipo?.trim() && (
+                  <p className={`text-[11px] ${config.subText} mt-0.5 font-medium`}>
+                    {agendamento.total_sessoes_tipo && agendamento.total_sessoes_tipo > 1
+                      ? `${agendamento.tipo} (${agendamento.numero_sessao_tipo ?? 0}/${agendamento.total_sessoes_tipo})`
+                      : agendamento.tipo}
+                  </p>
+                )}
                 {agendamento.profissional?.full_name && (
                   <p className={`text-[11px] ${config.subText} mt-0.5 font-medium flex items-center gap-1`}>
                     <User size={10} className="shrink-0" />
@@ -930,7 +949,11 @@ export function AgendamentoItemSemana({
         className={`${config.cardBg} border-l-4 ${config.border} p-2 rounded-lg mb-1 shadow-sm cursor-pointer hover:scale-[1.02] transition-transform`}
       >
         <p className={`text-[10px] font-bold ${config.titleText} truncate`}>{primeiroNome}</p>
-        <p className={`text-[9px] ${config.subText} truncate`}>{agendamento.tipo}</p>
+        <p className={`text-[9px] ${config.subText} truncate`}>
+          {agendamento.agendamento_pai?.tipo?.trim()
+            ? `${agendamento.agendamento_pai.tipo.trim()} - ${agendamento.total_sessoes_tipo && agendamento.total_sessoes_tipo > 1 ? `${agendamento.tipo} (${agendamento.numero_sessao_tipo ?? 0}/${agendamento.total_sessoes_tipo})` : agendamento.tipo}`
+            : (agendamento.total_sessoes_tipo && agendamento.total_sessoes_tipo > 1 ? `${agendamento.tipo} (${agendamento.numero_sessao_tipo ?? 0}/${agendamento.total_sessoes_tipo})` : agendamento.tipo)}
+        </p>
         {agendamento.profissional?.full_name && (
           <p className={`text-[9px] ${config.subText} truncate opacity-80`}>
             {agendamento.profissional.full_name.split(' ')[0]}

@@ -5,6 +5,7 @@ type SessaoBasica = {
   agendamento_id: string | null
   data_agendamento: string
   status: string
+  tipo?: string | null
 }
 
 /**
@@ -18,7 +19,12 @@ type SessaoBasica = {
  */
 export function buildSessaoEfetivaMap(
   todasSessoes: SessaoBasica[]
-): Map<string, { sessao_efetiva: number; total_efetivo: number }> {
+): Map<string, {
+  sessao_efetiva: number
+  total_efetivo: number
+  sessao_tipo_efetiva: number
+  total_tipo_efetivo: number
+}> {
   // Agrupa por agendamento_id
   const grupos = new Map<string, SessaoBasica[]>()
   for (const s of todasSessoes) {
@@ -28,7 +34,12 @@ export function buildSessaoEfetivaMap(
     grupos.set(s.agendamento_id, list)
   }
 
-  const result = new Map<string, { sessao_efetiva: number; total_efetivo: number }>()
+  const result = new Map<string, {
+    sessao_efetiva: number
+    total_efetivo: number
+    sessao_tipo_efetiva: number
+    total_tipo_efetivo: number
+  }>()
 
   for (const sessoes of grupos.values()) {
     const sorted = [...sessoes].sort((a, b) =>
@@ -36,12 +47,37 @@ export function buildSessaoEfetivaMap(
     )
     const efetivas = sorted.filter(s => !isStatusNaoEfetivo(s.status))
     const total = efetivas.length
+    const efetivasPorTipo = new Map<string, SessaoBasica[]>()
+
+    for (const sessao of efetivas) {
+      const chaveTipo = sessao.tipo?.trim() || '__sem_tipo__'
+      const list = efetivasPorTipo.get(chaveTipo) ?? []
+      list.push(sessao)
+      efetivasPorTipo.set(chaveTipo, list)
+    }
 
     for (let i = 0; i < efetivas.length; i++) {
-      result.set(efetivas[i].id, { sessao_efetiva: i + 1, total_efetivo: total })
+      const sessao = efetivas[i]
+      const chaveTipo = sessao.tipo?.trim() || '__sem_tipo__'
+      const sessoesDoTipo = efetivasPorTipo.get(chaveTipo) ?? []
+      const indiceTipo = sessoesDoTipo.findIndex((item) => item.id === sessao.id)
+
+      result.set(sessao.id, {
+        sessao_efetiva: i + 1,
+        total_efetivo: total,
+        sessao_tipo_efetiva: indiceTipo + 1,
+        total_tipo_efetivo: sessoesDoTipo.length,
+      })
     }
     for (const s of sorted.filter(s => isStatusNaoEfetivo(s.status))) {
-      result.set(s.id, { sessao_efetiva: 0, total_efetivo: total })
+      const chaveTipo = s.tipo?.trim() || '__sem_tipo__'
+      const sessoesDoTipo = efetivasPorTipo.get(chaveTipo) ?? []
+      result.set(s.id, {
+        sessao_efetiva: 0,
+        total_efetivo: total,
+        sessao_tipo_efetiva: 0,
+        total_tipo_efetivo: sessoesDoTipo.length,
+      })
     }
   }
 
