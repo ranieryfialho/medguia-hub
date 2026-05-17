@@ -26,6 +26,7 @@ interface ItemVenda {
   produto_id: string
   quantidade: number
   preco_unitario: number
+  numero_atendimentos: number | null
 }
 
 interface VendaInicial {
@@ -34,6 +35,8 @@ interface VendaInicial {
   profissional_id: string
   origem: string
   forma_pagamento: string
+  protocolo_id?: string | null
+  protocolo_nome?: string | null
   medico_referenciador_nome?: string | null
   data_venda: string
   observacoes?: string | null
@@ -127,6 +130,7 @@ export function FormEditarVenda({
       produto_id: produtoSelecionado,
       quantidade: quantidadeSelecionada,
       preco_unitario: precoUnitario,
+      numero_atendimentos: produtoAtual?.numero_atendimentos ?? null,
     }
 
     setItens([...itens, novoItem])
@@ -137,6 +141,10 @@ export function FormEditarVenda({
 
   const removerItem = (index: number) => {
     setItens(itens.filter((_, i) => i !== index))
+  }
+
+  const atualizarItem = (index: number, changes: Partial<ItemVenda>) => {
+    setItens((current) => current.map((item, i) => (i === index ? { ...item, ...changes } : item)))
   }
 
   const produtoAtual = produtos.find((p) => p.id === produtoSelecionado)
@@ -391,7 +399,7 @@ export function FormEditarVenda({
             <option value="">Selecione um produto...</option>
             {produtos.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.nome} - R$ {p.preco_padrao.toFixed(2)}
+                {p.nome}{p.numero_atendimentos ? ` (${p.numero_atendimentos} att)` : ''} - R$ {p.preco_padrao.toFixed(2)}
               </option>
             ))}
           </select>
@@ -441,6 +449,9 @@ export function FormEditarVenda({
               {itens.map((item, idx) => {
                 const prod = produtos.find((p) => p.id === item.produto_id)
                 const subtotal = item.quantidade * item.preco_unitario
+                const atendimentosLabel = item.numero_atendimentos
+                  ? `${item.numero_atendimentos} ${item.numero_atendimentos === 1 ? 'atendimento' : 'atendimentos'}`
+                  : null
 
                 return (
                   <div key={idx} className="flex items-center justify-between p-3 rounded-md bg-page border border-border">
@@ -449,6 +460,40 @@ export function FormEditarVenda({
                       <p className="text-xs text-text-secondary">
                         {item.quantidade}x R$ {item.preco_unitario.toFixed(2)} = R$ {subtotal.toFixed(2)}
                       </p>
+                      {atendimentosLabel && <p className="text-xs text-text-secondary mt-1">{atendimentosLabel} nesta venda</p>}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
+                        <div>
+                          <label className="block text-[11px] font-medium text-text-secondary mb-1">
+                            Valor unitario
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={item.preco_unitario}
+                            onChange={(e) => atualizarItem(idx, { preco_unitario: parseFloat(e.target.value) || 0 })}
+                            className="w-full px-2.5 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-medium text-text-secondary mb-1">
+                            Atendimentos desta venda
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={item.numero_atendimentos ?? ''}
+                            onChange={(e) => {
+                              const raw = e.target.value.trim()
+                              atualizarItem(idx, {
+                                numero_atendimentos: raw ? Math.max(1, parseInt(raw, 10) || 1) : null,
+                              })
+                            }}
+                            placeholder="Ex: 10"
+                            className="w-full px-2.5 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
+                          />
+                        </div>
+                      </div>
                     </div>
                     <button
                       type="button"
@@ -473,6 +518,8 @@ export function FormEditarVenda({
 
       {/* Campos ocultos */}
       <input type="hidden" name="id" value={vendaId} />
+      <input type="hidden" name="protocolo_id" value={vendaInicial.protocolo_id ?? ''} />
+      <input type="hidden" name="protocolo_nome" value={vendaInicial.protocolo_nome ?? ''} />
       <input type="hidden" name="profissional_id" value={profissionalId} />
       <input type="hidden" name="origem" value={origem} />
       <input type="hidden" name="forma_pagamento" value={formaPagamento} />

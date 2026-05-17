@@ -13,6 +13,27 @@ const STATUS_BADGE: Record<string, { label: string; classes: string }> = {
   orcamento_recusado: { label: 'Recusado',   classes: 'bg-red-50 text-red-700' },
 }
 
+const SELECT_VENDAS_BASE = `
+  id,
+  paciente_id,
+  pacientes(nome),
+  profissional_id,
+  profiles:profissional_id(full_name),
+  origem,
+  forma_pagamento,
+  medico_referenciador_nome,
+  data_venda,
+  observacoes,
+  status,
+  criado_em
+`
+
+const SELECT_VENDAS_COM_PROTOCOLO = `
+  ${SELECT_VENDAS_BASE},
+  protocolo_id,
+  protocolo_nome
+`
+
 export default async function VendasListPage({
   searchParams,
 }: {
@@ -54,49 +75,39 @@ export default async function VendasListPage({
     profissionalIdsBusca = (profissionaisBusca ?? []).map((item) => item.id)
   }
 
-  let query = supabase
-    .from('vendas')
-    .select(
-      `
-      id,
-      paciente_id,
-      pacientes(nome),
-      profissional_id,
-      profiles:profissional_id(full_name),
-      origem,
-      forma_pagamento,
-      medico_referenciador_nome,
-      data_venda,
-      observacoes,
-      status,
-      criado_em
-    `,
-      { count: 'exact' }
-    )
-    .order('data_venda', { ascending: false })
+  const buildQuery = (selectClause: string) => {
+    let query = supabase
+      .from('vendas')
+      .select(selectClause, { count: 'exact' })
+      .order('data_venda', { ascending: false })
 
-  // Filtros
-  if (origem) {
-    query = query.eq('origem', origem)
-  }
+    if (origem) {
+      query = query.eq('origem', origem)
+    }
 
-  if (data_inicio) {
-    query = query.gte('data_venda', getAppDayRangeUTC(data_inicio).start)
-  }
+    if (data_inicio) {
+      query = query.gte('data_venda', getAppDayRangeUTC(data_inicio).start)
+    }
 
-  if (data_fim) {
-    query = query.lte('data_venda', getAppDayRangeUTC(data_fim).end)
-  }
+    if (data_fim) {
+      query = query.lte('data_venda', getAppDayRangeUTC(data_fim).end)
+    }
 
-  if (status) {
-    query = query.eq('status', status)
+    if (status) {
+      query = query.eq('status', status)
+    }
+
+    return query
   }
 
   let vendas: any[] = []
   let total = 0
+  let usarCamposProtocolo = true
 
   if (!buscaNormalizada || pacienteIdsBusca.length > 0 || profissionalIdsBusca.length > 0) {
-    if (buscaNormalizada) {
+    const aplicarBusca = <TQuery extends { or: (filters: string) => TQuery }>(query: TQuery) => {
+      if (!buscaNormalizada) return query
+
       const filtrosBusca: string[] = []
       if (pacienteIdsBusca.length > 0) {
         filtrosBusca.push(`paciente_id.in.(${pacienteIdsBusca.join(',')})`)
@@ -104,11 +115,27 @@ export default async function VendasListPage({
       if (profissionalIdsBusca.length > 0) {
         filtrosBusca.push(`profissional_id.in.(${profissionalIdsBusca.join(',')})`)
       }
-      query = query.or(filtrosBusca.join(','))
+
+      return query.or(filtrosBusca.join(','))
     }
 
-    const { data, count } = await query.range(offset, offset + limite - 1)
-    vendas = data ?? []
+    let query = aplicarBusca(buildQuery(SELECT_VENDAS_COM_PROTOCOLO))
+    const tentativaComProtocolo = await query.range(offset, offset + limite - 1)
+    let { data, count } = tentativaComProtocolo
+    const { error } = tentativaComProtocolo
+
+    if (error && (error.message.includes('protocolo_id') || error.message.includes('protocolo_nome'))) {
+      usarCamposProtocolo = false
+      query = aplicarBusca(buildQuery(SELECT_VENDAS_BASE))
+      const fallback = await query.range(offset, offset + limite - 1)
+      data = fallback.data
+      count = fallback.count
+    }
+
+    const vendasData = (data ?? []) as any[]
+    vendas = usarCamposProtocolo
+      ? vendasData
+      : vendasData.map((venda) => ({ ...venda, protocolo_id: null, protocolo_nome: null }))
     total = count ?? 0
   }
 
@@ -169,7 +196,16 @@ export default async function VendasListPage({
 
                 return (
                   <tr key={venda.id} className="hover:bg-page/50 transition-colors">
-                    <td className="px-6 py-4 text-sm text-text-primary">{venda.pacientes?.nome || '—'}</td>
+                    <td className="px-6 py-4 text-sm text-text-primary">
+                      <div className="space-y-1">
+                        <p>{venda.pacientes?.nome || '—'}</p>
+                        {venda.protocolo_nome && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-violet-100 text-violet-800">
+                            Protocolo: {venda.protocolo_nome}
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-6 py-4 text-sm text-text-primary">{venda.profiles?.full_name || '—'}</td>
                     <td className="px-6 py-4">
                       {(() => {
@@ -241,6 +277,11 @@ export default async function VendasListPage({
                   <div className="flex items-start justify-between">
                     <div>
                       <p className="font-medium text-text-primary">{venda.pacientes?.nome}</p>
+                      {venda.protocolo_nome && (
+                        <p className="text-[11px] text-violet-700 font-medium mt-1">
+                          Protocolo: {venda.protocolo_nome}
+                        </p>
+                      )}
                       <p className="text-xs text-text-secondary">{venda.profiles?.full_name}</p>
                     </div>
                     <div className="flex flex-col items-end gap-1">

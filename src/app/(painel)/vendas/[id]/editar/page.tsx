@@ -16,6 +16,8 @@ interface VendaRow {
   profissional_id: string
   origem: string
   forma_pagamento: string
+  protocolo_id?: string | null
+  protocolo_nome?: string | null
   medico_referenciador_nome?: string | null
   data_venda: string
   observacoes?: string | null
@@ -38,6 +40,25 @@ function formatProfile(profile: ProfileRow) {
   }
 }
 
+const SELECT_VENDA_EDITAR_BASE = `
+  id,
+  paciente_id,
+  profissional_id,
+  origem,
+  forma_pagamento,
+  medico_referenciador_nome,
+  data_venda,
+  observacoes,
+  status,
+  pacientes(nome)
+`
+
+const SELECT_VENDA_EDITAR_COM_PROTOCOLO = `
+  ${SELECT_VENDA_EDITAR_BASE},
+  protocolo_id,
+  protocolo_nome
+`
+
 export default async function EditarVendaPage({
   params,
 }: {
@@ -49,22 +70,23 @@ export default async function EditarVendaPage({
   const { id } = await params
 
   // Carregar dados da venda
-  const { data: venda } = await supabase
+  const { data: vendaComProtocolo, error: vendaError } = await supabase
     .from('vendas')
-    .select(`
-      id,
-      paciente_id,
-      profissional_id,
-      origem,
-      forma_pagamento,
-      medico_referenciador_nome,
-      data_venda,
-      observacoes,
-      status,
-      pacientes(nome)
-    `)
+    .select(SELECT_VENDA_EDITAR_COM_PROTOCOLO)
     .eq('id', id)
     .single()
+
+  let venda = vendaComProtocolo
+
+  if (vendaError && (vendaError.message.includes('protocolo_id') || vendaError.message.includes('protocolo_nome'))) {
+    const fallback = await supabase
+      .from('vendas')
+      .select(SELECT_VENDA_EDITAR_BASE)
+      .eq('id', id)
+      .single()
+
+    venda = fallback.data ? { ...fallback.data, protocolo_id: null, protocolo_nome: null } : fallback.data
+  }
 
   // Carregar itens da venda
   const { data: itensVenda } = await supabase
@@ -73,7 +95,8 @@ export default async function EditarVendaPage({
       id,
       produto_id,
       quantidade,
-      preco_unitario
+      preco_unitario,
+      numero_atendimentos
     `)
     .eq('venda_id', id)
 
@@ -120,6 +143,8 @@ export default async function EditarVendaPage({
     profissional_id: venda.profissional_id,
     origem: venda.origem,
     forma_pagamento: venda.forma_pagamento,
+    protocolo_id: (venda as { protocolo_id?: string | null }).protocolo_id ?? null,
+    protocolo_nome: (venda as { protocolo_nome?: string | null }).protocolo_nome ?? null,
     medico_referenciador_nome: venda.medico_referenciador_nome,
     data_venda: venda.data_venda,
     observacoes: venda.observacoes,

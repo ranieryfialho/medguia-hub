@@ -12,6 +12,7 @@ interface ItemVendaForm {
   produto_id: string
   quantidade: number
   preco_unitario: number
+  numero_atendimentos: number | null
 }
 
 function parseItensVenda(itensJson: string): { itens: ItemVendaForm[]; error: null } | { itens: null; error: string } {
@@ -38,6 +39,13 @@ function parseItensVenda(itensJson: string): { itens: ItemVendaForm[]; error: nu
     const produtoId = typeof record.produto_id === 'string' ? record.produto_id : ''
     const quantidade = Number(record.quantidade)
     const precoUnitario = Number(record.preco_unitario)
+    const numeroAtendimentosRaw = record.numero_atendimentos
+    const numeroAtendimentos =
+      numeroAtendimentosRaw === null ||
+      numeroAtendimentosRaw === undefined ||
+      numeroAtendimentosRaw === ''
+        ? null
+        : Number(numeroAtendimentosRaw)
 
     if (
       !produtoId ||
@@ -45,7 +53,15 @@ function parseItensVenda(itensJson: string): { itens: ItemVendaForm[]; error: nu
       quantidade < 1 ||
       !Number.isInteger(quantidade) ||
       !Number.isFinite(precoUnitario) ||
-      precoUnitario < 0
+      precoUnitario < 0 ||
+      (
+        numeroAtendimentos !== null &&
+        (
+          !Number.isFinite(numeroAtendimentos) ||
+          numeroAtendimentos < 1 ||
+          !Number.isInteger(numeroAtendimentos)
+        )
+      )
     ) {
       return { itens: null, error: 'Todos os itens devem ter produto, quantidade e preço válidos.' }
     }
@@ -54,6 +70,7 @@ function parseItensVenda(itensJson: string): { itens: ItemVendaForm[]; error: nu
       produto_id: produtoId,
       quantidade,
       preco_unitario: precoUnitario,
+      numero_atendimentos: numeroAtendimentos,
     })
   }
 
@@ -78,6 +95,11 @@ function statusValido(value: string) {
   return STATUS_VENDA.some((s) => s.value === value)
 }
 
+function isMissingColumnError(message: string | undefined, columns: string[]) {
+  const normalized = (message || '').toLowerCase()
+  return columns.some((column) => normalized.includes(column.toLowerCase()))
+}
+
 function normalizeVendaDate(value: string | null | undefined) {
   const dateKey = value?.trim() ? value.split('T')[0] : formatAppDateKey(new Date())
   return parseAppDate(dateKey).toISOString()
@@ -94,6 +116,8 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
   const data_venda = formData.get('data_venda') as string
   const observacoes = formData.get('observacoes') as string
   const nome = ((formData.get('nome') as string) || '').trim() || null
+  const protocolo_id = ((formData.get('protocolo_id') as string) || '').trim() || null
+  const protocolo_nome = ((formData.get('protocolo_nome') as string) || '').trim() || null
   const itensJson = formData.get('itens_venda_json') as string
   const statusRaw = (formData.get('status') as string) || 'venda_confirmada'
   const status = statusValido(statusRaw) ? statusRaw : 'venda_confirmada'
@@ -171,15 +195,37 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
     data_venda: normalizeVendaDate(data_venda),
     observacoes: observacoes || null,
     nome,
+    protocolo_id,
+    protocolo_nome,
     status,
   }
 
   // Inserir venda
-  const { data: vendaInserida, error: erroVenda } = await supabase
+  let vendaInserida: { id: string } | null = null
+  let erroVenda: { message?: string } | null = null
+
+  const tentativaComProtocolo = await supabase
     .from('vendas')
     .insert(dadosVenda)
     .select('id')
     .single()
+
+  vendaInserida = tentativaComProtocolo.data
+  erroVenda = tentativaComProtocolo.error
+
+  if (erroVenda && isMissingColumnError(erroVenda.message, ['protocolo_id', 'protocolo_nome'])) {
+    const { protocolo_id, protocolo_nome, ...dadosSemProtocolo } = dadosVenda
+    void protocolo_id
+    void protocolo_nome
+    const tentativaSemProtocolo = await supabase
+      .from('vendas')
+      .insert(dadosSemProtocolo)
+      .select('id')
+      .single()
+
+    vendaInserida = tentativaSemProtocolo.data
+    erroVenda = tentativaSemProtocolo.error
+  }
 
   if (erroVenda || !vendaInserida) {
     return { error: `Erro ao criar venda: ${erroVenda?.message || 'desconhecido'}` }
@@ -191,6 +237,7 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
     produto_id: item.produto_id,
     quantidade: item.quantidade || 1,
     preco_unitario: item.preco_unitario,
+    numero_atendimentos: item.numero_atendimentos,
   }))
 
   const { error: erroItens } = await supabase
@@ -218,6 +265,8 @@ export async function editarVenda(_prevState: unknown, formData: FormData) {
   const data_venda = formData.get('data_venda') as string
   const observacoes = formData.get('observacoes') as string
   const nome = ((formData.get('nome') as string) || '').trim() || null
+  const protocolo_id = ((formData.get('protocolo_id') as string) || '').trim() || null
+  const protocolo_nome = ((formData.get('protocolo_nome') as string) || '').trim() || null
   const itensJson = formData.get('itens_venda_json') as string
   const statusRaw = (formData.get('status') as string) || 'venda_confirmada'
   const status = statusValido(statusRaw) ? statusRaw : 'venda_confirmada'
@@ -294,15 +343,33 @@ export async function editarVenda(_prevState: unknown, formData: FormData) {
     data_venda: normalizeVendaDate(data_venda),
     observacoes: observacoes || null,
     nome,
+    protocolo_id,
+    protocolo_nome,
     status,
     atualizado_em: new Date().toISOString(),
   }
 
   // Atualizar venda
-  const { error: erroVenda } = await supabase
+  let erroVenda: { message?: string } | null = null
+
+  const tentativaComProtocolo = await supabase
     .from('vendas')
     .update(dadosVenda)
     .eq('id', id)
+
+  erroVenda = tentativaComProtocolo.error
+
+  if (erroVenda && isMissingColumnError(erroVenda.message, ['protocolo_id', 'protocolo_nome'])) {
+    const { protocolo_id, protocolo_nome, ...dadosSemProtocolo } = dadosVenda
+    void protocolo_id
+    void protocolo_nome
+    const tentativaSemProtocolo = await supabase
+      .from('vendas')
+      .update(dadosSemProtocolo)
+      .eq('id', id)
+
+    erroVenda = tentativaSemProtocolo.error
+  }
 
   if (erroVenda) {
     return { error: `Erro ao editar venda: ${erroVenda.message}` }
@@ -317,6 +384,7 @@ export async function editarVenda(_prevState: unknown, formData: FormData) {
     produto_id: item.produto_id,
     quantidade: item.quantidade || 1,
     preco_unitario: item.preco_unitario,
+    numero_atendimentos: item.numero_atendimentos,
   }))
 
   const { error: erroItens } = await supabase

@@ -12,6 +12,28 @@ const STATUS_BADGE: Record<string, { classes: string }> = {
   orcamento_recusado: { classes: 'bg-red-100 text-red-800' },
 }
 
+const SELECT_VENDA_BASE = `
+  id,
+  paciente_id,
+  pacientes(id, nome, cpf, telefone, email),
+  profissional_id,
+  profiles:profissional_id(id, full_name, role),
+  origem,
+  forma_pagamento,
+  medico_referenciador_nome,
+  data_venda,
+  observacoes,
+  status,
+  criado_em,
+  atualizado_em
+`
+
+const SELECT_VENDA_COM_PROTOCOLO = `
+  ${SELECT_VENDA_BASE},
+  protocolo_id,
+  protocolo_nome
+`
+
 export default async function VendaDetalhePage({
   params,
 }: {
@@ -22,27 +44,23 @@ export default async function VendaDetalhePage({
   const supabase = await createClient()
   const { id } = await params
 
-  const { data: venda } = await supabase
+  const { data: vendaComProtocolo, error: vendaError } = await supabase
     .from('vendas')
-    .select(
-      `
-      id,
-      paciente_id,
-      pacientes(id, nome, cpf, telefone, email),
-      profissional_id,
-      profiles:profissional_id(id, full_name, role),
-      origem,
-      forma_pagamento,
-      medico_referenciador_nome,
-      data_venda,
-      observacoes,
-      status,
-      criado_em,
-      atualizado_em
-    `
-    )
+    .select(SELECT_VENDA_COM_PROTOCOLO)
     .eq('id', id)
     .single()
+
+  let venda = vendaComProtocolo
+
+  if (vendaError && (vendaError.message.includes('protocolo_id') || vendaError.message.includes('protocolo_nome'))) {
+    const fallback = await supabase
+      .from('vendas')
+      .select(SELECT_VENDA_BASE)
+      .eq('id', id)
+      .single()
+
+    venda = fallback.data ? { ...fallback.data, protocolo_id: null, protocolo_nome: null } : fallback.data
+  }
 
   const { data: itens } = await supabase
     .from('itens_venda')
@@ -52,6 +70,7 @@ export default async function VendaDetalhePage({
       produtos(id, nome, numero_atendimentos, preco_padrao),
       quantidade,
       preco_unitario,
+      numero_atendimentos,
       subtotal
     `)
     .eq('venda_id', id)
@@ -96,6 +115,7 @@ export default async function VendaDetalhePage({
   const statusAtual = (v.status ?? 'venda_confirmada') as string
   const statusCfg = STATUS_BADGE[statusAtual] ?? STATUS_BADGE.venda_confirmada
   const tituloPage = statusAtual === 'venda_confirmada' ? 'Detalhes da Venda' : 'Detalhes do Orçamento'
+  const protocoloNome = (venda as { protocolo_nome?: string | null }).protocolo_nome ?? null
 
   return (
     <div className="space-y-6">
@@ -115,6 +135,11 @@ export default async function VendaDetalhePage({
             <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${statusCfg.classes}`}>
               {STATUS_VENDA_LABEL[statusAtual] ?? statusAtual}
             </span>
+            {protocoloNome && (
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-violet-100 text-violet-800">
+                Protocolo
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Link
@@ -172,6 +197,12 @@ export default async function VendaDetalhePage({
               <p className="text-xs text-text-secondary uppercase">Forma de Pagamento</p>
               <p className="text-text-primary">{FORMA_PAGAMENTO_LABEL[venda.forma_pagamento] || 'Não informada'}</p>
             </div>
+            {protocoloNome && (
+              <div>
+                <p className="text-xs text-text-secondary uppercase">Protocolo</p>
+                <p className="text-text-primary">{protocoloNome}</p>
+              </div>
+            )}
             {venda.medico_referenciador_nome && (
               <div>
                 <p className="text-xs text-text-secondary uppercase">Médico Referenciador</p>
@@ -204,6 +235,11 @@ export default async function VendaDetalhePage({
                   <p className="text-xs text-text-secondary">
                     {item.quantidade}x R$ {item.preco_unitario.toFixed(2)}
                   </p>
+                  {item.numero_atendimentos && (
+                    <p className="text-xs text-text-secondary mt-1">
+                      {item.numero_atendimentos} {item.numero_atendimentos === 1 ? 'atendimento' : 'atendimentos'} nesta venda
+                    </p>
+                  )}
                 </div>
                 <div className="text-right">
                   <p className="font-semibold text-text-primary">

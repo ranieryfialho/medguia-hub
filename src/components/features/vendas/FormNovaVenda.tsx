@@ -26,6 +26,7 @@ interface ItemVenda {
   produto_id: string
   quantidade: number
   preco_unitario: number
+  numero_atendimentos: number | null
 }
 
 interface FormNovaVendaProps {
@@ -130,7 +131,15 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
 
   const adicionarProduto = () => {
     if (!produtoSelecionado) return
-    setItens([...itens, { produto_id: produtoSelecionado, quantidade: quantidadeSelecionada, preco_unitario: precoUnitario }])
+    setItens([
+      ...itens,
+      {
+        produto_id: produtoSelecionado,
+        quantidade: quantidadeSelecionada,
+        preco_unitario: precoUnitario,
+        numero_atendimentos: produtoAtual?.numero_atendimentos ?? null,
+      },
+    ])
     setProdutoSelecionado('')
     setQuantidadeSelecionada(1)
     setPrecoUnitario(0)
@@ -139,6 +148,10 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
 
   const removerItem = (idx: number) => setItens(itens.filter((_, i) => i !== idx))
 
+  const atualizarItem = (idx: number, changes: Partial<ItemVenda>) => {
+    setItens((current) => current.map((item, i) => (i === idx ? { ...item, ...changes } : item)))
+  }
+
   const aplicarProtocolo = (id: string) => {
     const protocolo = protocolos.find(p => p.id === id)
     if (!protocolo) return
@@ -146,13 +159,20 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
       .map(item => {
         const prod = produtos.find(p => p.id === item.produto_id)
         if (!prod) return null
-        return { produto_id: item.produto_id, quantidade: item.quantidade, preco_unitario: prod.preco_padrao }
+        return {
+          produto_id: item.produto_id,
+          quantidade: item.quantidade,
+          preco_unitario: prod.preco_padrao,
+          numero_atendimentos: prod.numero_atendimentos ?? null,
+        }
       })
       .filter((item): item is ItemVenda => item !== null)
     setItens(novosItens)
     setNome(protocolo.nome)
     setProtocoloId(id)
   }
+
+  const protocoloSelecionado = protocolos.find((p) => p.id === protocoloId) ?? null
 
   useEffect(() => {
     const supabase = createClient()
@@ -635,6 +655,9 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
                   const descAplicado = prod && prod.preco_padrao > 0
                     ? parseFloat(((1 - item.preco_unitario / prod.preco_padrao) * 100).toFixed(1))
                     : 0
+                  const atendimentosLabel = item.numero_atendimentos
+                    ? `${item.numero_atendimentos} ${item.numero_atendimentos === 1 ? 'atendimento' : 'atendimentos'}`
+                    : null
                   return (
                     <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-page border border-border">
                       <div className="flex-1 min-w-0">
@@ -647,6 +670,44 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
                             </span>
                           )}
                         </p>
+                        {atendimentosLabel && (
+                          <p className="text-xs text-text-secondary mt-1">
+                            {atendimentosLabel} nesta venda
+                          </p>
+                        )}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
+                          <div>
+                            <label className="block text-[11px] font-medium text-text-secondary mb-1">
+                              Valor unitario
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={item.preco_unitario}
+                              onChange={(e) => atualizarItem(idx, { preco_unitario: parseFloat(e.target.value) || 0 })}
+                              className="w-full px-2.5 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-medium text-text-secondary mb-1">
+                              Atendimentos desta venda
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={item.numero_atendimentos ?? ''}
+                              onChange={(e) => {
+                                const raw = e.target.value.trim()
+                                atualizarItem(idx, {
+                                  numero_atendimentos: raw ? Math.max(1, parseInt(raw, 10) || 1) : null,
+                                })
+                              }}
+                              placeholder="Ex: 10"
+                              className="w-full px-2.5 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
+                            />
+                          </div>
+                        </div>
                       </div>
                       <div className="flex items-center gap-3 ml-3">
                         <span className="text-sm font-semibold text-text-primary whitespace-nowrap">
@@ -677,6 +738,8 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
 
       {/* Campos ocultos */}
       <input type="hidden" name="nome" value={nome} />
+      <input type="hidden" name="protocolo_id" value={protocoloId} />
+      <input type="hidden" name="protocolo_nome" value={protocoloSelecionado?.nome ?? ''} />
       <input type="hidden" name="paciente_id" value={pacienteId} />
       <input type="hidden" name="profissional_id" value={profissionalId} />
       <input type="hidden" name="origem" value={origem} />

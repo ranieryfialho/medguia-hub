@@ -90,7 +90,7 @@ export default async function PacienteDetailsPage({
         data_venda,
         observacoes,
         profiles:profissional_id(full_name),
-        itens_venda(id, quantidade, preco_unitario, produtos(nome))
+        itens_venda(id, quantidade, preco_unitario, numero_atendimentos, produtos(nome))
       `)
       .eq('paciente_id', pacienteId)
       .order('data_venda', { ascending: false }),
