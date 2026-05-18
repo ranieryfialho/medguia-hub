@@ -138,19 +138,19 @@ function desenharPaginaMesesMedicos(doc: jsPDF, input: GerarPdfCadastrosInput) {
 }
 
 function desenharPaginaAnunciosSemanasDias(doc: jsPDF, input: GerarPdfCadastrosInput) {
-  let y = desenharCabecalhoInterno(doc, 'Detalhamento por Período', 'Semanas, dias e anúncios Meta')
+  let y = desenharCabecalhoInterno(doc, 'Detalhamento por Período', 'Semanas, dias e anúncios do Facebook')
   y += 4
 
   if (input.anunciosMeta.length > 0) {
-    y = desenharTituloSecao(doc, y, 'Por Anúncio Meta')
-    const headers = ['Canal — Anúncio', 'Cadastros', '%']
+    y = desenharTituloSecao(doc, y, 'Por Anúncio do Facebook')
+    const headers = ['Anúncio', 'Cadastros', '%']
     const widths = [110, 30, 38]
     y = desenharLinhaTabela(doc, y, headers, widths, true)
 
     for (const { anuncio, qtd } of input.anunciosMeta) {
       if (y > PAGE_HEIGHT - 22) {
         doc.addPage()
-        y = desenharCabecalhoInterno(doc, 'Por Anúncio Meta', 'Continuação')
+        y = desenharCabecalhoInterno(doc, 'Por Anúncio do Facebook', 'Continuação')
         y = desenharLinhaTabela(doc, y + 4, headers, widths, true)
       }
       const pct = input.total > 0 ? ((qtd / input.total) * 100).toFixed(1) : '0.0'
@@ -228,7 +228,7 @@ function montarDestaques(input: GerarPdfCadastrosInput): string[] {
 
   if (input.anunciosMeta.length > 0) {
     const top = input.anunciosMeta[0]
-    destaques.push(`O anúncio Meta de maior resultado foi "${top.anuncio}", gerando ${top.qtd} cadastro(s).`)
+    destaques.push(`O anúncio do Facebook de maior resultado foi "${top.anuncio}", gerando ${top.qtd} cadastro(s).`)
   }
 
   return destaques

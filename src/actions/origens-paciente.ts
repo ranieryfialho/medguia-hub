@@ -10,14 +10,19 @@ export type OrigemPaciente = {
   ordem: number
 }
 
+function ordenarOrigens(origens: OrigemPaciente[]): OrigemPaciente[] {
+  return [...origens].sort((a, b) =>
+    a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }),
+  )
+}
+
 export async function listarOrigensPaciente(): Promise<OrigemPaciente[]> {
   const supabase = await createClient()
   const { data } = await supabase
     .from('origens_paciente')
     .select('id, nome, ativo, ordem')
-    .order('ordem', { ascending: true })
     .order('nome', { ascending: true })
-  return data ?? []
+  return ordenarOrigens(data ?? [])
 }
 
 export async function listarOrigensAtivasPaciente(): Promise<OrigemPaciente[]> {
@@ -26,9 +31,8 @@ export async function listarOrigensAtivasPaciente(): Promise<OrigemPaciente[]> {
     .from('origens_paciente')
     .select('id, nome, ativo, ordem')
     .eq('ativo', true)
-    .order('ordem', { ascending: true })
     .order('nome', { ascending: true })
-  return data ?? []
+  return ordenarOrigens(data ?? [])
 }
 
 export async function criarOrigemPaciente(nome: string): Promise<{ error?: string }> {

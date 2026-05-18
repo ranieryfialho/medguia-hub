@@ -17,22 +17,34 @@ type NomeSuggestion = {
 }
 
 function parseOrigem(origem: string) {
-  const [origemBase = '', metaCanal = '', ...resto] = origem.split('::')
+  const [origemBase = '', segundoNivel = '', ...resto] = origem.split('::')
+  const baseNormalizada = origemBase.trim().toLowerCase()
+  const detalhe = resto.join('::')
+
+  if (baseNormalizada === 'meta') {
+    const canal = segundoNivel.trim()
+    return {
+      origemBase: canal || origemBase,
+      metaCanal: canal,
+      metaAnuncio: detalhe,
+    }
+  }
+
   return {
     origemBase,
-    metaCanal,
-    metaAnuncio: resto.join('::'),
+    metaCanal: '',
+    metaAnuncio: baseNormalizada === 'facebook' ? segundoNivel : '',
   }
 }
 
 function montarOrigem(origemBase: string, metaCanal: string, metaAnuncio: string) {
-  if (origemBase !== 'Meta') return origemBase
-  return ['Meta', metaCanal.trim(), metaAnuncio.trim()].filter(Boolean).join('::')
+  if (origemBase !== 'Facebook') return origemBase
+  return ['Facebook', metaAnuncio.trim()].filter(Boolean).join('::')
 }
 
 function tipoOrigem(nome: string) {
   const n = nome.toLowerCase()
-  if (n.includes('meta') || n.includes('instagram')) return 'meta'
+  if (n.includes('facebook')) return 'facebook'
   if (n.includes('médico') || n.includes('medico')) return 'medico'
   if (n.includes('indicaç') || n.includes('indicac')) return 'indicacao'
   return 'outro'
@@ -43,7 +55,7 @@ export function FormCadastroPaciente({ origens = [], planos = [] }: { origens?: 
   const [isBuscandoNome, startBuscaNome] = useTransition()
   const origemInicial = parseOrigem(state?.fields?.origem as string || '')
   const [origemSelecionada, setOrigemSelecionada] = useState(origemInicial.origemBase)
-  const [metaCanal, setMetaCanal] = useState(origemInicial.metaCanal)
+  const [metaCanal] = useState(origemInicial.metaCanal)
   const [metaAnuncio, setMetaAnuncio] = useState(origemInicial.metaAnuncio)
   const [nome, setNome] = useState(state?.fields?.nome as string || '')
   const [sugestoesNome, setSugestoesNome] = useState<NomeSuggestion[]>([])
@@ -261,8 +273,7 @@ export function FormCadastroPaciente({ origens = [], planos = [] }: { origens?: 
               onChange={e => {
                 const value = e.target.value
                 setOrigemSelecionada(value)
-                if (tipoOrigem(value) !== 'meta') {
-                  setMetaCanal('')
+                if (tipoOrigem(value) !== 'facebook') {
                   setMetaAnuncio('')
                 }
               }}
@@ -270,32 +281,14 @@ export function FormCadastroPaciente({ origens = [], planos = [] }: { origens?: 
             >
               <option value="">Selecione</option>
               {origens.map(o => (
-                <option key={o.id} value={o.nome.toLowerCase() === 'instagram' ? 'Meta' : o.nome}>
-                  {o.nome.toLowerCase() === 'instagram' ? 'Meta' : o.nome}
+                <option key={o.id} value={o.nome}>
+                  {o.nome}
                 </option>
               ))}
-              {!origens.some(o => o.nome.toLowerCase() === 'site') && (
-                <option value="Site">Site</option>
-              )}
             </select>
             <input type="hidden" name="origem" value={origemPersistida} />
           </div>
-          {tipo === 'meta' && (
-            <div>
-              <label className="block text-xs font-medium text-text-secondary mb-1">Canal da Meta</label>
-              <select
-                required
-                value={metaCanal}
-                onChange={e => setMetaCanal(e.target.value)}
-                className="w-full bg-input border border-border-input rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-primary-500"
-              >
-                <option value="">Selecione</option>
-                <option value="Instagram">Instagram</option>
-                <option value="Facebook">Facebook</option>
-              </select>
-            </div>
-          )}
-          {tipo === 'meta' && (
+          {tipo === 'facebook' && (
             <div className="md:col-span-2">
               <label className="block text-xs font-medium text-text-secondary mb-1">Nome do anúncio</label>
               <input

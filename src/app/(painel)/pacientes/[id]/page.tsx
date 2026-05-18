@@ -22,11 +22,24 @@ import {
 function formatarOrigemPaciente(origem: string | null | undefined) {
   if (!origem) return 'Não informada'
 
-  const [origemBase = '', metaCanal = '', ...resto] = origem.split('::')
-  if (origemBase !== 'Meta') return origem
+  const [origemBase = '', segundoNivel = '', ...resto] = origem.split('::')
+  const baseNormalizada = origemBase.trim().toLowerCase()
 
-  const metaAnuncio = resto.join('::')
-  return ['Meta', metaCanal, metaAnuncio].filter(Boolean).join(' > ')
+  if (baseNormalizada === 'facebook') {
+    return ['Facebook', segundoNivel].filter(Boolean).join(' > ')
+  }
+
+  if (baseNormalizada !== 'meta') return origem
+
+  const canal = segundoNivel.trim()
+  if (canal.toLowerCase() === 'facebook') {
+    return ['Facebook', resto.join('::')].filter(Boolean).join(' > ')
+  }
+  if (canal.toLowerCase() === 'instagram') {
+    return 'Instagram'
+  }
+
+  return ['Meta', canal, resto.join('::')].filter(Boolean).join(' > ')
 }
 
 export default async function PacienteDetailsPage({ 

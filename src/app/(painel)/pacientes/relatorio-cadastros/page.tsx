@@ -10,7 +10,7 @@ type TipoFiltro = '12meses' | 'mes' | 'semana' | 'personalizado'
 
 function tipoOrigem(nome: string) {
   const n = nome.toLowerCase()
-  if (n.includes('meta') || n.includes('instagram')) return 'meta'
+  if (n.includes('meta') || n.includes('facebook')) return 'facebook'
   if (n.includes('médico') || n.includes('medico')) return 'medico'
   return 'outro'
 }
@@ -27,18 +27,31 @@ function parsearOrigem(origem: string | null | undefined): string {
   const base = partes[0].trim()
   if (!base) return 'Não informada'
   const baseNorm = base.charAt(0).toUpperCase() + base.slice(1).toLowerCase()
-  if (baseNorm === 'Meta' && partes[1]?.trim()) return `Meta (${partes[1].trim()})`
+  if (baseNorm === 'Facebook') return 'Facebook'
+  if (baseNorm === 'Meta' && partes[1]?.trim()) {
+    const canal = partes[1].trim()
+    if (canal.toLowerCase() === 'facebook') return 'Facebook'
+    if (canal.toLowerCase() === 'instagram') return 'Instagram'
+    return canal
+  }
   return baseNorm
 }
 
 function parsearAnuncioMeta(origem: string | null | undefined): string | null {
   if (!origem?.trim()) return null
   const partes = origem.split('::')
-  if (partes[0].trim().toLowerCase() !== 'meta') return null
+  const base = partes[0].trim().toLowerCase()
+
+  if (base === 'facebook') {
+    return partes[1]?.trim() || null
+  }
+
+  if (base !== 'meta') return null
+
   const canal = partes[1]?.trim() || ''
   const anuncio = partes[2]?.trim() || ''
-  if (!canal) return null
-  return anuncio ? `${canal} — ${anuncio}` : canal
+  if (canal.toLowerCase() !== 'facebook') return null
+  return anuncio || null
 }
 
 function getSemanaKey(isoStr: string): string {
@@ -425,7 +438,7 @@ export default async function RelatorioCadastrosPacientesPage({
       {anunciosMeta.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100">
-            <h2 className="font-semibold text-slate-900">Por Anúncio Meta</h2>
+            <h2 className="font-semibold text-slate-900">Por Anúncio do Facebook</h2>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

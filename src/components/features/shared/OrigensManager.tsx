@@ -11,8 +11,14 @@ import {
   type OrigemPaciente,
 } from '@/actions/origens-paciente'
 
+function ordenarOrigens(origens: OrigemPaciente[]) {
+  return [...origens].sort((a, b) =>
+    a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }),
+  )
+}
+
 export function OrigensManager({ origens: inicial }: { origens: OrigemPaciente[] }) {
-  const [origens, setOrigens] = useState(inicial)
+  const [origens, setOrigens] = useState(() => ordenarOrigens(inicial))
   const [novoNome, setNovoNome] = useState('')
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [editandoNome, setEditandoNome] = useState('')
@@ -56,7 +62,7 @@ export function OrigensManager({ origens: inicial }: { origens: OrigemPaciente[]
         return
       }
       toast.success('Origem atualizada')
-      setOrigens(prev => prev.map(o => o.id === id ? { ...o, nome: editandoNome.trim() } : o))
+      setOrigens(prev => ordenarOrigens(prev.map(o => o.id === id ? { ...o, nome: editandoNome.trim() } : o)))
       setEditandoId(null)
     })
   }
