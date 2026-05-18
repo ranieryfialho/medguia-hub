@@ -9,6 +9,10 @@ import {
   type KanbanColunaContato,
   type StatusContatoPadrao,
 } from '@/lib/contatos-kanban'
+import {
+  ORIGENS_IMPORTACAO_CONTATOS,
+  type OrigemImportacaoContato,
+} from '@/lib/contatos-origens-importacao'
 
 export type StatusContato = StatusContatoPadrao
 
@@ -134,6 +138,112 @@ function revalidarContatos() {
   revalidatePath('/dashboard')
 }
 
+function normalizarOrigemContato(origem: string | null | undefined): OrigemImportacaoContato | null {
+  if (!origem?.trim()) return null
+
+  const [base = '', segundoNivel = ''] = origem.split('::')
+  const baseNormalizada = base.trim().toLowerCase()
+  const canalNormalizado = segundoNivel.trim().toLowerCase()
+
+  if (baseNormalizada === 'facebook') return 'Facebook'
+  if (baseNormalizada === 'site') return 'Site'
+  if (baseNormalizada === 'instagram') return 'Instagram'
+  if (baseNormalizada === 'whatsapp') return 'WhatsApp'
+
+  if (baseNormalizada === 'meta') {
+    if (canalNormalizado === 'facebook') return 'Facebook'
+    if (canalNormalizado === 'instagram') return 'Instagram'
+  }
+
+  return null
+}
+
+async function importarPacientesPorOrigemParaColuna(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  colunaChave: string,
+  statusBase: StatusContato,
+  origensSelecionadas: OrigemImportacaoContato[],
+) {
+  if (!origensSelecionadas.length) return 0
+
+  const { data: pacientes, error } = await supabase
+    .from('pacientes')
+    .select(`
+      id,
+      origem,
+      contatos_base (
+        paciente_id,
+        kanban_coluna_chave,
+        status
+      )
+    `)
+    .eq('ativo', true)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  if (!pacientes?.length) return 0
+
+  const origensSet = new Set(origensSelecionadas)
+  const chavesBase = new Set(['a_contactar', 'recuperacao_base'])
+  const paraInserir: Array<{ paciente_id: string; status: StatusContato; kanban_coluna_chave: string }> = []
+  const paraAtualizar: string[] = []
+
+  for (const paciente of pacientes) {
+    const origemNormalizada = normalizarOrigemContato(paciente.origem)
+    if (!origemNormalizada || !origensSet.has(origemNormalizada)) continue
+
+    const contatoRelacao = Array.isArray(paciente.contatos_base) ? paciente.contatos_base[0] : paciente.contatos_base
+    const contato = contatoRelacao as {
+      paciente_id: string
+      kanban_coluna_chave: string | null
+      status: string | null
+    } | null
+
+    if (!contato) {
+      paraInserir.push({
+        paciente_id: paciente.id,
+        status: statusBase,
+        kanban_coluna_chave: colunaChave,
+      })
+      continue
+    }
+
+    const colunaAtual = contato.kanban_coluna_chave?.trim() || contato.status?.trim() || ''
+    if (chavesBase.has(colunaAtual as StatusContato)) {
+      paraAtualizar.push(paciente.id)
+    }
+  }
+
+  if (paraInserir.length) {
+    const { error: insertError } = await supabase
+      .from('contatos_base')
+      .insert(paraInserir)
+
+    if (insertError) {
+      throw new Error(insertError.message)
+    }
+  }
+
+  if (paraAtualizar.length) {
+    const { error: updateError } = await supabase
+      .from('contatos_base')
+      .update({
+        status: statusBase,
+        kanban_coluna_chave: colunaChave,
+        atualizado_em: new Date().toISOString(),
+      })
+      .in('paciente_id', paraAtualizar)
+
+    if (updateError) {
+      throw new Error(updateError.message)
+    }
+  }
+
+  return paraInserir.length + paraAtualizar.length
+}
+
 export async function atualizarStatusContato(pacienteId: string, status: StatusContato) {
   const { supabase, userId } = await getAuthContext()
   const result = await upsertContato(pacienteId, { status, kanban_coluna_chave: status })
@@ -230,6 +340,7 @@ export async function criarColunaKanbanContato(input: {
   nome: string
   statusBase: StatusContato
   corChave: ColunaCorContato
+  origensImportacao?: OrigemImportacaoContato[]
 }) {
   const { supabase, userId } = await requireGestorOuMaster()
   const nome = input.nome.trim()
@@ -258,8 +369,25 @@ export async function criarColunaKanbanContato(input: {
     return { error: error.message }
   }
 
-  revalidarContatos()
-  return { success: true, chave }
+  try {
+    const origensImportacao = (input.origensImportacao ?? []).filter((origem): origem is OrigemImportacaoContato =>
+      ORIGENS_IMPORTACAO_CONTATOS.includes(origem),
+    )
+
+    const importados = await importarPacientesPorOrigemParaColuna(
+      supabase,
+      chave,
+      input.statusBase,
+      origensImportacao,
+    )
+
+    revalidarContatos()
+    return { success: true, chave, importados }
+  } catch (importError) {
+    console.error('Erro ao importar pacientes por origem na criacao da coluna:', importError)
+    return { error: importError instanceof Error ? importError.message : 'Erro ao importar pacientes para a nova coluna.' }
+  }
+
 }
 
 export async function editarColunaKanbanContato(input: {

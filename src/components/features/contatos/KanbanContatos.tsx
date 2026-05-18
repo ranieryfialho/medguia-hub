@@ -48,6 +48,10 @@ import {
   type ProfileSimples,
 } from '@/lib/contatos-kanban-data'
 import {
+  ORIGENS_IMPORTACAO_CONTATOS,
+  type OrigemImportacaoContato,
+} from '@/lib/contatos-origens-importacao'
+import {
   listarUltimosAtendimentosPorPacientes,
   type UltimoAtendimentoClient,
 } from '@/lib/ultimo-atendimento'
@@ -75,6 +79,7 @@ type ColumnFormState = {
   nome: string
   statusBase: StatusContato
   corChave: ColunaCorContato
+  origensImportacao: OrigemImportacaoContato[]
 }
 
 const HISTORICO_ATENDIMENTOS_ANOS = 2
@@ -150,6 +155,7 @@ function defaultColumnForm(): ColumnFormState {
     nome: '',
     statusBase: 'a_contactar',
     corChave: 'a_contactar',
+    origensImportacao: [],
   }
 }
 
@@ -761,6 +767,7 @@ export function KanbanContatos({
       nome: column.nome,
       statusBase: column.status_base,
       corChave: column.cor_chave,
+      origensImportacao: [],
     })
     setColumnModalTab('form')
     setColumnsModalOpen(true)
@@ -775,6 +782,7 @@ export function KanbanContatos({
       nome: columnForm.nome,
       statusBase: columnForm.statusBase,
       corChave: columnForm.corChave,
+      origensImportacao: columnForm.chave ? [] : columnForm.origensImportacao,
     }
 
     const result = columnForm.chave
@@ -1857,6 +1865,50 @@ export function KanbanContatos({
                     ))}
                   </div>
                 </div>
+
+                {!columnForm.chave && (
+                  <div>
+                    <label className="block text-xs font-semibold text-[#6d7a75] mb-1.5">Puxar pacientes por origem</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {ORIGENS_IMPORTACAO_CONTATOS.map((origem) => {
+                        const selected = columnForm.origensImportacao.includes(origem)
+                        return (
+                          <button
+                            key={origem}
+                            type="button"
+                            onClick={() =>
+                              setColumnForm((prev) => ({
+                                ...prev,
+                                origensImportacao: selected
+                                  ? prev.origensImportacao.filter((item) => item !== origem)
+                                  : [...prev.origensImportacao, origem],
+                              }))
+                            }
+                            className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors ${
+                              selected
+                                ? 'border-[#006b5a] bg-[#f0fcf9] text-[#006b5a]'
+                                : 'border-[#dee3e3] bg-white hover:border-[#bcc9c4] text-[#1A2E2B]'
+                            }`}
+                          >
+                            <span
+                              className={`flex h-4 w-4 items-center justify-center rounded border text-[10px] font-bold ${
+                                selected
+                                  ? 'border-[#006b5a] bg-[#006b5a] text-white'
+                                  : 'border-[#bcc9c4] text-transparent'
+                              }`}
+                            >
+                              ✓
+                            </span>
+                            <span>{origem}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <p className="text-[11px] text-[#9BB0AD] mt-1.5">
+                      Ao criar a coluna, o sistema move para ela os pacientes ativos dessas origens que ainda estao nas etapas base do kanban.
+                    </p>
+                  </div>
+                )}
 
                 <button
                   onClick={() => void handleSaveColumn()}
