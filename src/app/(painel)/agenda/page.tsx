@@ -40,6 +40,7 @@ type AgendaQueryOverrides = {
   profissional?: string | null
   horario?: string | null
   statuses?: string[] | null
+  clearPersistedStatuses?: boolean
 }
 
 const STATUS_FILTER_OPTIONS = [
@@ -75,6 +76,7 @@ function buildAgendaUrl(base: {
   const profissional = overrides.profissional === undefined ? base.profissional : (overrides.profissional ?? '')
   const horario = overrides.horario === undefined ? base.horario : (overrides.horario ?? '')
   const statuses = overrides.statuses === undefined ? base.statuses : (overrides.statuses ?? [])
+  const clearPersistedStatuses = overrides.clearPersistedStatuses ?? false
 
   query.set('view', view)
   query.set('data', data)
@@ -82,6 +84,7 @@ function buildAgendaUrl(base: {
   if (meus) query.set('meus', 'true')
   if (profissional) query.set('profissional', profissional)
   if (horario) query.set('horario', horario)
+  if (clearPersistedStatuses) query.set('clear_status_filters', 'true')
   for (const status of statuses) {
     query.append('status', status)
   }
@@ -123,6 +126,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
   const myAppointmentsOnly = params.meus === 'true'
   const profissionalSelecionado = typeof params.profissional === 'string' ? params.profissional : ''
   const horarioSelecionado = typeof params.horario === 'string' ? params.horario.slice(0, 5) : ''
+  const clearPersistedStatuses = params.clear_status_filters === 'true'
   const statusParams = Array.isArray(params.status)
     ? params.status
     : typeof params.status === 'string'
@@ -505,7 +509,11 @@ export default async function AgendaPage({ searchParams }: PageProps) {
 
           <div className="flex-shrink-0 bg-white rounded-2xl border border-[#bcc9c4]/30 px-3 py-3 shadow-sm">
               <form method="get" className="flex flex-col gap-3">
-                <AgendaFiltrosAutoSubmit />
+                <AgendaFiltrosAutoSubmit
+                  initialStatuses={statusSelecionados}
+                  allStatuses={ALL_STATUS_FILTER_VALUES}
+                  clearPersistedStatuses={clearPersistedStatuses}
+                />
                 <input type="hidden" name="view" value={view} />
                 <input type="hidden" name="data" value={dataString} />
                 {myAppointmentsOnly && <input type="hidden" name="meus" value="true" />}
@@ -578,7 +586,12 @@ export default async function AgendaPage({ searchParams }: PageProps) {
 
                 <div className="flex gap-2 lg:justify-end lg:pb-0.5">
                   <Link
-                    href={buildAgendaUrl(baseQuery, { profissional: null, horario: null, statuses: null })}
+                    href={buildAgendaUrl(baseQuery, {
+                      profissional: null,
+                      horario: null,
+                      statuses: null,
+                      clearPersistedStatuses: true,
+                    })}
                     className="px-4 py-2.5 rounded-xl border border-[#bcc9c4] text-sm font-bold text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
                   >
                     Limpar
