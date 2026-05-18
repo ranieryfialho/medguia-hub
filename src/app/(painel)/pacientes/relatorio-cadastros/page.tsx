@@ -3,10 +3,23 @@ import Link from 'next/link'
 import { requireModulo } from '@/lib/guard'
 import { APP_TIME_ZONE, formatAppDateKey, getAppDayRangeUTC } from '@/lib/datetime'
 import { Users, CalendarDays, TrendingUp, UserPlus } from 'lucide-react'
-import { FiltrosCadastros, BtnGerarPdfCadastros } from '@/components/features/shared'
+import { FiltrosCadastros, BtnGerarPdfCadastros, SelectCheckbox } from '@/components/features/shared'
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>
 type TipoFiltro = '12meses' | 'mes' | 'semana' | 'personalizado'
+type OrdemDetalhe = 'data' | 'alfabetica' | 'origem'
+
+type PacienteRelatorio = {
+  id: string
+  nome: string | null
+  telefone: string | null
+  email: string | null
+  convenio: string | null
+  created_at: string | null
+  origem: string | null
+  indicado_por: string | null
+  ativo: boolean | null
+}
 
 function tipoOrigem(nome: string) {
   const n = nome.toLowerCase()
@@ -52,6 +65,22 @@ function parsearAnuncioMeta(origem: string | null | undefined): string | null {
   const anuncio = partes[2]?.trim() || ''
   if (canal.toLowerCase() !== 'facebook') return null
   return anuncio || null
+}
+
+function formatarDataHora(iso: string | null | undefined): string {
+  if (!iso) return 'Não informada'
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: APP_TIME_ZONE,
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(new Date(iso))
+}
+
+function formatarIndicacao(origem: string | null | undefined, indicadoPor: string | null | undefined): string {
+  const nome = indicadoPor?.trim()
+  if (!nome) return '—'
+  if (tipoOrigem(origem ?? '') === 'medico') return `Dr(a). ${normalizarNomeMedico(nome)}`
+  return nome
 }
 
 function getSemanaKey(isoStr: string): string {
@@ -129,6 +158,44 @@ function getWeekRange(mondayKey: string) {
   }
 }
 
+function buildDetalhamentoUrl(
+  params: Awaited<SearchParams>,
+  overrides: {
+    detalhe_pagina?: number
+    detalhe_limite?: number
+    detalhe_ordem?: OrdemDetalhe
+    detalhe_origem?: string[]
+  } = {},
+) {
+  const query = new URLSearchParams()
+
+  for (const [key, rawValue] of Object.entries(params)) {
+    if (key === 'detalhe_pagina' || key === 'detalhe_limite' || key === 'detalhe_ordem' || key === 'detalhe_origem') continue
+    if (Array.isArray(rawValue)) {
+      for (const value of rawValue) {
+        if (typeof value === 'string') query.append(key, value)
+      }
+      continue
+    }
+    if (typeof rawValue === 'string' && rawValue) query.set(key, rawValue)
+  }
+
+  const pagina = overrides.detalhe_pagina ?? 1
+  const limite = overrides.detalhe_limite
+  const ordem = overrides.detalhe_ordem
+  const origens = overrides.detalhe_origem ?? []
+
+  if (pagina > 1) query.set('detalhe_pagina', String(pagina))
+  if (limite && limite !== 20) query.set('detalhe_limite', String(limite))
+  if (ordem && ordem !== 'data') query.set('detalhe_ordem', ordem)
+  for (const origem of origens) {
+    if (origem) query.append('detalhe_origem', origem)
+  }
+
+  const queryString = query.toString()
+  return queryString ? `/pacientes/relatorio-cadastros?${queryString}` : '/pacientes/relatorio-cadastros'
+}
+
 export default async function RelatorioCadastrosPacientesPage({
   searchParams,
 }: {
@@ -145,6 +212,21 @@ export default async function RelatorioCadastrosPacientesPage({
   const semanaParam = (params.semana as string) || ''
   const inicioParam = (params.inicio as string) || ''
   const fimParam = (params.fim as string) || ''
+  const detalheLimiteRaw = Number(params.detalhe_limite)
+  const detalheLimite = [10, 20, 50, 100].includes(detalheLimiteRaw) ? detalheLimiteRaw : 20
+  const detalhePaginaRaw = Number(params.detalhe_pagina)
+  const detalheOrdem = (['data', 'alfabetica', 'origem'].includes(params.detalhe_ordem as string)
+    ? params.detalhe_ordem
+    : 'data') as OrdemDetalhe
+  const detalheOrigensSelecionadas = Array.from(
+    new Set(
+      Array.isArray(params.detalhe_origem)
+        ? params.detalhe_origem.filter((origem): origem is string => !!origem)
+        : typeof params.detalhe_origem === 'string' && params.detalhe_origem
+          ? [params.detalhe_origem]
+          : [],
+    ),
+  )
 
   let queryInicio: string
   let queryFim: string | undefined
@@ -172,7 +254,7 @@ export default async function RelatorioCadastrosPacientesPage({
 
   const baseQuery = supabase
     .from('pacientes')
-    .select('id, created_at, origem, indicado_por, ativo')
+    .select('id, nome, telefone, email, convenio, created_at, origem, indicado_por, ativo')
     .eq('fonte', 'sistema')
     .gte('created_at', queryInicio)
     .order('created_at', { ascending: false })
@@ -181,7 +263,7 @@ export default async function RelatorioCadastrosPacientesPage({
     ? await baseQuery.lte('created_at', queryFim)
     : await baseQuery
 
-  const pacientes = pacientesRaw ?? []
+  const pacientes = (pacientesRaw ?? []) as PacienteRelatorio[]
 
   const porMes = new Map<string, number>()
   const porSemana = new Map<string, number>()
@@ -254,6 +336,59 @@ export default async function RelatorioCadastrosPacientesPage({
     origens: origens.map(([origem, qtd]) => ({ origem, qtd })),
     medicos: medicos.map(([medico, qtd]) => ({ medico, qtd })),
     anunciosMeta: anunciosMeta.map(([anuncio, qtd]) => ({ anuncio, qtd })),
+  }
+
+  const pacientesFiltradosPorOrigem = detalheOrigensSelecionadas.length > 0
+    ? pacientes.filter((paciente) => detalheOrigensSelecionadas.includes(parsearOrigem(paciente.origem)))
+    : pacientes
+
+  const pacientesOrdenados = [...pacientesFiltradosPorOrigem].sort((a, b) => {
+    if (detalheOrdem === 'alfabetica') {
+      return (a.nome ?? '').localeCompare(b.nome ?? '', 'pt-BR')
+    }
+
+    if (detalheOrdem === 'origem') {
+      const origemA = parsearOrigem(a.origem)
+      const origemB = parsearOrigem(b.origem)
+      const ordemOrigem = origemA.localeCompare(origemB, 'pt-BR')
+      if (ordemOrigem !== 0) return ordemOrigem
+      return (a.nome ?? '').localeCompare(b.nome ?? '', 'pt-BR')
+    }
+
+    return (b.created_at ?? '').localeCompare(a.created_at ?? '')
+  })
+
+  const totalDetalhamento = pacientesOrdenados.length
+  const totalPaginasDetalhamento = Math.max(1, Math.ceil(totalDetalhamento / detalheLimite))
+  const detalhePagina = Math.min(
+    Math.max(1, Number.isFinite(detalhePaginaRaw) ? detalhePaginaRaw : 1),
+    totalPaginasDetalhamento,
+  )
+  const detalheOffset = (detalhePagina - 1) * detalheLimite
+  const detalheAte = Math.min(detalheOffset + detalheLimite, totalDetalhamento)
+  const detalhamentoCadastros = pacientesOrdenados.slice(detalheOffset, detalheOffset + detalheLimite).map((paciente) => ({
+    id: paciente.id,
+    nome: paciente.nome?.trim() || 'Sem nome',
+    origem: parsearOrigem(paciente.origem),
+    dataCadastro: formatarDataHora(paciente.created_at),
+    indicacao: formatarIndicacao(paciente.origem, paciente.indicado_por),
+    telefone: paciente.telefone?.trim() || '—',
+    email: paciente.email?.trim() || '—',
+    convenio: paciente.convenio?.trim() || '—',
+    status: paciente.ativo === false ? 'Inativo' : 'Ativo',
+  }))
+
+  const paginasDetalhamento: Array<number | '...'> = []
+  if (totalPaginasDetalhamento <= 7) {
+    for (let p = 1; p <= totalPaginasDetalhamento; p++) paginasDetalhamento.push(p)
+  } else {
+    paginasDetalhamento.push(1)
+    if (detalhePagina > 4) paginasDetalhamento.push('...')
+    for (let p = Math.max(2, detalhePagina - 1); p <= Math.min(totalPaginasDetalhamento - 1, detalhePagina + 1); p++) {
+      paginasDetalhamento.push(p)
+    }
+    if (detalhePagina < totalPaginasDetalhamento - 3) paginasDetalhamento.push('...')
+    paginasDetalhamento.push(totalPaginasDetalhamento)
   }
 
   return (
@@ -534,6 +669,214 @@ export default async function RelatorioCadastrosPacientesPage({
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100">
+          <h2 className="font-semibold text-slate-900">Detalhamento dos Cadastros</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Relação completa dos pacientes cadastrados no período com origem, data, indicação e dados de contato.
+          </p>
+        </div>
+        <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/70 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ordenar por</span>
+              {[
+                { valor: 'data' as const, label: 'Data' },
+                { valor: 'alfabetica' as const, label: 'Alfabética' },
+                { valor: 'origem' as const, label: 'Origem' },
+              ].map((opcao) => (
+                <Link
+                  key={opcao.valor}
+                  href={buildDetalhamentoUrl(params, {
+                    detalhe_ordem: opcao.valor,
+                    detalhe_limite: detalheLimite,
+                    detalhe_pagina: 1,
+                    detalhe_origem: detalheOrigensSelecionadas,
+                  })}
+                  className={`rounded-full px-3 py-1.5 text-sm transition-colors ${
+                    detalheOrdem === opcao.valor
+                      ? 'bg-[#006b5a] text-white'
+                      : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                  }`}
+                >
+                  {opcao.label}
+                </Link>
+              ))}
+            </div>
+            <form action="/pacientes/relatorio-cadastros" method="get" className="flex flex-col gap-2 sm:flex-row sm:items-end">
+              {Array.isArray(params.tipo)
+                ? params.tipo.map((value) => <input key={`tipo-${value}`} type="hidden" name="tipo" value={value} />)
+                : typeof params.tipo === 'string' && <input type="hidden" name="tipo" value={params.tipo} />}
+              {Array.isArray(params.mes)
+                ? params.mes.map((value) => <input key={`mes-${value}`} type="hidden" name="mes" value={value} />)
+                : typeof params.mes === 'string' && <input type="hidden" name="mes" value={params.mes} />}
+              {Array.isArray(params.semana)
+                ? params.semana.map((value) => <input key={`semana-${value}`} type="hidden" name="semana" value={value} />)
+                : typeof params.semana === 'string' && <input type="hidden" name="semana" value={params.semana} />}
+              {Array.isArray(params.inicio)
+                ? params.inicio.map((value) => <input key={`inicio-${value}`} type="hidden" name="inicio" value={value} />)
+                : typeof params.inicio === 'string' && <input type="hidden" name="inicio" value={params.inicio} />}
+              {Array.isArray(params.fim)
+                ? params.fim.map((value) => <input key={`fim-${value}`} type="hidden" name="fim" value={value} />)
+                : typeof params.fim === 'string' && <input type="hidden" name="fim" value={params.fim} />}
+              <input type="hidden" name="detalhe_ordem" value={detalheOrdem} />
+              <input type="hidden" name="detalhe_limite" value={String(detalheLimite)} />
+              <div className="min-w-[260px]">
+                <SelectCheckbox
+                  name="detalhe_origem"
+                  label="Filtrar origens"
+                  options={origens.map(([origem]) => origem)}
+                  selectedValues={detalheOrigensSelecionadas}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="submit"
+                  className="rounded-md bg-[#006b5a] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#005346]"
+                >
+                  Filtrar
+                </button>
+                <Link
+                  href={buildDetalhamentoUrl(params, {
+                    detalhe_limite: detalheLimite,
+                    detalhe_ordem: detalheOrdem,
+                    detalhe_pagina: 1,
+                    detalhe_origem: [],
+                  })}
+                  className="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100"
+                >
+                  Limpar
+                </Link>
+              </div>
+            </form>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Por página</span>
+            {[10, 20, 50, 100].map((limite) => (
+              <Link
+                key={limite}
+                href={buildDetalhamentoUrl(params, {
+                  detalhe_limite: limite,
+                  detalhe_ordem: detalheOrdem,
+                  detalhe_pagina: 1,
+                  detalhe_origem: detalheOrigensSelecionadas,
+                })}
+                className={`rounded-full px-3 py-1.5 text-sm transition-colors ${
+                  detalheLimite === limite
+                    ? 'bg-[#006b5a] text-white'
+                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                }`}
+              >
+                {limite}
+              </Link>
+            ))}
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1180px] text-sm">
+            <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
+              <tr>
+                <th className="text-left px-4 py-3">Nome</th>
+                <th className="text-left px-4 py-3">Origem</th>
+                <th className="text-left px-4 py-3">Data do cadastro</th>
+                <th className="text-left px-4 py-3">Indicação</th>
+                <th className="text-left px-4 py-3">Telefone</th>
+                <th className="text-left px-4 py-3">Email</th>
+                <th className="text-left px-4 py-3">Convênio</th>
+                <th className="text-left px-4 py-3">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {detalhamentoCadastros.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
+                    Nenhum cadastro detalhado no período.
+                  </td>
+                </tr>
+              )}
+              {detalhamentoCadastros.map((paciente) => (
+                <tr key={paciente.id}>
+                  <td className="px-4 py-3 font-medium text-slate-900 whitespace-nowrap">
+                    <Link href={`/pacientes/${paciente.id}`} className="hover:text-primary-500 transition-colors">
+                      {paciente.nome}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3 text-slate-700 whitespace-nowrap">{paciente.origem}</td>
+                  <td className="px-4 py-3 text-slate-700 whitespace-nowrap">{paciente.dataCadastro}</td>
+                  <td className="px-4 py-3 text-slate-700 whitespace-nowrap">{paciente.indicacao}</td>
+                  <td className="px-4 py-3 text-slate-700 whitespace-nowrap">{paciente.telefone}</td>
+                  <td className="px-4 py-3 text-slate-700">{paciente.email}</td>
+                  <td className="px-4 py-3 text-slate-700 whitespace-nowrap">{paciente.convenio}</td>
+                  <td className="px-4 py-3 text-slate-700 whitespace-nowrap">{paciente.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="px-5 py-4 border-t border-slate-100 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <p className="text-sm text-slate-500">
+            Mostrando <span className="font-semibold text-slate-700">{totalDetalhamento === 0 ? 0 : detalheOffset + 1}–{detalheAte}</span> de{' '}
+            <span className="font-semibold text-slate-700">{totalDetalhamento}</span> cadastro{totalDetalhamento !== 1 ? 's' : ''}
+          </p>
+          {totalPaginasDetalhamento > 1 && (
+            <div className="flex flex-wrap items-center gap-1">
+              <Link
+                href={buildDetalhamentoUrl(params, {
+                  detalhe_pagina: detalhePagina - 1,
+                  detalhe_limite: detalheLimite,
+                  detalhe_ordem: detalheOrdem,
+                  detalhe_origem: detalheOrigensSelecionadas,
+                })}
+                className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
+                  detalhePagina === 1
+                    ? 'pointer-events-none bg-slate-100 text-slate-300'
+                    : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                }`}
+              >
+                Anterior
+              </Link>
+              {paginasDetalhamento.map((pagina, index) =>
+                pagina === '...'
+                  ? <span key={`ellipsis-${index}`} className="px-2 text-sm text-slate-400">…</span>
+                  : (
+                    <Link
+                      key={pagina}
+                      href={buildDetalhamentoUrl(params, {
+                        detalhe_pagina: pagina,
+                        detalhe_limite: detalheLimite,
+                        detalhe_ordem: detalheOrdem,
+                        detalhe_origem: detalheOrigensSelecionadas,
+                      })}
+                      className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                        pagina === detalhePagina
+                          ? 'bg-[#006b5a] text-white'
+                          : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                      }`}
+                    >
+                      {pagina}
+                    </Link>
+                  ),
+              )}
+              <Link
+                href={buildDetalhamentoUrl(params, {
+                  detalhe_pagina: detalhePagina + 1,
+                  detalhe_limite: detalheLimite,
+                  detalhe_ordem: detalheOrdem,
+                  detalhe_origem: detalheOrigensSelecionadas,
+                })}
+                className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
+                  detalhePagina === totalPaginasDetalhamento
+                    ? 'pointer-events-none bg-slate-100 text-slate-300'
+                    : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                }`}
+              >
+                Próxima
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </div>
