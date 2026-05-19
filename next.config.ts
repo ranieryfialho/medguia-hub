@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: 'standalone', // <-- Nova linha adicionada aqui
   experimental: {
     // Turbopack filesystem cache writes 1.7GB+ to SSD during dev,
     // causing I/O saturation and thermal issues. Disable to trade
