@@ -29,10 +29,17 @@ export function ProtocolosAtendimentoManager({
   protocolos: inicial,
   tiposConsulta,
 }: ProtocolosAtendimentoManagerProps) {
+  function normalizarTotalSessoes(valor: string | number) {
+    const numero = typeof valor === 'number' ? valor : parseInt(valor, 10)
+    return Math.max(1, Math.min(365, Number.isNaN(numero) ? 1 : numero))
+  }
+
   const [protocolos, setProtocolos] = useState(inicial)
   const [novoNome, setNovoNome] = useState('')
+  const [novoTotalSessoes, setNovoTotalSessoes] = useState(1)
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [editandoNome, setEditandoNome] = useState('')
+  const [editandoTotalSessoes, setEditandoTotalSessoes] = useState(1)
   const [excluindoId, setExcluindoId] = useState<string | null>(null)
   const [expandidoId, setExpandidoId] = useState<string | null>(null)
   const [itemProtocoloId, setItemProtocoloId] = useState<string | null>(null)
@@ -47,10 +54,11 @@ export function ProtocolosAtendimentoManager({
     e.preventDefault()
     if (!novoNome.trim()) return
     startTransition(async () => {
-      const result = await criarProtocoloAtendimento(novoNome)
+      const result = await criarProtocoloAtendimento(novoNome, novoTotalSessoes)
       if (result.error) { toast.error(result.error); return }
       toast.success('Protocolo criado')
       setNovoNome('')
+      setNovoTotalSessoes(1)
       window.location.reload()
     })
   }
@@ -58,22 +66,24 @@ export function ProtocolosAtendimentoManager({
   function iniciarEdicao(protocolo: ProtocoloAtendimento) {
     setEditandoId(protocolo.id)
     setEditandoNome(protocolo.nome)
+    setEditandoTotalSessoes(protocolo.total_sessoes)
     setExcluindoId(null)
   }
 
   function cancelarEdicao() {
     setEditandoId(null)
     setEditandoNome('')
+    setEditandoTotalSessoes(1)
   }
 
   function handleSalvarEdicao(id: string) {
     if (!editandoNome.trim()) return
     startTransition(async () => {
-      const result = await atualizarProtocoloAtendimento(id, editandoNome)
+      const result = await atualizarProtocoloAtendimento(id, editandoNome, editandoTotalSessoes)
       if (result.error) { toast.error(result.error); return }
       toast.success('Protocolo atualizado')
       setProtocolos((prev) => prev.map((protocolo) => (
-        protocolo.id === id ? { ...protocolo, nome: editandoNome.trim() } : protocolo
+        protocolo.id === id ? { ...protocolo, nome: editandoNome.trim(), total_sessoes: editandoTotalSessoes } : protocolo
       )))
       setEditandoId(null)
     })
@@ -178,7 +188,7 @@ export function ProtocolosAtendimentoManager({
 
   return (
     <div className="space-y-6">
-      <form onSubmit={handleAdicionarProtocolo} className="flex gap-2">
+      <form onSubmit={handleAdicionarProtocolo} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_150px_auto]">
         <input
           type="text"
           value={novoNome}
@@ -187,15 +197,32 @@ export function ProtocolosAtendimentoManager({
           className="flex-1 bg-input border border-border-input rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-primary-500"
           disabled={isPending}
         />
+        <div className="space-y-1">
+          <p className="text-[11px] font-semibold text-text-secondary">Total de sessoes</p>
+          <input
+            type="number"
+            min="1"
+            max="365"
+            value={novoTotalSessoes}
+            onChange={(e) => setNovoTotalSessoes(normalizarTotalSessoes(e.target.value))}
+            className="w-full bg-input border border-border-input rounded-sm px-3 py-2 text-sm text-center focus:outline-none focus:border-primary-500"
+            disabled={isPending}
+            title="Total de sessoes"
+          />
+        </div>
         <button
           type="submit"
           disabled={isPending || !novoNome.trim()}
-          className="flex items-center gap-1.5 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-sm text-sm font-medium transition-colors disabled:opacity-50"
+          className="flex items-center justify-center gap-1.5 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-sm text-sm font-medium transition-colors disabled:opacity-50 self-end"
         >
           <Plus size={15} />
           Adicionar
         </button>
       </form>
+
+      <p className="text-xs text-text-secondary -mt-3">
+        O total de sessoes define quantos atendimentos o protocolo cria. A quantidade de cada item define em quantas dessas sessoes aquele atendimento aparece.
+      </p>
 
       <div className="bg-surface rounded-lg border border-border overflow-hidden">
         {protocolos.length === 0 && (
@@ -209,18 +236,30 @@ export function ProtocolosAtendimentoManager({
               <div className="flex items-center gap-3 px-4 py-3">
                 {editandoId === protocolo.id ? (
                   <>
-                    <input
-                      autoFocus
-                      type="text"
-                      value={editandoNome}
-                      onChange={(e) => setEditandoNome(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleSalvarEdicao(protocolo.id)
-                        if (e.key === 'Escape') cancelarEdicao()
-                      }}
-                      className="flex-1 bg-input border border-primary-500 rounded-sm px-2 py-1 text-sm focus:outline-none"
-                      disabled={isPending}
-                    />
+                    <div className="flex flex-1 items-center gap-2">
+                      <input
+                        autoFocus
+                        type="text"
+                        value={editandoNome}
+                        onChange={(e) => setEditandoNome(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSalvarEdicao(protocolo.id)
+                          if (e.key === 'Escape') cancelarEdicao()
+                        }}
+                        className="flex-1 bg-input border border-primary-500 rounded-sm px-2 py-1 text-sm focus:outline-none"
+                        disabled={isPending}
+                      />
+                      <input
+                        type="number"
+                        min="1"
+                        max="365"
+                        value={editandoTotalSessoes}
+                        onChange={(e) => setEditandoTotalSessoes(normalizarTotalSessoes(e.target.value))}
+                        className="w-24 bg-input border border-primary-500 rounded-sm px-2 py-1 text-sm text-center focus:outline-none"
+                        disabled={isPending}
+                        title="Total de sessoes"
+                      />
+                    </div>
                     <button type="button" onClick={() => handleSalvarEdicao(protocolo.id)} disabled={isPending} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded transition-colors" title="Salvar">
                       <Check size={15} />
                     </button>
@@ -248,6 +287,9 @@ export function ProtocolosAtendimentoManager({
                       className="flex items-center gap-2 flex-1 text-left min-w-0"
                     >
                       <span className="text-sm font-medium text-text-primary truncate">{protocolo.nome}</span>
+                      <span className="shrink-0 text-[10px] font-semibold text-primary-700 bg-primary-50 border border-primary-100 px-1.5 py-0.5 rounded">
+                        {protocolo.total_sessoes} sessoes
+                      </span>
                       <span className="shrink-0 text-[10px] font-semibold text-text-tertiary bg-page border border-border px-1.5 py-0.5 rounded">
                         {protocolo.itens.length} {protocolo.itens.length === 1 ? 'item' : 'itens'}
                       </span>
@@ -295,8 +337,9 @@ export function ProtocolosAtendimentoManager({
                               <input
                                 type="number"
                                 min="1"
+                                max={protocolo.total_sessoes}
                                 value={editandoItemQuantidade}
-                                onChange={(e) => setEditandoItemQuantidade(Math.max(1, parseInt(e.target.value) || 1))}
+                                onChange={(e) => setEditandoItemQuantidade(Math.min(protocolo.total_sessoes, Math.max(1, parseInt(e.target.value) || 1)))}
                                 className="w-16 bg-input border border-border-input rounded-sm px-2 py-1.5 text-sm text-center focus:outline-none focus:border-primary-500"
                                 disabled={isPending}
                               />
@@ -365,8 +408,9 @@ export function ProtocolosAtendimentoManager({
                       <input
                         type="number"
                         min="1"
+                        max={protocolo.total_sessoes}
                         value={itemQuantidade}
-                        onChange={(e) => setItemQuantidade(Math.max(1, parseInt(e.target.value) || 1))}
+                        onChange={(e) => setItemQuantidade(Math.min(protocolo.total_sessoes, Math.max(1, parseInt(e.target.value) || 1)))}
                         className="w-16 bg-input border border-border-input rounded-sm px-2 py-1.5 text-sm text-center focus:outline-none focus:border-primary-500"
                         disabled={isPending}
                         title="Quantidade"
