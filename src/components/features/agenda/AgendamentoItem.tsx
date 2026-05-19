@@ -85,6 +85,22 @@ function firstRelation<T>(value: T | T[] | null | undefined): T | null {
   return value ?? null
 }
 
+function formatarTipoComContagem(agendamento: AgendamentoDetalhe) {
+  return agendamento.tipo
+}
+
+function deveExibirContagemTipoSeparada(agendamento: AgendamentoDetalhe) {
+  if (!agendamento.agendamento_pai?.tipo?.trim()) return false
+  if (!agendamento.total_sessoes_tipo || agendamento.total_sessoes_tipo <= 1) return false
+
+  const totalGeral = agendamento.total_sessoes ?? null
+  const numeroGeral = agendamento.numero_sessao ?? null
+  const totalTipo = agendamento.total_sessoes_tipo
+  const numeroTipo = agendamento.numero_sessao_tipo ?? null
+
+  return totalGeral !== totalTipo || numeroGeral !== numeroTipo
+}
+
 export function ConfirmacaoFaltaModal({ onConfirmar, onCancelar }: { onConfirmar: (reagendar: boolean) => void; onCancelar: () => void }) {
   const [reagendar, setReagendar] = useState(true)
 
@@ -178,9 +194,8 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
   const planoSaude = detalhesExtras?.plano_saude ?? agendamento.agendamento_pai?.plano_saude
   const nomeProtocolo = agendamento.agendamento_pai?.tipo?.trim() ?? ''
   const tituloAtendimento = nomeProtocolo || agendamento.tipo
-  const descricaoTipoComContagem = agendamento.total_sessoes_tipo && agendamento.total_sessoes_tipo > 1
-    ? `${agendamento.tipo} (${agendamento.numero_sessao_tipo ?? 0}/${agendamento.total_sessoes_tipo})`
-    : agendamento.tipo
+  const descricaoTipoComContagem = formatarTipoComContagem(agendamento)
+  const exibirContagemTipoSeparada = deveExibirContagemTipoSeparada(agendamento)
   const duracaoMinutos = detalhesExtras?.duracao_minutos ?? agendamento.duracao_minutos
   const observacoes = detalhesExtras?.observacoes ?? agendamento.observacoes
   const horaInicio = formatAppTime(dataObj)
@@ -578,16 +593,25 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
               <>
                 <div className="flex items-center gap-3">
                   <MapPin size={16} className="shrink-0 text-[#006b5a]" />
-                  <span className="text-sm font-medium text-[#3d4945]">{tituloAtendimento}</span>
-                  {agendamento.total_sessoes && agendamento.total_sessoes > 1 && (
-                    <span className="rounded-full bg-[#006b5a]/10 px-2 py-0.5 text-xs font-bold text-[#006b5a]">
-                      Sessao {agendamento.numero_sessao}/{agendamento.total_sessoes}
-                    </span>
-                  )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium text-[#3d4945]">{tituloAtendimento}</span>
+                    {agendamento.total_sessoes && agendamento.total_sessoes > 1 && (
+                      <span className="rounded-full bg-[#006b5a]/10 px-2 py-0.5 text-xs font-bold text-[#006b5a]">
+                        Sessao {agendamento.numero_sessao}/{agendamento.total_sessoes}
+                      </span>
+                    )}
+                    {nomeProtocolo && exibirContagemTipoSeparada && (
+                      <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-[#5a6a65] border border-[#bcc9c4]">
+                        {agendamento.numero_sessao_tipo ?? 0}/{agendamento.total_sessoes_tipo} em {agendamento.tipo}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 {nomeProtocolo && (
                   <div className="pl-7 -mt-2">
-                    <span className="text-xs font-medium text-[#6d7a75]">{descricaoTipoComContagem}</span>
+                    <span className="text-xs font-medium text-[#6d7a75]">
+                      {exibirContagemTipoSeparada ? descricaoTipoComContagem : agendamento.tipo}
+                    </span>
                   </div>
                 )}
 
@@ -841,6 +865,8 @@ export function AgendamentoItemDia({
   const Icone = config.Icon
   const hora = formatAppTime(agendamento.data_agendamento)
   const nomePaciente = agendamento.pacientes?.nome || 'Paciente não identificado'
+  const descricaoTipoComContagem = formatarTipoComContagem(agendamento)
+  const exibirContagemTipoSeparada = deveExibirContagemTipoSeparada(agendamento)
 
   return (
     <>
@@ -856,7 +882,7 @@ export function AgendamentoItemDia({
                 <Icone size={18} />
               </div>
               <div>
-                <div className="flex items-center gap-2 leading-none">
+                <div className="flex flex-wrap items-start gap-1.5 sm:items-center sm:gap-2">
                   <p className={`text-sm font-bold ${config.titleText}`}>{nomePaciente}</p>
                   {agendamento.total_sessoes && agendamento.total_sessoes > 1 && (
                     <span className="text-[10px] font-bold px-1.5 py-0.5 bg-white/60 text-[#006b5a] rounded-full border border-[#006b5a]/20 whitespace-nowrap">
@@ -866,11 +892,16 @@ export function AgendamentoItemDia({
                 </div>
                 <p className={`text-[11px] ${config.subText} mt-1 font-medium italic`}>{agendamento.agendamento_pai?.tipo?.trim() || agendamento.tipo}</p>
                 {agendamento.agendamento_pai?.tipo?.trim() && (
-                  <p className={`text-[11px] ${config.subText} mt-0.5 font-medium`}>
-                    {agendamento.total_sessoes_tipo && agendamento.total_sessoes_tipo > 1
-                      ? `${agendamento.tipo} (${agendamento.numero_sessao_tipo ?? 0}/${agendamento.total_sessoes_tipo})`
-                      : agendamento.tipo}
-                  </p>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                    <p className={`text-[11px] ${config.subText} font-medium`}>
+                      {descricaoTipoComContagem}
+                    </p>
+                    {exibirContagemTipoSeparada && (
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-white/60 text-[#5a6a65] rounded-full border border-[#bcc9c4] whitespace-nowrap">
+                        {agendamento.numero_sessao_tipo ?? 0}/{agendamento.total_sessoes_tipo}
+                      </span>
+                    )}
+                  </div>
                 )}
                 {agendamento.profissional?.full_name && (
                   <p className={`text-[11px] ${config.subText} mt-0.5 font-medium flex items-center gap-1`}>
@@ -941,6 +972,8 @@ export function AgendamentoItemSemana({
   const [slideEditarAberto, setSlideEditarAberto] = useState(false)
   const config = getConfig(agendamento.status)
   const primeiroNome = (agendamento.pacientes?.nome || 'Paciente').split(' ')[0]
+  const descricaoTipoComContagem = formatarTipoComContagem(agendamento)
+  const exibirContagemTipoSeparada = deveExibirContagemTipoSeparada(agendamento)
 
   return (
     <>
@@ -951,8 +984,8 @@ export function AgendamentoItemSemana({
         <p className={`text-[10px] font-bold ${config.titleText} truncate`}>{primeiroNome}</p>
         <p className={`text-[9px] ${config.subText} truncate`}>
           {agendamento.agendamento_pai?.tipo?.trim()
-            ? `${agendamento.agendamento_pai.tipo.trim()} - ${agendamento.total_sessoes_tipo && agendamento.total_sessoes_tipo > 1 ? `${agendamento.tipo} (${agendamento.numero_sessao_tipo ?? 0}/${agendamento.total_sessoes_tipo})` : agendamento.tipo}`
-            : (agendamento.total_sessoes_tipo && agendamento.total_sessoes_tipo > 1 ? `${agendamento.tipo} (${agendamento.numero_sessao_tipo ?? 0}/${agendamento.total_sessoes_tipo})` : agendamento.tipo)}
+            ? `${agendamento.agendamento_pai.tipo.trim()} - ${exibirContagemTipoSeparada ? descricaoTipoComContagem : agendamento.tipo}`
+            : (exibirContagemTipoSeparada ? descricaoTipoComContagem : agendamento.tipo)}
         </p>
         {agendamento.profissional?.full_name && (
           <p className={`text-[9px] ${config.subText} truncate opacity-80`}>

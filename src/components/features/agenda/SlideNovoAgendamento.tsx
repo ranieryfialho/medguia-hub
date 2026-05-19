@@ -38,9 +38,45 @@ function normalizarQuantidadeSessao(valor: string | number | undefined) {
   return Math.max(1, Math.min(365, Number.isNaN(quantidade) ? 1 : quantidade))
 }
 
+function normalizarQuantidadeItemProtocolo(
+  valor: string | number | undefined,
+  totalSessoes: number,
+) {
+  const quantidade = typeof valor === 'number' ? valor : parseInt(String(valor ?? ''), 10)
+  return Math.max(0, Math.min(totalSessoes, Number.isNaN(quantidade) ? 0 : quantidade))
+}
+
+function normalizarSessoesSelecionadas(sessoes: number[] | undefined, totalSessoes: number) {
+  return Array.from(new Set((sessoes ?? []).filter((sessao) => sessao >= 1 && sessao <= totalSessoes)))
+    .sort((a, b) => a - b)
+}
+
+function criarSessoesConsecutivas(quantidade: number) {
+  return Array.from({ length: quantidade }, (_, index) => index + 1)
+}
+
+function ajustarSessoesParaQuantidade(
+  sessoesAtuais: number[] | undefined,
+  proximaQuantidade: number,
+  totalSessoes: number,
+) {
+  const sessoesNormalizadas = normalizarSessoesSelecionadas(sessoesAtuais, totalSessoes)
+
+  if (proximaQuantidade <= sessoesNormalizadas.length) {
+    return sessoesNormalizadas.slice(0, proximaQuantidade)
+  }
+
+  const sessoesSelecionadas = new Set(sessoesNormalizadas)
+  for (let sessao = 1; sessao <= totalSessoes && sessoesSelecionadas.size < proximaQuantidade; sessao += 1) {
+    sessoesSelecionadas.add(sessao)
+  }
+
+  return Array.from(sessoesSelecionadas).sort((a, b) => a - b)
+}
+
 function montarSequenciaProtocolo(
   protocolo: ProtocoloAtendimento | null,
-  quantidades: Record<string, number>,
+  sessoesPorItem: Record<string, number[]>,
   totalSessoesOverride?: number,
 ) {
   if (!protocolo) return []
@@ -49,8 +85,15 @@ function montarSequenciaProtocolo(
   const fallbackTipo = protocolo.itens[0]?.tipo_consulta_nome?.trim() || protocolo.nome
 
   return Array.from({ length: totalSessoes }, (_, index) => {
+    const sessaoNumero = index + 1
     const tiposDaSessao = protocolo.itens
-      .filter((item) => (quantidades[item.id] ?? item.quantidade) > index)
+      .filter((item) => {
+        const sessoesSelecionadas = normalizarSessoesSelecionadas(
+          sessoesPorItem[item.id] ?? criarSessoesConsecutivas(item.quantidade),
+          totalSessoes,
+        )
+        return sessoesSelecionadas.includes(sessaoNumero)
+      })
       .map((item) => item.tipo_consulta_nome.trim())
       .filter(Boolean)
 
@@ -139,7 +182,7 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
   const [modoAtendimento, setModoAtendimento] = useState<'avulso' | 'protocolo'>('avulso')
   const [selectedProtocoloAtendimentoId, setSelectedProtocoloAtendimentoId] = useState('')
   const [totalSessoesAgendamentoProtocolo, setTotalSessoesAgendamentoProtocolo] = useState(1)
-  const [quantidadesItensProtocolo, setQuantidadesItensProtocolo] = useState<Record<string, number>>({})
+  const [sessoesItensProtocolo, setSessoesItensProtocolo] = useState<Record<string, number[]>>({})
   const [selectedTipo, setSelectedTipo] = useState(primeiroTipoDisponivel)
   const [horaInicioValue, setHoraInicioValue] = useState('')
   const [horaFimValue, setHoraFimValue] = useState('')
@@ -166,17 +209,17 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
   const itensProtocoloConfigurados = useMemo(
     () => protocoloAtendimentoSelecionado?.itens.map((item) => ({
       ...item,
-      quantidade: Math.min(
+      sessoesSelecionadas: normalizarSessoesSelecionadas(
+        sessoesItensProtocolo[item.id] ?? criarSessoesConsecutivas(item.quantidade),
         totalSessoesConfiguradoNoAgendamento,
-        quantidadesItensProtocolo[item.id] ?? item.quantidade,
       ),
     })) ?? [],
-    [protocoloAtendimentoSelecionado, quantidadesItensProtocolo, totalSessoesConfiguradoNoAgendamento],
+    [protocoloAtendimentoSelecionado, sessoesItensProtocolo, totalSessoesConfiguradoNoAgendamento],
   )
   const tiposDoProtocolo = useMemo(
     () => montarSequenciaProtocolo(
       protocoloAtendimentoSelecionado,
-      Object.fromEntries(itensProtocoloConfigurados.map((item) => [item.id, item.quantidade])),
+      Object.fromEntries(itensProtocoloConfigurados.map((item) => [item.id, item.sessoesSelecionadas])),
       totalSessoesConfiguradoNoAgendamento,
     ),
     [itensProtocoloConfigurados, protocoloAtendimentoSelecionado, totalSessoesConfiguradoNoAgendamento],
@@ -379,7 +422,7 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
     setModoAtendimento('avulso')
     setSelectedProtocoloAtendimentoId('')
     setTotalSessoesAgendamentoProtocolo(1)
-    setQuantidadesItensProtocolo({})
+    setSessoesItensProtocolo({})
     setDataAgendamento('')
     if (!defaultPacienteId) {
       setSelectedPacienteId('')
@@ -467,7 +510,7 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
 
     if (!protocoloId) {
       setTotalSessoesAgendamentoProtocolo(1)
-      setQuantidadesItensProtocolo({})
+      setSessoesItensProtocolo({})
       setIsRecorrente(false)
       setOcorrencias('1')
       setSelectedTipo('')
@@ -477,15 +520,15 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
     const protocolo = protocolosAtendimento.find((item) => item.id === protocoloId)
     const totalSessoesProtocolo = protocolo?.total_sessoes ?? 1
     setTotalSessoesAgendamentoProtocolo(totalSessoesProtocolo)
-    const quantidadesIniciais = Object.fromEntries(
-      (protocolo?.itens ?? []).map((item) => [item.id, Math.min(
+    const sessoesIniciais = Object.fromEntries(
+      (protocolo?.itens ?? []).map((item) => [item.id, criarSessoesConsecutivas(Math.min(
         totalSessoesProtocolo,
         normalizarQuantidadeSessao(item.quantidade),
-      )]),
+      ))]),
     )
-    const sequencia = montarSequenciaProtocolo(protocolo ?? null, quantidadesIniciais, totalSessoesProtocolo)
+    const sequencia = montarSequenciaProtocolo(protocolo ?? null, sessoesIniciais, totalSessoesProtocolo)
 
-    setQuantidadesItensProtocolo(quantidadesIniciais)
+    setSessoesItensProtocolo(sessoesIniciais)
 
     if (sequencia.length > 0) {
       setSelectedTipo(sequencia[0] ?? '')
@@ -495,10 +538,39 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
   }
 
   function atualizarQuantidadeItemProtocolo(itemId: string, valor: string | number) {
-    setQuantidadesItensProtocolo((prev) => {
+    setSessoesItensProtocolo((prev) => {
+      const proximaQuantidade = normalizarQuantidadeItemProtocolo(valor, totalSessoesConfiguradoNoAgendamento)
       const proximo = {
         ...prev,
-        [itemId]: Math.min(totalSessoesConfiguradoNoAgendamento, normalizarQuantidadeSessao(valor)),
+        [itemId]: ajustarSessoesParaQuantidade(prev[itemId], proximaQuantidade, totalSessoesConfiguradoNoAgendamento),
+      }
+
+      if (protocoloAtendimentoSelecionado) {
+        const proximaSequencia = montarSequenciaProtocolo(
+          protocoloAtendimentoSelecionado,
+          proximo,
+          totalSessoesConfiguradoNoAgendamento,
+        )
+
+        setSelectedTipo(proximaSequencia[0] ?? '')
+        setOcorrencias(String(Math.max(1, proximaSequencia.length)))
+        setIsRecorrente(proximaSequencia.length > 1)
+      }
+
+      return proximo
+    })
+  }
+
+  function alternarSessaoItemProtocolo(itemId: string, sessao: number) {
+    setSessoesItensProtocolo((prev) => {
+      const sessoesAtuais = normalizarSessoesSelecionadas(prev[itemId], totalSessoesConfiguradoNoAgendamento)
+      const proximoItem = sessoesAtuais.includes(sessao)
+        ? sessoesAtuais.filter((itemSessao) => itemSessao !== sessao)
+        : [...sessoesAtuais, sessao].sort((a, b) => a - b)
+
+      const proximo = {
+        ...prev,
+        [itemId]: proximoItem,
       }
 
       if (protocoloAtendimentoSelecionado) {
@@ -521,9 +593,12 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
     const totalNormalizado = normalizarQuantidadeSessao(valor)
     setTotalSessoesAgendamentoProtocolo(totalNormalizado)
 
-    setQuantidadesItensProtocolo((prev) => {
+    setSessoesItensProtocolo((prev) => {
       const proximo = Object.fromEntries(
-        Object.entries(prev).map(([itemId, quantidade]) => [itemId, Math.min(totalNormalizado, quantidade)]),
+        Object.entries(prev).map(([itemId, sessoes]) => [
+          itemId,
+          normalizarSessoesSelecionadas(sessoes, totalNormalizado),
+        ]),
       )
 
       if (protocoloAtendimentoSelecionado) {
@@ -690,7 +765,7 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
                           setModoAtendimento('avulso')
                           setSelectedProtocoloAtendimentoId('')
                           setTotalSessoesAgendamentoProtocolo(1)
-                          setQuantidadesItensProtocolo({})
+                          setSessoesItensProtocolo({})
                           setIsRecorrente(false)
                           setOcorrencias('1')
                           setSelectedTipo(primeiroTipoDisponivel)
@@ -742,39 +817,61 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
                       <p className="font-semibold">{protocoloAtendimentoSelecionado.nome}</p>
                       <p className="mt-1 font-medium">Total de atendimentos deste protocolo: <span className="font-bold">{protocoloAtendimentoSelecionado.total_sessoes}</span></p>
                       <p className="mt-1 text-[11px] text-[#4d635b]">
-                        A quantidade de cada item abaixo nao cria novas sessoes. Ela apenas define em quantos atendimentos aquele item aparece.
+                        Ajuste a quantidade como atalho e, se precisar, escolha manualmente em quais sessoes cada item acontece.
                       </p>
                       <div className="mt-3 space-y-2">
                         {itensProtocoloConfigurados.map((item) => (
-                          <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border border-[#006b5a]/15 bg-white/70 px-3 py-2">
-                            <div>
-                              <p className="font-semibold text-[#083142]">{item.tipo_consulta_nome}</p>
-                              <p className="text-[11px] text-[#4d635b]">Em quantos atendimentos esse item aparece</p>
+                          <div key={item.id} className="rounded-lg border border-[#006b5a]/15 bg-white/70 px-3 py-2">
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="font-semibold text-[#083142]">{item.tipo_consulta_nome}</p>
+                                <p className="text-[11px] text-[#4d635b]">Escolha livremente em quais sessoes esse item aparece</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => atualizarQuantidadeItemProtocolo(item.id, item.sessoesSelecionadas.length - 1)}
+                                  className="flex h-8 w-8 items-center justify-center rounded-md border border-[#bcc9c4] bg-white text-[#6d7a75] transition-colors hover:bg-[#f0f5f4]"
+                                >
+                                  <Minus size={14} strokeWidth={1.8} />
+                                </button>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max={totalSessoesConfiguradoNoAgendamento}
+                                  value={item.sessoesSelecionadas.length}
+                                  onChange={(e) => atualizarQuantidadeItemProtocolo(item.id, e.target.value)}
+                                  onBlur={(e) => atualizarQuantidadeItemProtocolo(item.id, e.target.value)}
+                                  className="h-8 w-16 rounded-md border border-[#bcc9c4] bg-white px-2 text-center text-sm font-semibold text-[#171d1c] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => atualizarQuantidadeItemProtocolo(item.id, item.sessoesSelecionadas.length + 1)}
+                                  className="flex h-8 w-8 items-center justify-center rounded-md border border-[#bcc9c4] bg-white text-[#6d7a75] transition-colors hover:bg-[#f0f5f4]"
+                                >
+                                  <Plus size={14} strokeWidth={1.8} />
+                                </button>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => atualizarQuantidadeItemProtocolo(item.id, (quantidadesItensProtocolo[item.id] ?? item.quantidade) - 1)}
-                                className="flex h-8 w-8 items-center justify-center rounded-md border border-[#bcc9c4] bg-white text-[#6d7a75] transition-colors hover:bg-[#f0f5f4]"
-                              >
-                                <Minus size={14} strokeWidth={1.8} />
-                              </button>
-                              <input
-                                type="number"
-                                min="1"
-                                max={totalSessoesConfiguradoNoAgendamento}
-                                value={quantidadesItensProtocolo[item.id] ?? item.quantidade}
-                                onChange={(e) => atualizarQuantidadeItemProtocolo(item.id, e.target.value)}
-                                onBlur={(e) => atualizarQuantidadeItemProtocolo(item.id, e.target.value)}
-                                className="h-8 w-16 rounded-md border border-[#bcc9c4] bg-white px-2 text-center text-sm font-semibold text-[#171d1c] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => atualizarQuantidadeItemProtocolo(item.id, (quantidadesItensProtocolo[item.id] ?? item.quantidade) + 1)}
-                                className="flex h-8 w-8 items-center justify-center rounded-md border border-[#bcc9c4] bg-white text-[#6d7a75] transition-colors hover:bg-[#f0f5f4]"
-                              >
-                                <Plus size={14} strokeWidth={1.8} />
-                              </button>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {Array.from({ length: totalSessoesConfiguradoNoAgendamento }, (_, index) => {
+                                const sessao = index + 1
+                                const selecionada = item.sessoesSelecionadas.includes(sessao)
+                                return (
+                                  <button
+                                    key={`${item.id}-${sessao}`}
+                                    type="button"
+                                    onClick={() => alternarSessaoItemProtocolo(item.id, sessao)}
+                                    className={`min-w-9 rounded-md border px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                                      selecionada
+                                        ? 'border-[#006b5a] bg-[#f0fcf9] text-[#006b5a]'
+                                        : 'border-[#bcc9c4] bg-white text-[#6d7a75] hover:border-[#6d7a75]'
+                                    }`}
+                                  >
+                                    {sessao}
+                                  </button>
+                                )
+                              })}
                             </div>
                           </div>
                         ))}
@@ -802,8 +899,6 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
                       <p className="mt-2 text-[11px] text-[#4d635b]">
                         A sazonalidade deste caso continua sendo definida na recorrencia abaixo: frequencia e dias da semana.
                       </p>
-                      <p className="font-medium">Atendimentos que serao criados: <span className="font-bold">{tiposDoProtocolo.length}</span></p>
-                      <p className="mt-1">Sequencia final: {tiposDoProtocolo.join(' - ')}</p>
                     </div>
                   )}
                 </div>

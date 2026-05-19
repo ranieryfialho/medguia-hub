@@ -12,6 +12,7 @@ import { format } from 'date-fns'
 import { buscarProntuariosPorPaciente } from '@/actions/prontuarios'
 import { extrairMetadataInativacao } from '@/lib/paciente-inativacao'
 import { normalizeAtendimentoStatus } from '@/lib/atendimento-status'
+import { buildSessaoEfetivaMap } from '@/lib/sessoes'
 import {
   AlertTriangle,
   FileText,
@@ -82,6 +83,10 @@ export default async function PacienteDetailsPage({
     agendamento_id: string | null
     data_agendamento: string
     status: string
+    numero_sessao?: number | null
+    total_sessoes?: number | null
+    numero_sessao_tipo?: number | null
+    total_sessoes_tipo?: number | null
     tipo?: string | null
     observacoes?: string | null
     agendamento?: { tipo?: string | null; is_recorrente?: boolean | null; plano_saude?: string | null } | null
@@ -124,6 +129,28 @@ export default async function PacienteDetailsPage({
   )
 
   const atendimentosComProntuario = (atendimentos ?? []) as AtendimentoComRelacoes[]
+  const agendamentoIds = [...new Set(
+    atendimentosComProntuario
+      .filter((atend) => !!atend.agendamento_id)
+      .map((atend) => atend.agendamento_id) as string[],
+  )]
+  let sessaoEfetivaMap = new Map<string, {
+    sessao_efetiva: number
+    total_efetivo: number
+    sessao_tipo_efetiva: number
+    total_tipo_efetivo: number
+  }>()
+
+  if (agendamentoIds.length > 0) {
+    const { data: todasSessoes } = await supabase
+      .from('atendimentos')
+      .select('id, agendamento_id, data_agendamento, status, tipo')
+      .in('agendamento_id', agendamentoIds)
+
+    if (todasSessoes) {
+      sessaoEfetivaMap = buildSessaoEfetivaMap(todasSessoes)
+    }
+  }
 
   const vendas = (vendasRaw ?? []) as unknown as VendaTimeline[]
   const metadataInativacao = extrairMetadataInativacao(paciente.observacoes_gerais)
@@ -152,6 +179,10 @@ export default async function PacienteDetailsPage({
     }
     gruposMap.get(chave)!.sessoes.push({
       ...atend,
+      numero_sessao: sessaoEfetivaMap.get(atend.id)?.sessao_efetiva ?? atend.numero_sessao ?? null,
+      total_sessoes: sessaoEfetivaMap.get(atend.id)?.total_efetivo ?? atend.total_sessoes ?? null,
+      numero_sessao_tipo: sessaoEfetivaMap.get(atend.id)?.sessao_tipo_efetiva ?? atend.numero_sessao_tipo ?? null,
+      total_sessoes_tipo: sessaoEfetivaMap.get(atend.id)?.total_tipo_efetivo ?? atend.total_sessoes_tipo ?? null,
       prontuario,
     })
   }

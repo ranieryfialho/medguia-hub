@@ -26,6 +26,11 @@ type Sessao = {
   id: string
   data_agendamento: string
   status: string
+  tipo?: string | null
+  numero_sessao?: number | null
+  total_sessoes?: number | null
+  numero_sessao_tipo?: number | null
+  total_sessoes_tipo?: number | null
   observacoes?: string | null
   duracao_minutos?: number | null
   prontuario?: ProntuarioResumo | null
@@ -72,6 +77,14 @@ function calcularStatusGeral(sessoes: Sessao[]): string {
     if (contagem[status]) return status
   }
   return sessoes[0]?.status ?? 'confirmado'
+}
+
+function formatarTipoComContagem(sessao: Sessao) {
+  const tipoBase = sessao.tipo?.trim() || 'Sessão'
+  if (sessao.total_sessoes_tipo && sessao.total_sessoes_tipo > 1) {
+    return `${tipoBase} (${sessao.numero_sessao_tipo ?? 0}/${sessao.total_sessoes_tipo})`
+  }
+  return tipoBase
 }
 
 export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
@@ -143,6 +156,11 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
           {plano_saude && (
             <p className="text-[11px] font-medium text-slate-500">Plano de saúde: {plano_saude}</p>
           )}
+          {is_recorrente && primeiraSessao?.tipo?.trim() && primeiraSessao.tipo.trim() !== tipo.trim() && (
+            <p className="text-[11px] font-medium text-slate-500">
+              Sessões do protocolo exibem a contagem individual ao expandir.
+            </p>
+          )}
 
           {/* Barra de progresso das sessões */}
           {sessoes.length > 1 && (
@@ -208,6 +226,18 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
                       <span className="text-xs font-semibold text-slate-700">
                         {format(new Date(sessao.data_agendamento), "EEEE, dd MMM yyyy • HH:mm", { locale: ptBR })}
                       </span>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        {sessao.total_sessoes && sessao.total_sessoes > 1 && (
+                          <span className="rounded-full border border-[#006b5a]/20 bg-white/80 px-2 py-0.5 text-[10px] font-bold text-[#006b5a]">
+                            Sessão {sessao.numero_sessao ?? 0}/{sessao.total_sessoes}
+                          </span>
+                        )}
+                        {grupo.tipo.trim() !== (sessao.tipo?.trim() || '').trim() && (
+                          <span className="rounded-full border border-slate-200 bg-white/80 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                            {formatarTipoComContagem(sessao)}
+                          </span>
+                        )}
+                      </div>
                       {sessao.observacoes && (
                         <p className="text-[11px] text-slate-500 mt-0.5 truncate">{sessao.observacoes}</p>
                       )}
