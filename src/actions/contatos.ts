@@ -15,6 +15,13 @@ import {
 } from '@/lib/contatos-origens-importacao'
 
 export type StatusContato = StatusContatoPadrao
+export type PreviewPacienteBaseContato = {
+  id: string
+  nome: string
+  telefone: string
+  email: string | null
+  recuperacao_base: boolean
+}
 
 type AuthContext = {
   supabase: Awaited<ReturnType<typeof createClient>>
@@ -136,6 +143,121 @@ function revalidarContatos() {
   revalidatePath('/contatos')
   revalidatePath('/contatos/relatorio')
   revalidatePath('/dashboard')
+}
+
+function isColunaBaseContato(chave: string) {
+  return chave === 'a_contactar' || chave === 'recuperacao_base'
+}
+
+function getRecuperacaoBaseByColuna(chave: string) {
+  return chave === 'recuperacao_base'
+}
+
+async function listarPacientesDisponiveisBaseInterno(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  colunaChave: string,
+  limit: number,
+  pacienteIds?: string[],
+): Promise<PreviewPacienteBaseContato[]> {
+  if (!isColunaBaseContato(colunaChave)) {
+    return []
+  }
+
+  const recuperacaoBase = getRecuperacaoBaseByColuna(colunaChave)
+
+  if (pacienteIds?.length) {
+    const { data, error } = await supabase
+      .from('pacientes')
+      .select(`
+        id,
+        nome,
+        telefone,
+        email,
+        recuperacao_base,
+        contatos_base (
+          paciente_id
+        )
+      `)
+      .in('id', pacienteIds)
+      .eq('ativo', true)
+      .eq('recuperacao_base', recuperacaoBase)
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    return (data ?? [])
+      .filter((paciente) => {
+        const contatoRelacao = Array.isArray(paciente.contatos_base) ? paciente.contatos_base[0] : paciente.contatos_base
+        return !contatoRelacao
+      })
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+      .slice(0, limit)
+      .map((paciente) => ({
+        id: paciente.id,
+        nome: paciente.nome,
+        telefone: paciente.telefone,
+        email: paciente.email,
+        recuperacao_base: paciente.recuperacao_base,
+      }))
+  }
+
+  const disponiveis: PreviewPacienteBaseContato[] = []
+  let from = 0
+  const pageSize = Math.max(limit * 2, 100)
+
+  while (disponiveis.length < limit) {
+    const to = from + pageSize - 1
+    const { data, error } = await supabase
+      .from('pacientes')
+      .select(`
+        id,
+        nome,
+        telefone,
+        email,
+        recuperacao_base,
+        contatos_base (
+          paciente_id
+        )
+      `)
+      .eq('ativo', true)
+      .eq('recuperacao_base', recuperacaoBase)
+      .order('nome', { ascending: true })
+      .range(from, to)
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    if (!data?.length) {
+      break
+    }
+
+    for (const paciente of data) {
+      const contatoRelacao = Array.isArray(paciente.contatos_base) ? paciente.contatos_base[0] : paciente.contatos_base
+      if (contatoRelacao) continue
+
+      disponiveis.push({
+        id: paciente.id,
+        nome: paciente.nome,
+        telefone: paciente.telefone,
+        email: paciente.email,
+        recuperacao_base: paciente.recuperacao_base,
+      })
+
+      if (disponiveis.length >= limit) {
+        break
+      }
+    }
+
+    if (data.length < pageSize) {
+      break
+    }
+
+    from += pageSize
+  }
+
+  return disponiveis
 }
 
 function normalizarOrigemContato(origem: string | null | undefined): OrigemImportacaoContato | null {
@@ -290,6 +412,103 @@ export async function atualizarColunaContato(pacienteId: string, colunaChave: st
   }
 
   return result
+}
+
+export async function materializarPacientesBaseContato(colunaChave: string, limit = 50) {
+  await getAuthContext()
+
+  if (!isColunaBaseContato(colunaChave)) {
+    return { error: 'Coluna base invÃ¡lida.' }
+  }
+
+  const supabase = await createClient()
+  const limiteNormalizado = Math.max(1, Math.min(200, Math.trunc(limit) || 50))
+
+  const { data, error } = await supabase.rpc('fn_materializar_pacientes_contatos_base', {
+    p_coluna_chave: colunaChave,
+    p_limit: limiteNormalizado,
+  })
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  revalidarContatos()
+  return { success: true, inserted: Number(data) || 0 }
+}
+
+export async function listarPreviewPacientesBaseContato(colunaChave: string, limit = 50) {
+  await getAuthContext()
+
+  if (!isColunaBaseContato(colunaChave)) {
+    return { error: 'Coluna base invalida.', items: [] as PreviewPacienteBaseContato[] }
+  }
+
+  const supabase = await createClient()
+  const limiteNormalizado = Math.max(1, Math.min(200, Math.trunc(limit) || 50))
+
+  try {
+    const items = await listarPacientesDisponiveisBaseInterno(supabase, colunaChave, limiteNormalizado)
+    return { success: true, items }
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : 'Erro ao listar pacientes disponiveis.',
+      items: [] as PreviewPacienteBaseContato[],
+    }
+  }
+}
+
+export async function materializarPacientesBaseContatoPorIds(colunaChave: string, pacienteIds: string[]) {
+  await getAuthContext()
+
+  if (!isColunaBaseContato(colunaChave)) {
+    return { error: 'Coluna base invalida.' }
+  }
+
+  const idsNormalizados = [...new Set(pacienteIds.filter(Boolean))]
+  if (!idsNormalizados.length) {
+    return { success: true, inserted: 0 }
+  }
+
+  const supabase = await createClient()
+
+  try {
+    const pacientesDisponiveis = await listarPacientesDisponiveisBaseInterno(
+      supabase,
+      colunaChave,
+      idsNormalizados.length,
+      idsNormalizados,
+    )
+
+    if (!pacientesDisponiveis.length) {
+      return { success: true, inserted: 0 }
+    }
+
+    const status = colunaChave as StatusContato
+    const timestamp = new Date().toISOString()
+
+    const { error } = await supabase
+      .from('contatos_base')
+      .insert(
+        pacientesDisponiveis.map((paciente) => ({
+          paciente_id: paciente.id,
+          status,
+          kanban_coluna_chave: colunaChave,
+          atualizado_em: timestamp,
+        })),
+      )
+
+    if (error) {
+      return { error: error.message }
+    }
+
+    revalidarContatos()
+    return { success: true, inserted: pacientesDisponiveis.length }
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : 'Erro ao adicionar pacientes na base.',
+    }
+  }
 }
 
 export async function atualizarResponsavelContato(pacienteId: string, responsavelId: string | null) {

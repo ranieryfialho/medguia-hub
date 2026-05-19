@@ -22,6 +22,7 @@ export type ContatosKanbanBoardData = {
   contatos: ContatoPaciente[]
   columnTotals: Record<string, number>
   columnOffsets: Record<string, number>
+  availableBaseTotals: Record<string, number>
   totalFiltered: number
 }
 
@@ -66,6 +67,11 @@ type RpcContagemColunaRow = {
 
 type RpcContagemResponsavelRow = {
   responsavel_id: string | null
+  total_count: number
+}
+
+type RpcDisponiveisBaseRow = {
+  kanban_coluna_chave: string
   total_count: number
 }
 
@@ -211,34 +217,47 @@ async function contarContatosKanbanViaRpc(
 async function contarResponsaveisKanbanViaRpc(
   supabase: ServerSupabaseClient
 ): Promise<ContatosKanbanResponsavelStats | null> {
-  const [{ count: activePatientsCount, error: activePatientsError }, { data, error }] = await Promise.all([
-    supabase.from('pacientes').select('id', { count: 'exact', head: true }).eq('ativo', true),
-    supabase.rpc('fn_contar_responsaveis_contatos_kanban'),
-  ])
+  const { data, error } = await supabase.rpc('fn_contar_responsaveis_contatos_kanban')
 
   if (error) {
     if (isFunctionMissing(error)) return null
     throw new Error(error.message ?? 'Erro ao contar responsáveis do kanban.')
   }
 
-  if (activePatientsError) {
-    throw new Error(activePatientsError.message ?? 'Erro ao contar pacientes ativos.')
-  }
-
   const responsavelCounts: Record<string, number> = {}
-  let totalAssigned = 0
+  let semResponsavelCount = 0
 
   for (const row of (Array.isArray(data) ? data : []) as RpcContagemResponsavelRow[]) {
-    if (!row.responsavel_id) continue
     const count = Number(row.total_count) || 0
+    if (!row.responsavel_id) {
+      semResponsavelCount += count
+      continue
+    }
     responsavelCounts[row.responsavel_id] = count
-    totalAssigned += count
   }
 
   return {
     responsavelCounts,
-    semResponsavelCount: Math.max(0, (activePatientsCount ?? 0) - totalAssigned),
+    semResponsavelCount,
   }
+}
+
+async function contarPacientesDisponiveisBaseViaRpc(
+  supabase: ServerSupabaseClient
+): Promise<Record<string, number> | null> {
+  const { data, error } = await supabase.rpc('fn_contar_pacientes_disponiveis_contatos_base')
+
+  if (error) {
+    if (isFunctionMissing(error)) return null
+    throw new Error(error.message ?? 'Erro ao contar pacientes disponÃ­veis para o kanban.')
+  }
+
+  const counts: Record<string, number> = {}
+  for (const row of (Array.isArray(data) ? data : []) as RpcDisponiveisBaseRow[]) {
+    counts[row.kanban_coluna_chave] = Number(row.total_count) || 0
+  }
+
+  return counts
 }
 
 async function listarContatosKanbanFallback(
@@ -355,6 +374,7 @@ export async function listarContatosKanbanBoard(
       contatos,
       columnTotals,
       columnOffsets,
+      availableBaseTotals: await contarPacientesDisponiveisBaseViaRpc(supabase) ?? {},
       totalFiltered: Object.values(columnTotals).reduce((sum, count) => sum + count, 0),
     }
   }
@@ -386,6 +406,7 @@ export async function listarContatosKanbanBoard(
     contatos: limitedContatos,
     columnTotals,
     columnOffsets,
+    availableBaseTotals: {},
     totalFiltered: contatos.length,
   }
 }
@@ -432,8 +453,8 @@ export async function listarResponsavelStatsContatosKanban(
     return rpcStats
   }
 
-  const pacientesAtivos = await fetchAll<{ id: string }>((from, to) =>
-    supabase.from('pacientes').select('id').eq('ativo', true).range(from, to)
+  const pacientesAtivos = await fetchAll<{ paciente_id: string }>((from, to) =>
+    supabase.from('contatos_base').select('paciente_id').range(from, to)
   )
 
   const contatos = await fetchAll<{ responsavel_id: string | null; pacientes: { id: string } | { id: string }[] | null }>(
@@ -445,16 +466,18 @@ export async function listarResponsavelStatsContatosKanban(
   )
 
   const responsavelCounts: Record<string, number> = {}
-  let totalAssigned = 0
+  let semResponsavelCount = 0
 
   for (const contato of contatos) {
-    if (!contato.responsavel_id) continue
+    if (!contato.responsavel_id) {
+      semResponsavelCount += 1
+      continue
+    }
     responsavelCounts[contato.responsavel_id] = (responsavelCounts[contato.responsavel_id] ?? 0) + 1
-    totalAssigned += 1
   }
 
   return {
     responsavelCounts,
-    semResponsavelCount: Math.max(0, pacientesAtivos.length - totalAssigned),
+    semResponsavelCount: Math.min(semResponsavelCount, pacientesAtivos.length),
   }
 }

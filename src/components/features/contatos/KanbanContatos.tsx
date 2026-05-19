@@ -29,8 +29,11 @@ import {
   buscarNotas,
   criarColunaKanbanContato,
   editarColunaKanbanContato,
+  listarPreviewPacientesBaseContato,
+  materializarPacientesBaseContatoPorIds,
   moverColunaKanbanContato,
   removerColunaKanbanContato,
+  type PreviewPacienteBaseContato,
   type StatusContato,
 } from '@/actions/contatos'
 import {
@@ -171,6 +174,14 @@ type NotaContatoRealtimeRow = {
   paciente_id: string
 }
 
+type BaseSeedModalState = {
+  open: boolean
+  columnKey: string
+  preview: PreviewPacienteBaseContato[]
+  loading: boolean
+  confirming: boolean
+}
+
 export function KanbanContatos({
   initialBoard,
   profiles,
@@ -191,6 +202,7 @@ export function KanbanContatos({
   const [contatos, setContatos] = useState<ContatoPaciente[]>(initialBoard.contatos)
   const [columnTotals, setColumnTotals] = useState<Record<string, number>>(initialBoard.columnTotals)
   const [columnOffsets, setColumnOffsets] = useState<Record<string, number>>(initialBoard.columnOffsets)
+  const [availableBaseTotals, setAvailableBaseTotals] = useState<Record<string, number>>(initialBoard.availableBaseTotals)
   const [totalFiltered, setTotalFiltered] = useState(initialBoard.totalFiltered)
   const [columns, setColumns] = useState<KanbanColunaContato[]>(initialColumns)
   const [search, setSearch] = useState('')
@@ -210,16 +222,28 @@ export function KanbanContatos({
   const [localTemplates, setLocalTemplates] = useState<Template[]>(templates)
   const [loadingBoard, setLoadingBoard] = useState(false)
   const [loadingColumns, setLoadingColumns] = useState<Record<string, boolean>>({})
+  const [loadingBaseBatches, setLoadingBaseBatches] = useState<Record<string, boolean>>({})
+  const [baseSeedModal, setBaseSeedModal] = useState<BaseSeedModalState>({
+    open: false,
+    columnKey: 'a_contactar',
+    preview: [],
+    loading: false,
+    confirming: false,
+  })
   const [, startTransition] = useTransition()
   const [supabase] = useState(createClient)
   const contatosRef = useRef<ContatoPaciente[]>(initialBoard.contatos)
   const attendanceLoadedIdsRef = useRef<Set<string>>(new Set())
   const attendanceLoadingIdsRef = useRef<Set<string>>(new Set())
   const didHydrateFiltersRef = useRef(false)
+  const boardRefreshTimeoutRef = useRef<number | null>(null)
+  const baseSeedRefreshTimeoutRef = useRef<number | null>(null)
 
   const router = useRouter()
   const canManageColumns = userNivelAcesso === 'gestor' || userNivelAcesso === 'master'
   const selectedId = selected?.id
+  const totalAvailableBaseCards =
+    (availableBaseTotals.a_contactar ?? 0) + (availableBaseTotals.recuperacao_base ?? 0)
 
   function getFallbackStatus(contato: ContatoPaciente): StatusContato {
     return contato.recuperacao_base ? 'recuperacao_base' : 'a_contactar'
@@ -287,6 +311,7 @@ export function KanbanContatos({
     setContatos(initialBoard.contatos)
     setColumnTotals(initialBoard.columnTotals)
     setColumnOffsets(initialBoard.columnOffsets)
+    setAvailableBaseTotals(initialBoard.availableBaseTotals)
     setTotalFiltered(initialBoard.totalFiltered)
   }, [initialBoard])
 
@@ -371,11 +396,25 @@ export function KanbanContatos({
                 }
               })
 
+              scheduleBoardRefresh(true)
+              if (baseSeedModal.open && !baseSeedModal.confirming) {
+                scheduleBaseSeedPreviewRefresh(baseSeedModal.columnKey)
+              }
               return
             }
 
             if (payload.new && typeof payload.new === 'object') {
-              applyContatoRealtime(payload.new as ContatoBaseRealtimeRow)
+              const row = payload.new as ContatoBaseRealtimeRow
+              const alreadyLoaded = contatosRef.current.some((contato) => contato.id === row.paciente_id)
+
+              if (alreadyLoaded) {
+                applyContatoRealtime(row)
+              }
+
+              scheduleBoardRefresh(true)
+              if (baseSeedModal.open && !baseSeedModal.confirming && isBaseSeedColumn(row.kanban_coluna_chave)) {
+                scheduleBaseSeedPreviewRefresh(row.kanban_coluna_chave)
+              }
             }
           }
         )
@@ -433,7 +472,15 @@ export function KanbanContatos({
         }
       })
     }
-  }, [profiles, reloadNotas, selectedId, supabase])
+  }, [
+    baseSeedModal.columnKey,
+    baseSeedModal.confirming,
+    baseSeedModal.open,
+    profiles,
+    reloadNotas,
+    selectedId,
+    supabase,
+  ])
 
   useEffect(() => {
     if (!selected) return
@@ -507,7 +554,11 @@ export function KanbanContatos({
     return grouped
   }, [contatos])
 
-  const refreshBoard = useEffectEvent(async (nextSearch: string, nextResponsavelFilter: string | null) => {
+  const refreshBoard = useCallback(async (
+    nextSearch: string,
+    nextResponsavelFilter: string | null,
+    options?: { preserveSelected?: boolean }
+  ) => {
     const params = new URLSearchParams()
     const trimmedSearch = nextSearch.trim()
     if (trimmedSearch) params.set('search', trimmedSearch)
@@ -525,13 +576,38 @@ export function KanbanContatos({
       setContatos(data.contatos)
       setColumnTotals(data.columnTotals)
       setColumnOffsets(data.columnOffsets)
+      setAvailableBaseTotals(data.availableBaseTotals)
       setTotalFiltered(data.totalFiltered)
-      setSelected(null)
+      if (!options?.preserveSelected) {
+        setSelected(null)
+      }
     } catch {
       toast.error('Nao foi possivel atualizar os contatos.')
     } finally {
       setLoadingBoard(false)
     }
+  }, [])
+
+  const scheduleBoardRefresh = useEffectEvent((preserveSelected = true) => {
+    if (boardRefreshTimeoutRef.current !== null) {
+      window.clearTimeout(boardRefreshTimeoutRef.current)
+    }
+
+    boardRefreshTimeoutRef.current = window.setTimeout(() => {
+      boardRefreshTimeoutRef.current = null
+      void refreshBoard(search, responsavelFilter, { preserveSelected })
+    }, 350)
+  })
+
+  const scheduleBaseSeedPreviewRefresh = useEffectEvent((columnKey: string) => {
+    if (baseSeedRefreshTimeoutRef.current !== null) {
+      window.clearTimeout(baseSeedRefreshTimeoutRef.current)
+    }
+
+    baseSeedRefreshTimeoutRef.current = window.setTimeout(() => {
+      baseSeedRefreshTimeoutRef.current = null
+      void loadBaseSeedPreview(columnKey)
+    }, 350)
   })
 
   useEffect(() => {
@@ -547,7 +623,18 @@ export function KanbanContatos({
     return () => {
       window.clearTimeout(timeoutId)
     }
-  }, [responsavelFilter, search])
+  }, [refreshBoard, responsavelFilter, search])
+
+  useEffect(() => {
+    return () => {
+      if (boardRefreshTimeoutRef.current !== null) {
+        window.clearTimeout(boardRefreshTimeoutRef.current)
+      }
+      if (baseSeedRefreshTimeoutRef.current !== null) {
+        window.clearTimeout(baseSeedRefreshTimeoutRef.current)
+      }
+    }
+  }, [])
 
   async function handleLoadMore(columnKey: string) {
     const currentOffset = columnOffsets[columnKey] ?? 0
@@ -677,6 +764,129 @@ export function KanbanContatos({
 
   function getColumnCardCount(chave: string) {
     return columnTotals[chave] ?? 0
+  }
+
+  function isBaseSeedColumn(chave: string) {
+    return chave === 'a_contactar' || chave === 'recuperacao_base'
+  }
+
+  async function handleAddBaseBatch(columnKey: string) {
+    if (!isBaseSeedColumn(columnKey)) return
+
+    setLoadingBaseBatches((prev) => ({ ...prev, [columnKey]: true }))
+    openBaseSeedModal(columnKey)
+    setLoadingBaseBatches((prev) => ({ ...prev, [columnKey]: false }))
+    return
+    /*
+      const result = await materializarPacientesBaseContato(columnKey, 50)
+      if (result?.error) {
+        toast.error('Nao foi possivel adicionar pacientes Ã  base.')
+        return
+      }
+
+      const inserted = result?.inserted ?? 0
+      if (inserted === 0) {
+        toast('Nao ha mais pacientes disponiveis para esta coluna.')
+      } else {
+        toast.success(`${inserted} paciente${inserted > 1 ? 's' : ''} adicionado${inserted > 1 ? 's' : ''}.`)
+      }
+
+      await refreshBoard(search, responsavelFilter)
+    } finally {
+      setLoadingBaseBatches((prev) => ({ ...prev, [columnKey]: false }))
+    }*/
+  }
+
+  async function loadBaseSeedPreview(columnKey: string) {
+    if (!isBaseSeedColumn(columnKey)) return
+
+    setBaseSeedModal((prev) => ({
+      ...prev,
+      open: true,
+      columnKey,
+      loading: true,
+      preview: prev.columnKey === columnKey ? prev.preview : [],
+    }))
+
+    const result = await listarPreviewPacientesBaseContato(columnKey, 50)
+
+    if (result?.error) {
+      setBaseSeedModal((prev) => ({
+        ...prev,
+        open: true,
+        columnKey,
+        loading: false,
+        preview: [],
+      }))
+      toast.error('Nao foi possivel listar os pacientes disponiveis.')
+      return
+    }
+
+    setBaseSeedModal((prev) => ({
+      ...prev,
+      open: true,
+      columnKey,
+      loading: false,
+      preview: result.items ?? [],
+    }))
+  }
+
+  function openBaseSeedModal(columnKey?: string) {
+    const fallbackKey =
+      columnKey ??
+      ((availableBaseTotals.a_contactar ?? 0) >= (availableBaseTotals.recuperacao_base ?? 0)
+        ? 'a_contactar'
+        : 'recuperacao_base')
+
+    void loadBaseSeedPreview(fallbackKey)
+  }
+
+  async function handleConfirmBaseSeed() {
+    if (!isBaseSeedColumn(baseSeedModal.columnKey) || baseSeedModal.confirming) return
+
+    const pacienteIds = baseSeedModal.preview.map((paciente) => paciente.id)
+    if (!pacienteIds.length) {
+      toast('Nao ha pacientes disponiveis para adicionar.')
+      return
+    }
+
+    setBaseSeedModal((prev) => ({ ...prev, confirming: true }))
+
+    try {
+      const result = await materializarPacientesBaseContatoPorIds(baseSeedModal.columnKey, pacienteIds)
+
+      if (result?.error) {
+        toast.error('Nao foi possivel adicionar os pacientes na base.')
+        return
+      }
+
+      const inserted = result?.inserted ?? 0
+      if (inserted === 0) {
+        toast('Os pacientes desta lista ja foram adicionados por outra atualizacao.')
+      } else {
+        toast.success(`${inserted} paciente${inserted > 1 ? 's' : ''} adicionado${inserted > 1 ? 's' : ''}.`)
+      }
+
+      setBaseSeedModal((prev) => ({
+        ...prev,
+        open: false,
+        preview: [],
+      }))
+
+      await refreshBoard(search, responsavelFilter)
+    } finally {
+      setBaseSeedModal((prev) => ({ ...prev, confirming: false }))
+    }
+  }
+
+  function closeBaseSeedModal() {
+    setBaseSeedModal((prev) => ({
+      ...prev,
+      open: false,
+      preview: [],
+      loading: false,
+      confirming: false,
+    }))
   }
 
   async function moveContato(pacienteId: string, columnKey: string) {
@@ -912,6 +1122,8 @@ export function KanbanContatos({
   }
 
   const selectedColumn = selected ? getColumnByKey(selected.kanban_coluna_chave) ?? getColumnByKey(selected.status) : null
+  const baseSeedColumns = columns.filter((column) => isBaseSeedColumn(column.chave))
+  const activeBaseSeedColumn = baseSeedColumns.find((column) => column.chave === baseSeedModal.columnKey) ?? null
 
   return (
     <div className="space-y-4 w-full">
@@ -957,6 +1169,19 @@ export function KanbanContatos({
               <X size={16} strokeWidth={2.5} />
             </button>
           )}
+
+          <button
+            onClick={() => void handleAddBaseBatch(baseSeedModal.columnKey)}
+            disabled={loadingBoard || loadingBaseBatches[baseSeedModal.columnKey] || totalAvailableBaseCards <= 0}
+            className="shrink-0 h-10 px-3 sm:px-4 flex items-center justify-center gap-2 rounded-xl border border-[#dee3e3] bg-white text-[#083142] text-sm font-bold hover:border-[#006b5a]/35 hover:text-[#006b5a] transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+            title={totalAvailableBaseCards > 0 ? 'Adicionar cards da base' : 'Nenhum paciente disponivel para adicionar'}
+          >
+            <Plus size={16} strokeWidth={2.5} />
+            <span className="hidden sm:inline">Adicionar cards</span>
+            <span className="rounded-full bg-[#f0f5f4] px-2 py-0.5 text-[11px] text-[#6d7a75]">
+              {totalAvailableBaseCards}
+            </span>
+          </button>
 
           {/* Nova coluna */}
           {canManageColumns && (
@@ -1350,6 +1575,157 @@ export function KanbanContatos({
           )
         })}
       </div>
+
+      {baseSeedModal.open && (
+        <div
+          className="fixed inset-0 z-50 bg-[#171d1c]/45 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4"
+          onClick={closeBaseSeedModal}
+        >
+          <div
+            className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-3xl max-h-[90vh] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-center pt-3 pb-1 sm:hidden shrink-0">
+              <div className="w-10 h-1 rounded-full bg-[#dee3e3]" />
+            </div>
+
+            <div className="px-4 sm:px-5 py-4 border-b border-[#dee3e3] flex items-start gap-3 shrink-0">
+              <div className="w-10 h-10 rounded-2xl bg-[#f0fcf9] text-[#006b5a] flex items-center justify-center shrink-0">
+                <Plus size={18} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="font-bold text-[#083142] text-base sm:text-lg">Adicionar cards da base</h3>
+                <p className="text-xs sm:text-sm text-[#6d7a75] mt-1">
+                  Revise a lista antes de confirmar. Serao adicionados apenas pacientes que ainda nao possuem card no kanban.
+                </p>
+              </div>
+              <button
+                onClick={closeBaseSeedModal}
+                className="p-1.5 rounded-lg hover:bg-[#f0f5f4] text-[#9BB0AD] shrink-0"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="px-4 sm:px-5 py-4 border-b border-[#dee3e3] shrink-0">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {baseSeedColumns.map((column) => {
+                  const visual = getVisualColunaContato(column)
+                  const isActive = column.chave === baseSeedModal.columnKey
+                  const availableCount = availableBaseTotals[column.chave] ?? 0
+
+                  return (
+                    <button
+                      key={column.chave}
+                      onClick={() => void loadBaseSeedPreview(column.chave)}
+                      className={`rounded-2xl border px-4 py-3 text-left transition-colors ${
+                        isActive ? 'shadow-sm' : 'hover:border-[#bcc9c4]'
+                      }`}
+                      style={{
+                        borderColor: isActive ? visual.cor : '#dee3e3',
+                        backgroundColor: isActive ? visual.corBg : '#ffffff',
+                      }}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm" style={{ color: visual.cor }}>
+                            {column.nome}
+                          </p>
+                          <p className="text-xs text-[#6d7a75] mt-1">
+                            {availableCount} disponiveis para virar card
+                          </p>
+                        </div>
+                        <span
+                          className="text-xs font-extrabold px-2.5 py-1 rounded-full"
+                          style={{ backgroundColor: visual.corBadgeBg, color: visual.corBadgeText }}
+                        >
+                          {availableCount}
+                        </span>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 space-y-3 bg-[#f8faf9]">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-[#1A2E2B]">
+                    {activeBaseSeedColumn?.nome ?? 'Base selecionada'}
+                  </p>
+                  <p className="text-xs text-[#6d7a75] mt-1">
+                    {baseSeedModal.loading
+                      ? 'Carregando a proxima leva de pacientes.'
+                      : `${baseSeedModal.preview.length} paciente${baseSeedModal.preview.length === 1 ? '' : 's'} entrarao nesta confirmacao.`}
+                  </p>
+                </div>
+                {!baseSeedModal.loading && (
+                  <button
+                    onClick={() => void loadBaseSeedPreview(baseSeedModal.columnKey)}
+                    className="text-xs font-semibold text-[#006b5a] hover:underline"
+                  >
+                    Atualizar lista
+                  </button>
+                )}
+              </div>
+
+              {baseSeedModal.loading ? (
+                <div className="rounded-2xl border border-[#dee3e3] bg-white px-4 py-8 text-sm text-[#6d7a75] text-center">
+                  Carregando pacientes disponiveis...
+                </div>
+              ) : baseSeedModal.preview.length === 0 ? (
+                <div className="rounded-2xl border border-[#dee3e3] bg-white px-4 py-8 text-sm text-[#6d7a75] text-center">
+                  Nenhum paciente disponivel nesta base no momento.
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-[#dee3e3] bg-white overflow-hidden">
+                  <div className="max-h-[45vh] overflow-y-auto divide-y divide-[#eef2f1]">
+                    {baseSeedModal.preview.map((paciente, index) => (
+                      <div key={paciente.id} className="px-4 py-3 flex items-start gap-3">
+                        <div className="w-7 h-7 rounded-full bg-[#f0f5f4] text-[#6d7a75] text-[11px] font-bold flex items-center justify-center shrink-0">
+                          {index + 1}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-[#1A2E2B]">{paciente.nome}</p>
+                          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[#6d7a75]">
+                            <span>{paciente.telefone || 'Sem telefone'}</span>
+                            <span>{paciente.email || 'Sem email'}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="px-4 sm:px-5 py-4 border-t border-[#dee3e3] flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2 shrink-0 bg-white">
+              <p className="text-xs text-[#9BB0AD]">
+                A confirmacao adiciona exatamente os pacientes listados acima.
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={closeBaseSeedModal}
+                  disabled={baseSeedModal.confirming}
+                  className="px-4 py-2.5 rounded-xl border border-[#dee3e3] text-sm font-semibold text-[#6d7a75] hover:bg-[#f8faf9] transition-colors disabled:opacity-40"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => void handleConfirmBaseSeed()}
+                  disabled={baseSeedModal.loading || baseSeedModal.confirming || baseSeedModal.preview.length === 0}
+                  className="px-4 py-2.5 rounded-xl bg-[#006b5a] text-white text-sm font-semibold hover:bg-[#004f43] transition-colors disabled:opacity-40"
+                >
+                  {baseSeedModal.confirming
+                    ? 'Adicionando...'
+                    : `Adicionar ${baseSeedModal.preview.length} card${baseSeedModal.preview.length === 1 ? '' : 's'}`}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {selected && (
         <div

@@ -58,7 +58,7 @@ export default async function ContatosPage() {
         </div>
         <div className="sm:ml-auto inline-flex items-center self-start sm:self-auto text-sm text-[#083142] bg-white border border-[#dee3e3] px-4 py-2 rounded-xl font-semibold shadow-sm">
           <span className="w-2 h-2 rounded-full bg-[#006b5a] mr-2 animate-pulse"></span>
-          {totalPacientes} pacientes ativos
+          {totalPacientes} cards no kanban
         </div>
       </div>
 
