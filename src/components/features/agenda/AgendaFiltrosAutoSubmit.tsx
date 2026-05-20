@@ -3,10 +3,12 @@
 import { useEffect, useRef } from 'react'
 
 const STORAGE_KEY = 'medguia_agenda_status_filter'
+const PROFESSIONAL_STORAGE_KEY = 'medguia_agenda_professional_filter'
 
 type AgendaFiltrosAutoSubmitProps = {
   initialStatuses: string[]
   allStatuses: string[]
+  initialProfessional?: string
   clearPersistedStatuses?: boolean
 }
 
@@ -23,9 +25,18 @@ function persistirStatuses(statuses: string[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(statuses))
 }
 
+function persistirProfissional(profissionalId: string) {
+  if (!profissionalId) {
+    localStorage.removeItem(PROFESSIONAL_STORAGE_KEY)
+    return
+  }
+  localStorage.setItem(PROFESSIONAL_STORAGE_KEY, profissionalId)
+}
+
 export function AgendaFiltrosAutoSubmit({
   initialStatuses,
   allStatuses,
+  initialProfessional = '',
   clearPersistedStatuses = false,
 }: AgendaFiltrosAutoSubmitProps) {
   const markerRef = useRef<HTMLSpanElement>(null)
@@ -37,8 +48,27 @@ export function AgendaFiltrosAutoSubmit({
 
     if (clearPersistedStatuses) {
       localStorage.removeItem(STORAGE_KEY)
+      localStorage.removeItem(PROFESSIONAL_STORAGE_KEY)
       form.requestSubmit()
       return
+    }
+
+    const profissionalSelect = form.querySelector<HTMLSelectElement>('select[name="profissional"]')
+    if (profissionalSelect) {
+      if (initialProfessional) {
+        persistirProfissional(initialProfessional)
+      } else {
+        const profissionalSalvo = localStorage.getItem(PROFESSIONAL_STORAGE_KEY) ?? ''
+        if (profissionalSalvo && profissionalSelect.value !== profissionalSalvo) {
+          const optionExiste = Array.from(profissionalSelect.options).some((option) => option.value === profissionalSalvo)
+          if (optionExiste) {
+            profissionalSelect.value = profissionalSalvo
+            form.requestSubmit()
+            return
+          }
+          localStorage.removeItem(PROFESSIONAL_STORAGE_KEY)
+        }
+      }
     }
 
     const statusesIniciaisNormalizados = normalizarStatuses(initialStatuses, allStatuses)
@@ -88,12 +118,16 @@ export function AgendaFiltrosAutoSubmit({
         persistirStatuses(normalizarStatuses(statusesMarcados, allStatuses))
       }
 
+      if (target.name === 'profissional') {
+        persistirProfissional(target.value)
+      }
+
       form.requestSubmit()
     }
 
     form.addEventListener('change', handleChange)
     return () => form.removeEventListener('change', handleChange)
-  }, [allStatuses, clearPersistedStatuses, initialStatuses])
+  }, [allStatuses, clearPersistedStatuses, initialProfessional, initialStatuses])
 
   return <span ref={markerRef} className="hidden" aria-hidden="true" />
 }

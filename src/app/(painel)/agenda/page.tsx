@@ -512,6 +512,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 <AgendaFiltrosAutoSubmit
                   initialStatuses={statusSelecionados}
                   allStatuses={ALL_STATUS_FILTER_VALUES}
+                  initialProfessional={profissionalSelecionado}
                   clearPersistedStatuses={clearPersistedStatuses}
                 />
                 <input type="hidden" name="view" value={view} />
