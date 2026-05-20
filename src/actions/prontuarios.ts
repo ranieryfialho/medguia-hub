@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { temAcesso } from '@/lib/modulos'
-import { STATUS_CONCLUIDO_RAW_VALUES } from '@/lib/atendimento-status'
+import { normalizeAtendimentoStatus, STATUS_CONCLUIDO_RAW_VALUES } from '@/lib/atendimento-status'
 
 export type ProntuarioData = {
   id: string
@@ -17,6 +17,20 @@ export type ProntuarioData = {
   observacoes: string | null
   created_at: string
   updated_at: string
+}
+
+function temCampoAbertoPreenchido(input: {
+  queixa_principal?: string
+  evolucao?: string
+  procedimentos?: string
+  observacoes?: string
+}) {
+  return !!(
+    input.queixa_principal?.trim() ||
+    input.evolucao?.trim() ||
+    input.procedimentos?.trim() ||
+    input.observacoes?.trim()
+  )
 }
 
 export async function buscarProntuarioPorAtendimento(atendimentoId: string): Promise<ProntuarioData | null> {
@@ -49,10 +63,24 @@ export async function salvarProntuario(
     escala_dor?: number | null
     observacoes?: string
   }
-): Promise<{ error?: string }> {
+): Promise<{ error?: string; warning?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Usuário não autenticado' }
+  const queixaPrincipalNormalizada = input.queixa_principal?.trim() || null
+  const evolucaoNormalizada = input.evolucao?.trim() || null
+  const procedimentosNormalizados = input.procedimentos?.trim() || null
+  const observacoesNormalizadas = input.observacoes?.trim() || null
+  const temCampoAberto = temCampoAbertoPreenchido({
+    queixa_principal: queixaPrincipalNormalizada ?? undefined,
+    evolucao: evolucaoNormalizada ?? undefined,
+    procedimentos: procedimentosNormalizados ?? undefined,
+    observacoes: observacoesNormalizadas ?? undefined,
+  })
+
+  if (input.escala_dor === null || input.escala_dor === undefined || !temCampoAberto) {
+    return { error: 'Para salvar a evolução, preencha a escala de dor e ao menos um campo aberto.' }
+  }
 
   const { error } = await supabase
     .from('prontuarios')
@@ -61,11 +89,11 @@ export async function salvarProntuario(
         atendimento_id: atendimentoId,
         paciente_id: pacienteId,
         profissional_id: user.id,
-        queixa_principal: input.queixa_principal?.trim() || null,
-        evolucao: input.evolucao?.trim() || null,
-        procedimentos: input.procedimentos?.trim() || null,
+        queixa_principal: queixaPrincipalNormalizada,
+        evolucao: evolucaoNormalizada,
+        procedimentos: procedimentosNormalizados,
         escala_dor: input.escala_dor ?? null,
-        observacoes: input.observacoes?.trim() || null,
+        observacoes: observacoesNormalizadas,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'atendimento_id' }
@@ -73,9 +101,24 @@ export async function salvarProntuario(
 
   if (error) return { error: error.message }
 
+  let warning: string | undefined
+  if (temCampoAberto) {
+    const statusConcluido = normalizeAtendimentoStatus('Concluído')
+    const { error: statusError } = await supabase
+      .from('atendimentos')
+      .update({ status: statusConcluido })
+      .eq('id', atendimentoId)
+
+    if (statusError) {
+      console.error('Erro ao concluir atendimento após salvar prontuário:', statusError.message)
+      warning = `Prontuário salvo, mas não foi possível concluir o atendimento: ${statusError.message}`
+    }
+  }
+
   revalidatePath('/', 'layout')
   revalidatePath('/prontuarios')
-  return {}
+  revalidatePath('/agenda')
+  return warning ? { warning } : {}
 }
 
 export async function contarProntuariosPendentes(): Promise<number> {

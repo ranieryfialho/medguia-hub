@@ -58,6 +58,10 @@ function SectionLabel({ icon: Icon, label }: { icon: React.ElementType; label: s
   )
 }
 
+function temCampoAbertoPreenchido(campos: string[]) {
+  return campos.some((campo) => campo.trim().length > 0)
+}
+
 export function ProntuarioEvolucao({ atendimentoId, pacienteId, onSuccess }: Props) {
   const [loading, setLoading]                 = useState(true)
   const [saving, setSaving]                   = useState(false)
@@ -81,15 +85,15 @@ export function ProntuarioEvolucao({ atendimentoId, pacienteId, onSuccess }: Pro
   }, [atendimentoId])
 
   async function handleSalvar() {
-    const vazio =
-      escalaDor === null &&
-      !queixaPrincipal.trim() &&
-      !evolucao.trim() &&
-      !procedimentos.trim() &&
-      !observacoes.trim()
+    const temCampoAberto = temCampoAbertoPreenchido([
+      queixaPrincipal,
+      evolucao,
+      procedimentos,
+      observacoes,
+    ])
 
-    if (vazio) {
-      toast.error('Preencha ao menos um campo antes de salvar.')
+    if (escalaDor === null || !temCampoAberto) {
+      toast.error('Preencha a escala de dor e ao menos um campo antes de salvar.')
       return
     }
 
@@ -107,6 +111,9 @@ export function ProntuarioEvolucao({ atendimentoId, pacienteId, onSuccess }: Pro
       toast.error(`Erro ao salvar: ${result.error}`)
     } else {
       toast.success('Evolução salva com sucesso')
+      if (result.warning) {
+        toast(result.warning, { icon: '⚠️' })
+      }
       onSuccess?.()
     }
   }
