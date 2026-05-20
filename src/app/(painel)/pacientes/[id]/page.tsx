@@ -104,6 +104,7 @@ export default async function PacienteDetailsPage({
       .select(`
         id,
         origem,
+        status,
         medico_referenciador_nome,
         data_venda,
         observacoes,

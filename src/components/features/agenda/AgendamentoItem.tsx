@@ -12,6 +12,7 @@ import toast from 'react-hot-toast'
 import {
   mudarStatusAgendamento,
   contarAtendimentosPaciente,
+  buscarHistoricoPacienteResumo,
   deletarAgendamento,
   deletarAtendimentoPontualDaRecorrencia,
   deletarTodasRecorrencias,
@@ -26,8 +27,9 @@ import { ModalSessaoReposicao } from '../shared'
 import { adicionarSessaoReposicao, criarAtendimentoReagendado, obterProximaData, registrarContato } from '@/actions/confirmacoes'
 import { format } from 'date-fns'
 import { formatAppDateLabel, formatAppTime } from '@/lib/datetime'
-import { getAtendimentoStatusKey } from '@/lib/atendimento-status'
+import { getAtendimentoStatusKey, normalizeAtendimentoStatus } from '@/lib/atendimento-status'
 import type { PlanoSaude } from '@/actions/planos-saude'
+import type { HistoricoPacienteResumo } from '@/actions/agenda'
 
 type Paciente = { id: string; nome: string }
 type Profissional = { id: string; nome: string; cargo: string }
@@ -101,6 +103,21 @@ function deveExibirContagemTipoSeparada(agendamento: AgendamentoDetalhe) {
   return totalGeral !== totalTipo || numeroGeral !== numeroTipo
 }
 
+function formatarMoeda(valor: number) {
+  return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+function formatarStatusComercial(status: string) {
+  if (status === 'orcamento_pendente') return 'Orçamento pendente'
+  if (status === 'orcamento_recusado') return 'Orçamento recusado'
+  return 'Venda realizada'
+}
+
+function formatarEscalaDor(escalaDor: number | null) {
+  if (escalaDor === null) return null
+  return `EVA ${escalaDor}/10`
+}
+
 export function ConfirmacaoFaltaModal({ onConfirmar, onCancelar }: { onConfirmar: (reagendar: boolean) => void; onCancelar: () => void }) {
   const [reagendar, setReagendar] = useState(true)
 
@@ -147,7 +164,7 @@ export function ConfirmacaoFaltaModal({ onConfirmar, onCancelar }: { onConfirmar
 function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDetalhe; onClose: () => void; onEditar: () => void }) {
   const router = useRouter()
   const [status, setStatus] = useState(agendamento.status)
-  const [activeTab, setActiveTab] = useState<'detalhes' | 'evolucao'>('detalhes')
+  const [activeTab, setActiveTab] = useState<'detalhes' | 'evolucao' | 'historico'>('detalhes')
   const [showStatusMenu, setShowStatusMenu] = useState(false)
   const [showOpcoes, setShowOpcoes] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -163,6 +180,9 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
   const [reagendamentoHora, setReagendamentoHora] = useState<string | undefined>()
   const [statusMenuPos, setStatusMenuPos] = useState<{ top: number; left: number; width: number } | null>(null)
   const [contagem, setContagem] = useState<{ total: number; cancelados: number } | null>(null)
+  const [historicoResumo, setHistoricoResumo] = useState<HistoricoPacienteResumo | null>(null)
+  const [loadingHistorico, setLoadingHistorico] = useState(false)
+  const [falhaHistorico, setFalhaHistorico] = useState<string | null>(null)
   const opcoesRef = useRef<HTMLDivElement>(null)
   const statusRef = useRef<HTMLDivElement>(null)
   const statusMenuRef = useRef<HTMLDivElement>(null)
@@ -294,6 +314,25 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
     }
 
     setShowStatusMenu((prev) => !prev)
+  }
+
+  async function handleAbrirHistorico() {
+    setActiveTab('historico')
+
+    if (historicoResumo || loadingHistorico) return
+
+    setLoadingHistorico(true)
+    setFalhaHistorico(null)
+    const result = await buscarHistoricoPacienteResumo(agendamento.paciente_id)
+
+    if (!result || result.error || !result.data) {
+      setFalhaHistorico(result?.error ?? 'Não foi possível carregar o histórico.')
+      setLoadingHistorico(false)
+      return
+    }
+
+    setHistoricoResumo(result.data)
+    setLoadingHistorico(false)
   }
 
   async function handleStatusChange(novoStatus: string) {
@@ -584,11 +623,190 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
               <ClipboardList size={13} />
               Evolucao
             </button>
+            <button
+              type="button"
+              onClick={handleAbrirHistorico}
+              className={`flex flex-1 items-center justify-center gap-1.5 py-2.5 text-xs font-bold transition-colors ${
+                activeTab === 'historico'
+                  ? 'border-b-2 border-[#006b5a] bg-white text-[#006b5a]'
+                  : 'text-[#6d7a75] hover:text-[#3d4945]'
+              }`}
+            >
+              <Clock size={13} />
+              Histórico
+            </button>
           </div>
 
           <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-5 sm:py-6 space-y-4">
             {activeTab === 'evolucao' ? (
               <ProntuarioEvolucao atendimentoId={agendamento.id} pacienteId={agendamento.paciente_id} />
+            ) : activeTab === 'historico' ? (
+              <>
+                {loadingHistorico ? (
+                  <div className="flex items-center justify-center py-10 text-sm font-medium text-[#6d7a75]">
+                    Carregando histórico...
+                  </div>
+                ) : falhaHistorico ? (
+                  <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {falhaHistorico}
+                  </div>
+                ) : historicoResumo ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="rounded-xl bg-[#f0f5f4] p-3">
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-[#6d7a75]">Consultas</p>
+                        <p className="mt-1 text-lg font-extrabold text-[#083142]">{historicoResumo.metricas.consultas_total}</p>
+                        <p className="text-xs text-[#6d7a75]">{historicoResumo.metricas.consultas_concluidas} concluídas</p>
+                      </div>
+                      <div className="rounded-xl bg-[#f0f5f4] p-3">
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-[#6d7a75]">Comercial</p>
+                        <p className="mt-1 text-lg font-extrabold text-[#083142]">{historicoResumo.metricas.vendas_realizadas}</p>
+                        <p className="text-xs text-[#6d7a75]">{historicoResumo.metricas.orcamentos_passados} orçamento(s)</p>
+                      </div>
+                      <div className="rounded-xl bg-white border border-[#bcc9c4]/40 p-3">
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-[#6d7a75]">Não efetivas</p>
+                        <p className="mt-1 text-lg font-extrabold text-[#083142]">{historicoResumo.metricas.consultas_nao_efetivas}</p>
+                        <p className="text-xs text-[#6d7a75]">faltas, cancelamentos e reagendamentos</p>
+                      </div>
+                      <div className="rounded-xl bg-white border border-[#bcc9c4]/40 p-3">
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-[#6d7a75]">Valor vendido</p>
+                        <p className="mt-1 text-lg font-extrabold text-[#083142]">{formatarMoeda(historicoResumo.metricas.valor_total_vendas)}</p>
+                        <p className="text-xs text-[#6d7a75]">somente vendas confirmadas</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-[#6d7a75]">Últimas consultas</h4>
+                        <button
+                          type="button"
+                          onClick={() => { router.push(`/pacientes/${agendamento.paciente_id}`); onClose() }}
+                          className="text-[11px] font-semibold text-[#006b5a] hover:underline"
+                        >
+                          Ver jornada completa
+                        </button>
+                      </div>
+
+                      {historicoResumo.consultas.length > 0 ? (
+                        <div className="space-y-2">
+                          {historicoResumo.consultas.map((consulta) => (
+                            <div key={consulta.id} className="rounded-xl border border-[#bcc9c4]/30 bg-white px-3 py-2.5">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold text-[#171d1c] truncate">{consulta.tipo?.trim() || 'Sessão'}</p>
+                                  <p className="text-xs text-[#6d7a75]">
+                                    {format(new Date(consulta.data_agendamento), "dd/MM/yyyy 'às' HH:mm")}
+                                  </p>
+                                </div>
+                                <span className="shrink-0 rounded-full bg-[#f0f5f4] px-2 py-0.5 text-[10px] font-bold text-[#3d4945]">
+                                  {normalizeAtendimentoStatus(consulta.status)}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="rounded-xl bg-[#f0f5f4] px-4 py-3 text-sm text-[#6d7a75]">
+                          Nenhuma consulta registrada para este paciente.
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-[#6d7a75]">Evoluções concluídas</h4>
+                      {historicoResumo.evolucoes.length > 0 ? (
+                        <div className="space-y-2">
+                          {historicoResumo.evolucoes.map((item) => (
+                            <div key={item.atendimento_id} className="rounded-xl border border-violet-100 bg-violet-50/60 px-3 py-3">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold text-[#171d1c]">{item.tipo?.trim() || 'Sessão'}</p>
+                                  <p className="text-xs text-[#6d7a75]">
+                                    {format(new Date(item.data_agendamento), "dd/MM/yyyy 'às' HH:mm")}
+                                  </p>
+                                </div>
+                                <div className="flex shrink-0 flex-col items-end gap-1">
+                                  <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-700">
+                                    Concluído
+                                  </span>
+                                  {formatarEscalaDor(item.escala_dor) ? (
+                                    <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-[#5a6a65] border border-violet-200">
+                                      {formatarEscalaDor(item.escala_dor)}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </div>
+                              <div className="mt-2 space-y-1.5 text-[11px] leading-relaxed text-[#3d4945]">
+                                {item.evolucao ? (
+                                  <p>
+                                    <span className="font-semibold text-[#083142]">Evolução: </span>
+                                    {item.evolucao}
+                                  </p>
+                                ) : null}
+                                {item.procedimentos ? (
+                                  <p>
+                                    <span className="font-semibold text-[#083142]">Procedimentos: </span>
+                                    {item.procedimentos}
+                                  </p>
+                                ) : null}
+                                {item.observacoes ? (
+                                  <p>
+                                    <span className="font-semibold text-[#083142]">Observações: </span>
+                                    {item.observacoes}
+                                  </p>
+                                ) : null}
+                                {item.updated_at ? (
+                                  <p className="pt-0.5 text-[10px] text-[#6d7a75]">
+                                    Atualizado em {format(new Date(item.updated_at), "dd/MM/yyyy 'às' HH:mm")}
+                                  </p>
+                                ) : null}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="rounded-xl bg-[#f0f5f4] px-4 py-3 text-sm text-[#6d7a75]">
+                          Nenhuma evolução encontrada em atendimentos concluídos.
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-[#6d7a75]">Histórico comercial</h4>
+                      {historicoResumo.comercial.length > 0 ? historicoResumo.comercial.map((item) => (
+                        <div key={item.id} className="rounded-xl border border-[#bcc9c4]/30 bg-[#fcfdfd] px-3 py-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-[#171d1c]">{formatarStatusComercial(item.status)}</p>
+                              <p className="text-xs text-[#6d7a75]">
+                                {format(new Date(item.data_venda), 'dd/MM/yyyy')}
+                                {item.profissional_nome ? ` · ${item.profissional_nome}` : ''}
+                              </p>
+                            </div>
+                            <span className="shrink-0 text-sm font-bold text-[#006b5a]">{formatarMoeda(item.total)}</span>
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {item.origem ? (
+                              <span className="rounded-full bg-[#f0f5f4] px-2 py-0.5 text-[10px] font-semibold text-[#5a6a65]">
+                                {item.origem}
+                              </span>
+                            ) : null}
+                            {item.itens_resumo.map((nome) => (
+                              <span key={nome} className="rounded-full border border-[#bcc9c4]/40 bg-white px-2 py-0.5 text-[10px] font-medium text-[#3d4945]">
+                                {nome}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )) : (
+                        <div className="rounded-xl bg-[#f0f5f4] px-4 py-3 text-sm text-[#6d7a75]">
+                          Nenhuma venda ou orçamento encontrado para este paciente.
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : null}
+              </>
             ) : (
               <>
                 <div className="flex items-center gap-3">

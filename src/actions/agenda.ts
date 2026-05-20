@@ -16,6 +16,8 @@ import {
 } from '@/lib/recorrencia'
 import {
   getAtendimentoStatusKey,
+  STATUS_CONCLUIDO_RAW_VALUES,
+  STATUS_NAO_BLOQUEIAM_RAW_VALUES,
   isStatusNaoEfetivo,
   normalizeAtendimentoStatus,
 } from '@/lib/atendimento-status'
@@ -394,6 +396,236 @@ export async function contarAtendimentosPaciente(pacienteId: string): Promise<{ 
   const total = data?.length ?? 0
   const cancelados = data?.filter(a => isStatusNaoEfetivo(a.status)).length ?? 0
   return { total, cancelados }
+}
+
+export type HistoricoPacienteResumo = {
+  metricas: {
+    consultas_total: number
+    consultas_concluidas: number
+    consultas_nao_efetivas: number
+    vendas_realizadas: number
+    orcamentos_passados: number
+    valor_total_vendas: number
+  }
+  consultas: Array<{
+    id: string
+    data_agendamento: string
+    status: string
+    tipo: string | null
+  }>
+  evolucoes: Array<{
+    atendimento_id: string
+    data_agendamento: string
+    tipo: string | null
+    escala_dor: number | null
+    evolucao: string | null
+    procedimentos: string | null
+    observacoes: string | null
+    updated_at: string | null
+  }>
+  comercial: Array<{
+    id: string
+    data_venda: string
+    status: string
+    origem: string | null
+    profissional_nome: string | null
+    total: number
+    itens_resumo: string[]
+  }>
+}
+
+export async function buscarHistoricoPacienteResumo(pacienteId: string): Promise<{ data?: HistoricoPacienteResumo; error?: string }> {
+  const supabase = await createClient()
+
+  const [
+    { count: consultasTotal, error: consultasTotalError },
+    { count: consultasConcluidas, error: consultasConcluidasError },
+    { count: consultasNaoEfetivas, error: consultasNaoEfetivasError },
+    { data: atendimentos, error: atendimentosError },
+    { data: prontuarios, error: prontuariosError },
+    { count: vendasRealizadas, error: vendasRealizadasError },
+    { count: orcamentosPassados, error: orcamentosPassadosError },
+    { data: vendasConfirmadas, error: vendasConfirmadasError },
+    { data: vendas, error: vendasError },
+  ] = await Promise.all([
+    supabase
+      .from('atendimentos')
+      .select('id', { count: 'exact', head: true })
+      .eq('paciente_id', pacienteId),
+    supabase
+      .from('atendimentos')
+      .select('id', { count: 'exact', head: true })
+      .eq('paciente_id', pacienteId)
+      .in('status', STATUS_CONCLUIDO_RAW_VALUES),
+    supabase
+      .from('atendimentos')
+      .select('id', { count: 'exact', head: true })
+      .eq('paciente_id', pacienteId)
+      .in('status', STATUS_NAO_BLOQUEIAM_RAW_VALUES),
+    supabase
+      .from('atendimentos')
+      .select('id, data_agendamento, status, tipo')
+      .eq('paciente_id', pacienteId)
+      .order('data_agendamento', { ascending: false })
+      .limit(5),
+    supabase
+      .from('prontuarios')
+      .select(`
+        atendimento_id,
+        evolucao,
+        escala_dor,
+        procedimentos,
+        observacoes,
+        updated_at,
+        atendimentos!inner(data_agendamento, tipo, status)
+      `)
+      .eq('paciente_id', pacienteId)
+      .in('atendimentos.status', STATUS_CONCLUIDO_RAW_VALUES)
+      .order('updated_at', { ascending: false })
+      .limit(4),
+    supabase
+      .from('vendas')
+      .select('id', { count: 'exact', head: true })
+      .eq('paciente_id', pacienteId)
+      .eq('status', 'venda_confirmada'),
+    supabase
+      .from('vendas')
+      .select('id', { count: 'exact', head: true })
+      .eq('paciente_id', pacienteId)
+      .in('status', ['orcamento_pendente', 'orcamento_recusado']),
+    supabase
+      .from('vendas')
+      .select('itens_venda(quantidade, preco_unitario)')
+      .eq('paciente_id', pacienteId)
+      .eq('status', 'venda_confirmada'),
+    supabase
+      .from('vendas')
+      .select(`
+        id,
+        data_venda,
+        status,
+        origem,
+        profiles:profissional_id(full_name),
+        itens_venda(quantidade, preco_unitario, produtos(nome))
+      `)
+      .eq('paciente_id', pacienteId)
+      .order('data_venda', { ascending: false })
+      .limit(4),
+  ])
+
+  if (consultasTotalError) return { error: consultasTotalError.message }
+  if (consultasConcluidasError) return { error: consultasConcluidasError.message }
+  if (consultasNaoEfetivasError) return { error: consultasNaoEfetivasError.message }
+  if (atendimentosError) return { error: atendimentosError.message }
+  if (prontuariosError) return { error: prontuariosError.message }
+  if (vendasRealizadasError) return { error: vendasRealizadasError.message }
+  if (orcamentosPassadosError) return { error: orcamentosPassadosError.message }
+  if (vendasConfirmadasError) return { error: vendasConfirmadasError.message }
+  if (vendasError) return { error: vendasError.message }
+
+  const atendimentosLista = atendimentos ?? []
+  const prontuariosLista = (prontuarios ?? []) as Array<{
+    atendimento_id: string
+    evolucao?: string | null
+    escala_dor?: number | null
+    procedimentos?: string | null
+    observacoes?: string | null
+    updated_at?: string | null
+    atendimentos?: {
+      data_agendamento?: string | null
+      tipo?: string | null
+      status?: string | null
+    } | {
+      data_agendamento?: string | null
+      tipo?: string | null
+      status?: string | null
+    }[] | null
+  }>
+  const vendasConfirmadasLista = (vendasConfirmadas ?? []) as Array<{
+    itens_venda?: Array<{
+      quantidade?: number | null
+      preco_unitario?: number | null
+    }> | null
+  }>
+  const vendasLista = (vendas ?? []) as Array<{
+    id: string
+    data_venda: string
+    status?: string | null
+    origem?: string | null
+    profiles?: { full_name?: string | null } | null
+    itens_venda?: Array<{
+      quantidade?: number | null
+      preco_unitario?: number | null
+      produtos?: { nome?: string | null } | null
+    }> | null
+  }>
+
+  const valorTotalVendas = vendasConfirmadasLista.reduce((acc, venda) => {
+    const totalVenda = (venda.itens_venda ?? []).reduce((sum, item) =>
+      sum + (item.quantidade ?? 0) * (item.preco_unitario ?? 0), 0)
+    return acc + totalVenda
+  }, 0)
+  const evolucoes = prontuariosLista
+    .map((prontuario) => {
+      const atendimento = Array.isArray(prontuario.atendimentos)
+        ? prontuario.atendimentos[0] ?? null
+        : prontuario.atendimentos ?? null
+      if (!atendimento?.data_agendamento) return null
+      const temConteudo = !!(
+        prontuario.evolucao?.trim() ||
+        prontuario.procedimentos?.trim() ||
+        prontuario.observacoes?.trim() ||
+        prontuario.escala_dor !== null
+      )
+      if (!temConteudo) return null
+      return {
+        atendimento_id: prontuario.atendimento_id,
+        data_agendamento: atendimento.data_agendamento,
+        tipo: atendimento.tipo ?? null,
+        escala_dor: prontuario.escala_dor ?? null,
+        evolucao: prontuario.evolucao ?? null,
+        procedimentos: prontuario.procedimentos ?? null,
+        observacoes: prontuario.observacoes ?? null,
+        updated_at: prontuario.updated_at ?? null,
+      }
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null)
+    .slice(0, 4)
+
+  return {
+    data: {
+      metricas: {
+        consultas_total: consultasTotal ?? 0,
+        consultas_concluidas: consultasConcluidas ?? 0,
+        consultas_nao_efetivas: consultasNaoEfetivas ?? 0,
+        vendas_realizadas: vendasRealizadas ?? 0,
+        orcamentos_passados: orcamentosPassados ?? 0,
+        valor_total_vendas: valorTotalVendas,
+      },
+      consultas: atendimentosLista.map((item) => ({
+        id: item.id,
+        data_agendamento: item.data_agendamento,
+        status: item.status,
+        tipo: item.tipo ?? null,
+      })),
+      evolucoes,
+      comercial: vendasLista.map((venda) => {
+        const itens = venda.itens_venda ?? []
+        return {
+          id: venda.id,
+          data_venda: venda.data_venda,
+          status: venda.status ?? 'venda_confirmada',
+          origem: venda.origem ?? null,
+          profissional_nome: venda.profiles?.full_name ?? null,
+          total: itens.reduce((sum, item) => sum + (item.quantidade ?? 0) * (item.preco_unitario ?? 0), 0),
+          itens_resumo: itens
+            .map((item) => item.produtos?.nome?.trim())
+            .filter((nome): nome is string => Boolean(nome))
+            .slice(0, 3),
+        }
+      }),
+    },
+  }
 }
 
 export async function deletarAgendamento(id: string) {
