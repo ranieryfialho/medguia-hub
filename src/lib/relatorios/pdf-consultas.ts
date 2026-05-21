@@ -80,7 +80,7 @@ function desenharPaginaResumo(doc: jsPDF, input: GerarPdfConsultasInput, tiposOr
   let y = 58
   y = desenharGradeCards(doc, y, [
     ['Agendamentos', String(input.totalAgendamentos)],
-    ['Atendimentos', String(input.totalAtendimentos)],
+    ['Confirmados', String(input.totalAtendimentos)],
     ['Concluídos', String(input.totalConcluidos)],
     ['Recorrentes', String(input.totalRecorrentes)],
     ['Pendentes', String(input.totalPendentes)],
@@ -98,7 +98,7 @@ function desenharPaginaResumo(doc: jsPDF, input: GerarPdfConsultasInput, tiposOr
 
 function desenharPaginaTipos(doc: jsPDF, tipos: PdfLinhaTipoConsulta[]) {
   let y = desenharCabecalhoInterno(doc, 'Tipos de Consulta', 'Detalhamento por tipo')
-  const headers = ['Tipo', 'Agend.', 'Atend.', 'Concl.', 'Pend.']
+  const headers = ['Tipo', 'Agend.', 'Conf.', 'Concl.', 'Pend.']
   const widths = [88, 20, 20, 20, 20]
   y = desenharLinhaTabela(doc, y + 4, headers, widths, true)
 
@@ -120,8 +120,8 @@ function desenharPaginaTipos(doc: jsPDF, tipos: PdfLinhaTipoConsulta[]) {
 }
 
 function desenharPaginaProfissionais(doc: jsPDF, profissionais: PdfLinhaProfissionalConsulta[]) {
-  let y = desenharCabecalhoInterno(doc, 'Visão por Fisioterapeuta', 'Agendamentos e atendimentos por responsável')
-  const headers = ['Fisioterapeuta', 'Agend.', 'Recorr.', 'Atend.', 'Concl.', 'Pend.', 'Canc.']
+  let y = desenharCabecalhoInterno(doc, 'Visão por Fisioterapeuta', 'Agendamentos e confirmados por responsável')
+  const headers = ['Fisioterapeuta', 'Agend.', 'Recorr.', 'Conf.', 'Concl.', 'Pend.', 'Canc.']
   const widths = [58, 16, 18, 16, 16, 16, 16]
   y = desenharLinhaTabela(doc, y + 4, headers, widths, true)
 
@@ -234,7 +234,7 @@ function desenharBlocosTexto(doc: jsPDF, y: number, textos: string[]) {
 }
 
 function desenharTabelaTipos(doc: jsPDF, y: number, tipos: PdfLinhaTipoConsulta[]) {
-  const headers = ['Tipo', 'Agend.', 'Atend.', 'Concl.', 'Pend.']
+  const headers = ['Tipo', 'Agend.', 'Conf.', 'Concl.', 'Pend.']
   const widths = [88, 20, 20, 20, 20]
   let cursor = desenharLinhaTabela(doc, y, headers, widths, true)
 
@@ -300,10 +300,10 @@ function montarDestaques(input: GerarPdfConsultasInput, tipos: PdfLinhaTipoConsu
     : '0.0'
 
   return [
-    `Foram registrados ${input.totalAgendamentos} agendamentos e ${input.totalAtendimentos} atendimentos no período, com ${input.totalConcluidos} concluídos.`,
-    `A taxa de conclusão dos atendimentos ficou em ${taxaConclusao}% e o volume de recorrentes foi de ${input.totalRecorrentes}.`,
+    `Foram registrados ${input.totalAgendamentos} agendamentos e ${input.totalAtendimentos} confirmados no período, com ${input.totalConcluidos} concluídos.`,
+    `A taxa de produtividade sobre os confirmados ficou em ${taxaConclusao}% e o volume de recorrentes foi de ${input.totalRecorrentes}.`,
     principalTipo
-      ? `O tipo com maior volume foi "${principalTipo.tipo}", com ${principalTipo.atendimentos} atendimentos e ${principalTipo.agendamentos} agendamentos.`
+      ? `O tipo com maior volume foi "${principalTipo.tipo}", com ${principalTipo.atendimentos} confirmados e ${principalTipo.agendamentos} agendamentos.`
       : 'Não houve tipos de consulta com volume registrado no período.',
   ]
 }

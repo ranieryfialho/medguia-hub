@@ -72,7 +72,8 @@ type LinhaProfissional = {
   canceladosOuFalta: number
 }
 
-const STATUS_PENDENTES = new Set(['aguardando', 'confirmado'])
+const STATUS_CONFIRMADOS = new Set(['confirmado', 'concluido'])
+const STATUS_PENDENTES = new Set(['aguardando'])
 const STATUS_CANCELADOS = new Set(['cancelado', 'falta', 'reagendado'])
 
 function lowerSafe(value: string | null | undefined) {
@@ -322,11 +323,7 @@ export default async function RelatorioConsultasPage({
     : agendamentos
 
   for (const agendamento of agendamentosEfetivos) {
-    const tipo = garantirTipo(agendamento.tipo)
-    tipo.agendamentos++
-
     const linhaProf = garantirLinhaProfissional(agendamento.profissional_id)
-    linhaProf.agendamentos++
     if (agendamento.is_recorrente) linhaProf.recorrentes++
 
     const { linha: linhaPlano, coluna: colunaPlano, planoSaude } = garantirPlanoSaude(agendamento.profissional_id, agendamento.plano_saude)
@@ -337,14 +334,19 @@ export default async function RelatorioConsultasPage({
 
   for (const atendimento of atendimentosDoPeriodo) {
     const tipo = garantirTipo(atendimento.tipo)
-    tipo.atendimentos++
+    tipo.agendamentos++
 
     const statusNormalizado = lowerSafe(atendimento.status)
     const statusLabel = normalizeAtendimentoStatus(atendimento.status || 'Sem status')
     statusMap[statusLabel] = (statusMap[statusLabel] || 0) + 1
 
     const linhaProf = garantirLinhaProfissional(atendimento.profissional_id)
-    linhaProf.atendimentos++
+    linhaProf.agendamentos++
+
+    if (STATUS_CONFIRMADOS.has(statusNormalizado)) {
+      tipo.atendimentos++
+      linhaProf.atendimentos++
+    }
 
     if (statusNormalizado === 'concluido' || statusNormalizado === 'concluído') {
       tipo.produtivos++
@@ -369,8 +371,8 @@ export default async function RelatorioConsultasPage({
 
   const mostrarPctProfissional = linhasProfissionalOrdenadas.length > 1
 
-  const totalAgendamentos = agendamentosEfetivos.length
-  const totalAtendimentos = atendimentosDoPeriodo.length
+  const totalAgendamentos = atendimentosDoPeriodo.length
+  const totalAtendimentos = atendimentosDoPeriodo.filter((item) => STATUS_CONFIRMADOS.has(lowerSafe(item.status))).length
   const totalRecorrentes = agendamentosEfetivos.filter((item) => item.is_recorrente).length
   const totalConcluidos = atendimentosDoPeriodo.filter((item) => {
     const status = lowerSafe(item.status)
@@ -506,7 +508,7 @@ export default async function RelatorioConsultasPage({
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
           <div className="flex items-center gap-2 text-slate-500 mb-2">
             <Stethoscope size={16} />
-            <span className="text-xs font-semibold uppercase tracking-wide">Atendimentos</span>
+            <span className="text-xs font-semibold uppercase tracking-wide">Confirmados</span>
           </div>
           <p className="text-3xl font-bold text-[#006b5a]">{totalAtendimentos}</p>
         </div>
@@ -553,7 +555,7 @@ export default async function RelatorioConsultasPage({
               <tr>
                 <th className="text-left px-4 py-3">Tipo</th>
                 <th className="text-right px-4 py-3">Agendamentos</th>
-                <th className="text-right px-4 py-3">Atendimentos</th>
+                <th className="text-right px-4 py-3">Confirmados</th>
                 <th className="text-right px-4 py-3">Produtivos</th>
                 <th className="text-right px-4 py-3">Pendentes</th>
               </tr>
@@ -607,7 +609,7 @@ export default async function RelatorioConsultasPage({
                 </th>
                 <th className="text-right px-4 py-3">Agend.</th>
                 <th className="text-right px-4 py-3">Recorr.</th>
-                <th className="text-right px-4 py-3">Atend.</th>
+                <th className="text-right px-4 py-3">Conf.</th>
                 <th className="text-right px-4 py-3">Produt.</th>
                 <th className="text-right px-4 py-3">Pend.</th>
                 <th className="text-right px-4 py-3">Canc./Falta</th>
@@ -731,7 +733,7 @@ export default async function RelatorioConsultasPage({
                     <td className="px-4 py-3 font-medium text-slate-900">{status}</td>
                     <td className="px-4 py-3 text-right text-base font-medium">
                       {quantidade}
-                      <span className="block text-sm text-slate-400">{pct(quantidade, totalAtendimentos)}</span>
+                      <span className="block text-sm text-slate-400">{pct(quantidade, totalAgendamentos)}</span>
                     </td>
                   </tr>
                 ))}
