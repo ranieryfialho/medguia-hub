@@ -677,7 +677,7 @@ export default async function DisponibilidadePage({
 
     profissionaisStatus = equipeStatus.map((p) => ({ id: p.id, nome: p.full_name || 'Sem nome' }))
     profissionais = equipeStatus
-      .filter((p) => p.role === 'fisioterapeuta')
+      .filter((p) => p.role === 'fisioterapeuta' || (p.role === 'gestor' && profissionaisComJornada.has(p.id)))
       .map((p) => ({ id: p.id, nome: p.full_name || 'Sem nome' }))
   } else {
     profissionaisStatus = [{ id: user.id, nome: profile?.full_name ?? 'Você' }]
