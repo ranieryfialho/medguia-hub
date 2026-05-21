@@ -1,0 +1,219 @@
+{
+  "generated_at": "2026-05-21T13:06:02.573Z",
+  "scanned_files": 179,
+  "auth_files": [
+    "src/actions/acessos.ts",
+    "src/actions/agenda.ts",
+    "src/actions/atendimentos.ts",
+    "src/actions/auth.ts",
+    "src/actions/contatos.ts",
+    "src/actions/disponibilidade.ts",
+    "src/actions/equipe.ts",
+    "src/actions/eventos.ts",
+    "src/actions/prontuarios.ts",
+    "src/actions/status-disponibilidade.ts",
+    "src/actions/templates.ts",
+    "src/actions/vendas.ts",
+    "src/app/(painel)/layout.tsx",
+    "src/components/features/contatos/KanbanContatos.tsx",
+    "src/components/features/vendas/FormEditarVenda.tsx",
+    "src/components/features/vendas/FormNovaVenda.tsx",
+    "src/components/layout/Sidebar.tsx",
+    "src/hooks/useRealtimeDisponibilidade.ts",
+    "src/lib/guard.ts",
+    "src/lib/supabase/middleware.ts",
+    "src/proxy.ts"
+  ],
+  "results": {
+    "get_user": {
+      "label": "Leitura de usuario logado",
+      "hits": 23,
+      "files": [
+        {
+          "path": "src/actions/templates.ts",
+          "hits": 4
+        },
+        {
+          "path": "src/actions/prontuarios.ts",
+          "hits": 2
+        },
+        {
+          "path": "src/actions/vendas.ts",
+          "hits": 2
+        },
+        {
+          "path": "src/actions/acessos.ts",
+          "hits": 1
+        },
+        {
+          "path": "src/actions/agenda.ts",
+          "hits": 1
+        },
+        {
+          "path": "src/actions/atendimentos.ts",
+          "hits": 1
+        },
+        {
+          "path": "src/actions/auth.ts",
+          "hits": 1
+        },
+        {
+          "path": "src/actions/contatos.ts",
+          "hits": 1
+        },
+        {
+          "path": "src/actions/disponibilidade.ts",
+          "hits": 1
+        },
+        {
+          "path": "src/actions/equipe.ts",
+          "hits": 1
+        },
+        {
+          "path": "src/actions/eventos.ts",
+          "hits": 1
+        },
+        {
+          "path": "src/actions/status-disponibilidade.ts",
+          "hits": 1
+        },
+        {
+          "path": "src/app/(painel)/layout.tsx",
+          "hits": 1
+        },
+        {
+          "path": "src/components/features/vendas/FormEditarVenda.tsx",
+          "hits": 1
+        },
+        {
+          "path": "src/components/features/vendas/FormNovaVenda.tsx",
+          "hits": 1
+        },
+        {
+          "path": "src/lib/guard.ts",
+          "hits": 1
+        },
+        {
+          "path": "src/lib/supabase/middleware.ts",
+          "hits": 1
+        },
+        {
+          "path": "src/proxy.ts",
+          "hits": 1
+        }
+      ]
+    },
+    "get_session": {
+      "label": "Leitura de sessao",
+      "hits": 2,
+      "files": [
+        {
+          "path": "src/components/features/contatos/KanbanContatos.tsx",
+          "hits": 1
+        },
+        {
+          "path": "src/hooks/useRealtimeDisponibilidade.ts",
+          "hits": 1
+        }
+      ]
+    },
+    "sign_in_password": {
+      "label": "Login por senha",
+      "hits": 3,
+      "files": [
+        {
+          "path": "src/actions/vendas.ts",
+          "hits": 2
+        },
+        {
+          "path": "src/actions/auth.ts",
+          "hits": 1
+        }
+      ]
+    },
+    "sign_out": {
+      "label": "Logout",
+      "hits": 2,
+      "files": [
+        {
+          "path": "src/actions/auth.ts",
+          "hits": 1
+        },
+        {
+          "path": "src/components/layout/Sidebar.tsx",
+          "hits": 1
+        }
+      ]
+    },
+    "update_user": {
+      "label": "Atualizacao de usuario autenticado",
+      "hits": 1,
+      "files": [
+        {
+          "path": "src/actions/auth.ts",
+          "hits": 1
+        }
+      ]
+    },
+    "auth_listener": {
+      "label": "Listener de auth",
+      "hits": 2,
+      "files": [
+        {
+          "path": "src/components/features/contatos/KanbanContatos.tsx",
+          "hits": 1
+        },
+        {
+          "path": "src/hooks/useRealtimeDisponibilidade.ts",
+          "hits": 1
+        }
+      ]
+    },
+    "admin_update_user": {
+      "label": "Admin update user",
+      "hits": 3,
+      "files": [
+        {
+          "path": "src/actions/equipe.ts",
+          "hits": 3
+        }
+      ]
+    },
+    "service_role": {
+      "label": "Service role key",
+      "hits": 5,
+      "files": [
+        {
+          "path": "src/actions/equipe.ts",
+          "hits": 4
+        },
+        {
+          "path": "src/actions/acessos.ts",
+          "hits": 1
+        }
+      ]
+    },
+    "middleware_session": {
+      "label": "Middleware / sessao",
+      "hits": 2,
+      "files": [
+        {
+          "path": "src/lib/supabase/middleware.ts",
+          "hits": 1
+        },
+        {
+          "path": "src/proxy.ts",
+          "hits": 1
+        }
+      ]
+    }
+  },
+  "critical_files": [
+    "src/actions/acessos.ts",
+    "src/actions/auth.ts",
+    "src/actions/equipe.ts",
+    "src/lib/guard.ts",
+    "src/lib/supabase/middleware.ts",
+    "src/proxy.ts"
+  ]
+}

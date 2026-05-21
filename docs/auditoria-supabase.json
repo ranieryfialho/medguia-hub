@@ -1,0 +1,452 @@
+{
+  "scanned_at": "2026-05-21T13:02:32.724Z",
+  "total_files": 179,
+  "files_with_supabase": 65,
+  "features": {
+    "server_client": {
+      "label": "Server client Supabase",
+      "files": [
+        "src/actions/acessos.ts",
+        "src/actions/agenda.ts",
+        "src/actions/atendimentos.ts",
+        "src/actions/auth.ts",
+        "src/actions/confirmacoes.ts",
+        "src/actions/contatos.ts",
+        "src/actions/disponibilidade.ts",
+        "src/actions/equipe.ts",
+        "src/actions/eventos.ts",
+        "src/actions/origens-paciente.ts",
+        "src/actions/pacientes.ts",
+        "src/actions/planos-saude.ts",
+        "src/actions/produtos.ts",
+        "src/actions/prontuarios.ts",
+        "src/actions/protocolos-atendimento.ts",
+        "src/actions/protocolos.ts",
+        "src/actions/status-disponibilidade.ts",
+        "src/actions/templates.ts",
+        "src/actions/tipos-consulta.ts",
+        "src/actions/vendas.ts",
+        "src/app/(painel)/agenda/page.tsx",
+        "src/app/(painel)/configuracoes/disponibilidade/page.tsx",
+        "src/app/(painel)/configuracoes/jornada/page.tsx",
+        "src/app/(painel)/confirmacoes/cards/page.tsx",
+        "src/app/(painel)/confirmacoes/semana/page.tsx",
+        "src/app/(painel)/contatos/page.tsx",
+        "src/app/(painel)/contatos/relatorio/page.tsx",
+        "src/app/(painel)/dashboard/page.tsx",
+        "src/app/(painel)/equipe/[id]/editar/page.tsx",
+        "src/app/(painel)/equipe/acessos/page.tsx",
+        "src/app/(painel)/equipe/page.tsx",
+        "src/app/(painel)/layout.tsx",
+        "src/app/(painel)/pacientes/[id]/editar/page.tsx",
+        "src/app/(painel)/pacientes/[id]/page.tsx",
+        "src/app/(painel)/pacientes/page.tsx",
+        "src/app/(painel)/pacientes/relatorio-cadastros/page.tsx",
+        "src/app/(painel)/pacientes/relatorio-consultas/page.tsx",
+        "src/app/(painel)/pacientes/tipos-consulta/page.tsx",
+        "src/app/(painel)/produtos/[id]/editar/page.tsx",
+        "src/app/(painel)/produtos/page.tsx",
+        "src/app/(painel)/prontuarios/[atendimentoId]/page.tsx",
+        "src/app/(painel)/prontuarios/page.tsx",
+        "src/app/(painel)/relatorios/tempo-fabril/page.tsx",
+        "src/app/(painel)/relatorios/vendas/page.tsx",
+        "src/app/(painel)/vendas/[id]/editar/page.tsx",
+        "src/app/(painel)/vendas/[id]/page.tsx",
+        "src/app/(painel)/vendas/nova/page.tsx",
+        "src/app/(painel)/vendas/page.tsx",
+        "src/app/(painel)/vendas/protocolos/page.tsx",
+        "src/app/api/contatos/kanban/route.ts",
+        "src/app/api/templates/route.ts",
+        "src/lib/agendamento-conflitos.ts",
+        "src/lib/contatos-kanban-data.ts",
+        "src/lib/guard.ts",
+        "src/lib/supabase/client.ts",
+        "src/lib/supabase/middleware.ts",
+        "src/lib/supabase/server.ts"
+      ],
+      "hits": 57
+    },
+    "browser_client": {
+      "label": "Browser client Supabase",
+      "files": [
+        "src/components/features/agenda/SlideNovoAgendamento.tsx",
+        "src/components/features/contatos/KanbanContatos.tsx",
+        "src/components/features/vendas/FormEditarVenda.tsx",
+        "src/components/features/vendas/FormNovaVenda.tsx",
+        "src/components/layout/Sidebar.tsx",
+        "src/hooks/useRealtimeDisponibilidade.ts",
+        "src/lib/supabase/client.ts"
+      ],
+      "hits": 7
+    },
+    "auth": {
+      "label": "Auth Supabase",
+      "files": [
+        "src/actions/acessos.ts",
+        "src/actions/agenda.ts",
+        "src/actions/atendimentos.ts",
+        "src/actions/auth.ts",
+        "src/actions/contatos.ts",
+        "src/actions/disponibilidade.ts",
+        "src/actions/equipe.ts",
+        "src/actions/eventos.ts",
+        "src/actions/prontuarios.ts",
+        "src/actions/status-disponibilidade.ts",
+        "src/actions/templates.ts",
+        "src/actions/vendas.ts",
+        "src/app/(painel)/layout.tsx",
+        "src/components/features/contatos/KanbanContatos.tsx",
+        "src/components/features/vendas/FormEditarVenda.tsx",
+        "src/components/features/vendas/FormNovaVenda.tsx",
+        "src/components/layout/Sidebar.tsx",
+        "src/hooks/useRealtimeDisponibilidade.ts",
+        "src/lib/guard.ts",
+        "src/lib/supabase/middleware.ts",
+        "src/proxy.ts"
+      ],
+      "hits": 66
+    },
+    "auth_admin": {
+      "label": "Admin Auth / service role",
+      "files": [
+        "src/actions/acessos.ts",
+        "src/actions/equipe.ts"
+      ],
+      "hits": 16
+    },
+    "storage": {
+      "label": "Storage Supabase",
+      "files": [],
+      "hits": 0
+    },
+    "realtime": {
+      "label": "Realtime Supabase",
+      "files": [
+        "src/components/features/contatos/KanbanContatos.tsx",
+        "src/hooks/useRealtimeDisponibilidade.ts"
+      ],
+      "hits": 12
+    },
+    "rpc": {
+      "label": "RPC SQL",
+      "files": [
+        "src/actions/contatos.ts",
+        "src/actions/status-disponibilidade.ts",
+        "src/lib/contatos-kanban-data.ts",
+        "src/lib/ultimo-atendimento.ts"
+      ],
+      "hits": 7
+    },
+    "middleware": {
+      "label": "Middleware de sessao",
+      "files": [
+        "src/lib/supabase/middleware.ts",
+        "src/proxy.ts"
+      ],
+      "hits": 2
+    }
+  },
+  "table_usage": [
+    {
+      "table": "atendimentos",
+      "hits": 57,
+      "files": [
+        "src/actions/agenda.ts",
+        "src/actions/atendimentos.ts",
+        "src/actions/confirmacoes.ts",
+        "src/actions/prontuarios.ts",
+        "src/app/(painel)/agenda/page.tsx",
+        "src/app/(painel)/configuracoes/disponibilidade/page.tsx",
+        "src/app/(painel)/confirmacoes/cards/page.tsx",
+        "src/app/(painel)/confirmacoes/semana/page.tsx",
+        "src/app/(painel)/dashboard/page.tsx",
+        "src/app/(painel)/pacientes/[id]/page.tsx",
+        "src/app/(painel)/pacientes/relatorio-consultas/page.tsx",
+        "src/app/(painel)/prontuarios/[atendimentoId]/page.tsx",
+        "src/app/(painel)/prontuarios/page.tsx",
+        "src/app/(painel)/relatorios/tempo-fabril/page.tsx",
+        "src/lib/agendamento-conflitos.ts",
+        "src/lib/ultimo-atendimento.ts"
+      ]
+    },
+    {
+      "table": "profiles",
+      "hits": 48,
+      "files": [
+        "src/actions/acessos.ts",
+        "src/actions/agenda.ts",
+        "src/actions/auth.ts",
+        "src/actions/contatos.ts",
+        "src/actions/equipe.ts",
+        "src/actions/pacientes.ts",
+        "src/actions/prontuarios.ts",
+        "src/actions/vendas.ts",
+        "src/app/(painel)/agenda/page.tsx",
+        "src/app/(painel)/configuracoes/disponibilidade/page.tsx",
+        "src/app/(painel)/configuracoes/jornada/page.tsx",
+        "src/app/(painel)/contatos/page.tsx",
+        "src/app/(painel)/dashboard/page.tsx",
+        "src/app/(painel)/equipe/[id]/editar/page.tsx",
+        "src/app/(painel)/equipe/acessos/page.tsx",
+        "src/app/(painel)/equipe/page.tsx",
+        "src/app/(painel)/layout.tsx",
+        "src/app/(painel)/pacientes/relatorio-consultas/page.tsx",
+        "src/app/(painel)/prontuarios/page.tsx",
+        "src/app/(painel)/relatorios/tempo-fabril/page.tsx",
+        "src/app/(painel)/relatorios/vendas/page.tsx",
+        "src/app/(painel)/vendas/[id]/editar/page.tsx",
+        "src/app/(painel)/vendas/nova/page.tsx",
+        "src/app/(painel)/vendas/page.tsx",
+        "src/lib/contatos-kanban-data.ts",
+        "src/lib/guard.ts"
+      ]
+    },
+    {
+      "table": "pacientes",
+      "hits": 21,
+      "files": [
+        "src/actions/contatos.ts",
+        "src/actions/pacientes.ts",
+        "src/app/(painel)/dashboard/page.tsx",
+        "src/app/(painel)/pacientes/[id]/editar/page.tsx",
+        "src/app/(painel)/pacientes/[id]/page.tsx",
+        "src/app/(painel)/pacientes/page.tsx",
+        "src/app/(painel)/pacientes/relatorio-cadastros/page.tsx",
+        "src/app/(painel)/prontuarios/page.tsx",
+        "src/app/(painel)/vendas/page.tsx",
+        "src/components/features/agenda/SlideNovoAgendamento.tsx",
+        "src/lib/contatos-kanban-data.ts"
+      ]
+    },
+    {
+      "table": "vendas",
+      "hits": 20,
+      "files": [
+        "src/actions/agenda.ts",
+        "src/actions/vendas.ts",
+        "src/app/(painel)/pacientes/[id]/page.tsx",
+        "src/app/(painel)/relatorios/vendas/page.tsx",
+        "src/app/(painel)/vendas/[id]/editar/page.tsx",
+        "src/app/(painel)/vendas/[id]/page.tsx",
+        "src/app/(painel)/vendas/page.tsx"
+      ]
+    },
+    {
+      "table": "produtos",
+      "hits": 14,
+      "files": [
+        "src/actions/produtos.ts",
+        "src/app/(painel)/produtos/[id]/editar/page.tsx",
+        "src/app/(painel)/produtos/page.tsx",
+        "src/app/(painel)/relatorios/vendas/page.tsx",
+        "src/app/(painel)/vendas/[id]/editar/page.tsx",
+        "src/app/(painel)/vendas/nova/page.tsx",
+        "src/app/(painel)/vendas/protocolos/page.tsx"
+      ]
+    },
+    {
+      "table": "contatos_base",
+      "hits": 13,
+      "files": [
+        "src/actions/contatos.ts",
+        "src/app/(painel)/contatos/relatorio/page.tsx",
+        "src/app/(painel)/dashboard/page.tsx",
+        "src/lib/contatos-kanban-data.ts"
+      ]
+    },
+    {
+      "table": "disponibilidade_profissional",
+      "hits": 13,
+      "files": [
+        "src/actions/agenda.ts",
+        "src/actions/disponibilidade.ts",
+        "src/app/(painel)/configuracoes/disponibilidade/page.tsx",
+        "src/app/(painel)/dashboard/page.tsx",
+        "src/app/(painel)/pacientes/relatorio-consultas/page.tsx",
+        "src/app/(painel)/relatorios/tempo-fabril/page.tsx",
+        "src/app/(painel)/vendas/nova/page.tsx"
+      ]
+    },
+    {
+      "table": "kanban_colunas_contatos",
+      "hits": 11,
+      "files": [
+        "src/actions/contatos.ts",
+        "src/app/(painel)/contatos/page.tsx",
+        "src/app/(painel)/contatos/relatorio/page.tsx",
+        "src/app/api/contatos/kanban/route.ts"
+      ]
+    },
+    {
+      "table": "agendamentos",
+      "hits": 9,
+      "files": [
+        "src/actions/agenda.ts",
+        "src/actions/confirmacoes.ts",
+        "src/app/(painel)/pacientes/relatorio-consultas/page.tsx"
+      ]
+    },
+    {
+      "table": "tipos_consulta",
+      "hits": 9,
+      "files": [
+        "src/actions/tipos-consulta.ts",
+        "src/app/(painel)/pacientes/relatorio-consultas/page.tsx",
+        "src/app/(painel)/pacientes/tipos-consulta/page.tsx"
+      ]
+    },
+    {
+      "table": "itens_venda",
+      "hits": 8,
+      "files": [
+        "src/actions/produtos.ts",
+        "src/actions/vendas.ts",
+        "src/app/(painel)/vendas/[id]/editar/page.tsx",
+        "src/app/(painel)/vendas/[id]/page.tsx"
+      ]
+    },
+    {
+      "table": "prontuarios",
+      "hits": 8,
+      "files": [
+        "src/actions/agenda.ts",
+        "src/actions/prontuarios.ts",
+        "src/app/(painel)/prontuarios/[atendimentoId]/page.tsx",
+        "src/app/(painel)/prontuarios/page.tsx"
+      ]
+    },
+    {
+      "table": "protocolos",
+      "hits": 8,
+      "files": [
+        "src/actions/protocolos.ts",
+        "src/app/(painel)/relatorios/vendas/page.tsx"
+      ]
+    },
+    {
+      "table": "protocolos_atendimento",
+      "hits": 8,
+      "files": [
+        "src/actions/protocolos-atendimento.ts"
+      ]
+    },
+    {
+      "table": "origens_paciente",
+      "hits": 7,
+      "files": [
+        "src/actions/origens-paciente.ts"
+      ]
+    },
+    {
+      "table": "planos_saude",
+      "hits": 7,
+      "files": [
+        "src/actions/planos-saude.ts"
+      ]
+    },
+    {
+      "table": "templates_mensagem",
+      "hits": 6,
+      "files": [
+        "src/actions/templates.ts",
+        "src/app/(painel)/contatos/page.tsx",
+        "src/app/api/templates/route.ts"
+      ]
+    },
+    {
+      "table": "notas_contato",
+      "hits": 5,
+      "files": [
+        "src/actions/contatos.ts",
+        "src/app/(painel)/contatos/relatorio/page.tsx"
+      ]
+    },
+    {
+      "table": "protocolo_atendimento_itens",
+      "hits": 5,
+      "files": [
+        "src/actions/protocolos-atendimento.ts"
+      ]
+    },
+    {
+      "table": "eventos_paciente",
+      "hits": 4,
+      "files": [
+        "src/actions/atendimentos.ts",
+        "src/actions/eventos.ts"
+      ]
+    },
+    {
+      "table": "status_disponibilidade",
+      "hits": 3,
+      "files": [
+        "src/actions/status-disponibilidade.ts"
+      ]
+    },
+    {
+      "table": "protocolo_itens",
+      "hits": 2,
+      "files": [
+        "src/actions/protocolos.ts"
+      ]
+    },
+    {
+      "table": "historico_reunioes",
+      "hits": 1,
+      "files": [
+        "src/app/(painel)/relatorios/tempo-fabril/page.tsx"
+      ]
+    }
+  ],
+  "rpc_usage": [
+    {
+      "rpc": "fn_contar_contatos_kanban",
+      "hits": 1,
+      "files": [
+        "src/lib/contatos-kanban-data.ts"
+      ]
+    },
+    {
+      "rpc": "fn_contar_pacientes_disponiveis_contatos_base",
+      "hits": 1,
+      "files": [
+        "src/lib/contatos-kanban-data.ts"
+      ]
+    },
+    {
+      "rpc": "fn_contar_responsaveis_contatos_kanban",
+      "hits": 1,
+      "files": [
+        "src/lib/contatos-kanban-data.ts"
+      ]
+    },
+    {
+      "rpc": "fn_listar_contatos_kanban",
+      "hits": 1,
+      "files": [
+        "src/lib/contatos-kanban-data.ts"
+      ]
+    },
+    {
+      "rpc": "fn_materializar_pacientes_contatos_base",
+      "hits": 1,
+      "files": [
+        "src/actions/contatos.ts"
+      ]
+    },
+    {
+      "rpc": "fn_status_equipe_agora",
+      "hits": 1,
+      "files": [
+        "src/actions/status-disponibilidade.ts"
+      ]
+    },
+    {
+      "rpc": "fn_ultimo_atendimento_por_pacientes",
+      "hits": 1,
+      "files": [
+        "src/lib/ultimo-atendimento.ts"
+      ]
+    }
+  ]
+}

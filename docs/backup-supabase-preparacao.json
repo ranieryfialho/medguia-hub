@@ -1,0 +1,65 @@
+{
+  "generated_at": "2026-05-21T13:06:02.508Z",
+  "backup_folder": "tmp/backup-supabase-2026-05-21",
+  "required_env": [
+    {
+      "name": "NEXT_PUBLIC_SUPABASE_URL",
+      "status": "ausente"
+    },
+    {
+      "name": "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      "status": "ausente"
+    },
+    {
+      "name": "SUPABASE_SERVICE_ROLE_KEY",
+      "status": "ausente"
+    }
+  ],
+  "db_env_options": [
+    {
+      "name": "SUPABASE_DB_URL",
+      "status": "ausente"
+    },
+    {
+      "name": "SUPABASE_DB_DIRECT_URL",
+      "status": "ausente"
+    },
+    {
+      "name": "SUPABASE_DATABASE_URL",
+      "status": "ausente"
+    }
+  ],
+  "optional_env": [
+    {
+      "name": "SUPABASE_PROJECT_REF",
+      "status": "ausente"
+    },
+    {
+      "name": "SUPABASE_ACCESS_TOKEN",
+      "status": "ausente"
+    }
+  ],
+  "readiness": {
+    "required_ok": false,
+    "db_url_ok": false,
+    "recommended_ok": false
+  },
+  "commands": [
+    {
+      "step": "Criar dump completo",
+      "command": "Defina SUPABASE_DB_URL ou SUPABASE_DB_DIRECT_URL para gerar o comando de pg_dump."
+    },
+    {
+      "step": "Criar dump apenas de schema",
+      "command": "Defina SUPABASE_DB_URL ou SUPABASE_DB_DIRECT_URL para gerar o comando de schema."
+    },
+    {
+      "step": "Criar dump apenas de dados",
+      "command": "Defina SUPABASE_DB_URL ou SUPABASE_DB_DIRECT_URL para gerar o comando de dados."
+    },
+    {
+      "step": "Gerar checksum local",
+      "command": "sha256sum \"tmp/backup-supabase-2026-05-21/*\""
+    }
+  ]
+}

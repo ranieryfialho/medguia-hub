@@ -6,7 +6,10 @@
     "dev": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "audit:supabase": "node scripts/auditar-supabase.mjs",
+    "audit:supabase:auth": "node scripts/auditar-supabase-auth.mjs",
+    "backup:supabase:prepare": "node scripts/preparar-backup-supabase.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.9.0",
