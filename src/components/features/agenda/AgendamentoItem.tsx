@@ -118,6 +118,29 @@ function formatarEscalaDor(escalaDor: number | null) {
   return `EVA ${escalaDor}/10`
 }
 
+function getResumoStatusBadgeClass(status: string) {
+  switch (getAtendimentoStatusKey(status)) {
+    case 'concluido':
+      return 'bg-violet-100 text-violet-700'
+    case 'cancelado':
+      return 'bg-red-100 text-red-700'
+    case 'falta':
+      return 'bg-slate-200 text-slate-700'
+    case 'reagendado':
+      return 'bg-orange-100 text-orange-700'
+    case 'em_atendimento':
+      return 'bg-blue-100 text-blue-700'
+    case 'confirmado':
+      return 'bg-green-100 text-green-700'
+    case 'aguardando_consulta':
+      return 'bg-teal-100 text-teal-700'
+    case 'aguardando':
+      return 'bg-amber-100 text-amber-700'
+    default:
+      return 'bg-[#f0f5f4] text-[#3d4945]'
+  }
+}
+
 export function ConfirmacaoFaltaModal({ onConfirmar, onCancelar }: { onConfirmar: (reagendar: boolean) => void; onCancelar: () => void }) {
   const [reagendar, setReagendar] = useState(true)
 
@@ -161,7 +184,17 @@ export function ConfirmacaoFaltaModal({ onConfirmar, onCancelar }: { onConfirmar
   )
 }
 
-function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDetalhe; onClose: () => void; onEditar: () => void }) {
+function Modal({
+  agendamento,
+  onClose,
+  onEditar,
+  podeVerComercial = false,
+}: {
+  agendamento: AgendamentoDetalhe
+  onClose: () => void
+  onEditar: () => void
+  podeVerComercial?: boolean
+}) {
   const router = useRouter()
   const [status, setStatus] = useState(agendamento.status)
   const [activeTab, setActiveTab] = useState<'detalhes' | 'evolucao' | 'historico'>('detalhes')
@@ -658,22 +691,64 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
                         <p className="mt-1 text-lg font-extrabold text-[#083142]">{historicoResumo.metricas.consultas_total}</p>
                         <p className="text-xs text-[#6d7a75]">{historicoResumo.metricas.consultas_concluidas} concluídas</p>
                       </div>
-                      <div className="rounded-xl bg-[#f0f5f4] p-3">
-                        <p className="text-[11px] font-bold uppercase tracking-wider text-[#6d7a75]">Comercial</p>
-                        <p className="mt-1 text-lg font-extrabold text-[#083142]">{historicoResumo.metricas.vendas_realizadas}</p>
-                        <p className="text-xs text-[#6d7a75]">{historicoResumo.metricas.orcamentos_passados} orçamento(s)</p>
-                      </div>
+                      {podeVerComercial ? (
+                        <div className="rounded-xl bg-[#f0f5f4] p-3">
+                          <p className="text-[11px] font-bold uppercase tracking-wider text-[#6d7a75]">Comercial</p>
+                          <p className="mt-1 text-lg font-extrabold text-[#083142]">{historicoResumo.metricas.vendas_realizadas}</p>
+                          <p className="text-xs text-[#6d7a75]">{historicoResumo.metricas.orcamentos_passados} orçamento(s)</p>
+                        </div>
+                      ) : null}
                       <div className="rounded-xl bg-white border border-[#bcc9c4]/40 p-3">
                         <p className="text-[11px] font-bold uppercase tracking-wider text-[#6d7a75]">Não efetivas</p>
                         <p className="mt-1 text-lg font-extrabold text-[#083142]">{historicoResumo.metricas.consultas_nao_efetivas}</p>
                         <p className="text-xs text-[#6d7a75]">faltas, cancelamentos e reagendamentos</p>
                       </div>
-                      <div className="rounded-xl bg-white border border-[#bcc9c4]/40 p-3">
-                        <p className="text-[11px] font-bold uppercase tracking-wider text-[#6d7a75]">Valor vendido</p>
-                        <p className="mt-1 text-lg font-extrabold text-[#083142]">{formatarMoeda(historicoResumo.metricas.valor_total_vendas)}</p>
-                        <p className="text-xs text-[#6d7a75]">somente vendas confirmadas</p>
-                      </div>
+                      {podeVerComercial ? (
+                        <div className="rounded-xl bg-white border border-[#bcc9c4]/40 p-3">
+                          <p className="text-[11px] font-bold uppercase tracking-wider text-[#6d7a75]">Valor vendido</p>
+                          <p className="mt-1 text-lg font-extrabold text-[#083142]">{formatarMoeda(historicoResumo.metricas.valor_total_vendas)}</p>
+                          <p className="text-xs text-[#6d7a75]">somente vendas confirmadas</p>
+                        </div>
+                      ) : null}
                     </div>
+
+                    {historicoResumo.resumo_tipos.length > 0 ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-[#6d7a75]">Resumo por tipo</h4>
+                          <span className="text-[11px] text-[#6d7a75]">
+                            {historicoResumo.resumo_tipos.length} tipo{historicoResumo.resumo_tipos.length !== 1 ? 's' : ''}
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {historicoResumo.resumo_tipos.map((item) => (
+                            <div key={item.tipo} className="rounded-xl border border-[#bcc9c4]/30 bg-[#fcfdfd] px-3 py-3">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold text-[#171d1c]">{item.tipo}</p>
+                                  <p className="text-xs text-[#6d7a75]">
+                                    {item.total} agendamento{item.total !== 1 ? 's' : ''}
+                                  </p>
+                                </div>
+                                <span className="shrink-0 rounded-full bg-[#f0f5f4] px-2 py-0.5 text-[10px] font-bold text-[#3d4945]">
+                                  Total {item.total}
+                                </span>
+                              </div>
+                              <div className="mt-2 flex flex-wrap gap-1.5">
+                                {item.statuses.map((statusItem) => (
+                                  <span
+                                    key={`${item.tipo}-${statusItem.status}`}
+                                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${getResumoStatusBadgeClass(statusItem.status)}`}
+                                  >
+                                    {statusItem.total} {statusItem.status}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
 
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
@@ -697,6 +772,11 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
                                   <p className="text-xs text-[#6d7a75]">
                                     {format(new Date(consulta.data_agendamento), "dd/MM/yyyy 'às' HH:mm")}
                                   </p>
+                                  {consulta.profissional_nome ? (
+                                    <p className="text-xs text-[#6d7a75]">
+                                      Profissional: {consulta.profissional_nome}
+                                    </p>
+                                  ) : null}
                                 </div>
                                 <span className="shrink-0 rounded-full bg-[#f0f5f4] px-2 py-0.5 text-[10px] font-bold text-[#3d4945]">
                                   {normalizeAtendimentoStatus(consulta.status)}
@@ -724,6 +804,11 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
                                   <p className="text-xs text-[#6d7a75]">
                                     {format(new Date(item.data_agendamento), "dd/MM/yyyy 'às' HH:mm")}
                                   </p>
+                                  {item.profissional_nome ? (
+                                    <p className="text-xs text-[#6d7a75]">
+                                      Profissional: {item.profissional_nome}
+                                    </p>
+                                  ) : null}
                                 </div>
                                 <div className="flex shrink-0 flex-col items-end gap-1">
                                   <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-700">
@@ -771,39 +856,41 @@ function Modal({ agendamento, onClose, onEditar }: { agendamento: AgendamentoDet
                       )}
                     </div>
 
-                    <div className="space-y-2">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-[#6d7a75]">Histórico comercial</h4>
-                      {historicoResumo.comercial.length > 0 ? historicoResumo.comercial.map((item) => (
-                        <div key={item.id} className="rounded-xl border border-[#bcc9c4]/30 bg-[#fcfdfd] px-3 py-3">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="text-sm font-semibold text-[#171d1c]">{formatarStatusComercial(item.status)}</p>
-                              <p className="text-xs text-[#6d7a75]">
-                                {format(new Date(item.data_venda), 'dd/MM/yyyy')}
-                                {item.profissional_nome ? ` · ${item.profissional_nome}` : ''}
-                              </p>
+                    {podeVerComercial ? (
+                      <div className="space-y-2">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-[#6d7a75]">Histórico comercial</h4>
+                        {historicoResumo.comercial.length > 0 ? historicoResumo.comercial.map((item) => (
+                          <div key={item.id} className="rounded-xl border border-[#bcc9c4]/30 bg-[#fcfdfd] px-3 py-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-[#171d1c]">{formatarStatusComercial(item.status)}</p>
+                                <p className="text-xs text-[#6d7a75]">
+                                  {format(new Date(item.data_venda), 'dd/MM/yyyy')}
+                                  {item.profissional_nome ? ` · ${item.profissional_nome}` : ''}
+                                </p>
+                              </div>
+                              <span className="shrink-0 text-sm font-bold text-[#006b5a]">{formatarMoeda(item.total)}</span>
                             </div>
-                            <span className="shrink-0 text-sm font-bold text-[#006b5a]">{formatarMoeda(item.total)}</span>
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {item.origem ? (
+                                <span className="rounded-full bg-[#f0f5f4] px-2 py-0.5 text-[10px] font-semibold text-[#5a6a65]">
+                                  {item.origem}
+                                </span>
+                              ) : null}
+                              {item.itens_resumo.map((nome) => (
+                                <span key={nome} className="rounded-full border border-[#bcc9c4]/40 bg-white px-2 py-0.5 text-[10px] font-medium text-[#3d4945]">
+                                  {nome}
+                                </span>
+                              ))}
+                            </div>
                           </div>
-                          <div className="mt-2 flex flex-wrap gap-1.5">
-                            {item.origem ? (
-                              <span className="rounded-full bg-[#f0f5f4] px-2 py-0.5 text-[10px] font-semibold text-[#5a6a65]">
-                                {item.origem}
-                              </span>
-                            ) : null}
-                            {item.itens_resumo.map((nome) => (
-                              <span key={nome} className="rounded-full border border-[#bcc9c4]/40 bg-white px-2 py-0.5 text-[10px] font-medium text-[#3d4945]">
-                                {nome}
-                              </span>
-                            ))}
+                        )) : (
+                          <div className="rounded-xl bg-[#f0f5f4] px-4 py-3 text-sm text-[#6d7a75]">
+                            Nenhuma venda ou orçamento encontrado para este paciente.
                           </div>
-                        </div>
-                      )) : (
-                        <div className="rounded-xl bg-[#f0f5f4] px-4 py-3 text-sm text-[#6d7a75]">
-                          Nenhuma venda ou orçamento encontrado para este paciente.
-                        </div>
-                      )}
-                    </div>
+                        )}
+                      </div>
+                    ) : null}
                   </>
                 ) : null}
               </>
@@ -1070,11 +1157,13 @@ export function AgendamentoItemDia({
   pacientes,
   profissionais,
   planos = [],
+  podeVerComercial = false,
 }: {
   agendamento: AgendamentoDetalhe
   pacientes: Paciente[]
   profissionais: Profissional[]
   planos?: PlanoSaude[]
+  podeVerComercial?: boolean
 }) {
   const [modalAberto, setModalAberto] = useState(false)
   const [slideEditarAberto, setSlideEditarAberto] = useState(false)
@@ -1157,6 +1246,7 @@ export function AgendamentoItemDia({
       {modalAberto && (
         <Modal
           agendamento={agendamento}
+          podeVerComercial={podeVerComercial}
           onClose={() => setModalAberto(false)}
           onEditar={() => { setModalAberto(false); setSlideEditarAberto(true) }}
         />
@@ -1180,11 +1270,13 @@ export function AgendamentoItemSemana({
   pacientes,
   profissionais,
   planos = [],
+  podeVerComercial = false,
 }: {
   agendamento: AgendamentoDetalhe
   pacientes: Paciente[]
   profissionais: Profissional[]
   planos?: PlanoSaude[]
+  podeVerComercial?: boolean
 }) {
   const [modalAberto, setModalAberto] = useState(false)
   const [slideEditarAberto, setSlideEditarAberto] = useState(false)
@@ -1215,6 +1307,7 @@ export function AgendamentoItemSemana({
       {modalAberto && (
         <Modal
           agendamento={agendamento}
+          podeVerComercial={podeVerComercial}
           onClose={() => setModalAberto(false)}
           onEditar={() => { setModalAberto(false); setSlideEditarAberto(true) }}
         />

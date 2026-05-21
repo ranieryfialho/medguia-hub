@@ -119,6 +119,11 @@ export default async function AgendaPage({ searchParams }: PageProps) {
   const supabase = await createClient()
 
   const isFisioterapeuta = profile?.role === 'fisioterapeuta'
+  const podeVerComercial =
+    profile?.role === 'gestor' ||
+    profile?.role === 'master' ||
+    profile?.nivel_acesso === 'gestor' ||
+    profile?.nivel_acesso === 'master'
 
   const params = await searchParams
   const view = typeof params.view === 'string' ? params.view : 'dia'
@@ -629,7 +634,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-2 space-y-3 scrollbar-thin scrollbar-thumb-slate-200 md:flex-none md:max-h-[calc(100dvh-280px)]">
                   {agendamentosHoje.length > 0 ? (
                     agendamentosHoje.map((agendamento) => (
-                      <AgendamentoItemDia key={agendamento.id} agendamento={agendamento} pacientes={listaPacientes || []} profissionais={todosProfissionaisFormatados} planos={planosSaude} />
+                      <AgendamentoItemDia key={agendamento.id} agendamento={agendamento} pacientes={listaPacientes || []} profissionais={todosProfissionaisFormatados} planos={planosSaude} podeVerComercial={podeVerComercial} />
                     ))
                   ) : (
                     <div className="py-8 text-center text-[#3d4945]/50 text-sm font-medium">Nenhum agendamento para este dia.</div>
@@ -683,7 +688,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                             return (
                               <div key={dia.toString()} className={`border-t border-l border-dashed border-[#bcc9c4]/30 p-1 relative transition-colors ${foraDisponibilidade ? 'bg-slate-100/70' : 'bg-[#f9fbfb]/50 group-hover:bg-[#f0f5f4]/50'}`}>
                                 {agendamentosNestaHora.map(agendamento => (
-                                  <AgendamentoItemSemana key={agendamento.id} agendamento={agendamento} pacientes={listaPacientes || []} profissionais={todosProfissionaisFormatados} planos={planosSaude} />
+                                  <AgendamentoItemSemana key={agendamento.id} agendamento={agendamento} pacientes={listaPacientes || []} profissionais={todosProfissionaisFormatados} planos={planosSaude} podeVerComercial={podeVerComercial} />
                                 ))}
                               </div>
                             )

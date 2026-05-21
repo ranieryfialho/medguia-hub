@@ -407,16 +407,26 @@ export type HistoricoPacienteResumo = {
     orcamentos_passados: number
     valor_total_vendas: number
   }
+  resumo_tipos: Array<{
+    tipo: string
+    total: number
+    statuses: Array<{
+      status: string
+      total: number
+    }>
+  }>
   consultas: Array<{
     id: string
     data_agendamento: string
     status: string
     tipo: string | null
+    profissional_nome: string | null
   }>
   evolucoes: Array<{
     atendimento_id: string
     data_agendamento: string
     tipo: string | null
+    profissional_nome: string | null
     escala_dor: number | null
     evolucao: string | null
     procedimentos: string | null
@@ -441,6 +451,7 @@ export async function buscarHistoricoPacienteResumo(pacienteId: string): Promise
     { count: consultasTotal, error: consultasTotalError },
     { count: consultasConcluidas, error: consultasConcluidasError },
     { count: consultasNaoEfetivas, error: consultasNaoEfetivasError },
+    { data: atendimentosResumo, error: atendimentosResumoError },
     { data: atendimentos, error: atendimentosError },
     { data: prontuarios, error: prontuariosError },
     { count: vendasRealizadas, error: vendasRealizadasError },
@@ -464,7 +475,11 @@ export async function buscarHistoricoPacienteResumo(pacienteId: string): Promise
       .in('status', STATUS_NAO_BLOQUEIAM_RAW_VALUES),
     supabase
       .from('atendimentos')
-      .select('id, data_agendamento, status, tipo')
+      .select('tipo, status')
+      .eq('paciente_id', pacienteId),
+    supabase
+      .from('atendimentos')
+      .select('id, data_agendamento, status, tipo, profissional:profiles!profissional_id(full_name)')
       .eq('paciente_id', pacienteId)
       .order('data_agendamento', { ascending: false })
       .limit(5),
@@ -477,7 +492,7 @@ export async function buscarHistoricoPacienteResumo(pacienteId: string): Promise
         procedimentos,
         observacoes,
         updated_at,
-        atendimentos!inner(data_agendamento, tipo, status)
+        atendimentos!inner(data_agendamento, tipo, status, profissional:profiles!profissional_id(full_name))
       `)
       .eq('paciente_id', pacienteId)
       .in('atendimentos.status', STATUS_CONCLUIDO_RAW_VALUES)
@@ -516,6 +531,7 @@ export async function buscarHistoricoPacienteResumo(pacienteId: string): Promise
   if (consultasTotalError) return { error: consultasTotalError.message }
   if (consultasConcluidasError) return { error: consultasConcluidasError.message }
   if (consultasNaoEfetivasError) return { error: consultasNaoEfetivasError.message }
+  if (atendimentosResumoError) return { error: atendimentosResumoError.message }
   if (atendimentosError) return { error: atendimentosError.message }
   if (prontuariosError) return { error: prontuariosError.message }
   if (vendasRealizadasError) return { error: vendasRealizadasError.message }
@@ -523,7 +539,17 @@ export async function buscarHistoricoPacienteResumo(pacienteId: string): Promise
   if (vendasConfirmadasError) return { error: vendasConfirmadasError.message }
   if (vendasError) return { error: vendasError.message }
 
-  const atendimentosLista = atendimentos ?? []
+  const atendimentosLista = (atendimentos ?? []) as Array<{
+    id: string
+    data_agendamento: string
+    status: string
+    tipo?: string | null
+    profissional?: { full_name?: string | null } | { full_name?: string | null }[] | null
+  }>
+  const atendimentosResumoLista = (atendimentosResumo ?? []) as Array<{
+    tipo?: string | null
+    status?: string | null
+  }>
   const prontuariosLista = (prontuarios ?? []) as Array<{
     atendimento_id: string
     evolucao?: string | null
@@ -535,10 +561,12 @@ export async function buscarHistoricoPacienteResumo(pacienteId: string): Promise
       data_agendamento?: string | null
       tipo?: string | null
       status?: string | null
+      profissional?: { full_name?: string | null } | { full_name?: string | null }[] | null
     } | {
       data_agendamento?: string | null
       tipo?: string | null
       status?: string | null
+      profissional?: { full_name?: string | null } | { full_name?: string | null }[] | null
     }[] | null
   }>
   const vendasConfirmadasLista = (vendasConfirmadas ?? []) as Array<{
@@ -565,12 +593,54 @@ export async function buscarHistoricoPacienteResumo(pacienteId: string): Promise
       sum + (item.quantidade ?? 0) * (item.preco_unitario ?? 0), 0)
     return acc + totalVenda
   }, 0)
+  const statusOrder = [
+    'Concluído',
+    'Confirmado',
+    'Aguardando',
+    'Aguardando Consulta',
+    'Em Atendimento',
+    'Cancelado',
+    'Falta',
+    'Reagendado',
+  ]
+  const resumoPorTipoMap = new Map<string, { total: number; statusMap: Map<string, number> }>()
+
+  for (const atendimento of atendimentosResumoLista) {
+    const tipo = atendimento.tipo?.trim() || 'Sessão'
+    const status = normalizeAtendimentoStatus(atendimento.status)
+    const atual = resumoPorTipoMap.get(tipo) ?? { total: 0, statusMap: new Map<string, number>() }
+
+    atual.total += 1
+    atual.statusMap.set(status, (atual.statusMap.get(status) ?? 0) + 1)
+    resumoPorTipoMap.set(tipo, atual)
+  }
+
+  const resumoTipos = Array.from(resumoPorTipoMap.entries())
+    .map(([tipo, resumo]) => ({
+      tipo,
+      total: resumo.total,
+      statuses: Array.from(resumo.statusMap.entries())
+        .sort((a, b) => {
+          const orderA = statusOrder.indexOf(a[0])
+          const orderB = statusOrder.indexOf(b[0])
+          const posA = orderA === -1 ? Number.MAX_SAFE_INTEGER : orderA
+          const posB = orderB === -1 ? Number.MAX_SAFE_INTEGER : orderB
+          if (posA !== posB) return posA - posB
+          return b[1] - a[1]
+        })
+        .map(([status, total]) => ({ status, total })),
+    }))
+    .sort((a, b) => b.total - a.total || a.tipo.localeCompare(b.tipo, 'pt-BR'))
+
   const evolucoes = prontuariosLista
     .map((prontuario) => {
       const atendimento = Array.isArray(prontuario.atendimentos)
         ? prontuario.atendimentos[0] ?? null
         : prontuario.atendimentos ?? null
       if (!atendimento?.data_agendamento) return null
+      const profissional = Array.isArray(atendimento.profissional)
+        ? atendimento.profissional[0] ?? null
+        : atendimento.profissional ?? null
       const temConteudo = !!(
         prontuario.evolucao?.trim() ||
         prontuario.procedimentos?.trim() ||
@@ -582,6 +652,7 @@ export async function buscarHistoricoPacienteResumo(pacienteId: string): Promise
         atendimento_id: prontuario.atendimento_id,
         data_agendamento: atendimento.data_agendamento,
         tipo: atendimento.tipo ?? null,
+        profissional_nome: profissional?.full_name ?? null,
         escala_dor: prontuario.escala_dor ?? null,
         evolucao: prontuario.evolucao ?? null,
         procedimentos: prontuario.procedimentos ?? null,
@@ -602,11 +673,15 @@ export async function buscarHistoricoPacienteResumo(pacienteId: string): Promise
         orcamentos_passados: orcamentosPassados ?? 0,
         valor_total_vendas: valorTotalVendas,
       },
+      resumo_tipos: resumoTipos,
       consultas: atendimentosLista.map((item) => ({
         id: item.id,
         data_agendamento: item.data_agendamento,
         status: item.status,
         tipo: item.tipo ?? null,
+        profissional_nome: Array.isArray(item.profissional)
+          ? item.profissional[0]?.full_name ?? null
+          : item.profissional?.full_name ?? null,
       })),
       evolucoes,
       comercial: vendasLista.map((venda) => {
