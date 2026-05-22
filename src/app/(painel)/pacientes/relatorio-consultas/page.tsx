@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { requireModulo } from '@/lib/guard'
 import { getAppDayRangeUTC } from '@/lib/datetime'
+import { format } from 'date-fns'
 import {
   getAtendimentoStatusKey,
   normalizeAtendimentoStatus,
@@ -10,6 +11,8 @@ import {
   BarChart3,
   CalendarCheck2,
   ClipboardList,
+  ChevronDown,
+  ChevronUp,
   RefreshCw,
   Stethoscope,
   TrendingUp,
@@ -39,6 +42,8 @@ type AtendimentoResumo = {
   tipo: string | null
   status: string | null
   data_agendamento: string
+  profissional?: { full_name: string | null } | Array<{ full_name: string | null }> | null
+  pacientes?: { nome: string | null; telefone: string | null; email: string | null } | Array<{ nome: string | null; telefone: string | null; email: string | null }> | null
 }
 
 type MetricaTipo = {
@@ -95,6 +100,11 @@ function normalizarPlanoSaude(plano: string | null | undefined) {
   return texto || 'Não informado'
 }
 
+function firstRelation<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) return value[0] ?? null
+  return value ?? null
+}
+
 function buildRelatorioConsultasUrl({
   visao,
   data_inicio,
@@ -114,6 +124,38 @@ function buildRelatorioConsultasUrl({
   query.set('data_fim', data_fim)
   if (status_filtro) query.set('status', status_filtro)
   for (const tipo of tipos_filtro) query.append('tipo', tipo)
+  return `/pacientes/relatorio-consultas?${query.toString()}`
+}
+
+function buildDetalhamentoUrl(
+  params: { [key: string]: string | string[] | undefined },
+  overrides: {
+    detalhe_pagina?: number
+    detalhe_limite?: number
+    detalhe_ordem?: string
+  } = {},
+) {
+  const query = new URLSearchParams()
+
+  for (const [key, rawValue] of Object.entries(params)) {
+    if (key === 'detalhe_pagina' || key === 'detalhe_limite' || key === 'detalhe_ordem') continue
+    if (Array.isArray(rawValue)) {
+      for (const value of rawValue) query.append(key, value)
+      continue
+    }
+    if (typeof rawValue === 'string' && rawValue.length > 0) {
+      query.set(key, rawValue)
+    }
+  }
+
+  const pagina = overrides.detalhe_pagina ?? 1
+  const limite = overrides.detalhe_limite ?? 10
+  const ordem = overrides.detalhe_ordem ?? 'data_desc'
+
+  if (pagina > 1) query.set('detalhe_pagina', String(pagina))
+  if (limite !== 10) query.set('detalhe_limite', String(limite))
+  if (ordem !== 'data_desc') query.set('detalhe_ordem', ordem)
+
   return `/pacientes/relatorio-consultas?${query.toString()}`
 }
 
@@ -142,6 +184,13 @@ export default async function RelatorioConsultasPage({
   const medico_id = (params.medico_id as string) || ''
   const tipos_filtro = Array.isArray(params.tipo) ? params.tipo : params.tipo ? [params.tipo] : []
   const status_filtro = (params.status as string) || ''
+  const detalheLimiteRaw = Number(params.detalhe_limite)
+  const detalheLimite = [10, 25, 50, 100].includes(detalheLimiteRaw) ? detalheLimiteRaw : 10
+  const detalhePaginaRaw = Number(params.detalhe_pagina)
+  const detalhePaginaBase = Number.isFinite(detalhePaginaRaw) && detalhePaginaRaw > 0 ? Math.floor(detalhePaginaRaw) : 1
+  const detalheOrdem = typeof params.detalhe_ordem === 'string' && params.detalhe_ordem.length > 0
+    ? params.detalhe_ordem
+    : 'data_desc'
 
   const dataInicioIso = getAppDayRangeUTC(data_inicio).start
   const dataFimIso = getAppDayRangeUTC(data_fim).end
@@ -211,7 +260,16 @@ export default async function RelatorioConsultasPage({
 
   let atendimentosQuery = supabase
     .from('atendimentos')
-    .select('id, agendamento_id, profissional_id, tipo, status, data_agendamento')
+    .select(`
+      id,
+      agendamento_id,
+      profissional_id,
+      tipo,
+      status,
+      data_agendamento,
+      profissional:profiles!profissional_id(full_name),
+      pacientes(nome, telefone, email)
+    `)
     .gte('data_agendamento', dataInicioIso)
     .lte('data_agendamento', dataFimIso)
 
@@ -316,6 +374,63 @@ export default async function RelatorioConsultasPage({
   )
 
   const atendimentosDoPeriodo = atendimentosVinculadosAoPeriodo
+  const detalhamentoConsultas = atendimentosDoPeriodo.map((atendimento) => {
+    const paciente = firstRelation(atendimento.pacientes)
+    const profissional = firstRelation(atendimento.profissional)
+    const telefone = paciente?.telefone?.trim() ?? ''
+    const email = paciente?.email?.trim() ?? ''
+    const contato = telefone || email || 'Não informado'
+
+    return {
+      id: atendimento.id,
+      pacienteNome: paciente?.nome?.trim() || 'Sem paciente',
+      tipo: normalizarTipo(atendimento.tipo),
+      profissionalNome: profissional?.full_name?.trim()
+        || profissionaisMap.get(atendimento.profissional_id ?? '')
+        || 'Sem responsável',
+      dataAvaliacao: atendimento.data_agendamento,
+      contato,
+    }
+  })
+  const detalhamentoConsultasOrdenado = [...detalhamentoConsultas].sort((a, b) => {
+    switch (detalheOrdem) {
+      case 'data_asc':
+        return new Date(a.dataAvaliacao).getTime() - new Date(b.dataAvaliacao).getTime()
+      case 'paciente_asc':
+        return a.pacienteNome.localeCompare(b.pacienteNome)
+      case 'paciente_desc':
+        return b.pacienteNome.localeCompare(a.pacienteNome)
+      case 'tipo_asc':
+        return a.tipo.localeCompare(b.tipo) || a.pacienteNome.localeCompare(b.pacienteNome)
+      case 'responsavel_asc':
+        return a.profissionalNome.localeCompare(b.profissionalNome) || a.pacienteNome.localeCompare(b.pacienteNome)
+      case 'contato_asc':
+        return a.contato.localeCompare(b.contato) || a.pacienteNome.localeCompare(b.pacienteNome)
+      case 'data_desc':
+      default:
+        return new Date(b.dataAvaliacao).getTime() - new Date(a.dataAvaliacao).getTime()
+    }
+  })
+
+  const totalDetalhamento = detalhamentoConsultasOrdenado.length
+  const totalPaginasDetalhamento = Math.max(1, Math.ceil(totalDetalhamento / detalheLimite))
+  const detalhePagina = Math.min(detalhePaginaBase, totalPaginasDetalhamento)
+  const detalheOffset = (detalhePagina - 1) * detalheLimite
+  const detalheAte = Math.min(detalheOffset + detalheLimite, totalDetalhamento)
+  const detalhamentoConsultasPaginado = detalhamentoConsultasOrdenado.slice(detalheOffset, detalheOffset + detalheLimite)
+  const paginasDetalhamento: Array<number | '...'> = []
+
+  if (totalPaginasDetalhamento <= 7) {
+    for (let p = 1; p <= totalPaginasDetalhamento; p++) paginasDetalhamento.push(p)
+  } else {
+    paginasDetalhamento.push(1)
+    if (detalhePagina > 4) paginasDetalhamento.push('...')
+    for (let p = Math.max(2, detalhePagina - 1); p <= Math.min(totalPaginasDetalhamento - 1, detalhePagina + 1); p++) {
+      paginasDetalhamento.push(p)
+    }
+    if (detalhePagina < totalPaginasDetalhamento - 3) paginasDetalhamento.push('...')
+    paginasDetalhamento.push(totalPaginasDetalhamento)
+  }
 
   // Quando há filtro de status, agendamentos também reflete só os que têm atendimento com esse status
   const agendamentosEfetivos = status_filtro
@@ -393,6 +508,49 @@ export default async function RelatorioConsultasPage({
   const periodoLabel = data_inicio === data_fim
     ? data_inicio
     : `${data_inicio} até ${data_fim}`
+  const ordemPorColuna: Record<string, { asc: string; desc: string }> = {
+    paciente: { asc: 'paciente_asc', desc: 'paciente_desc' },
+    tipo: { asc: 'tipo_asc', desc: 'tipo_asc' },
+    responsavel: { asc: 'responsavel_asc', desc: 'responsavel_asc' },
+    data: { asc: 'data_asc', desc: 'data_desc' },
+    contato: { asc: 'contato_asc', desc: 'contato_asc' },
+  }
+
+  function buildOrdenacaoColunaUrl(coluna: keyof typeof ordemPorColuna) {
+    const opcoes = ordemPorColuna[coluna]
+    const proximaOrdem = opcoes.asc === opcoes.desc
+      ? opcoes.asc
+      : detalheOrdem === opcoes.asc
+        ? opcoes.desc
+        : opcoes.asc
+
+    return buildDetalhamentoUrl(params, {
+      detalhe_limite: detalheLimite,
+      detalhe_pagina: 1,
+      detalhe_ordem: proximaOrdem,
+    })
+  }
+
+  function renderOrdenacaoColuna(coluna: keyof typeof ordemPorColuna, label: string) {
+    const opcoes = ordemPorColuna[coluna]
+    const ativaAsc = detalheOrdem === opcoes.asc
+    const ativaDesc = opcoes.asc !== opcoes.desc && detalheOrdem === opcoes.desc
+    const ativa = ativaAsc || ativaDesc
+
+    return (
+      <Link
+        href={buildOrdenacaoColunaUrl(coluna)}
+        className={`inline-flex items-center gap-1 transition-colors ${
+          ativa ? 'text-[#006b5a]' : 'text-slate-500 hover:text-slate-700'
+        }`}
+      >
+        <span>{label}</span>
+        {ativa ? (
+          ativaDesc ? <ChevronDown size={14} /> : <ChevronUp size={14} />
+        ) : null}
+      </Link>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -740,6 +898,127 @@ export default async function RelatorioConsultasPage({
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100">
+          <h2 className="font-semibold text-slate-900">Detalhamento das Consultas</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Nome do paciente, tipo de atendimento, responsável, data da avaliação e contato.
+          </p>
+        </div>
+        <div className="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-slate-500">
+            Mostrando <span className="font-semibold text-slate-700">{totalDetalhamento === 0 ? 0 : detalheOffset + 1}–{detalheAte}</span> de{' '}
+            <span className="font-semibold text-slate-700">{totalDetalhamento}</span> consulta{totalDetalhamento !== 1 ? 's' : ''}
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Por página</span>
+            {[10, 25, 50, 100].map((limite) => (
+              <Link
+                key={limite}
+                href={buildDetalhamentoUrl(params, {
+                  detalhe_limite: limite,
+                  detalhe_pagina: 1,
+                  detalhe_ordem: detalheOrdem,
+                })}
+                className={`rounded-full px-3 py-1.5 text-sm transition-colors ${
+                  detalheLimite === limite
+                    ? 'bg-[#006b5a] text-white'
+                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                }`}
+              >
+                {limite}
+              </Link>
+            ))}
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
+              <tr>
+                <th className="text-left px-4 py-3">{renderOrdenacaoColuna('paciente', 'Paciente')}</th>
+                <th className="text-left px-4 py-3">{renderOrdenacaoColuna('tipo', 'Tipo')}</th>
+                <th className="text-left px-4 py-3">{renderOrdenacaoColuna('responsavel', 'Responsável')}</th>
+                <th className="text-left px-4 py-3">{renderOrdenacaoColuna('data', 'Data da avaliação')}</th>
+                <th className="text-left px-4 py-3">{renderOrdenacaoColuna('contato', 'Contato')}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {detalhamentoConsultas.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                    Nenhuma consulta encontrada no período.
+                  </td>
+                </tr>
+              )}
+              {detalhamentoConsultasPaginado.map((consulta) => (
+                <tr key={consulta.id}>
+                  <td className="px-4 py-3 font-medium text-slate-900">{consulta.pacienteNome}</td>
+                  <td className="px-4 py-3 text-slate-700">{consulta.tipo}</td>
+                  <td className="px-4 py-3 text-slate-700">{consulta.profissionalNome}</td>
+                  <td className="px-4 py-3 text-slate-700 whitespace-nowrap">
+                    {format(new Date(consulta.dataAvaliacao), 'dd/MM/yyyy HH:mm')}
+                  </td>
+                  <td className="px-4 py-3 text-slate-700">{consulta.contato}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {totalPaginasDetalhamento > 1 && (
+          <div className="px-5 py-4 border-t border-slate-100 flex flex-wrap items-center justify-end gap-1">
+            <Link
+              href={buildDetalhamentoUrl(params, {
+                detalhe_pagina: detalhePagina - 1,
+                detalhe_limite: detalheLimite,
+                detalhe_ordem: detalheOrdem,
+              })}
+              className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
+                detalhePagina === 1
+                  ? 'pointer-events-none bg-slate-100 text-slate-300'
+                  : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+              }`}
+            >
+              Anterior
+            </Link>
+            {paginasDetalhamento.map((pagina, index) =>
+              pagina === '...'
+                ? <span key={`ellipsis-${index}`} className="px-2 text-sm text-slate-400">…</span>
+                : (
+                  <Link
+                    key={pagina}
+                    href={buildDetalhamentoUrl(params, {
+                      detalhe_pagina: pagina,
+                      detalhe_limite: detalheLimite,
+                      detalhe_ordem: detalheOrdem,
+                    })}
+                    className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                      pagina === detalhePagina
+                        ? 'bg-[#006b5a] text-white'
+                        : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                    }`}
+                  >
+                    {pagina}
+                  </Link>
+                ),
+            )}
+            <Link
+              href={buildDetalhamentoUrl(params, {
+                detalhe_pagina: detalhePagina + 1,
+                detalhe_limite: detalheLimite,
+                detalhe_ordem: detalheOrdem,
+              })}
+              className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
+                detalhePagina === totalPaginasDetalhamento
+                  ? 'pointer-events-none bg-slate-100 text-slate-300'
+                  : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+              }`}
+            >
+              Próxima
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   )

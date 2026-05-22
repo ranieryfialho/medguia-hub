@@ -4,7 +4,7 @@ import { useState, useEffect, useId, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { buscarDetalhesAgendamento, criarAgendamento, editarAtendimento } from '@/actions/agenda'
 import { createClient } from '@/lib/supabase/client'
-import { X, CalendarPlus, User, Minus, Plus, Search, Clock } from 'lucide-react'
+import { X, CalendarPlus, User, Minus, Plus, Search, Clock, LoaderCircle } from 'lucide-react'
 import { format } from 'date-fns'
 import {
   horarioDentroDaDisponibilidade,
@@ -101,25 +101,39 @@ function montarSequenciaProtocolo(
   })
 }
 
-async function fetchAllPacientes(
+async function buscarPacientesPorNome(
   supabase: ReturnType<typeof createClient>,
+  termo: string,
 ): Promise<Paciente[]> {
-  const SIZE = 1000
-  const acc: Paciente[] = []
-  let page = 0
-  while (true) {
-    const { data } = await supabase
-      .from('pacientes')
-      .select('id, nome')
-      .eq('ativo', true)
-      .order('nome')
-      .range(page * SIZE, (page + 1) * SIZE - 1)
-    if (!data?.length) break
-    acc.push(...data)
-    if (data.length < SIZE) break
-    page++
-  }
-  return acc
+  const busca = termo.trim()
+  if (!busca) return []
+
+  const { data, error } = await supabase
+    .from('pacientes')
+    .select('id, nome')
+    .eq('ativo', true)
+    .ilike('nome', `%${busca}%`)
+    .order('nome')
+    .range(0, 19)
+
+  if (error) throw error
+  return data ?? []
+}
+
+async function buscarPacientePorId(
+  supabase: ReturnType<typeof createClient>,
+  pacienteId: string,
+): Promise<Paciente | null> {
+  if (!pacienteId) return null
+
+  const { data, error } = await supabase
+    .from('pacientes')
+    .select('id, nome')
+    .eq('id', pacienteId)
+    .maybeSingle()
+
+  if (error) throw error
+  return data ?? null
 }
 
 interface AtendimentoParaEditar {
@@ -168,6 +182,8 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [pacientes, setPacientes] = useState<Paciente[]>(pacientesInicial ?? [])
+  const [loadingPacientes, setLoadingPacientes] = useState(false)
+  const [erroPacientes, setErroPacientes] = useState('')
   const [detalhesEdicaoCarregados, setDetalhesEdicaoCarregados] = useState<Record<string, true>>({})
   const [detalhesEdicaoFalhos, setDetalhesEdicaoFalhos] = useState<Record<string, true>>({})
 
@@ -311,13 +327,68 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
     }
   }, [atendimentoParaEditar, loadingDetalhesAtendimento])
 
-  // Fetch de pacientes quando o modal abre (modo controlado ou autônomo)
   useEffect(() => {
-    if (!open || pacientes.length > 0) return
+    if (!open) return
 
-    fetchAllPacientes(supabase)
-      .then(setPacientes)
-  }, [open, pacientes.length, supabase])
+    const pacienteIdInicial = atendimentoParaEditar?.paciente_id ?? defaultPacienteId ?? ''
+    if (!pacienteIdInicial || pacienteSearch.trim()) return
+
+    let active = true
+
+    buscarPacientePorId(supabase, pacienteIdInicial)
+      .then((paciente) => {
+        if (!active || !paciente) return
+        setPacientes((prev) => prev.some((item) => item.id === paciente.id) ? prev : [paciente, ...prev])
+        setPacienteSearch((current) => current || paciente.nome)
+      })
+      .catch(() => {
+        if (!active) return
+        setErroPacientes('Não foi possível carregar o paciente selecionado.')
+      })
+
+    return () => {
+      active = false
+    }
+  }, [atendimentoParaEditar?.paciente_id, defaultPacienteId, open, pacienteSearch, supabase])
+
+  useEffect(() => {
+    if (!open || !pacienteDropdownOpen) return
+
+    const termoBusca = pacienteSearch.trim()
+    if (termoBusca.length < 2) {
+      queueMicrotask(() => {
+        setPacientes([])
+        setLoadingPacientes(false)
+      })
+      return
+    }
+
+    let active = true
+    const timeoutId = window.setTimeout(() => {
+      setLoadingPacientes(true)
+      setErroPacientes('')
+
+      buscarPacientesPorNome(supabase, termoBusca)
+        .then((data) => {
+          if (!active) return
+          setPacientes(data)
+        })
+        .catch(() => {
+          if (!active) return
+          setPacientes([])
+          setErroPacientes('Não foi possível buscar pacientes agora.')
+        })
+        .finally(() => {
+          if (!active) return
+          setLoadingPacientes(false)
+        })
+    }, 250)
+
+    return () => {
+      active = false
+      window.clearTimeout(timeoutId)
+    }
+  }, [open, pacienteDropdownOpen, pacienteSearch, supabase])
 
   useEffect(() => {
     if (!isControlled || !open) return
@@ -371,14 +442,13 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const pacientesFiltrados = pacienteSearch
-    ? pacientes.filter(p => p.nome.toLowerCase().includes(pacienteSearch.toLowerCase()))
-    : pacientes
+  const pacientesFiltrados = pacientes
 
   function selecionarPaciente(p: Paciente) {
     setSelectedPacienteId(p.id)
     setPacienteSearch(p.nome)
     setPacienteDropdownOpen(false)
+    setErroPacientes('')
   }
 
   useEffect(() => {
@@ -681,13 +751,34 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
                     setPacienteDropdownOpen(true)
                   }}
                   onFocus={() => setPacienteDropdownOpen(true)}
+                  disabled={loadingPacientes && pacientes.length === 0}
                   className="w-full bg-white border border-[#bcc9c4] rounded-lg pl-11 pr-4 py-3 text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/50 focus:border-[#006b5a] transition-all font-medium shadow-sm"
                 />
                 <input type="hidden" name="paciente_id" value={selectedPacienteId} />
+                {loadingPacientes && pacienteSearch.trim().length >= 2 && (
+                  <div className="mt-2 flex items-center gap-2 text-sm text-[#6d7a75]">
+                    <LoaderCircle size={14} className="animate-spin" />
+                    <span>Buscando pacientes...</span>
+                  </div>
+                )}
+                {erroPacientes && (
+                  <div className="mt-2 text-sm text-red-600">{erroPacientes}</div>
+                )}
 
                 {pacienteDropdownOpen && (
                   <div className="absolute z-[520] w-full mt-1 bg-white border border-[#bcc9c4] rounded-lg shadow-xl max-h-56 overflow-y-auto">
-                    {pacientesFiltrados.length > 0 ? (
+                    {pacienteSearch.trim().length < 2 ? (
+                      <p className="px-4 py-3 text-sm text-[#6d7a75]">
+                        Digite pelo menos 2 letras para buscar.
+                      </p>
+                    ) : loadingPacientes ? (
+                      <div className="px-4 py-3 text-sm text-[#6d7a75] flex items-center gap-2">
+                        <LoaderCircle size={14} className="animate-spin" />
+                        <span>Buscando pacientes...</span>
+                      </div>
+                    ) : erroPacientes ? (
+                      <p className="px-4 py-3 text-sm text-red-600">{erroPacientes}</p>
+                    ) : pacientesFiltrados.length > 0 ? (
                       pacientesFiltrados.map(p => (
                         <button
                           key={p.id}
