@@ -5,7 +5,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
   CalendarDays, ChevronDown, ChevronUp, RefreshCw, Calendar,
-  CheckCircle, Hourglass, Stethoscope, CheckCheck, XCircle, UserX, CalendarClock, ClipboardList, Layers, StickyNote, Timer
+  CheckCircle, Hourglass, Stethoscope, CheckCheck, XCircle, User, UserX, CalendarClock, ClipboardList, Layers, StickyNote, Timer
 } from 'lucide-react'
 import {
   getAtendimentoStatusKey,
@@ -34,6 +34,7 @@ type Sessao = {
   observacoes?: string | null
   duracao_minutos?: number | null
   prontuario?: ProntuarioResumo | null
+  profissional?: { full_name?: string | null } | null
 }
 
 type AgendamentoComSessoes = {
@@ -99,6 +100,11 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
   )
   const primeiraSessao = sessoesOrdenadas[0]
   const ultimaSessao = sessoesOrdenadas[sessoesOrdenadas.length - 1]
+  const profissionais = [...new Set(
+    sessoesOrdenadas
+      .map((sessao) => sessao.profissional?.full_name?.trim())
+      .filter((nome): nome is string => !!nome),
+  )]
 
   const concluidas = sessoes.filter(s => isStatusConcluido(s.status)).length
   const canceladas = sessoes.filter(s => ['cancelado', 'falta', 'reagendado'].includes(getAtendimentoStatusKey(s.status))).length
@@ -155,6 +161,12 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
           <h5 className="font-bold text-slate-900 text-[15px] mb-1">{tipo}</h5>
           {plano_saude && (
             <p className="text-[11px] font-medium text-slate-500">Plano de saúde: {plano_saude}</p>
+          )}
+          {profissionais.length > 0 && (
+            <p className="mt-1 flex items-center gap-1 text-[11px] font-medium text-slate-500">
+              <User size={11} className="shrink-0" />
+              Responsável: {profissionais.join(', ')}
+            </p>
           )}
           {is_recorrente && primeiraSessao?.tipo?.trim() && primeiraSessao.tipo.trim() !== tipo.trim() && (
             <p className="text-[11px] font-medium text-slate-500">
@@ -240,6 +252,12 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
                       </div>
                       {sessao.observacoes && (
                         <p className="text-[11px] text-slate-500 mt-0.5 truncate">{sessao.observacoes}</p>
+                      )}
+                      {sessao.profissional?.full_name && (
+                        <p className="mt-1 flex items-center gap-1 text-[11px] font-medium text-slate-500">
+                          <User size={10} className="shrink-0" />
+                          {sessao.profissional.full_name}
+                        </p>
                       )}
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
