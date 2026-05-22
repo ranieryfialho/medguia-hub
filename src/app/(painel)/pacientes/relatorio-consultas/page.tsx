@@ -562,6 +562,7 @@ export default async function RelatorioConsultasPage({
           </div>
           {(totalAgendamentos > 0 || totalAtendimentos > 0) && (
             <BtnGerarPdfConsultas
+              visao={visao}
               periodoLabel={periodoLabel}
               totalAgendamentos={totalAgendamentos}
               totalAtendimentos={totalAtendimentos}
@@ -586,6 +587,18 @@ export default async function RelatorioConsultasPage({
                 canceladosOuFalta: linha.canceladosOuFalta,
               }))}
               porStatus={statusMap}
+              porPlanoSaude={visao === 'medicos'
+                ? linhasPlanoSaudeOrdenadas.map((linha) => ({
+                    profissionalNome: linha.profissionalNome,
+                    total: linha.total,
+                    planos: colunasPlanoSaudeOrdenadas
+                      .map((coluna) => ({
+                        nome: coluna.nome,
+                        quantidade: linha.planos[coluna.nome] ?? 0,
+                      }))
+                      .filter((plano) => plano.quantidade > 0),
+                  }))
+                : []}
               detalhamentoConsultas={detalhamentoConsultasOrdenado.map((consulta) => ({
                 pacienteNome: consulta.pacienteNome,
                 tipo: consulta.tipo,

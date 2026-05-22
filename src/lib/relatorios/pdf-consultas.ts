@@ -18,6 +18,15 @@ export type PdfLinhaProfissionalConsulta = {
   canceladosOuFalta: number
 }
 
+export type PdfLinhaPlanoSaudePorProfissional = {
+  profissionalNome: string
+  total: number
+  planos: Array<{
+    nome: string
+    quantidade: number
+  }>
+}
+
 export type PdfDetalheConsulta = {
   pacienteNome: string
   tipo: string
@@ -27,6 +36,7 @@ export type PdfDetalheConsulta = {
 }
 
 export type GerarPdfConsultasInput = {
+  visao: 'fisioterapia' | 'medicos'
   periodoLabel: string
   totalAgendamentos: number
   totalAtendimentos: number
@@ -37,6 +47,7 @@ export type GerarPdfConsultasInput = {
   porTipo: PdfLinhaTipoConsulta[]
   porProfissional: PdfLinhaProfissionalConsulta[]
   porStatus: Record<string, number>
+  porPlanoSaude?: PdfLinhaPlanoSaudePorProfissional[]
   detalhamentoConsultas: PdfDetalheConsulta[]
 }
 
@@ -59,16 +70,22 @@ export async function gerarPdfConsultas(input: GerarPdfConsultasInput) {
   const tiposOrdenados = [...input.porTipo].sort((a, b) => b.atendimentos - a.atendimentos || b.agendamentos - a.agendamentos)
   const profissionaisOrdenados = [...input.porProfissional].sort((a, b) => b.atendimentos - a.atendimentos || b.agendamentos - a.agendamentos)
   const statusOrdenados = Object.entries(input.porStatus).sort((a, b) => b[1] - a[1])
+  const planosOrdenados = [...(input.porPlanoSaude ?? [])].sort((a, b) => b.total - a.total || a.profissionalNome.localeCompare(b.profissionalNome))
 
   desenharPaginaResumo(doc, input, tiposOrdenados)
   doc.addPage()
   desenharPaginaTipos(doc, tiposOrdenados)
   doc.addPage()
-  desenharPaginaProfissionais(doc, profissionaisOrdenados)
+  desenharPaginaProfissionais(doc, input.visao, profissionaisOrdenados)
   doc.addPage()
   desenharPaginaStatus(doc, statusOrdenados)
-  doc.addPage()
-  desenharPaginaDetalhamento(doc, input.detalhamentoConsultas)
+  if (input.visao === 'medicos') {
+    doc.addPage()
+    desenharPaginaPlanosSaude(doc, planosOrdenados)
+  } else {
+    doc.addPage()
+    desenharPaginaDetalhamento(doc, input.detalhamentoConsultas)
+  }
 
   aplicarRodape(doc, input.periodoLabel)
   doc.save('relatorio-consultas.pdf')
@@ -130,16 +147,26 @@ function desenharPaginaTipos(doc: jsPDF, tipos: PdfLinhaTipoConsulta[]) {
   }
 }
 
-function desenharPaginaProfissionais(doc: jsPDF, profissionais: PdfLinhaProfissionalConsulta[]) {
-  let y = desenharCabecalhoInterno(doc, 'Visão por Fisioterapeuta', 'Agendamentos e confirmados por responsável')
-  const headers = ['Fisioterapeuta', 'Agend.', 'Recorr.', 'Conf.', 'Concl.', 'Pend.', 'Canc.']
+function desenharPaginaProfissionais(
+  doc: jsPDF,
+  visao: GerarPdfConsultasInput['visao'],
+  profissionais: PdfLinhaProfissionalConsulta[],
+) {
+  const titulo = visao === 'medicos' ? 'Visão por Médico' : 'Visão por Fisioterapeuta'
+  const subtitulo = visao === 'medicos'
+    ? 'Agendamentos e confirmados por médico'
+    : 'Agendamentos e confirmados por responsável'
+  const labelProfissional = visao === 'medicos' ? 'Médico' : 'Fisioterapeuta'
+
+  let y = desenharCabecalhoInterno(doc, titulo, subtitulo)
+  const headers = [labelProfissional, 'Agend.', 'Recorr.', 'Conf.', 'Concl.', 'Pend.', 'Canc.']
   const widths = [58, 16, 18, 16, 16, 16, 16]
   y = desenharLinhaTabela(doc, y + 4, headers, widths, true)
 
   for (const profissional of profissionais) {
     if (y > PAGE_HEIGHT - 20) {
       doc.addPage()
-      y = desenharCabecalhoInterno(doc, 'Visão por Fisioterapeuta', 'Continuação')
+      y = desenharCabecalhoInterno(doc, titulo, 'Continuação')
       y = desenharLinhaTabela(doc, y + 4, headers, widths, true)
     }
 
@@ -152,6 +179,49 @@ function desenharPaginaProfissionais(doc: jsPDF, profissionais: PdfLinhaProfissi
       String(profissional.pendentes),
       String(profissional.canceladosOuFalta),
     ], widths)
+  }
+}
+
+function desenharPaginaPlanosSaude(doc: jsPDF, linhas: PdfLinhaPlanoSaudePorProfissional[]) {
+  let y = desenharCabecalhoInterno(doc, 'Planos de Saúde', 'Distribuição de planos por médico')
+
+  if (linhas.length === 0) {
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(10)
+    doc.setTextColor(...MUTED)
+    doc.text('Nenhum plano de saúde registrado no período.', MARGIN_X, y + 6)
+    return
+  }
+
+  for (const linha of linhas) {
+    const blocos = linha.planos.length > 0
+      ? linha.planos.flatMap((plano) => doc.splitTextToSize(`${plano.nome}: ${plano.quantidade}`, CONTENT_WIDTH - 8) as string[])
+      : ['Nenhum plano registrado']
+    const height = blocos.length * 4.4 + 18
+
+    if (y + height > PAGE_HEIGHT - 18) {
+      doc.addPage()
+      y = desenharCabecalhoInterno(doc, 'Planos de Saúde', 'Continuação')
+    }
+
+    doc.setFillColor(255, 255, 255)
+    doc.setDrawColor(...LINE)
+    doc.roundedRect(MARGIN_X, y, CONTENT_WIDTH, height, 2, 2, 'FD')
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.setTextColor(...TEXT)
+    doc.text(linha.profissionalNome, MARGIN_X + 4, y + 6)
+
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+    doc.setTextColor(...MUTED)
+    doc.text(`Total: ${linha.total}`, MARGIN_X + 4, y + 11)
+
+    doc.setTextColor(...TEXT)
+    doc.text(blocos, MARGIN_X + 4, y + 16)
+
+    y += height + 4
   }
 }
 
@@ -292,19 +362,19 @@ function desenharLinhaTabela(
   widths: number[],
   header = false,
 ) {
-  const height = 8
+  const height = header ? 9 : 8
   let x = MARGIN_X
 
   doc.setDrawColor(...LINE)
-  doc.setFillColor(...(header ? BRAND : SOFT))
-  doc.setTextColor(...(header ? ([255, 255, 255] as RGB) : TEXT))
+  doc.setFillColor(...SOFT)
+  doc.setTextColor(...(header ? BRAND : TEXT))
   doc.setFont('helvetica', header ? 'bold' : 'normal')
-  doc.setFontSize(header ? 8 : 8)
+  doc.setFontSize(header ? 7.5 : 8)
 
   cols.forEach((col, index) => {
     const width = widths[index]
-    doc.rect(x, y, width, height, header ? 'FD' : 'S')
-    doc.text(String(col), x + 2, y + 5.2, { maxWidth: width - 4 })
+    doc.rect(x, y, width, height, header ? 'S' : 'S')
+    doc.text(String(col), x + 2, y + (header ? 5.6 : 5.2), { maxWidth: width - 4 })
     x += width
   })
 
