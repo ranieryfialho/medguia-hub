@@ -586,6 +586,13 @@ export default async function RelatorioConsultasPage({
                 canceladosOuFalta: linha.canceladosOuFalta,
               }))}
               porStatus={statusMap}
+              detalhamentoConsultas={detalhamentoConsultasOrdenado.map((consulta) => ({
+                pacienteNome: consulta.pacienteNome,
+                tipo: consulta.tipo,
+                profissionalNome: consulta.profissionalNome,
+                dataAvaliacao: `${formatAppDate(consulta.dataAvaliacao)} ${formatAppTime(consulta.dataAvaliacao)}`,
+                contato: consulta.contato,
+              }))}
             />
           )}
         </div>

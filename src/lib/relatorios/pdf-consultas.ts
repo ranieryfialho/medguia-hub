@@ -18,6 +18,14 @@ export type PdfLinhaProfissionalConsulta = {
   canceladosOuFalta: number
 }
 
+export type PdfDetalheConsulta = {
+  pacienteNome: string
+  tipo: string
+  profissionalNome: string
+  dataAvaliacao: string
+  contato: string
+}
+
 export type GerarPdfConsultasInput = {
   periodoLabel: string
   totalAgendamentos: number
@@ -29,6 +37,7 @@ export type GerarPdfConsultasInput = {
   porTipo: PdfLinhaTipoConsulta[]
   porProfissional: PdfLinhaProfissionalConsulta[]
   porStatus: Record<string, number>
+  detalhamentoConsultas: PdfDetalheConsulta[]
 }
 
 type RGB = readonly [number, number, number]
@@ -58,6 +67,8 @@ export async function gerarPdfConsultas(input: GerarPdfConsultasInput) {
   desenharPaginaProfissionais(doc, profissionaisOrdenados)
   doc.addPage()
   desenharPaginaStatus(doc, statusOrdenados)
+  doc.addPage()
+  desenharPaginaDetalhamento(doc, input.detalhamentoConsultas)
 
   aplicarRodape(doc, input.periodoLabel)
   doc.save('relatorio-consultas.pdf')
@@ -152,6 +163,29 @@ function desenharPaginaStatus(doc: jsPDF, status: [string, number][]) {
 
   for (const [nome, quantidade] of status) {
     y = desenharLinhaTabela(doc, y, [nome, String(quantidade)], widths)
+  }
+}
+
+function desenharPaginaDetalhamento(doc: jsPDF, detalhamento: PdfDetalheConsulta[]) {
+  let y = desenharCabecalhoInterno(doc, 'Detalhamento das Consultas', 'Paciente, tipo, responsável, data e contato')
+  const headers = ['Paciente', 'Tipo', 'Responsável', 'Data', 'Contato']
+  const widths = [54, 30, 36, 28, 28]
+  y = desenharLinhaTabela(doc, y + 4, headers, widths, true)
+
+  for (const consulta of detalhamento) {
+    if (y > PAGE_HEIGHT - 20) {
+      doc.addPage()
+      y = desenharCabecalhoInterno(doc, 'Detalhamento das Consultas', 'Continuação')
+      y = desenharLinhaTabela(doc, y + 4, headers, widths, true)
+    }
+
+    y = desenharLinhaTabela(doc, y, [
+      consulta.pacienteNome,
+      consulta.tipo,
+      consulta.profissionalNome,
+      consulta.dataAvaliacao,
+      consulta.contato,
+    ], widths)
   }
 }
 
