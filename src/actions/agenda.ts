@@ -973,23 +973,44 @@ export async function editarAtendimento(id: string, formData: FormData) {
   }
 
   if (atendimentoAtual?.agendamento_id) {
-    const { error: parentError } = await supabase
-      .from('agendamentos')
-      .update({
-        profissional_id: profissional_id || null,
-        tipo: tipo || 'Sessão',
-        data_inicio: dataStr,
-        hora_inicio: horaInicio,
-        hora_fim: horaFim,
-        duracao_minutos: duracao,
-        observacoes: observacoes || null,
-        plano_saude: plano_saude || null,
-      })
-      .eq('id', atendimentoAtual.agendamento_id)
+    const [{ data: agendamentoPai, error: parentLookupError }, { count: totalFilhos, error: filhosError }] = await Promise.all([
+      supabase
+        .from('agendamentos')
+        .select('is_recorrente')
+        .eq('id', atendimentoAtual.agendamento_id)
+        .maybeSingle(),
+      supabase
+        .from('atendimentos')
+        .select('id', { count: 'exact', head: true })
+        .eq('agendamento_id', atendimentoAtual.agendamento_id),
+    ])
 
-    if (parentError) {
-      console.error('Erro ao editar agendamento pai:', parentError.message)
-      return { error: 'O atendimento foi atualizado, mas não foi possível sincronizar o agendamento.' }
+    if (parentLookupError || filhosError) {
+      console.error('Erro ao avaliar sincronização do agendamento pai:', parentLookupError?.message ?? filhosError?.message)
+      return { error: 'O atendimento foi atualizado, mas não foi possível validar a sincronização do agendamento.' }
+    }
+
+    const deveSincronizarPai = !agendamentoPai?.is_recorrente && (totalFilhos ?? 0) <= 1
+
+    if (deveSincronizarPai) {
+      const { error: parentError } = await supabase
+        .from('agendamentos')
+        .update({
+          profissional_id: profissional_id || null,
+          tipo: tipo || 'Sessão',
+          data_inicio: dataStr,
+          hora_inicio: horaInicio,
+          hora_fim: horaFim,
+          duracao_minutos: duracao,
+          observacoes: observacoes || null,
+          plano_saude: plano_saude || null,
+        })
+        .eq('id', atendimentoAtual.agendamento_id)
+
+      if (parentError) {
+        console.error('Erro ao editar agendamento pai:', parentError.message)
+        return { error: 'O atendimento foi atualizado, mas não foi possível sincronizar o agendamento.' }
+      }
     }
   }
 

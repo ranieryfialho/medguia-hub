@@ -1,8 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { requireModulo } from '@/lib/guard'
-import { getAppDayRangeUTC } from '@/lib/datetime'
-import { format } from 'date-fns'
+import { formatAppDate, formatAppTime, getAppDayRangeUTC } from '@/lib/datetime'
 import {
   getAtendimentoStatusKey,
   normalizeAtendimentoStatus,
@@ -243,21 +242,6 @@ export default async function RelatorioConsultasPage({
 
   const profissionaisMap = new Map([...profissionais, ...medicos].map((item) => [item.id, item.nome]))
 
-  let agendamentosQuery = supabase
-    .from('agendamentos')
-    .select('id, profissional_id, tipo, plano_saude, data_inicio, is_recorrente, gerou_venda, marcou_retorno')
-    .gte('data_inicio', dataInicioIso)
-    .lte('data_inicio', dataFimIso)
-
-  if (profissionaisFiltroEfetivos.length === 1) {
-    agendamentosQuery = agendamentosQuery.eq('profissional_id', profissionaisFiltroEfetivos[0])
-  } else if (profissionaisFiltroEfetivos.length > 1) {
-    agendamentosQuery = agendamentosQuery.in('profissional_id', profissionaisFiltroEfetivos)
-  }
-  if (tipos_filtro.length > 0) {
-    agendamentosQuery = agendamentosQuery.in('tipo', tipos_filtro)
-  }
-
   let atendimentosQuery = supabase
     .from('atendimentos')
     .select(`
@@ -285,8 +269,7 @@ export default async function RelatorioConsultasPage({
     atendimentosQuery = atendimentosQuery.eq('status', status_filtro)
   }
 
-  const [{ data: agendamentosRaw }, { data: atendimentosRaw }, { data: tiposConsultaRaw }] = await Promise.all([
-    agendamentosQuery.order('data_inicio', { ascending: false }),
+  const [{ data: atendimentosRaw }, { data: tiposConsultaRaw }] = await Promise.all([
     atendimentosQuery.order('data_agendamento', { ascending: false }),
     supabase
       .from('tipos_consulta')
@@ -295,8 +278,20 @@ export default async function RelatorioConsultasPage({
       .order('ordem'),
   ])
 
-  const agendamentos = (agendamentosRaw ?? []) as AgendamentoResumo[]
   const atendimentos = (atendimentosRaw ?? []) as AtendimentoResumo[]
+  const agendamentoIds = [...new Set(
+    atendimentos
+      .map((atendimento) => atendimento.agendamento_id)
+      .filter((agendamentoId): agendamentoId is string => !!agendamentoId),
+  )]
+  const { data: agendamentosRaw } = agendamentoIds.length > 0
+    ? await supabase
+        .from('agendamentos')
+        .select('id, profissional_id, tipo, plano_saude, data_inicio, is_recorrente, gerou_venda, marcou_retorno')
+        .in('id', agendamentoIds)
+    : { data: [] }
+  const agendamentos = (agendamentosRaw ?? []) as AgendamentoResumo[]
+  const agendamentosMap = new Map(agendamentos.map((agendamento) => [agendamento.id, agendamento]))
 
   const tiposMap = new Map<string, MetricaTipo>()
   const linhasProfissional = new Map<string, LinhaProfissional>()
@@ -366,14 +361,7 @@ export default async function RelatorioConsultasPage({
     }
   }
 
-  // Mantém o relatório gerencial consistente: só conta atendimentos vinculados
-  // a agendamentos do período, garantindo que totalAtendimentos <= totalAgendamentos.
-  const agendamentoIdsDoPeriodo = new Set(agendamentos.map(a => a.id))
-  const atendimentosVinculadosAoPeriodo = atendimentos.filter(
-    a => a.agendamento_id && agendamentoIdsDoPeriodo.has(a.agendamento_id)
-  )
-
-  const atendimentosDoPeriodo = atendimentosVinculadosAoPeriodo
+  const atendimentosDoPeriodo = atendimentos
   const detalhamentoConsultas = atendimentosDoPeriodo.map((atendimento) => {
     const paciente = firstRelation(atendimento.pacientes)
     const profissional = firstRelation(atendimento.profissional)
@@ -432,22 +420,10 @@ export default async function RelatorioConsultasPage({
     paginasDetalhamento.push(totalPaginasDetalhamento)
   }
 
-  // Quando há filtro de status, agendamentos também reflete só os que têm atendimento com esse status
-  const agendamentosEfetivos = status_filtro
-    ? agendamentos.filter(ag => atendimentosVinculadosAoPeriodo.some(at => at.agendamento_id === ag.id))
-    : agendamentos
-
-  for (const agendamento of agendamentosEfetivos) {
-    const linhaProf = garantirLinhaProfissional(agendamento.profissional_id)
-    if (agendamento.is_recorrente) linhaProf.recorrentes++
-
-    const { linha: linhaPlano, coluna: colunaPlano, planoSaude } = garantirPlanoSaude(agendamento.profissional_id, agendamento.plano_saude)
-    linhaPlano.planos[planoSaude]++
-    linhaPlano.total++
-    colunaPlano.agendamentos++
-  }
-
   for (const atendimento of atendimentosDoPeriodo) {
+    const agendamentoPai = atendimento.agendamento_id
+      ? agendamentosMap.get(atendimento.agendamento_id) ?? null
+      : null
     const tipo = garantirTipo(atendimento.tipo)
     tipo.agendamentos++
 
@@ -457,6 +433,15 @@ export default async function RelatorioConsultasPage({
 
     const linhaProf = garantirLinhaProfissional(atendimento.profissional_id)
     linhaProf.agendamentos++
+    if (agendamentoPai?.is_recorrente) linhaProf.recorrentes++
+
+    const { linha: linhaPlano, coluna: colunaPlano, planoSaude } = garantirPlanoSaude(
+      atendimento.profissional_id,
+      agendamentoPai?.plano_saude,
+    )
+    linhaPlano.planos[planoSaude]++
+    linhaPlano.total++
+    colunaPlano.agendamentos++
 
     if (STATUS_CONFIRMADOS.has(statusNormalizado)) {
       tipo.atendimentos++
@@ -488,7 +473,10 @@ export default async function RelatorioConsultasPage({
 
   const totalAgendamentos = atendimentosDoPeriodo.length
   const totalAtendimentos = atendimentosDoPeriodo.filter((item) => STATUS_CONFIRMADOS.has(lowerSafe(item.status))).length
-  const totalRecorrentes = agendamentosEfetivos.filter((item) => item.is_recorrente).length
+  const totalRecorrentes = atendimentosDoPeriodo.filter((item) => {
+    if (!item.agendamento_id) return false
+    return agendamentosMap.get(item.agendamento_id)?.is_recorrente === true
+  }).length
   const totalConcluidos = atendimentosDoPeriodo.filter((item) => {
     const status = lowerSafe(item.status)
     return status === 'concluido' || status === 'concluído'
@@ -958,7 +946,7 @@ export default async function RelatorioConsultasPage({
                   <td className="px-4 py-3 text-slate-700">{consulta.tipo}</td>
                   <td className="px-4 py-3 text-slate-700">{consulta.profissionalNome}</td>
                   <td className="px-4 py-3 text-slate-700 whitespace-nowrap">
-                    {format(new Date(consulta.dataAvaliacao), 'dd/MM/yyyy HH:mm')}
+                    {`${formatAppDate(consulta.dataAvaliacao)} ${formatAppTime(consulta.dataAvaliacao)}`}
                   </td>
                   <td className="px-4 py-3 text-slate-700">{consulta.contato}</td>
                 </tr>
