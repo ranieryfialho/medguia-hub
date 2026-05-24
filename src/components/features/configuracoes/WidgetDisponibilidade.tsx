@@ -16,6 +16,7 @@ type Props = {
   initialStatuses: StatusRow[]
   currentUserId: string
   disponibilidades?: Record<string, Record<number, DisponibilidadeDia>>
+  disponibilidadesHoje?: Record<string, DisponibilidadeDia | null>
 }
 
 const STATUS_CONFIG: Record<StatusDisponibilidade, { label: string; labelCurto: string; dot: string; bg: string; text: string }> = {
@@ -46,7 +47,7 @@ function Dot({ status, ping = false }: { status: StatusDisponibilidade; ping?: b
   )
 }
 
-export function WidgetDisponibilidade({ profissionais, initialStatuses, currentUserId, disponibilidades }: Props) {
+export function WidgetDisponibilidade({ profissionais, initialStatuses, currentUserId, disponibilidades, disponibilidadesHoje }: Props) {
   const pathname = usePathname()
   const statuses = useRealtimeDisponibilidade(initialStatuses)
   const [open, setOpen] = useState(false)
@@ -78,7 +79,7 @@ export function WidgetDisponibilidade({ profissionais, initialStatuses, currentU
 
   const diaSemanaAtual = getDiaSemanaAtualNaTimezone()
   const statusesEfetivos = statuses.map((status) => {
-    const disponibilidadeHoje = disponibilidades?.[status.profissional_id]?.[diaSemanaAtual] ?? null
+    const disponibilidadeHoje = disponibilidadesHoje?.[status.profissional_id] ?? disponibilidades?.[status.profissional_id]?.[diaSemanaAtual] ?? null
     const dentroDaJornada = estaDentroDaJornadaAgora(disponibilidadeHoje)
     return {
       ...status,

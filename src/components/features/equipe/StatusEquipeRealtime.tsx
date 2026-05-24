@@ -11,6 +11,7 @@ type Props = {
   profissionais: Profissional[]
   initialStatuses: StatusRow[]
   disponibilidades?: Record<string, Record<number, DisponibilidadeDia>>
+  disponibilidadesHoje?: Record<string, DisponibilidadeDia | null>
 }
 
 const STATUS_CONFIG: Record<StatusDisponibilidade, { label: string; dot: string; bg: string; text: string; border: string }> = {
@@ -61,7 +62,7 @@ function buildNomesExibicao(profissionais: Profissional[]): Map<string, string> 
   ]))
 }
 
-export function StatusEquipeRealtime({ profissionais, initialStatuses, disponibilidades }: Props) {
+export function StatusEquipeRealtime({ profissionais, initialStatuses, disponibilidades, disponibilidadesHoje }: Props) {
   const statuses = useRealtimeDisponibilidade(initialStatuses)
   const [, setTick] = useState(0)
   const nomesExibicao = buildNomesExibicao(profissionais)
@@ -75,7 +76,7 @@ export function StatusEquipeRealtime({ profissionais, initialStatuses, disponibi
 
   const comStatus = profissionais.map(p => {
     const st = statuses.find(s => s.profissional_id === p.id)
-    const disponibilidadeHoje = disponibilidades?.[p.id]?.[diaSemanaAtual] ?? null
+    const disponibilidadeHoje = disponibilidadesHoje?.[p.id] ?? disponibilidades?.[p.id]?.[diaSemanaAtual] ?? null
     const dentroDaJornada = estaDentroDaJornadaAgora(disponibilidadeHoje)
     const statusEfetivo = dentroDaJornada
       ? ((st?.status ?? 'ausente') as StatusDisponibilidade)

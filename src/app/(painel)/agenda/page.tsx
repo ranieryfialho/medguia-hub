@@ -20,6 +20,7 @@ import { listarTodasDisponibilidades } from '@/actions/disponibilidade'
 import { listarPlanosSaudeAtivos } from '@/actions/planos-saude'
 import { formatAppDateKey, formatAppTime, getAppDayRangeUTC, getAppHour, parseAppDate } from '@/lib/datetime'
 import { normalizarDisponibilidade, type DisponibilidadeDia } from '@/lib/disponibilidade'
+import { buildMapaMensalPorProfissional, resolverJornadaDoDia } from '@/lib/jornada-planejada'
 import { podeEntrarNaAgendaOuRelatorio } from '@/lib/profissionais'
 import { requireModulo } from '@/lib/guard'
 import {
@@ -420,7 +421,12 @@ export default async function AgendaPage({ searchParams }: PageProps) {
     cargo: p.role || 'Profissional'
   })) || []
 
-  const [todasDisponibilidades, planosSaude] = await Promise.all([
+  const [{ data: jornadasMensais }, todasDisponibilidades, planosSaude] = await Promise.all([
+    supabase
+      .from('jornada_mensal_profissional')
+      .select('profissional_id, data, jornada_inicio, jornada_fim, intervalo_inicio, intervalo_fim, ativo')
+      .gte('data', formatAppDateKey(inicioDoMes))
+      .lte('data', formatAppDateKey(fimDoMes)),
     listarTodasDisponibilidades(),
     listarPlanosSaudeAtivos(),
   ])
@@ -430,8 +436,34 @@ export default async function AgendaPage({ searchParams }: PageProps) {
     if (!disponibilidadesMap[d.profissional_id]) disponibilidadesMap[d.profissional_id] = {}
     disponibilidadesMap[d.profissional_id][d.dia_semana] = normalizarDisponibilidade(d)
   }
+  const jornadasMensaisMap = buildMapaMensalPorProfissional((jornadasMensais ?? []) as Array<{
+    profissional_id: string
+    data: string
+    jornada_inicio: string | null
+    jornada_fim: string | null
+    intervalo_inicio?: string | null
+    intervalo_fim?: string | null
+    ativo: boolean
+  }>)
+  const disponibilidadesMensaisMap: Record<string, Record<string, DisponibilidadeDia | null>> = {}
+  for (const [profissionalId, porData] of jornadasMensaisMap.entries()) {
+    disponibilidadesMensaisMap[profissionalId] = {}
+    for (const [data, jornada] of porData.entries()) {
+      disponibilidadesMensaisMap[profissionalId][data] = jornada.ativo && jornada.jornada_inicio && jornada.jornada_fim
+        ? normalizarDisponibilidade({
+            jornada_inicio: jornada.jornada_inicio,
+            jornada_fim: jornada.jornada_fim,
+            intervalo_inicio: jornada.intervalo_inicio ?? null,
+            intervalo_fim: jornada.intervalo_fim ?? null,
+          })
+        : null
+    }
+  }
 
-  const profissionaisComJornada = new Set(todasDisponibilidades.map((d) => d.profissional_id))
+  const profissionaisComJornada = new Set([
+    ...todasDisponibilidades.map((d) => d.profissional_id),
+    ...Object.keys(disponibilidadesMensaisMap),
+  ])
   const profissionaisElegiveisAgenda = listaProfissionais?.filter((p) =>
     podeEntrarNaAgendaOuRelatorio(p, profissionaisComJornada),
   ).map(p => ({
@@ -442,6 +474,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
 
   // Disponibilidade do usuário logado (para highlight na semana)
   const dispLogado = disponibilidadesMap[user.id] ?? null
+  const dispLogadoMensal = jornadasMensaisMap.get(user.id)
 
   const agendamentosHoje = agendamentosComEfetivo.filter(a => formatAppDateKey(a.data_agendamento) === dataString)
   const totalAgendamentos = agendamentosHoje.length
@@ -680,9 +713,15 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                               return formatAppDateKey(a.data_agendamento) === formatAppDateKey(dia) && getAppHour(a.data_agendamento) === horaNum
                             }) || []
 
-                            const diaDisp = dispLogado?.[dia.getDay()]
+                            const diaDisp = dispLogado
+                              ? resolverJornadaDoDia(
+                                  dia,
+                                  new Map(Object.entries(dispLogado).map(([diaSemana, disp]) => [Number(diaSemana), disp])),
+                                  dispLogadoMensal,
+                                )
+                              : null
                             const foraDisponibilidade = diaDisp
-                              ? horaNum < parseInt(diaDisp.hora_inicio) || horaNum >= parseInt(diaDisp.hora_fim)
+                              ? horaNum < parseInt(diaDisp.jornada_inicio) || horaNum >= parseInt(diaDisp.jornada_fim)
                               : false
 
                             return (
@@ -807,6 +846,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
             <SlideNovoAgendamento
               profissionais={profissionaisElegiveisAgenda}
               disponibilidades={disponibilidadesMap}
+              disponibilidadesMensais={disponibilidadesMensaisMap}
               planos={planosSaude}
             />
           </div>

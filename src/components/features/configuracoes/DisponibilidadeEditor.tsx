@@ -24,10 +24,10 @@ type Props = {
   profissionalAtualId: string
 }
 
-type DiaDisponibilidadeForm = Omit<DiaDisponibilidade, 'almoco_inicio' | 'almoco_fim'> & {
-  almoco_inicio: string
-  almoco_fim: string
-  almoco_ativo: boolean
+type DiaDisponibilidadeForm = Omit<DiaDisponibilidade, 'intervalo_inicio' | 'intervalo_fim'> & {
+  intervalo_inicio: string
+  intervalo_fim: string
+  intervalo_ativo: boolean
 }
 
 function buildEstado(disponibilidade: DiaDisponibilidade[]): DiaDisponibilidadeForm[] {
@@ -37,11 +37,11 @@ function buildEstado(disponibilidade: DiaDisponibilidade[]): DiaDisponibilidadeF
     return {
       dia_semana: d.dia_semana,
       ativo: existente?.ativo ?? false,
-      hora_inicio: existente?.hora_inicio?.slice(0, 5) ?? '08:00',
-      hora_fim: existente?.hora_fim?.slice(0, 5) ?? '18:00',
-      almoco_ativo: Boolean(existente?.almoco_inicio && existente?.almoco_fim),
-      almoco_inicio: existente?.almoco_inicio?.slice(0, 5) ?? '12:00',
-      almoco_fim: existente?.almoco_fim?.slice(0, 5) ?? '13:00',
+      jornada_inicio: existente?.jornada_inicio?.slice(0, 5) ?? '08:00',
+      jornada_fim: existente?.jornada_fim?.slice(0, 5) ?? '18:00',
+      intervalo_ativo: Boolean(existente?.intervalo_inicio && existente?.intervalo_fim),
+      intervalo_inicio: existente?.intervalo_inicio?.slice(0, 5) ?? '12:00',
+      intervalo_fim: existente?.intervalo_fim?.slice(0, 5) ?? '13:00',
     }
   })
 }
@@ -61,22 +61,22 @@ export function DisponibilidadeEditor({
     setDias(prev => prev.map((d, i) => i === idx ? { ...d, ativo: !d.ativo } : d))
   }
 
-  function setHora(idx: number, campo: 'hora_inicio' | 'hora_fim', valor: string) {
+  function setHora(idx: number, campo: 'jornada_inicio' | 'jornada_fim', valor: string) {
     setDias(prev => prev.map((d, i) => i === idx ? { ...d, [campo]: valor } : d))
   }
 
-  function setAlmoco(idx: number, campo: 'almoco_inicio' | 'almoco_fim', valor: string) {
+  function setIntervalo(idx: number, campo: 'intervalo_inicio' | 'intervalo_fim', valor: string) {
     setDias(prev => prev.map((d, i) => i === idx ? { ...d, [campo]: valor } : d))
   }
 
-  function toggleAlmoco(idx: number) {
+  function toggleIntervalo(idx: number) {
     setDias(prev => prev.map((d, i) => {
       if (i !== idx) return d
 
-      const almocoAtivo = !d.almoco_ativo
+      const intervaloAtivo = !d.intervalo_ativo
       return {
         ...d,
-        almoco_ativo: almocoAtivo,
+        intervalo_ativo: intervaloAtivo,
       }
     }))
   }
@@ -86,10 +86,10 @@ export function DisponibilidadeEditor({
       const payload = dias.map((dia) => ({
         dia_semana: dia.dia_semana,
         ativo: dia.ativo,
-        hora_inicio: dia.hora_inicio,
-        hora_fim: dia.hora_fim,
-        almoco_inicio: dia.almoco_ativo ? dia.almoco_inicio : null,
-        almoco_fim: dia.almoco_ativo ? dia.almoco_fim : null,
+        jornada_inicio: dia.jornada_inicio,
+        jornada_fim: dia.jornada_fim,
+        intervalo_inicio: dia.intervalo_ativo ? dia.intervalo_inicio : null,
+        intervalo_fim: dia.intervalo_ativo ? dia.intervalo_fim : null,
       }))
 
       const res = await salvarDisponibilidade(targetProfissionalId, payload)
@@ -159,19 +159,25 @@ export function DisponibilidadeEditor({
               {/* Inputs de hora */}
                 {d.ativo ? (
                   <div className="flex items-center gap-2 flex-1">
-                    <input
-                      type="time"
-                      value={d.hora_inicio}
-                      onChange={e => setHora(idx, 'hora_inicio', e.target.value)}
-                      className="border border-[#bcc9c4] rounded-lg px-3 py-1.5 text-sm font-medium text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/50 focus:border-[#006b5a] outline-none transition-all"
-                    />
+                    <div>
+                      <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">Início da jornada</label>
+                      <input
+                        type="time"
+                        value={d.jornada_inicio}
+                        onChange={e => setHora(idx, 'jornada_inicio', e.target.value)}
+                        className="border border-[#bcc9c4] rounded-lg px-3 py-1.5 text-sm font-medium text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/50 focus:border-[#006b5a] outline-none transition-all"
+                      />
+                    </div>
                     <span className="text-slate-400 text-sm font-medium">→</span>
-                    <input
-                      type="time"
-                      value={d.hora_fim}
-                      onChange={e => setHora(idx, 'hora_fim', e.target.value)}
-                      className="border border-[#bcc9c4] rounded-lg px-3 py-1.5 text-sm font-medium text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/50 focus:border-[#006b5a] outline-none transition-all"
-                    />
+                    <div>
+                      <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">Fim da jornada</label>
+                      <input
+                        type="time"
+                        value={d.jornada_fim}
+                        onChange={e => setHora(idx, 'jornada_fim', e.target.value)}
+                        className="border border-[#bcc9c4] rounded-lg px-3 py-1.5 text-sm font-medium text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/50 focus:border-[#006b5a] outline-none transition-all"
+                      />
+                    </div>
                   </div>
                 ) : (
                   <span className="text-xs text-slate-400 italic">Não atende</span>
@@ -183,29 +189,34 @@ export function DisponibilidadeEditor({
                   <label className="flex items-center gap-3 cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={d.almoco_ativo}
-                      onChange={() => toggleAlmoco(idx)}
+                      checked={d.intervalo_ativo}
+                      onChange={() => toggleIntervalo(idx)}
                       className="rounded border-slate-300 text-[#006b5a] focus:ring-[#006b5a]/40"
                     />
-                    <span className="text-xs font-semibold text-slate-600">Possui intervalo de almoço</span>
+                    <span className="text-xs font-semibold text-slate-600">Possui intervalo no dia</span>
                   </label>
 
-                  {d.almoco_ativo && (
+                  {d.intervalo_ativo && (
                     <div className="mt-3 flex items-center gap-2">
-                      <span className="text-xs font-medium text-slate-400 w-14">Almoço</span>
-                      <input
-                        type="time"
-                        value={d.almoco_inicio}
-                        onChange={e => setAlmoco(idx, 'almoco_inicio', e.target.value)}
-                        className="border border-[#bcc9c4] rounded-lg px-3 py-1.5 text-sm font-medium text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/50 focus:border-[#006b5a] outline-none transition-all"
-                      />
+                      <div>
+                        <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">Início do intervalo</label>
+                        <input
+                          type="time"
+                          value={d.intervalo_inicio}
+                          onChange={e => setIntervalo(idx, 'intervalo_inicio', e.target.value)}
+                          className="border border-[#bcc9c4] rounded-lg px-3 py-1.5 text-sm font-medium text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/50 focus:border-[#006b5a] outline-none transition-all"
+                        />
+                      </div>
                       <span className="text-slate-400 text-sm font-medium">→</span>
-                      <input
-                        type="time"
-                        value={d.almoco_fim}
-                        onChange={e => setAlmoco(idx, 'almoco_fim', e.target.value)}
-                        className="border border-[#bcc9c4] rounded-lg px-3 py-1.5 text-sm font-medium text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/50 focus:border-[#006b5a] outline-none transition-all"
-                      />
+                      <div>
+                        <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">Fim do intervalo</label>
+                        <input
+                          type="time"
+                          value={d.intervalo_fim}
+                          onChange={e => setIntervalo(idx, 'intervalo_fim', e.target.value)}
+                          className="border border-[#bcc9c4] rounded-lg px-3 py-1.5 text-sm font-medium text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/50 focus:border-[#006b5a] outline-none transition-all"
+                        />
+                      </div>
                     </div>
                   )}
                 </div>

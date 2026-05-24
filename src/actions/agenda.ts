@@ -6,6 +6,7 @@ import { buildAppDateTimeISO, formatAppDateKey } from '@/lib/datetime'
 import {
   normalizarDisponibilidade,
   validarHorarioDisponibilidade,
+  type DisponibilidadeMensalMap,
   type DisponibilidadeDia,
 } from '@/lib/disponibilidade'
 import { validarConflitosProfissional } from '@/lib/agendamento-conflitos'
@@ -31,13 +32,34 @@ async function carregarDisponibilidadesProfissional(profissionalId: string) {
   const supabase = await createClient()
   const { data } = await supabase
     .from('disponibilidade_profissional')
-    .select('dia_semana, hora_inicio, hora_fim, almoco_inicio, almoco_fim')
+    .select('dia_semana, jornada_inicio, jornada_fim, intervalo_inicio, intervalo_fim')
     .eq('profissional_id', profissionalId)
     .eq('ativo', true)
 
   const disponibilidades = new Map<number, DisponibilidadeDia>()
   for (const item of data ?? []) {
     disponibilidades.set(item.dia_semana, normalizarDisponibilidade(item))
+  }
+
+  return disponibilidades
+}
+
+async function carregarDisponibilidadesMensaisProfissional(
+  profissionalId: string,
+  dataInicio: string,
+  dataFim: string,
+) {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('jornada_mensal_profissional')
+    .select('profissional_id, data, jornada_inicio, jornada_fim, intervalo_inicio, intervalo_fim, ativo')
+    .eq('profissional_id', profissionalId)
+    .gte('data', dataInicio)
+    .lte('data', dataFim)
+
+  const disponibilidades = new Map() as DisponibilidadeMensalMap
+  for (const item of data ?? []) {
+    disponibilidades.set(item.data, item)
   }
 
   return disponibilidades
@@ -56,6 +78,7 @@ async function carregarRoleProfissional(profissionalId: string) {
 
 function validarOcorrenciasNaDisponibilidade(
   disponibilidades: Map<number, DisponibilidadeDia>,
+  disponibilidadesMensais: DisponibilidadeMensalMap,
   ocorrencias: { data: string; hora_inicio: string; hora_fim: string }[],
 ) {
   for (const ocorrencia of ocorrencias) {
@@ -64,6 +87,7 @@ function validarOcorrenciasNaDisponibilidade(
       ocorrencia.data,
       ocorrencia.hora_inicio,
       ocorrencia.hora_fim,
+      disponibilidadesMensais,
     )
 
     if (!validacao.ok) {
@@ -252,8 +276,15 @@ export async function criarAgendamento(formData: FormData) {
 
   if (exigeDisponibilidade) {
     const disponibilidades = await carregarDisponibilidadesProfissional(profissional_id)
+    const datasOcorrencias = atendimentosParaInserir.map((a) => a.data).sort()
+    const disponibilidadesMensais = await carregarDisponibilidadesMensaisProfissional(
+      profissional_id,
+      datasOcorrencias[0],
+      datasOcorrencias[datasOcorrencias.length - 1],
+    )
     const erroDisponibilidade = validarOcorrenciasNaDisponibilidade(
       disponibilidades,
+      disponibilidadesMensais,
       atendimentosParaInserir.map((a) => ({
         data: a.data,
         hora_inicio: a.hora_inicio,
@@ -920,7 +951,12 @@ export async function editarAtendimento(id: string, formData: FormData) {
   const roleProfissional = await carregarRoleProfissional(profissional_id)
   if (roleProfissional !== 'medico') {
     const disponibilidades = await carregarDisponibilidadesProfissional(profissional_id)
-    const erroDisponibilidade = validarOcorrenciasNaDisponibilidade(disponibilidades, [
+    const disponibilidadesMensais = await carregarDisponibilidadesMensaisProfissional(
+      profissional_id,
+      dataStr,
+      dataStr,
+    )
+    const erroDisponibilidade = validarOcorrenciasNaDisponibilidade(disponibilidades, disponibilidadesMensais, [
       { data: dataStr, hora_inicio: horaInicio, hora_fim: horaFim },
     ])
 

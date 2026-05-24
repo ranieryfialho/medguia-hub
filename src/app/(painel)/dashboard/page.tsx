@@ -3,7 +3,7 @@ import { format, startOfMonth, addDays, subDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { TrendingUp, Users, BarChart3, Target, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
-import { calcularKPIs } from '@/lib/relatorios/kpis-tempo-fabril'
+import { calcularKPIs, type JornadaPlanejada } from '@/lib/relatorios/kpis-tempo-fabril'
 import { formatAppDateKey, getAppDayRangeUTC } from '@/lib/datetime'
 import { criarContagemStatusContato, LABEL_POR_STATUS_CONTATO } from '@/lib/contatos-kanban'
 import { requireModulo } from '@/lib/guard'
@@ -27,10 +27,10 @@ type Atendimento = {
 type Jornada = {
   profissional_id: string
   dia_semana: number
-  hora_inicio: string
-  hora_fim: string
-  almoco_inicio: string | null
-  almoco_fim: string | null
+  jornada_inicio: string
+  jornada_fim: string
+  intervalo_inicio: string | null
+  intervalo_fim: string | null
 }
 
 type Profissional = {
@@ -86,7 +86,7 @@ export default async function DashboardPage() {
   const inicioMes_UTC = getAppDayRangeUTC(formatAppDateKey(inicioMes)).start
   const hoje_UTC = getAppDayRangeUTC(formatAppDateKey(hoje)).end
 
-  const [atendimentosRes, jornadasRes, pacientesNovosRes, contatosRes] = await Promise.all([
+  const [atendimentosRes, jornadasRes, jornadasMensaisRes, pacientesNovosRes, contatosRes] = await Promise.all([
     supabase
       .from('atendimentos')
       .select('id, profissional_id, data_agendamento, duracao_minutos, status, tipo, numero_sessao, paciente_id')
@@ -96,9 +96,15 @@ export default async function DashboardPage() {
       .order('data_agendamento', { ascending: true }),
     supabase
       .from('disponibilidade_profissional')
-      .select('profissional_id, dia_semana, hora_inicio, hora_fim, almoco_inicio, almoco_fim')
+      .select('profissional_id, dia_semana, jornada_inicio, jornada_fim, intervalo_inicio, intervalo_fim')
       .in('profissional_id', profIds)
       .eq('ativo', true),
+    supabase
+      .from('jornada_mensal_profissional')
+      .select('profissional_id, data, jornada_inicio, jornada_fim, intervalo_inicio, intervalo_fim, ativo')
+      .in('profissional_id', profIds)
+      .gte('data', formatAppDateKey(inicioMes))
+      .lte('data', formatAppDateKey(hoje)),
     supabase
       .from('pacientes')
       .select('id, created_at')
@@ -111,11 +117,15 @@ export default async function DashboardPage() {
 
   const atendimentos: Atendimento[] = atendimentosRes.data || []
   const jornadas: Jornada[] = jornadasRes.data || []
+  const jornadasMensais: JornadaPlanejada[] = jornadasMensaisRes.data || []
   const pacientesNovos = pacientesNovosRes.data || []
   const contatos: Contato[] = contatosRes.data || []
 
   // 4. Filtrar profissionais que têm jornada configurada
-  const profIdsComJornada = new Set(jornadas.map(j => j.profissional_id))
+  const profIdsComJornada = new Set([
+    ...jornadas.map(j => j.profissional_id),
+    ...jornadasMensais.map(j => j.profissional_id),
+  ])
   const profissionaisComJornada = profissionaisParaKPI.filter(p => profIdsComJornada.has(p.id))
 
   // 5. Calcular KPIs usando função existente (apenas profissionais com jornada)
@@ -123,6 +133,7 @@ export default async function DashboardPage() {
     profissionaisComJornada,
     atendimentos,
     jornadas,
+    jornadasMensais,
     inicioMes,
     hoje
   )

@@ -1,7 +1,9 @@
 import { redirect } from 'next/navigation'
+import { format } from 'date-fns'
 import { createClient } from '@/lib/supabase/server'
 import { listarDisponibilidade } from '@/actions/disponibilidade'
-import { JornadaEditor } from '@/components/features/configuracoes'
+import { listarJornadaMensal } from '@/actions/jornada-mensal'
+import { JornadaEditor, JornadaMensalEditor } from '@/components/features/configuracoes'
 import { requireModulo } from '@/lib/guard'
 
 export default async function JornadaPage({
@@ -15,6 +17,9 @@ export default async function JornadaPage({
   const params = await searchParams
 
   const isGestor = profile?.nivel_acesso === 'gestor' || profile?.nivel_acesso === 'master'
+  const mesReferencia = typeof params.mes === 'string' && /^\d{4}-\d{2}$/.test(params.mes)
+    ? params.mes
+    : format(new Date(), 'yyyy-MM')
 
   let profissionais: { id: string; nome: string }[] = []
   if (isGestor) {
@@ -22,7 +27,7 @@ export default async function JornadaPage({
       .from('profiles')
       .select('id, full_name')
       .eq('ativo', true)
-      .in('role', ['fisioterapeuta', 'gestor'])
+      .eq('role', 'fisioterapeuta')
       .order('full_name')
     profissionais = (data ?? []).map(p => ({ id: p.id, nome: p.full_name || 'Sem nome' }))
   }
@@ -30,15 +35,29 @@ export default async function JornadaPage({
   const paramProfId = typeof params.profissional === 'string' ? params.profissional : null
 
   if (isGestor && !paramProfId && profissionais.length > 0) {
-    redirect(`/configuracoes/jornada?profissional=${profissionais[0].id}`)
+    redirect(`/configuracoes/jornada?profissional=${profissionais[0].id}&mes=${mesReferencia}`)
   }
 
   const targetId = isGestor && paramProfId ? paramProfId : user.id
 
-  const disponibilidade = await listarDisponibilidade(targetId)
+  const [disponibilidade, jornadaMensal] = await Promise.all([
+    listarDisponibilidade(targetId),
+    listarJornadaMensal(targetId, mesReferencia),
+  ])
 
   return (
     <div className="space-y-6 px-6">
+      <JornadaMensalEditor
+        key={`${targetId}-${mesReferencia}`}
+        targetProfissionalId={targetId}
+        disponibilidade={disponibilidade}
+        jornadaMensal={jornadaMensal}
+        isGestor={isGestor}
+        profissionais={profissionais}
+        profissionalAtualId={targetId}
+        mesReferencia={mesReferencia}
+      />
+
       <JornadaEditor
         key={targetId}
         targetProfissionalId={targetId}
@@ -46,6 +65,7 @@ export default async function JornadaPage({
         isGestor={isGestor}
         profissionais={profissionais}
         profissionalAtualId={targetId}
+        mostrarSeletorProfissional={false}
       />
     </div>
   )

@@ -10,6 +10,14 @@ import {
 } from 'date-fns'
 import { formatAppDateKey } from '@/lib/datetime'
 import { calcularMinutosJornada } from '@/lib/jornada'
+import {
+  buildMapaMensalPorProfissional,
+  buildMapaSemanalPorProfissional,
+  resolverJornadaDoDia,
+  type JornadaMensalDiaPlanejado,
+  type JornadaMensalPlanejada,
+  type JornadaSemanal,
+} from '@/lib/jornada-planejada'
 import { isStatusFabril } from '@/lib/atendimento-status'
 
 export type Atendimento = {
@@ -23,14 +31,8 @@ export type Atendimento = {
   paciente_id: string
 }
 
-export type Jornada = {
-  profissional_id: string
-  dia_semana: number
-  hora_inicio: string
-  hora_fim: string
-  almoco_inicio?: string | null
-  almoco_fim?: string | null
-}
+export type Jornada = JornadaSemanal
+export type JornadaPlanejada = JornadaMensalPlanejada
 
 export type EvolucaoSemanalKPI = {
   label: string
@@ -74,7 +76,8 @@ export function formatarMinutos(min: number): string {
 }
 
 export function calcularJornadaContratadaMinutos(
-  jornadaPorDiaSemana: Map<number, Jornada>,
+  jornadaSemanalMap: Map<number, JornadaSemanal>,
+  jornadaMensalMap: Map<string, JornadaMensalDiaPlanejado> | undefined,
   dataInicio: Date,
   dataFim: Date,
 ): number {
@@ -82,8 +85,7 @@ export function calcularJornadaContratadaMinutos(
   let cursor = new Date(dataInicio)
 
   while (cursor <= dataFim) {
-    const diaSemana = cursor.getDay()
-    const jornada = jornadaPorDiaSemana.get(diaSemana)
+    const jornada = resolverJornadaDoDia(cursor, jornadaSemanalMap, jornadaMensalMap)
 
     if (jornada) {
       totalMinutos += calcularMinutosJornada(jornada)
@@ -97,7 +99,8 @@ export function calcularJornadaContratadaMinutos(
 
 export function agruparPorSemana(
   atendimentos: Atendimento[],
-  jornadaPorDiaSemana: Map<number, Jornada>,
+  jornadaSemanalMap: Map<number, JornadaSemanal>,
+  jornadaMensalMap: Map<string, JornadaMensalDiaPlanejado> | undefined,
   dataInicio: Date,
   dataFim: Date,
 ): EvolucaoSemanalKPI[] {
@@ -122,7 +125,8 @@ export function agruparPorSemana(
       .reduce((acc, a) => acc + (a.duracao_minutos ?? 0), 0)
 
     const jornadaMin = calcularJornadaContratadaMinutos(
-      jornadaPorDiaSemana,
+      jornadaSemanalMap,
+      jornadaMensalMap,
       inicioEfetivo,
       fimEfetivo,
     )
@@ -146,20 +150,18 @@ export function calcularKPIs(
   profissionaisLista: { id: string; nome: string }[],
   atendimentos: Atendimento[],
   jornadas: Jornada[],
+  jornadasPlanejadas: JornadaPlanejada[],
   dataInicio: Date,
   dataFim: Date,
   reunioes: Reuniao[] = [],
 ): KPIsProfissional[] {
   const kpis: KPIsProfissional[] = []
+  const jornadasSemanaisPorProfissional = buildMapaSemanalPorProfissional(jornadas)
+  const jornadasMensaisPorProfissional = buildMapaMensalPorProfissional(jornadasPlanejadas)
 
   for (const prof of profissionaisLista) {
-    const jornadaMap = new Map<number, Jornada>()
-
-    for (const j of jornadas) {
-      if (j.profissional_id === prof.id) {
-        jornadaMap.set(j.dia_semana, j)
-      }
-    }
+    const jornadaSemanalMap = jornadasSemanaisPorProfissional.get(prof.id) ?? new Map()
+    const jornadaMensalMap = jornadasMensaisPorProfissional.get(prof.id)
 
     const atsProfissional = atendimentos.filter((a) => a.profissional_id === prof.id)
 
@@ -172,7 +174,8 @@ export function calcularKPIs(
       .reduce((acc, r) => acc + (r.duracao_minutos ?? 0), 0)
 
     const jornadaContratadaMin = calcularJornadaContratadaMinutos(
-      jornadaMap,
+      jornadaSemanalMap,
+      jornadaMensalMap,
       dataInicio,
       dataFim,
     )
@@ -195,8 +198,7 @@ export function calcularKPIs(
     let cursor = new Date(dataInicio)
 
     while (cursor <= dataFim) {
-      const diaSemana = cursor.getDay()
-      const jornDia = jornadaMap.get(diaSemana)
+      const jornDia = resolverJornadaDoDia(cursor, jornadaSemanalMap, jornadaMensalMap)
 
       if (jornDia) {
         const atsDoDia = atsProfissional.filter((a) => {
@@ -220,7 +222,13 @@ export function calcularKPIs(
       cursor = addDays(cursor, 1)
     }
 
-    const evolucaoPorSemana = agruparPorSemana(atsProfissional, jornadaMap, dataInicio, dataFim)
+    const evolucaoPorSemana = agruparPorSemana(
+      atsProfissional,
+      jornadaSemanalMap,
+      jornadaMensalMap,
+      dataInicio,
+      dataFim,
+    )
 
     kpis.push({
       profissionalId: prof.id,

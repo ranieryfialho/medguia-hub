@@ -12,6 +12,7 @@ import {
   resolverPeriodo,
   type Atendimento,
   type Jornada,
+  type JornadaPlanejada,
   type Reuniao,
   type KPIsProfissional,
 } from '@/lib/relatorios/kpis-tempo-fabril'
@@ -64,9 +65,15 @@ export default async function TempoFabrilPage({
   const params = await searchParams
 
   const isGestorOuMaster = profile?.nivel_acesso === 'gestor' || profile?.nivel_acesso === 'master'
+  const { dataInicio, dataFim } = resolverPeriodo(params)
 
   // Buscar profissionais elegíveis
-  const [{ data: listaProfissionais }, { data: jornadasAtivas }] = await Promise.all([
+  const dataInicioStr = format(dataInicio, 'yyyy-MM-dd')
+  const dataFimStr = format(dataFim, 'yyyy-MM-dd')
+  const utcInicio = new Date(`${dataInicioStr}T00:00:00-03:00`).toISOString()
+  const utcFim = new Date(`${dataFimStr}T23:59:59.999-03:00`).toISOString()
+
+  const [{ data: listaProfissionais }, { data: jornadasAtivas }, { data: jornadasMensaisAtivas }] = await Promise.all([
     supabase
       .from('profiles')
       .select('id, full_name, role')
@@ -77,18 +84,23 @@ export default async function TempoFabrilPage({
       .from('disponibilidade_profissional')
       .select('profissional_id')
       .eq('ativo', true),
+    supabase
+      .from('jornada_mensal_profissional')
+      .select('profissional_id, data, jornada_inicio, jornada_fim, intervalo_inicio, intervalo_fim, ativo')
+      .gte('data', dataInicioStr)
+      .lte('data', dataFimStr),
   ])
 
-  const profissionaisComJornada = new Set((jornadasAtivas ?? []).map((j) => j.profissional_id))
+  const profissionaisComJornada = new Set([
+    ...(jornadasAtivas ?? []).map((j) => j.profissional_id),
+    ...(jornadasMensaisAtivas ?? []).map((j) => j.profissional_id),
+  ])
   const profissionais = (listaProfissionais ?? [])
     .filter((p) => podeEntrarNaAgendaOuRelatorio(p, profissionaisComJornada))
     .map(p => ({
     id: p.id,
     nome: p.full_name || 'Sem nome',
   }))
-
-  // Resolver período
-  const { dataInicio, dataFim } = resolverPeriodo(params)
 
   // Determinar profissionais a serem consultados
   const profFiltroParam = typeof params.profissional === 'string' ? params.profissional : 'todos'
@@ -101,12 +113,7 @@ export default async function TempoFabrilPage({
     : [profFiltro]
 
   // Queries paralelas
-  const dataInicioStr = format(dataInicio, 'yyyy-MM-dd')
-  const dataFimStr = format(dataFim, 'yyyy-MM-dd')
-  const utcInicio = new Date(`${dataInicioStr}T00:00:00-03:00`).toISOString()
-  const utcFim = new Date(`${dataFimStr}T23:59:59.999-03:00`).toISOString()
-
-  const [{ data: atendimentos }, { data: jornadas }, { data: reunioes }] = await Promise.all([
+  const [{ data: atendimentos }, { data: jornadas }, { data: jornadasPlanejadas }, { data: reunioes }] = await Promise.all([
     supabase
       .from('atendimentos')
       .select('id, profissional_id, data_agendamento, duracao_minutos, status, tipo, numero_sessao, paciente_id')
@@ -115,9 +122,15 @@ export default async function TempoFabrilPage({
       .lte('data_agendamento', utcFim),
     supabase
       .from('disponibilidade_profissional')
-      .select('profissional_id, dia_semana, hora_inicio, hora_fim, almoco_inicio, almoco_fim')
+      .select('profissional_id, dia_semana, jornada_inicio, jornada_fim, intervalo_inicio, intervalo_fim')
       .in('profissional_id', profIds)
       .eq('ativo', true),
+    supabase
+      .from('jornada_mensal_profissional')
+      .select('profissional_id, data, jornada_inicio, jornada_fim, intervalo_inicio, intervalo_fim, ativo')
+      .in('profissional_id', profIds)
+      .gte('data', dataInicioStr)
+      .lte('data', dataFimStr),
     supabase
       .from('historico_reunioes')
       .select('profissional_id, inicio, fim, duracao_minutos')
@@ -132,6 +145,7 @@ export default async function TempoFabrilPage({
     profissionais,
     (atendimentos ?? []) as Atendimento[],
     (jornadas ?? []) as Jornada[],
+    (jornadasPlanejadas ?? []) as JornadaPlanejada[],
     dataInicio,
     dataFim,
     (reunioes ?? []) as Reuniao[],

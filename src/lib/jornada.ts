@@ -1,8 +1,8 @@
 export type JornadaDia = {
-  hora_inicio: string
-  hora_fim: string
-  almoco_inicio?: string | null
-  almoco_fim?: string | null
+  jornada_inicio: string
+  jornada_fim: string
+  intervalo_inicio?: string | null
+  intervalo_fim?: string | null
 }
 
 export type IntervaloMinutos = {
@@ -16,14 +16,14 @@ export function toMin(hora: string): number {
 }
 
 export function intervaloAlmocoValido(jornada: JornadaDia) {
-  if (!jornada.almoco_inicio || !jornada.almoco_fim) {
+  if (!jornada.intervalo_inicio || !jornada.intervalo_fim) {
     return false
   }
 
-  const inicioJornada = toMin(jornada.hora_inicio)
-  const fimJornada = toMin(jornada.hora_fim)
-  const inicioAlmoco = toMin(jornada.almoco_inicio)
-  const fimAlmoco = toMin(jornada.almoco_fim)
+  const inicioJornada = toMin(jornada.jornada_inicio)
+  const fimJornada = toMin(jornada.jornada_fim)
+  const inicioAlmoco = toMin(jornada.intervalo_inicio)
+  const fimAlmoco = toMin(jornada.intervalo_fim)
 
   return (
     inicioAlmoco > inicioJornada &&
@@ -33,8 +33,8 @@ export function intervaloAlmocoValido(jornada: JornadaDia) {
 }
 
 export function obterIntervalosJornada(jornada: JornadaDia): IntervaloMinutos[] {
-  const inicioJornada = toMin(jornada.hora_inicio)
-  const fimJornada = toMin(jornada.hora_fim)
+  const inicioJornada = toMin(jornada.jornada_inicio)
+  const fimJornada = toMin(jornada.jornada_fim)
 
   if (fimJornada <= inicioJornada) {
     return []
@@ -44,8 +44,8 @@ export function obterIntervalosJornada(jornada: JornadaDia): IntervaloMinutos[] 
     return [{ inicio: inicioJornada, fim: fimJornada }]
   }
 
-  const inicioAlmoco = toMin(jornada.almoco_inicio!)
-  const fimAlmoco = toMin(jornada.almoco_fim!)
+  const inicioAlmoco = toMin(jornada.intervalo_inicio!)
+  const fimAlmoco = toMin(jornada.intervalo_fim!)
 
   return [
     { inicio: inicioJornada, fim: inicioAlmoco },

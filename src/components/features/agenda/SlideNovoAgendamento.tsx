@@ -151,6 +151,7 @@ interface SlideProps {
   pacientes?: Paciente[]
   profissionais: Profissional[]
   disponibilidades?: Record<string, Record<number, DisponibilidadeDia>>
+  disponibilidadesMensais?: Record<string, Record<string, DisponibilidadeDia | null>>
   tiposConsulta?: TipoConsulta[]
   protocolosAtendimento?: ProtocoloAtendimento[]
   planos?: PlanoSaude[]
@@ -167,7 +168,7 @@ const DIAS_SEMANA = [
   { val: 4, label: 'Qui' }, { val: 5, label: 'Sex' }, { val: 6, label: 'Sáb' }, { val: 0, label: 'Dom' },
 ]
 
-export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionais, disponibilidades, tiposConsulta: tiposConsultaProp, protocolosAtendimento: protocolosAtendimentoProp, planos = [], controlledOpen, onControlledClose, defaultPacienteId, defaultData, defaultHora, atendimentoParaEditar }: SlideProps) {
+export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionais, disponibilidades, disponibilidadesMensais, tiposConsulta: tiposConsultaProp, protocolosAtendimento: protocolosAtendimentoProp, planos = [], controlledOpen, onControlledClose, defaultPacienteId, defaultData, defaultHora, atendimentoParaEditar }: SlideProps) {
   const isControlled = controlledOpen !== undefined
   const modoEdicao = !!atendimentoParaEditar
   const tiposConsultaContexto = useTiposConsulta()
@@ -691,7 +692,33 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
     if (!disponibilidades || !selectedProfissionalId || !dataAgendamento) return null
     const profDisp = disponibilidades[selectedProfissionalId]
     if (!profDisp || Object.keys(profDisp).length === 0) return null
-    return obterDisponibilidadeDoDia(new Map(Object.entries(profDisp).map(([dia, disp]) => [Number(dia), disp])), dataAgendamento)
+    const profDispMensal = disponibilidadesMensais?.[selectedProfissionalId]
+    return obterDisponibilidadeDoDia(
+      new Map(Object.entries(profDisp).map(([dia, disp]) => [Number(dia), disp])),
+      dataAgendamento,
+      profDispMensal ? new Map(
+        Object.entries(profDispMensal).map(([data, disp]) => [
+            data,
+            disp
+              ? {
+                  data,
+                  jornada_inicio: disp.jornada_inicio,
+                  jornada_fim: disp.jornada_fim,
+                  intervalo_inicio: disp.intervalo_inicio ?? null,
+                  intervalo_fim: disp.intervalo_fim ?? null,
+                  ativo: true,
+                }
+              : {
+                  data,
+                  jornada_inicio: null,
+                  jornada_fim: null,
+                  intervalo_inicio: null,
+                  intervalo_fim: null,
+                  ativo: false,
+                },
+          ]),
+      ) : undefined,
+    )
   })()
 
   const horarioPreenchido = Boolean(horaInicioValue && horaFimValue)
@@ -1068,7 +1095,7 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
                   </div>
                   {horarioPreenchido && !horarioValidoNaDisponibilidade && (
                     <p className="mt-1">
-                      O horário escolhido cruza um período indisponível, como o almoço.
+                      O horário escolhido cruza um período indisponível, como o intervalo do dia.
                     </p>
                   )}
                 </div>

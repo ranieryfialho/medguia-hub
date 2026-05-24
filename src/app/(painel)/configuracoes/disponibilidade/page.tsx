@@ -7,10 +7,11 @@ import {
 import { ptBR } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, Clock, CheckCircle, XCircle } from 'lucide-react'
 import Link from 'next/link'
-import { getAppHour } from '@/lib/datetime'
+import { formatAppDateKey, getAppHour, parseAppDate } from '@/lib/datetime'
 import { BtnCopiarDisponibilidade } from '@/components/features/configuracoes'
 import { normalizarDisponibilidade, type DisponibilidadeDia } from '@/lib/disponibilidade'
 import { obterIntervalosJornada, toHora } from '@/lib/jornada'
+import { buildMapaMensalPorProfissional, resolverJornadaDoDia } from '@/lib/jornada-planejada'
 import { StatusEquipeRealtime } from '@/components/features/equipe'
 import { listarStatusDisponibilidade } from '@/actions/status-disponibilidade'
 import { requireModulo } from '@/lib/guard'
@@ -127,13 +128,30 @@ async function ViewIndividual({
 
   const { data: jornada } = await supabase
     .from('disponibilidade_profissional')
-    .select('dia_semana, hora_inicio, hora_fim, almoco_inicio, almoco_fim, ativo')
+    .select('dia_semana, jornada_inicio, jornada_fim, intervalo_inicio, intervalo_fim, ativo')
     .eq('profissional_id', targetId)
     .eq('ativo', true)
 
   const jornadaMap = new Map(
     (jornada ?? []).map(j => [j.dia_semana, normalizarDisponibilidade(j)])
   )
+
+  const { data: jornadasMensais } = await supabase
+    .from('jornada_mensal_profissional')
+    .select('profissional_id, data, jornada_inicio, jornada_fim, intervalo_inicio, intervalo_fim, ativo')
+    .eq('profissional_id', targetId)
+    .gte('data', formatAppDateKey(inicioDaSemana))
+    .lte('data', formatAppDateKey(fimDaSemana))
+
+  const jornadaMensalMap = buildMapaMensalPorProfissional((jornadasMensais ?? []) as Array<{
+    profissional_id: string
+    data: string
+    jornada_inicio: string | null
+    jornada_fim: string | null
+    intervalo_inicio?: string | null
+    intervalo_fim?: string | null
+    ativo: boolean
+  }>).get(targetId)
 
   const { data: agendamentos } = await supabase
     .from('atendimentos')
@@ -156,8 +174,7 @@ async function ViewIndividual({
   }
 
   const dadosPorDia: DiaDados[] = diasDaSemana.map(dia => {
-    const diaSemana = dia.getDay()
-    const jornDia = jornadaMap.get(diaSemana)
+    const jornDia = resolverJornadaDoDia(dia, jornadaMap, jornadaMensalMap)
     if (!jornDia) return { dia, trabalha: false, livres: [], totalOcupado: 0, totalLivre: 0 }
 
     const agsDoDia = (agendamentos ?? []).filter(a => isSameDay(new Date(a.data_agendamento), dia))
@@ -181,10 +198,10 @@ async function ViewIndividual({
     return {
       dia,
       trabalha: true,
-      jornadaInicio: jornDia.hora_inicio,
-      jornadaFim: jornDia.hora_fim,
-      almocoInicio: jornDia.almoco_inicio,
-      almocoFim: jornDia.almoco_fim,
+      jornadaInicio: jornDia.jornada_inicio,
+      jornadaFim: jornDia.jornada_fim,
+      almocoInicio: jornDia.intervalo_inicio,
+      almocoFim: jornDia.intervalo_fim,
       livres,
       totalOcupado,
       totalLivre: totalJornada - totalOcupado,
@@ -202,6 +219,9 @@ async function ViewIndividual({
           profissionais={profissionais}
           initialStatuses={initialStatuses}
           disponibilidades={{ [targetId]: Object.fromEntries(jornadaMap.entries()) }}
+          disponibilidadesHoje={{
+            [targetId]: resolverJornadaDoDia(parseAppDate(formatAppDateKey(new Date())), jornadaMap, jornadaMensalMap) ?? null,
+          }}
         />
       )}
 
@@ -303,7 +323,7 @@ async function ViewIndividual({
                     </div>
                     {almocoInicio && almocoFim && (
                       <div className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5">
-                        <p className="text-[10px] font-bold text-amber-700 leading-none">Almoço</p>
+                        <p className="text-[10px] font-bold text-amber-700 leading-none">Intervalo</p>
                         <p className="text-[9px] text-amber-600 mt-0.5">{almocoInicio} – {almocoFim}</p>
                       </div>
                     )}
@@ -390,7 +410,7 @@ async function ViewGeral({
   const profIds = [...new Set([...profissionais.map((p) => p.id), ...profissionaisStatus.map((p) => p.id)])]
   const { data: todasJornadas } = await supabase
     .from('disponibilidade_profissional')
-    .select('profissional_id, dia_semana, hora_inicio, hora_fim, almoco_inicio, almoco_fim, ativo')
+    .select('profissional_id, dia_semana, jornada_inicio, jornada_fim, intervalo_inicio, intervalo_fim, ativo')
     .in('profissional_id', profIds)
     .eq('ativo', true)
 
@@ -400,6 +420,23 @@ async function ViewGeral({
     if (!jornadaMap.has(j.profissional_id)) jornadaMap.set(j.profissional_id, new Map())
     jornadaMap.get(j.profissional_id)!.set(j.dia_semana, normalizarDisponibilidade(j))
   }
+
+  const { data: jornadasMensais } = await supabase
+    .from('jornada_mensal_profissional')
+    .select('profissional_id, data, jornada_inicio, jornada_fim, intervalo_inicio, intervalo_fim, ativo')
+    .in('profissional_id', profIds)
+    .gte('data', formatAppDateKey(inicioDaSemana))
+    .lte('data', formatAppDateKey(fimDaSemana))
+
+  const jornadaMensalMap = buildMapaMensalPorProfissional((jornadasMensais ?? []) as Array<{
+    profissional_id: string
+    data: string
+    jornada_inicio: string | null
+    jornada_fim: string | null
+    intervalo_inicio?: string | null
+    intervalo_fim?: string | null
+    ativo: boolean
+  }>)
 
   const profIdsComJornada = [...new Set((todasJornadas ?? []).map((j) => j.profissional_id))]
   const { data: todosAgendamentos } = profIdsComJornada.length > 0
@@ -431,8 +468,7 @@ async function ViewGeral({
   for (const prof of profissionaisComJornada) {
     const jornProf = jornadaMap.get(prof.id)
     for (const dia of diasDaSemana) {
-      const diaSemana = dia.getDay()
-      const jornDia = jornProf?.get(diaSemana)
+      const jornDia = jornProf ? resolverJornadaDoDia(dia, jornProf, jornadaMensalMap.get(prof.id)) : null
       if (!jornDia) {
         grid.push({ profId: prof.id, nome: prof.nome, dia, trabalha: false, livres: [] })
         continue
@@ -451,8 +487,8 @@ async function ViewGeral({
         nome: prof.nome,
         dia,
         trabalha: true,
-        almocoInicio: jornDia.almoco_inicio,
-        almocoFim: jornDia.almoco_fim,
+        almocoInicio: jornDia.intervalo_inicio,
+        almocoFim: jornDia.intervalo_fim,
         livres: calcularSlotsLivres(jornDia, ocupados),
       })
     }
@@ -468,6 +504,16 @@ async function ViewGeral({
           profissionaisStatus.map((prof) => [
             prof.id,
             Object.fromEntries((jornadaMap.get(prof.id) ?? new Map()).entries()),
+          ]),
+        )}
+        disponibilidadesHoje={Object.fromEntries(
+          profissionaisStatus.map((prof) => [
+            prof.id,
+            resolverJornadaDoDia(
+              parseAppDate(formatAppDateKey(new Date())),
+              jornadaMap.get(prof.id) ?? new Map(),
+              jornadaMensalMap.get(prof.id),
+            ) ?? null,
           ]),
         )}
       />
@@ -544,7 +590,7 @@ async function ViewGeral({
                           <div className="space-y-1.5">
                             {almocoInicio && almocoFim && (
                               <div className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5">
-                                <p className="text-[10px] font-bold text-amber-700 leading-tight">Almoço</p>
+                                <p className="text-[10px] font-bold text-amber-700 leading-tight">Intervalo</p>
                                 <p className="text-[10px] text-amber-600 mt-0.5">{almocoInicio}–{almocoFim}</p>
                               </div>
                             )}

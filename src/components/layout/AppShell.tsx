@@ -29,6 +29,7 @@ export function AppShell({
   children,
   profissionais,
   disponibilidades,
+  disponibilidadesMensais,
   tiposConsulta,
   protocolosAtendimento,
   planosSaude = [],
@@ -37,6 +38,7 @@ export function AppShell({
   children: React.ReactNode
   profissionais: Profissional[]
   disponibilidades?: Record<string, Record<number, DisponibilidadeDia>>
+  disponibilidadesMensais?: Record<string, Record<string, DisponibilidadeDia | null>>
   tiposConsulta: TipoConsulta[]
   protocolosAtendimento: ProtocoloAtendimento[]
   planosSaude?: PlanoSaude[]
@@ -105,6 +107,7 @@ export function AppShell({
         <SlideNovoAgendamento
           profissionais={profissionais}
           disponibilidades={disponibilidades}
+          disponibilidadesMensais={disponibilidadesMensais}
           planos={planosSaude}
           controlledOpen={slideNovoAberto}
           onControlledClose={() => setSlideNovoAberto(false)}

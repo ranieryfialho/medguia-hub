@@ -5,10 +5,10 @@ import { revalidatePath } from 'next/cache'
 
 export type DiaDisponibilidade = {
   dia_semana: number
-  hora_inicio: string
-  hora_fim: string
-  almoco_inicio: string | null
-  almoco_fim: string | null
+  jornada_inicio: string
+  jornada_fim: string
+  intervalo_inicio: string | null
+  intervalo_fim: string | null
   ativo: boolean
 }
 
@@ -25,7 +25,7 @@ export async function listarDisponibilidade(profissionalId?: string): Promise<Di
 
   const { data } = await supabase
     .from('disponibilidade_profissional')
-    .select('dia_semana, hora_inicio, hora_fim, almoco_inicio, almoco_fim, ativo')
+    .select('dia_semana, jornada_inicio, jornada_fim, intervalo_inicio, intervalo_fim, ativo')
     .eq('profissional_id', targetId)
     .order('dia_semana')
 
@@ -36,17 +36,17 @@ export async function listarTodasDisponibilidades(): Promise<
   {
     profissional_id: string
     dia_semana: number
-    hora_inicio: string
-    hora_fim: string
-    almoco_inicio: string | null
-    almoco_fim: string | null
+    jornada_inicio: string
+    jornada_fim: string
+    intervalo_inicio: string | null
+    intervalo_fim: string | null
     ativo: boolean
   }[]
 > {
   const supabase = await createClient()
   const { data } = await supabase
     .from('disponibilidade_profissional')
-    .select('profissional_id, dia_semana, hora_inicio, hora_fim, almoco_inicio, almoco_fim, ativo')
+    .select('profissional_id, dia_semana, jornada_inicio, jornada_fim, intervalo_inicio, intervalo_fim, ativo')
     .eq('ativo', true)
   return data ?? []
 }
@@ -67,10 +67,10 @@ export async function salvarDisponibilidade(
   const rows = dias.map(d => ({
     profissional_id: profissionalId,
     dia_semana: d.dia_semana,
-    hora_inicio: d.hora_inicio,
-    hora_fim: d.hora_fim,
-    almoco_inicio: d.almoco_inicio,
-    almoco_fim: d.almoco_fim,
+    jornada_inicio: d.jornada_inicio,
+    jornada_fim: d.jornada_fim,
+    intervalo_inicio: d.intervalo_inicio,
+    intervalo_fim: d.intervalo_fim,
     ativo: d.ativo,
   }))
 

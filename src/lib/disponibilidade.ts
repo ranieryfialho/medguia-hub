@@ -5,20 +5,22 @@ import {
   toMin,
   type JornadaDia,
 } from '@/lib/jornada'
+import { resolverJornadaDoDia, type JornadaMensalDiaPlanejado } from '@/lib/jornada-planejada'
 
 export type DisponibilidadeDia = JornadaDia
+export type DisponibilidadeMensalMap = Map<string, JornadaMensalDiaPlanejado>
 
 export function normalizarDisponibilidade(dia: {
-  hora_inicio: string
-  hora_fim: string
-  almoco_inicio?: string | null
-  almoco_fim?: string | null
+  jornada_inicio: string
+  jornada_fim: string
+  intervalo_inicio?: string | null
+  intervalo_fim?: string | null
 }): DisponibilidadeDia {
   return {
-    hora_inicio: dia.hora_inicio.slice(0, 5),
-    hora_fim: dia.hora_fim.slice(0, 5),
-    almoco_inicio: dia.almoco_inicio?.slice(0, 5) ?? null,
-    almoco_fim: dia.almoco_fim?.slice(0, 5) ?? null,
+    jornada_inicio: dia.jornada_inicio.slice(0, 5),
+    jornada_fim: dia.jornada_fim.slice(0, 5),
+    intervalo_inicio: dia.intervalo_inicio?.slice(0, 5) ?? null,
+    intervalo_fim: dia.intervalo_fim?.slice(0, 5) ?? null,
   }
 }
 
@@ -42,11 +44,13 @@ export function horarioDentroDaDisponibilidade(
 export function obterDisponibilidadeDoDia(
   disponibilidades: Map<number, DisponibilidadeDia>,
   data: string,
+  disponibilidadesMensais?: DisponibilidadeMensalMap,
 ) {
-  const diaSemana = parseAppDate(data).getDay()
+  const dataDate = parseAppDate(data)
+  const diaSemana = dataDate.getDay()
   return {
     diaSemana,
-    disponibilidade: disponibilidades.get(diaSemana) ?? null,
+    disponibilidade: resolverJornadaDoDia(dataDate, disponibilidades, disponibilidadesMensais) ?? null,
   }
 }
 
@@ -55,8 +59,9 @@ export function validarHorarioDisponibilidade(
   data: string,
   horaInicio: string,
   horaFim: string,
+  disponibilidadesMensais?: DisponibilidadeMensalMap,
 ) {
-  const { disponibilidade } = obterDisponibilidadeDoDia(disponibilidades, data)
+  const { disponibilidade } = obterDisponibilidadeDoDia(disponibilidades, data, disponibilidadesMensais)
 
   if (!disponibilidade) {
     return {

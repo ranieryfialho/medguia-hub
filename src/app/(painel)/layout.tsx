@@ -4,7 +4,9 @@ import { createClient } from '@/lib/supabase/server'
 import { ModalPrimeiroAcesso } from '@/components/features/shared'
 import { Toaster } from 'react-hot-toast'
 import { listarTodasDisponibilidades } from '@/actions/disponibilidade'
+import { formatAppDateKey, parseAppDate } from '@/lib/datetime'
 import { normalizarDisponibilidade, type DisponibilidadeDia } from '@/lib/disponibilidade'
+import { buildMapaMensalPorProfissional, resolverJornadaDoDia } from '@/lib/jornada-planejada'
 import { podeEntrarNaAgendaOuRelatorio, podeEntrarNoWidgetDisponibilidade } from '@/lib/profissionais'
 import { WidgetDisponibilidade } from '@/components/features/configuracoes'
 import { listarStatusDisponibilidade } from '@/actions/status-disponibilidade'
@@ -77,9 +79,19 @@ export default async function DashboardLayout({
 
   const prontuariosPendentes = 0
 
-  const [{ data: listaProfissionais }, todasDisponibilidades, tiposConsulta, protocolosAtendimento, planosSaude] = await Promise.all([
+  const hoje = new Date()
+  const hojeKey = formatAppDateKey(hoje)
+  const mesAtual = hojeKey.slice(0, 7)
+  const inicioMesAtual = `${mesAtual}-01`
+  const fimMesAtual = `${mesAtual}-31`
+  const [{ data: listaProfissionais }, todasDisponibilidades, { data: jornadasMensaisMes }, tiposConsulta, protocolosAtendimento, planosSaude] = await Promise.all([
     supabase.from('profiles').select('id, full_name, role, ativo').in('role', ['fisioterapeuta', 'gestor', 'medico']).order('full_name'),
     listarTodasDisponibilidades(),
+    supabase
+      .from('jornada_mensal_profissional')
+      .select('profissional_id, data, jornada_inicio, jornada_fim, intervalo_inicio, intervalo_fim, ativo')
+      .gte('data', inicioMesAtual)
+      .lte('data', fimMesAtual),
     listarTiposConsultaAtivos(),
     listarProtocolosAtendimentoAtivos(),
     listarPlanosSaudeAtivos(),
@@ -91,7 +103,48 @@ export default async function DashboardLayout({
     disponibilidadesMap[d.profissional_id][d.dia_semana] = normalizarDisponibilidade(d)
   }
 
-  const profissionaisComJornada = new Set(todasDisponibilidades.map((d) => d.profissional_id))
+  const jornadasMensaisMap = buildMapaMensalPorProfissional((jornadasMensaisMes ?? []) as Array<{
+    profissional_id: string
+    data: string
+    jornada_inicio: string | null
+    jornada_fim: string | null
+    intervalo_inicio?: string | null
+    intervalo_fim?: string | null
+    ativo: boolean
+  }>)
+  const disponibilidadesMensaisMap: Record<string, Record<string, DisponibilidadeDia | null>> = {}
+  for (const [profissionalId, porData] of jornadasMensaisMap.entries()) {
+    disponibilidadesMensaisMap[profissionalId] = {}
+    for (const [data, jornada] of porData.entries()) {
+      disponibilidadesMensaisMap[profissionalId][data] = jornada.ativo && jornada.jornada_inicio && jornada.jornada_fim
+        ? normalizarDisponibilidade({
+            jornada_inicio: jornada.jornada_inicio,
+            jornada_fim: jornada.jornada_fim,
+            intervalo_inicio: jornada.intervalo_inicio ?? null,
+            intervalo_fim: jornada.intervalo_fim ?? null,
+          })
+        : null
+    }
+  }
+  const disponibilidadesHoje: Record<string, DisponibilidadeDia | null> = {}
+  const hojeDate = parseAppDate(hojeKey)
+  const todosProfIdsDisponibilidade = new Set([
+    ...Object.keys(disponibilidadesMap),
+    ...Object.keys(disponibilidadesMensaisMap),
+  ])
+  for (const profissionalId of todosProfIdsDisponibilidade) {
+    const semanal = disponibilidadesMap[profissionalId] ?? {}
+    disponibilidadesHoje[profissionalId] = resolverJornadaDoDia(
+      hojeDate,
+      new Map(Object.entries(semanal).map(([dia, disp]) => [Number(dia), disp])),
+      jornadasMensaisMap.get(profissionalId),
+    ) ?? null
+  }
+
+  const profissionaisComJornada = new Set([
+    ...todasDisponibilidades.map((d) => d.profissional_id),
+    ...Object.keys(disponibilidadesMensaisMap),
+  ])
   const profissionais = (listaProfissionais ?? [])
     .filter((p: { id: string; full_name: string; role: string; ativo?: boolean | null }) =>
       p.ativo !== false &&
@@ -120,6 +173,7 @@ export default async function DashboardLayout({
     <AppShell
       profissionais={profissionais}
       disponibilidades={disponibilidadesMap}
+      disponibilidadesMensais={disponibilidadesMensaisMap}
       tiposConsulta={tiposConsulta}
       protocolosAtendimento={protocolosAtendimento}
       planosSaude={planosSaude}
@@ -141,6 +195,7 @@ export default async function DashboardLayout({
           initialStatuses={statusDisponibilidade}
           currentUserId={user.id}
           disponibilidades={disponibilidadesMap}
+          disponibilidadesHoje={disponibilidadesHoje}
         />
       )}
     </AppShell>
