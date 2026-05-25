@@ -120,11 +120,11 @@ export default async function AgendaPage({ searchParams }: PageProps) {
 
   const supabase = await createClient()
 
-  const isFisioterapeuta = profile?.role === 'fisioterapeuta'
-  const podeVerComercial = podeGerirEquipe({
+  const podeGerirAgendaEquipe = podeGerirEquipe({
     role: profile?.role,
     nivelAcesso: profile?.nivel_acesso,
   })
+  const podeVerComercial = podeGerirAgendaEquipe
 
   const params = await searchParams
   const view = typeof params.view === 'string' ? params.view : 'dia'
@@ -206,7 +206,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
   const todosDiasMes = [...diasVaziosInicio, ...diasDoMes]
 
   let { start: fetchInicio, end: fetchFim } = getAppDayRangeUTC(dataString)
-  const shouldFilterByProfissional = isFisioterapeuta || myAppointmentsOnly
+  const shouldFilterByProfissional = !podeGerirAgendaEquipe || myAppointmentsOnly
   const profissionalIdFiltro = shouldFilterByProfissional ? user.id : profissionalSelecionado || ''
 
   if (view === 'semana') {
@@ -528,7 +528,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 </Link>
               </div>
 
-              {!isFisioterapeuta && (
+              {podeGerirAgendaEquipe && (
                 <Link
                   href={buildAgendaUrl(baseQuery, { meus: !myAppointmentsOnly, profissional: profissionalSelecionado || null })}
                   title="Meus agendamentos"
