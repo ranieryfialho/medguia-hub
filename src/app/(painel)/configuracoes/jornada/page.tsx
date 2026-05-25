@@ -5,6 +5,7 @@ import { listarDisponibilidade } from '@/actions/disponibilidade'
 import { listarJornadaMensal } from '@/actions/jornada-mensal'
 import { JornadaEditor, JornadaMensalEditor } from '@/components/features/configuracoes'
 import { requireModulo } from '@/lib/guard'
+import { podeGerirEquipe } from '@/lib/permissoes'
 
 export default async function JornadaPage({
   searchParams,
@@ -16,7 +17,10 @@ export default async function JornadaPage({
   const supabase = await createClient()
   const params = await searchParams
 
-  const isGestor = profile?.nivel_acesso === 'gestor' || profile?.nivel_acesso === 'master'
+  const isGestor = podeGerirEquipe({
+    role: profile?.role,
+    nivelAcesso: profile?.nivel_acesso,
+  })
   const mesReferencia = typeof params.mes === 'string' && /^\d{4}-\d{2}$/.test(params.mes)
     ? params.mes
     : format(new Date(), 'yyyy-MM')

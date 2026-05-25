@@ -13,6 +13,7 @@ import {
   ORIGENS_IMPORTACAO_CONTATOS,
   type OrigemImportacaoContato,
 } from '@/lib/contatos-origens-importacao'
+import { isGestorSistema } from '@/lib/permissoes'
 
 export type StatusContato = StatusContatoPadrao
 export type PreviewPacienteBaseContato = {
@@ -26,7 +27,7 @@ export type PreviewPacienteBaseContato = {
 type AuthContext = {
   supabase: Awaited<ReturnType<typeof createClient>>
   userId: string
-  role: string
+  nivelAcesso: string
 }
 
 async function getAuthContext(): Promise<AuthContext> {
@@ -39,21 +40,21 @@ async function getAuthContext(): Promise<AuthContext> {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('nivel_acesso')
     .eq('id', user.id)
     .single()
 
   return {
     supabase,
     userId: user.id,
-    role: profile?.role ?? '',
+    nivelAcesso: profile?.nivel_acesso ?? '',
   }
 }
 
 async function requireGestorOuMaster() {
   const ctx = await getAuthContext()
 
-  if (!['gestor', 'master'].includes(ctx.role)) {
+  if (!isGestorSistema(ctx.nivelAcesso)) {
     throw new Error('Forbidden')
   }
 

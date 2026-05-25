@@ -4,6 +4,7 @@ import { ModalEditarAcesso } from '@/components/features/shared'
 import { requireModulo } from '@/lib/guard'
 import { createClient } from '@/lib/supabase/server'
 import { normalizarCargoOperacional, type NivelAcesso } from '@/lib/modulos'
+import { isGestorSistema } from '@/lib/permissoes'
 
 type PerfilRow = {
   id: string
@@ -33,7 +34,7 @@ function labelCargo(cargo: string | null) {
 export default async function GestaoAcessosPage() {
   const { profile } = await requireModulo('equipe:acessos')
 
-  if (!['gestor', 'master'].includes(profile.nivel_acesso)) {
+  if (!isGestorSistema(profile?.nivel_acesso)) {
     redirect('/dashboard')
   }
 

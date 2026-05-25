@@ -14,6 +14,7 @@ import {
   type UltimoAtendimentoClient,
 } from '@/lib/ultimo-atendimento'
 import { requireModulo } from '@/lib/guard'
+import { isGestorSistema } from '@/lib/permissoes'
 
 type StatusContato = StatusContatoPadrao
 
@@ -41,7 +42,7 @@ export default async function RelatorioContatosPage() {
   atendimentoCutoff.setFullYear(atendimentoCutoff.getFullYear() - HISTORICO_ATENDIMENTOS_ANOS)
   const atendimentoCutoffIso = atendimentoCutoff.toISOString()
 
-  const isGestorOuMaster = profile.nivel_acesso === 'gestor' || profile.nivel_acesso === 'master'
+  const isGestorOuMaster = isGestorSistema(profile?.nivel_acesso)
 
   // Construir query base
   let q = supabase

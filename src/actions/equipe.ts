@@ -4,6 +4,7 @@ import { createClient as createSupabaseAdminClient, type SupabaseClient } from '
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { obterModulosPadraoParaUsuario } from '@/lib/modulos'
+import { isGestorSistema, isMasterSistema } from '@/lib/permissoes'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 
 async function contarMastersAtivosAdmin(supabaseAdmin: SupabaseClient) {
@@ -36,7 +37,7 @@ async function requireGestorOuMaster(): Promise<GestorOuMasterContext> {
     .eq('id', user.id)
     .single()
 
-  if (!self || !['gestor', 'master'].includes(self.nivel_acesso)) {
+  if (!self || !isGestorSistema(self.nivel_acesso)) {
     return { error: 'Sem permissão para gerenciar colaboradores' }
   }
 
@@ -61,7 +62,7 @@ export async function cadastrarColaborador(_prevState: { error?: string } | null
 
   const ctx = await requireGestorOuMaster()
   if ('error' in ctx) return { error: ctx.error }
-  if (nivelAcesso === 'master' && ctx.self.nivel_acesso !== 'master') {
+  if (isMasterSistema(nivelAcesso) && !isMasterSistema(ctx.self.nivel_acesso)) {
     return { error: 'Apenas master pode conceder nível master' }
   }
 
@@ -149,15 +150,15 @@ export async function editarColaborador(_prevState: { error?: string } | null, f
   const mudouCargo = perfilAtual?.role !== cargo
   const mudouNivel = perfilAtual?.nivel_acesso !== nivelAcesso
 
-  if (perfilAtual?.nivel_acesso === 'master' && self.nivel_acesso !== 'master') {
+  if (isMasterSistema(perfilAtual?.nivel_acesso) && !isMasterSistema(self.nivel_acesso)) {
     return retornoErro('Apenas master pode editar um usuário master')
   }
 
-  if (nivelAcesso === 'master' && self.nivel_acesso !== 'master') {
+  if (isMasterSistema(nivelAcesso) && !isMasterSistema(self.nivel_acesso)) {
     return retornoErro('Apenas master pode conceder nível master')
   }
 
-  if (perfilAtual?.nivel_acesso === 'master' && nivelAcesso !== 'master') {
+  if (isMasterSistema(perfilAtual?.nivel_acesso) && !isMasterSistema(nivelAcesso)) {
     const totalMastersAtivos = await contarMastersAtivosAdmin(supabaseAdmin)
     if (totalMastersAtivos === 1) {
       return retornoErro('Não é possível remover o nível master do último master ativo')
@@ -165,7 +166,7 @@ export async function editarColaborador(_prevState: { error?: string } | null, f
   }
 
   if (
-    nivelAcesso === 'master' ||
+    isMasterSistema(nivelAcesso) ||
     mudouCargo ||
     mudouNivel ||
     !Array.isArray(perfilAtual?.modulos_liberados) ||
@@ -217,11 +218,11 @@ export async function alternarAtivoColaborador(id: string, ativarAgora: boolean)
     .eq('id', id)
     .single()
 
-  if (alvo?.nivel_acesso === 'master' && ctx.self.nivel_acesso !== 'master') {
+  if (isMasterSistema(alvo?.nivel_acesso) && !isMasterSistema(ctx.self.nivel_acesso)) {
     return { error: 'Apenas master pode alterar o acesso de outro usuário master' }
   }
 
-  if (alvo?.nivel_acesso === 'master' && !ativarAgora) {
+  if (isMasterSistema(alvo?.nivel_acesso) && !ativarAgora) {
     const totalMastersAtivos = await contarMastersAtivosAdmin(supabaseAdmin)
     if (totalMastersAtivos === 1) {
       return { error: 'Não é possível inativar o último master ativo' }
@@ -269,7 +270,7 @@ export async function redefinirSenha(id: string, novaSenha: string) {
     .eq('id', id)
     .single()
 
-  if (alvo?.nivel_acesso === 'master' && ctx.self.nivel_acesso !== 'master') {
+  if (isMasterSistema(alvo?.nivel_acesso) && !isMasterSistema(ctx.self.nivel_acesso)) {
     return { error: 'Apenas master pode redefinir a senha de outro usuário master' }
   }
 

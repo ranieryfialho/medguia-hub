@@ -15,6 +15,7 @@ import { buildMapaMensalPorProfissional, resolverJornadaDoDia } from '@/lib/jorn
 import { StatusEquipeRealtime } from '@/components/features/equipe'
 import { listarStatusDisponibilidade } from '@/actions/status-disponibilidade'
 import { requireModulo } from '@/lib/guard'
+import { podeGerirEquipe } from '@/lib/permissoes'
 import { podeEntrarNaAgendaOuRelatorio } from '@/lib/profissionais'
 import { STATUS_NAO_BLOQUEIAM_RAW_SQL } from '@/lib/atendimento-status'
 
@@ -698,7 +699,10 @@ export default async function DisponibilidadePage({
   const supabase = await createClient()
   const params = await searchParams
 
-  const isGestor = profile?.nivel_acesso === 'gestor' || profile?.nivel_acesso === 'master'
+  const isGestor = podeGerirEquipe({
+    role: profile?.role,
+    nivelAcesso: profile?.nivel_acesso,
+  })
 
   let profissionais: { id: string; nome: string }[] = []
   let profissionaisStatus: { id: string; nome: string }[] = []

@@ -18,6 +18,7 @@ import {
 } from '@/lib/relatorios/kpis-tempo-fabril'
 import { podeEntrarNaAgendaOuRelatorio } from '@/lib/profissionais'
 import { requireModulo } from '@/lib/guard'
+import { isGestorSistema } from '@/lib/permissoes'
 
 // Componente de cards resumo
 function CardsResumoFabril({
@@ -64,7 +65,7 @@ export default async function TempoFabrilPage({
   const supabase = await createClient()
   const params = await searchParams
 
-  const isGestorOuMaster = profile?.nivel_acesso === 'gestor' || profile?.nivel_acesso === 'master'
+  const isGestorOuMaster = isGestorSistema(profile?.nivel_acesso)
   const { dataInicio, dataFim } = resolverPeriodo(params)
 
   // Buscar profissionais elegíveis

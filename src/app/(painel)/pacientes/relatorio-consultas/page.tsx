@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { BtnGerarPdfConsultas } from '@/components/features/shared'
 import { FiltrosConsultas } from '@/components/features/shared'
+import { isGestorSistema } from '@/lib/permissoes'
 import { podeEntrarNoWidgetDisponibilidade } from '@/lib/profissionais'
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>
@@ -168,7 +169,7 @@ export default async function RelatorioConsultasPage({
   const supabase = await createClient()
   const params = await searchParams
 
-  const isGestorOuMaster = profile?.nivel_acesso === 'gestor' || profile?.nivel_acesso === 'master'
+  const isGestorOuMaster = isGestorSistema(profile?.nivel_acesso)
   const roleUsuario = profile?.role ?? null
 
   const hoje = new Date()

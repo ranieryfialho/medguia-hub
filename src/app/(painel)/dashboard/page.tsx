@@ -7,6 +7,7 @@ import { calcularKPIs, type JornadaPlanejada } from '@/lib/relatorios/kpis-tempo
 import { formatAppDateKey, getAppDayRangeUTC } from '@/lib/datetime'
 import { criarContagemStatusContato, LABEL_POR_STATUS_CONTATO } from '@/lib/contatos-kanban'
 import { requireModulo } from '@/lib/guard'
+import { isGestorSistema } from '@/lib/permissoes'
 import {
   getAtendimentoStatusKey,
   isStatusConcluido,
@@ -57,7 +58,7 @@ export default async function DashboardPage() {
   const hoje = new Date()
   const inicioMes = startOfMonth(hoje)
 
-  const isGestorOuMaster = profile?.nivel_acesso === 'gestor' || profile?.nivel_acesso === 'master'
+  const isGestorOuMaster = isGestorSistema(profile?.nivel_acesso)
 
   // 2. Determinar lista de profissionais
   let profissionais: Profissional[] = []

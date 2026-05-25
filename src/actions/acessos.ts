@@ -9,6 +9,7 @@ import {
   type ModuloChave,
   type NivelAcesso,
 } from '@/lib/modulos'
+import { isGestorSistema, isMasterSistema } from '@/lib/permissoes'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 
 type AtualizarConfiguracaoPayload = {
@@ -44,7 +45,7 @@ export async function atualizarConfiguracaoAcessoUsuario(
     .eq('id', user.id)
     .single()
 
-  if (!self || !['gestor', 'master'].includes(self.nivel_acesso)) {
+  if (!self || !isGestorSistema(self.nivel_acesso)) {
     return { error: 'Sem permissão para editar acessos' }
   }
 
@@ -59,22 +60,22 @@ export async function atualizarConfiguracaoAcessoUsuario(
     .eq('id', usuarioId)
     .single()
 
-  if (alvo?.nivel_acesso === 'master' && self.nivel_acesso !== 'master') {
+  if (isMasterSistema(alvo?.nivel_acesso) && !isMasterSistema(self.nivel_acesso)) {
     return { error: 'Apenas master pode alterar outro usuário master' }
   }
 
-  if (nivelAcesso === 'master' && self.nivel_acesso !== 'master') {
+  if (isMasterSistema(nivelAcesso) && !isMasterSistema(self.nivel_acesso)) {
     return { error: 'Apenas master pode conceder nível master' }
   }
 
-  if (alvo?.nivel_acesso === 'master' && nivelAcesso !== 'master') {
+  if (isMasterSistema(alvo?.nivel_acesso) && !isMasterSistema(nivelAcesso)) {
     const totalMastersAtivos = await contarMastersAtivosAdmin(supabaseAdmin)
     if (totalMastersAtivos === 1) {
       return { error: 'Não é possível remover o nível master do último master ativo' }
     }
   }
 
-  const modulosBase = nivelAcesso === 'master'
+  const modulosBase = isMasterSistema(nivelAcesso)
     ? obterModulosPadraoParaUsuario(cargo, nivelAcesso)
     : payload.modulos
 

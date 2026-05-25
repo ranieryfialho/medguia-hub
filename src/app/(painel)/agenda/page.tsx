@@ -23,6 +23,7 @@ import { normalizarDisponibilidade, type DisponibilidadeDia } from '@/lib/dispon
 import { buildMapaMensalPorProfissional, resolverJornadaDoDia } from '@/lib/jornada-planejada'
 import { podeEntrarNaAgendaOuRelatorio } from '@/lib/profissionais'
 import { requireModulo } from '@/lib/guard'
+import { podeGerirEquipe } from '@/lib/permissoes'
 import {
   getAtendimentoStatusKey,
   getStatusRawValuesForKeys,
@@ -120,11 +121,10 @@ export default async function AgendaPage({ searchParams }: PageProps) {
   const supabase = await createClient()
 
   const isFisioterapeuta = profile?.role === 'fisioterapeuta'
-  const podeVerComercial =
-    profile?.role === 'gestor' ||
-    profile?.role === 'master' ||
-    profile?.nivel_acesso === 'gestor' ||
-    profile?.nivel_acesso === 'master'
+  const podeVerComercial = podeGerirEquipe({
+    role: profile?.role,
+    nivelAcesso: profile?.nivel_acesso,
+  })
 
   const params = await searchParams
   const view = typeof params.view === 'string' ? params.view : 'dia'
