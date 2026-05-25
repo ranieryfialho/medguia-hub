@@ -7,7 +7,7 @@ import {
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import {
-  format, startOfWeek, endOfWeek, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths,
+  format, startOfWeek, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths,
   isSameDay, parseISO, isValid, isSameMonth
 } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -182,7 +182,10 @@ export default async function AgendaPage({ searchParams }: PageProps) {
   const nextUrl = buildAgendaUrl(baseQuery, { data: formatAppDateKey(nextDate) })
 
   const inicioDaSemana = startOfWeek(dataSelecionada, { weekStartsOn: 0 })
-  const diasDaSemana = Array.from({ length: 7 }, (_, i) => addDays(inicioDaSemana, i))
+  const diasDaSemana = Array.from({ length: 7 }, (_, i) => {
+    const d = addDays(inicioDaSemana, i)
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 12, 0, 0))
+  })
 
   const mesAnoAtual = format(dataSelecionada, "MMMM, yyyy", { locale: ptBR })
   const diaFormatadoSelecionado = format(dataSelecionada, "dd MMM", { locale: ptBR })
@@ -210,8 +213,8 @@ export default async function AgendaPage({ searchParams }: PageProps) {
   const profissionalIdFiltro = shouldFilterByProfissional ? user.id : profissionalSelecionado || ''
 
   if (view === 'semana') {
-    fetchInicio = getAppDayRangeUTC(formatAppDateKey(inicioDaSemana)).start
-    fetchFim = getAppDayRangeUTC(formatAppDateKey(endOfWeek(dataSelecionada, { weekStartsOn: 0 }))).end
+    fetchInicio = getAppDayRangeUTC(formatAppDateKey(diasDaSemana[0])).start
+    fetchFim = getAppDayRangeUTC(formatAppDateKey(diasDaSemana[6])).end
   } else if (view === 'mes') {
     fetchInicio = getAppDayRangeUTC(formatAppDateKey(inicioDoMes)).start
     fetchFim = getAppDayRangeUTC(formatAppDateKey(fimDoMes)).end
