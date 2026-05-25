@@ -159,6 +159,7 @@ async function listarPacientesDisponiveisBaseInterno(
   colunaChave: string,
   limit: number,
   pacienteIds?: string[],
+  search?: string,
 ): Promise<PreviewPacienteBaseContato[]> {
   if (!isColunaBaseContato(colunaChave)) {
     return []
@@ -193,6 +194,45 @@ async function listarPacientesDisponiveisBaseInterno(
         return !contatoRelacao
       })
       .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+      .slice(0, limit)
+      .map((paciente) => ({
+        id: paciente.id,
+        nome: paciente.nome,
+        telefone: paciente.telefone,
+        email: paciente.email,
+        recuperacao_base: paciente.recuperacao_base,
+      }))
+  }
+
+  if (search?.trim()) {
+    const searchTerm = search.trim()
+    const { data, error } = await supabase
+      .from('pacientes')
+      .select(`
+        id,
+        nome,
+        telefone,
+        email,
+        recuperacao_base,
+        contatos_base (
+          paciente_id
+        )
+      `)
+      .eq('ativo', true)
+      .eq('recuperacao_base', recuperacaoBase)
+      .ilike('nome', `%${searchTerm}%`)
+      .order('nome', { ascending: true })
+      .limit(limit + 50)
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    return (data ?? [])
+      .filter((paciente) => {
+        const contatoRelacao = Array.isArray(paciente.contatos_base) ? paciente.contatos_base[0] : paciente.contatos_base
+        return !contatoRelacao
+      })
       .slice(0, limit)
       .map((paciente) => ({
         id: paciente.id,
@@ -438,7 +478,7 @@ export async function materializarPacientesBaseContato(colunaChave: string, limi
   return { success: true, inserted: Number(data) || 0 }
 }
 
-export async function listarPreviewPacientesBaseContato(colunaChave: string, limit = 50) {
+export async function listarPreviewPacientesBaseContato(colunaChave: string, limit = 50, search?: string) {
   await getAuthContext()
 
   if (!isColunaBaseContato(colunaChave)) {
@@ -449,7 +489,7 @@ export async function listarPreviewPacientesBaseContato(colunaChave: string, lim
   const limiteNormalizado = Math.max(1, Math.min(200, Math.trunc(limit) || 50))
 
   try {
-    const items = await listarPacientesDisponiveisBaseInterno(supabase, colunaChave, limiteNormalizado)
+    const items = await listarPacientesDisponiveisBaseInterno(supabase, colunaChave, limiteNormalizado, undefined, search)
     return { success: true, items }
   } catch (error) {
     return {

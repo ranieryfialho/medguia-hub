@@ -230,6 +230,7 @@ export function KanbanContatos({
     loading: false,
     confirming: false,
   })
+  const [baseSeedSearch, setBaseSeedSearch] = useState('')
   const [, startTransition] = useTransition()
   const [supabase] = useState(createClient)
   const contatosRef = useRef<ContatoPaciente[]>(initialBoard.contatos)
@@ -238,6 +239,7 @@ export function KanbanContatos({
   const didHydrateFiltersRef = useRef(false)
   const boardRefreshTimeoutRef = useRef<number | null>(null)
   const baseSeedRefreshTimeoutRef = useRef<number | null>(null)
+  const baseSeedSearchTimeoutRef = useRef<number | null>(null)
 
   const router = useRouter()
   const canManageColumns = userNivelAcesso === 'gestor' || userNivelAcesso === 'master'
@@ -606,8 +608,13 @@ export function KanbanContatos({
 
     baseSeedRefreshTimeoutRef.current = window.setTimeout(() => {
       baseSeedRefreshTimeoutRef.current = null
-      void loadBaseSeedPreview(columnKey)
+      void loadBaseSeedPreview(columnKey, baseSeedSearch)
     }, 350)
+  })
+
+  const triggerBaseSeedSearchRefresh = useEffectEvent(() => {
+    if (!baseSeedModal.open || baseSeedModal.confirming) return
+    void loadBaseSeedPreview(baseSeedModal.columnKey, baseSeedSearch)
   })
 
   useEffect(() => {
@@ -633,8 +640,21 @@ export function KanbanContatos({
       if (baseSeedRefreshTimeoutRef.current !== null) {
         window.clearTimeout(baseSeedRefreshTimeoutRef.current)
       }
+      if (baseSeedSearchTimeoutRef.current !== null) {
+        window.clearTimeout(baseSeedSearchTimeoutRef.current)
+      }
     }
   }, [])
+
+  useEffect(() => {
+    if (baseSeedSearchTimeoutRef.current !== null) {
+      window.clearTimeout(baseSeedSearchTimeoutRef.current)
+    }
+    baseSeedSearchTimeoutRef.current = window.setTimeout(() => {
+      baseSeedSearchTimeoutRef.current = null
+      triggerBaseSeedSearchRefresh()
+    }, 300)
+  }, [baseSeedSearch])
 
   async function handleLoadMore(columnKey: string) {
     const currentOffset = columnOffsets[columnKey] ?? 0
@@ -797,7 +817,7 @@ export function KanbanContatos({
     }*/
   }
 
-  async function loadBaseSeedPreview(columnKey: string) {
+  async function loadBaseSeedPreview(columnKey: string, search = '') {
     if (!isBaseSeedColumn(columnKey)) return
 
     setBaseSeedModal((prev) => ({
@@ -808,7 +828,7 @@ export function KanbanContatos({
       preview: prev.columnKey === columnKey ? prev.preview : [],
     }))
 
-    const result = await listarPreviewPacientesBaseContato(columnKey, 50)
+    const result = await listarPreviewPacientesBaseContato(columnKey, 50, search || undefined)
 
     if (result?.error) {
       setBaseSeedModal((prev) => ({
@@ -880,6 +900,7 @@ export function KanbanContatos({
   }
 
   function closeBaseSeedModal() {
+    setBaseSeedSearch('')
     setBaseSeedModal((prev) => ({
       ...prev,
       open: false,
@@ -1617,7 +1638,7 @@ export function KanbanContatos({
                   return (
                     <button
                       key={column.chave}
-                      onClick={() => void loadBaseSeedPreview(column.chave)}
+                      onClick={() => void loadBaseSeedPreview(column.chave, baseSeedSearch)}
                       className={`rounded-2xl border px-4 py-3 text-left transition-colors ${
                         isActive ? 'shadow-sm' : 'hover:border-[#bcc9c4]'
                       }`}
@@ -1649,6 +1670,26 @@ export function KanbanContatos({
             </div>
 
             <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 space-y-3 bg-[#f8faf9]">
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9BB0AD] pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Buscar paciente por nome..."
+                  value={baseSeedSearch}
+                  onChange={(e) => setBaseSeedSearch(e.target.value)}
+                  disabled={baseSeedModal.confirming}
+                  className="w-full pl-9 pr-3 py-2 border border-[#dee3e3] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b5a]/20 focus:border-[#006b5a] bg-white transition-all disabled:opacity-50"
+                />
+                {baseSeedSearch && (
+                  <button
+                    onClick={() => setBaseSeedSearch('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded text-[#9BB0AD] hover:text-[#6d7a75]"
+                  >
+                    <X size={13} />
+                  </button>
+                )}
+              </div>
+
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-[#1A2E2B]">
@@ -1656,13 +1697,13 @@ export function KanbanContatos({
                   </p>
                   <p className="text-xs text-[#6d7a75] mt-1">
                     {baseSeedModal.loading
-                      ? 'Carregando a proxima leva de pacientes.'
+                      ? 'Buscando pacientes...'
                       : `${baseSeedModal.preview.length} paciente${baseSeedModal.preview.length === 1 ? '' : 's'} entrarao nesta confirmacao.`}
                   </p>
                 </div>
                 {!baseSeedModal.loading && (
                   <button
-                    onClick={() => void loadBaseSeedPreview(baseSeedModal.columnKey)}
+                    onClick={() => void loadBaseSeedPreview(baseSeedModal.columnKey, baseSeedSearch)}
                     className="text-xs font-semibold text-[#006b5a] hover:underline"
                   >
                     Atualizar lista
@@ -1676,7 +1717,9 @@ export function KanbanContatos({
                 </div>
               ) : baseSeedModal.preview.length === 0 ? (
                 <div className="rounded-2xl border border-[#dee3e3] bg-white px-4 py-8 text-sm text-[#6d7a75] text-center">
-                  Nenhum paciente disponivel nesta base no momento.
+                  {baseSeedSearch.trim()
+                    ? `Nenhum paciente encontrado para "${baseSeedSearch.trim()}".`
+                    : 'Nenhum paciente disponivel nesta base no momento.'}
                 </div>
               ) : (
                 <div className="rounded-2xl border border-[#dee3e3] bg-white overflow-hidden">
