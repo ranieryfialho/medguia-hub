@@ -280,9 +280,72 @@ export function JornadaMensalEditor({
   const templateAplicadoIntegralmente = diasPendentesMaterializacao === 0
   const diasComOverride = jornadaMensal.filter((dia) => dia.origem !== 'template').length
 
+  function renderDayCard(dia: Date, compact = false) {
+    const resolvido = resolverDia(dia)
+    const isCurrentMonth = isSameMonth(dia, inicioMes)
+    const isSelected = selectedDate === resolvido.data
+    const hasManual = resolvido.origemExibicao !== 'fallback' && resolvido.origemExibicao !== 'template'
+    const hasMaterializedTemplate = resolvido.origemExibicao === 'template'
+
+    return (
+      <button
+        key={resolvido.data}
+        type="button"
+        onClick={() => handleSelectDate(resolvido.data)}
+        className={`${compact ? 'min-h-[120px] p-3' : 'min-h-[92px] sm:min-h-[110px] p-2.5 sm:p-3'} rounded-2xl border text-left transition-all ${
+          isSelected
+            ? 'border-[#006b5a] bg-[#006b5a]/5 shadow-sm'
+            : hasManual
+              ? 'border-amber-200 bg-amber-50/40 hover:border-amber-300'
+              : hasMaterializedTemplate
+                ? 'border-emerald-200 bg-emerald-50/40 hover:border-emerald-300'
+                : 'border-slate-200 bg-white hover:border-[#006b5a]/40'
+        } ${isCurrentMonth ? '' : 'opacity-45'}`}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-bold text-slate-900">{format(dia, 'd')}</span>
+          <span className={`rounded-full px-2 py-0.5 text-[9px] sm:text-[10px] font-semibold ${
+            resolvido.ativo
+              ? hasManual
+                ? 'bg-amber-100 text-amber-700'
+                : hasMaterializedTemplate
+                  ? 'bg-emerald-100 text-emerald-700'
+                : 'bg-emerald-100 text-emerald-700'
+              : 'bg-slate-100 text-slate-500'
+          }`}>
+            {ORIGEM_LABEL[resolvido.origemExibicao] ?? 'Planejado'}
+          </span>
+        </div>
+
+        <div className={`${compact ? 'mt-3' : 'mt-2 sm:mt-3'} space-y-1`}>
+          <p className="text-[11px] sm:text-xs font-medium text-slate-700">
+            {resolvido.ativo && resolvido.jornada_inicio && resolvido.jornada_fim
+              ? `${resolvido.jornada_inicio}–${resolvido.jornada_fim}`
+              : 'Sem atendimento'}
+          </p>
+          <p className="text-[10px] sm:text-[11px] text-slate-400">
+            {resolvido.intervalo_inicio && resolvido.intervalo_fim
+              ? `Intervalo ${resolvido.intervalo_inicio}–${resolvido.intervalo_fim}`
+              : resolvido.ativo
+                ? 'Sem intervalo'
+                : 'Folga / indisponível'}
+          </p>
+          {resolvido.observacao && (
+            <p
+              title={resolvido.observacao}
+              className="truncate text-[10px] font-medium text-[#006b5a]"
+            >
+              Motivo: {resolvido.observacao}
+            </p>
+          )}
+        </div>
+      </button>
+    )
+  }
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-      <div className="p-5 border-b border-slate-100 bg-gradient-to-b from-slate-50/60 to-transparent">
+      <div className="p-4 sm:p-5 border-b border-slate-100 bg-gradient-to-b from-slate-50/60 to-transparent">
         <div className="flex items-center gap-2 mb-1">
           <CalendarDays size={18} className="text-[#006b5a]" />
           <h3 className="font-bold text-slate-900">Planejamento Mensal</h3>
@@ -322,7 +385,7 @@ export function JornadaMensalEditor({
           <button
             onClick={handleAplicarTemplate}
             disabled={isPending}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#006b5a] text-white text-sm font-bold hover:bg-[#005548] transition-colors disabled:opacity-60"
+            className="inline-flex w-full sm:w-auto items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#006b5a] text-white text-sm font-bold hover:bg-[#005548] transition-colors disabled:opacity-60"
           >
             <CopyPlus size={16} />
             {isPending ? 'Aplicando...' : 'Aplicar template ao mês'}
@@ -379,87 +442,12 @@ export function JornadaMensalEditor({
         </div>
       </div>
 
-      <div className="p-5 grid grid-cols-1 xl:grid-cols-[minmax(0,2fr)_360px] gap-5">
-        <div>
-          <div className="grid grid-cols-7 gap-2 mb-2">
-            {DIAS_SEMANA.map((dia) => (
-              <div key={dia} className="px-2 py-1 text-xs font-bold uppercase tracking-wide text-slate-400">
-                {dia}
-              </div>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-7 gap-2">
-            {diasCalendario.map((dia) => {
-              const resolvido = resolverDia(dia)
-              const isCurrentMonth = isSameMonth(dia, inicioMes)
-              const isSelected = selectedDate === resolvido.data
-              const hasManual = resolvido.origemExibicao !== 'fallback' && resolvido.origemExibicao !== 'template'
-              const hasMaterializedTemplate = resolvido.origemExibicao === 'template'
-
-              return (
-                <button
-                  key={resolvido.data}
-                  type="button"
-                  onClick={() => handleSelectDate(resolvido.data)}
-                  className={`min-h-[110px] rounded-2xl border p-3 text-left transition-all ${
-                    isSelected
-                      ? 'border-[#006b5a] bg-[#006b5a]/5 shadow-sm'
-                      : hasManual
-                        ? 'border-amber-200 bg-amber-50/40 hover:border-amber-300'
-                        : hasMaterializedTemplate
-                          ? 'border-emerald-200 bg-emerald-50/40 hover:border-emerald-300'
-                          : 'border-slate-200 bg-white hover:border-[#006b5a]/40'
-                  } ${isCurrentMonth ? '' : 'opacity-45'}`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-bold text-slate-900">{format(dia, 'd')}</span>
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                      resolvido.ativo
-                        ? hasManual
-                          ? 'bg-amber-100 text-amber-700'
-                          : hasMaterializedTemplate
-                            ? 'bg-emerald-100 text-emerald-700'
-                          : 'bg-emerald-100 text-emerald-700'
-                        : 'bg-slate-100 text-slate-500'
-                    }`}>
-                      {ORIGEM_LABEL[resolvido.origemExibicao] ?? 'Planejado'}
-                    </span>
-                  </div>
-
-                  <div className="mt-3 space-y-1">
-                    <p className="text-xs font-medium text-slate-700">
-                      {resolvido.ativo && resolvido.jornada_inicio && resolvido.jornada_fim
-                        ? `${resolvido.jornada_inicio}–${resolvido.jornada_fim}`
-                        : 'Sem atendimento'}
-                    </p>
-                    <p className="text-[11px] text-slate-400">
-                      {resolvido.intervalo_inicio && resolvido.intervalo_fim
-                        ? `Intervalo ${resolvido.intervalo_inicio}–${resolvido.intervalo_fim}`
-                        : resolvido.ativo
-                          ? 'Sem intervalo'
-                          : 'Folga / indisponível'}
-                    </p>
-                    {resolvido.observacao && (
-                      <p
-                        title={resolvido.observacao}
-                        className="truncate text-[10px] font-medium text-[#006b5a]"
-                      >
-                        Motivo: {resolvido.observacao}
-                      </p>
-                    )}
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-          <div className="flex items-center justify-between gap-3">
+      <div className="p-4 sm:p-5 grid grid-cols-1 xl:grid-cols-[minmax(0,2fr)_360px] gap-5">
+        <div className="xl:order-2 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Dia selecionado</p>
-              <h4 className="text-lg font-bold text-slate-900 capitalize">
+              <h4 className="text-base sm:text-lg font-bold text-slate-900 capitalize">
                 {format(parse(selectedDate, 'yyyy-MM-dd', new Date()), "EEEE, d 'de' MMMM", { locale: ptBR })}
               </h4>
               <p className="mt-1 text-xs text-slate-500">
@@ -491,7 +479,7 @@ export function JornadaMensalEditor({
 
             {form.ativo ? (
               <>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-semibold text-slate-500 block mb-1.5">Início da jornada</label>
                     <input
@@ -523,7 +511,7 @@ export function JornadaMensalEditor({
                 </label>
 
                 {form.intervalo_ativo && (
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs font-semibold text-slate-500 block mb-1.5">Início do intervalo</label>
                       <input
@@ -568,7 +556,7 @@ export function JornadaMensalEditor({
             <button
               onClick={handleSalvarDia}
               disabled={isPending}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#006b5a] text-white text-sm font-bold hover:bg-[#005548] transition-colors disabled:opacity-60"
+              className="inline-flex w-full items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#006b5a] text-white text-sm font-bold hover:bg-[#005548] transition-colors disabled:opacity-60"
             >
               <CheckCircle2 size={16} />
               {isPending ? 'Salvando...' : 'Salvar ajuste do dia'}
@@ -577,11 +565,35 @@ export function JornadaMensalEditor({
             <button
               onClick={handleRestaurarDia}
               disabled={isPending}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition-colors disabled:opacity-60"
+              className="inline-flex w-full items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition-colors disabled:opacity-60"
             >
               <RotateCcw size={16} />
               Restaurar ao template semanal
             </button>
+          </div>
+        </div>
+
+        <div className="xl:order-1">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:hidden">
+            {diasDoMes.map((dia) => renderDayCard(dia, true))}
+          </div>
+
+          <div className="hidden xl:block">
+            <div className="-mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
+              <div className="min-w-[44rem]">
+                <div className="grid grid-cols-7 gap-2 mb-2">
+                  {DIAS_SEMANA.map((dia) => (
+                    <div key={dia} className="px-2 py-1 text-[11px] sm:text-xs font-bold uppercase tracking-wide text-slate-400">
+                      {dia}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-7 gap-2">
+                  {diasCalendario.map((dia) => renderDayCard(dia))}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

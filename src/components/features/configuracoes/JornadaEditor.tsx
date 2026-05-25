@@ -110,7 +110,7 @@ export function JornadaEditor({
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
       {/* Header */}
-      <div className="p-5 border-b border-slate-100 bg-gradient-to-b from-slate-50/60 to-transparent">
+      <div className="p-4 sm:p-5 border-b border-slate-100 bg-gradient-to-b from-slate-50/60 to-transparent">
         <div className="flex items-center gap-2 mb-1">
           <Clock size={18} className="text-[#006b5a]" />
           <h3 className="font-bold text-slate-900">Horários de Atendimento</h3>
@@ -140,8 +140,8 @@ export function JornadaEditor({
         {DIAS.map((diaConfig, idx) => {
           const d = dias[idx]
           return (
-            <div key={diaConfig.dia_semana} className={`px-5 py-3.5 transition-colors ${d.ativo ? 'bg-white' : 'bg-slate-50/60'}`}>
-              <div className="flex items-center gap-4">
+            <div key={diaConfig.dia_semana} className={`px-4 sm:px-5 py-3.5 transition-colors ${d.ativo ? 'bg-white' : 'bg-slate-50/60'}`}>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
               {/* Toggle */}
                 <label className="relative inline-flex items-center cursor-pointer shrink-0">
                 <input
@@ -154,13 +154,13 @@ export function JornadaEditor({
                 </label>
 
               {/* Nome do dia */}
-                <span className={`text-sm font-semibold w-36 shrink-0 ${d.ativo ? 'text-slate-800' : 'text-slate-400'}`}>
+                <span className={`text-sm font-semibold sm:w-36 sm:shrink-0 ${d.ativo ? 'text-slate-800' : 'text-slate-400'}`}>
                   {diaConfig.label}
                 </span>
 
               {/* Inputs de hora */}
                 {d.ativo ? (
-                  <div className="flex items-center gap-2 flex-1">
+                  <div className="grid flex-1 grid-cols-1 gap-3 sm:flex sm:items-center sm:gap-2">
                     <div>
                       <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">Início da jornada</label>
                       <input
@@ -170,7 +170,7 @@ export function JornadaEditor({
                         className="border border-[#bcc9c4] rounded-lg px-3 py-1.5 text-sm font-medium text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/50 focus:border-[#006b5a] outline-none transition-all"
                       />
                     </div>
-                    <span className="text-slate-400 text-sm font-medium">→</span>
+                    <span className="hidden sm:inline text-slate-400 text-sm font-medium">→</span>
                     <div>
                       <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">Fim da jornada</label>
                       <input
@@ -187,7 +187,7 @@ export function JornadaEditor({
               </div>
 
               {d.ativo && (
-                <div className="mt-3 ml-14 pl-4 border-l border-slate-100">
+                <div className="mt-3 sm:ml-14 sm:pl-4 sm:border-l sm:border-slate-100">
                   <label className="flex items-center gap-3 cursor-pointer">
                     <input
                       type="checkbox"
@@ -199,7 +199,7 @@ export function JornadaEditor({
                   </label>
 
                   {d.intervalo_ativo && (
-                    <div className="mt-3 flex items-center gap-2">
+                    <div className="mt-3 grid grid-cols-1 gap-3 sm:flex sm:items-center sm:gap-2">
                       <div>
                         <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">Início do intervalo</label>
                         <input
@@ -209,7 +209,7 @@ export function JornadaEditor({
                           className="border border-[#bcc9c4] rounded-lg px-3 py-1.5 text-sm font-medium text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/50 focus:border-[#006b5a] outline-none transition-all"
                         />
                       </div>
-                      <span className="text-slate-400 text-sm font-medium">→</span>
+                      <span className="hidden sm:inline text-slate-400 text-sm font-medium">→</span>
                       <div>
                         <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">Fim do intervalo</label>
                         <input
@@ -229,11 +229,11 @@ export function JornadaEditor({
       </div>
 
       {/* Footer */}
-      <div className="p-5 border-t border-slate-100 bg-slate-50/40">
+      <div className="p-4 sm:p-5 border-t border-slate-100 bg-slate-50/40">
         <button
           onClick={handleSalvar}
           disabled={isPending}
-          className="flex items-center gap-2 px-5 py-2.5 bg-[#006b5a] text-white text-sm font-bold rounded-xl hover:bg-[#005548] transition-colors disabled:opacity-60 shadow-sm"
+          className="flex w-full sm:w-auto items-center justify-center gap-2 px-5 py-2.5 bg-[#006b5a] text-white text-sm font-bold rounded-xl hover:bg-[#005548] transition-colors disabled:opacity-60 shadow-sm"
         >
           <CheckCircle size={16} />
           {isPending ? 'Salvando...' : 'Salvar jornada'}

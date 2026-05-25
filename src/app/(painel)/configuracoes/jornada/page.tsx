@@ -50,7 +50,7 @@ export default async function JornadaPage({
   ])
 
   return (
-    <div className="space-y-6 px-6">
+    <div className="space-y-6 px-3 sm:px-4 lg:px-6">
       <JornadaMensalEditor
         key={`${targetId}-${mesReferencia}`}
         targetProfissionalId={targetId}
