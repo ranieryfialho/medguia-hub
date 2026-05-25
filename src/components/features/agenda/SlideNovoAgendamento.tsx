@@ -567,7 +567,7 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
     }
 
     if (res && 'error' in res) {
-      setError(res.error)
+      setError(res.error ?? 'Não foi possível salvar o agendamento.')
       setLoading(false)
     } else {
       handleClose()

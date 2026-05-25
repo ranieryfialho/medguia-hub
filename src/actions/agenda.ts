@@ -52,10 +52,11 @@ async function requirePermissaoAgendaAdmin() {
 
   const modulos = profile.modulos_liberados ?? []
   const temModuloAgenda = modulos.length === 0 || modulos.includes('agenda')
-  const podeGerirAgenda = temModuloAgenda || isGestorSistema(profile.nivel_acesso)
+  const podeGerirAgendaEquipe = isGestorSistema(profile.nivel_acesso)
+  const podeGerirAgenda = temModuloAgenda || podeGerirAgendaEquipe
 
   if (!podeGerirAgenda) {
-    return { error: 'Sem permissão para excluir agendamentos.' as const }
+    return { error: 'Sem permissão para gerenciar agendamentos.' as const }
   }
 
   const supabaseAdmin = createSupabaseAdminClient(
@@ -63,7 +64,12 @@ async function requirePermissaoAgendaAdmin() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   )
 
-  return { supabaseAdmin }
+  return {
+    supabase,
+    supabaseAdmin,
+    userId: user.id,
+    podeGerirAgendaEquipe,
+  }
 }
 
 async function carregarDisponibilidadesProfissional(profissionalId: string) {
@@ -158,9 +164,9 @@ function removerMetadadosDisponibilidade(atendimento: {
 }
 
 export async function criarAgendamento(formData: FormData) {
-  const supabase = await createClient()
-
-  const { data: { user } } = await supabase.auth.getUser()
+  const ctx = await requirePermissaoAgendaAdmin()
+  if ('error' in ctx) return { error: ctx.error }
+  const { supabaseAdmin, userId, podeGerirAgendaEquipe } = ctx
 
   const paciente_id = formData.get('paciente_id') as string
   const profissional_id = formData.get('profissional_id') as string
@@ -201,6 +207,10 @@ export async function criarAgendamento(formData: FormData) {
     return { error: 'Preencha todos os campos obrigatórios.' }
   }
 
+  if (!podeGerirAgendaEquipe && profissional_id !== userId) {
+    return { error: 'Você só pode criar agendamentos para a sua própria agenda.' }
+  }
+
   const roleProfissional = await carregarRoleProfissional(profissional_id)
   const exigeDisponibilidade = roleProfissional !== 'medico'
 
@@ -239,7 +249,7 @@ export async function criarAgendamento(formData: FormData) {
       duracao_minutos: duracao,
       observacoes,
       status: 'Aguardando',
-      criado_por: user?.id ?? null,
+      criado_por: userId,
       gerou_venda,
       marcou_retorno,
       agendamento_id: '',
@@ -263,7 +273,7 @@ export async function criarAgendamento(formData: FormData) {
         const dataFormatada = formatAppDateKey(dataBase)
         atendimentosParaInserir.push({
           paciente_id, profissional_id, tipo: tiposDoProtocolo[count] ?? tipo, duracao_minutos: duracao, observacoes, status: 'Aguardando',
-          criado_por: user?.id ?? null, gerou_venda, marcou_retorno, agendamento_id: '',
+          criado_por: userId, gerou_venda, marcou_retorno, agendamento_id: '',
           data_agendamento: buildAppDateTimeISO(dataFormatada, horaInicio),
           data: dataFormatada,
           hora_inicio: horaInicio,
@@ -288,7 +298,7 @@ export async function criarAgendamento(formData: FormData) {
             const dataFormatada = formatAppDateKey(dataAtual)
             atendimentosParaInserir.push({
               paciente_id, profissional_id, tipo: tiposDoProtocolo[count] ?? tipo, duracao_minutos: duracao, observacoes, status: 'Aguardando',
-              criado_por: user?.id ?? null, gerou_venda, marcou_retorno, agendamento_id: '',
+              criado_por: userId, gerou_venda, marcou_retorno, agendamento_id: '',
               data_agendamento: buildAppDateTimeISO(dataFormatada, horaInicio),
               data: dataFormatada,
               hora_inicio: horaInicio,
@@ -336,7 +346,7 @@ export async function criarAgendamento(formData: FormData) {
   }
 
   const erroConflito = await validarConflitosProfissional(
-    supabase,
+    supabaseAdmin,
     profissional_id,
     atendimentosParaInserir.map((a) => ({
       data: a.data,
@@ -349,7 +359,7 @@ export async function criarAgendamento(formData: FormData) {
     return erroConflito
   }
 
-  const { data: agendamentoPai, error: erroAgendamento } = await supabase
+  const { data: agendamentoPai, error: erroAgendamento } = await supabaseAdmin
     .from('agendamentos')
     .insert({
       paciente_id,
@@ -369,7 +379,7 @@ export async function criarAgendamento(formData: FormData) {
       plano_saude: plano_saude || null,
       gerou_venda,
       marcou_retorno,
-      criado_por: user?.id ?? null,
+      criado_por: userId,
     })
     .select('id')
     .single()
@@ -379,7 +389,7 @@ export async function criarAgendamento(formData: FormData) {
     return { error: `Erro ao criar agendamento: ${erroAgendamento?.message ?? 'Resposta vazia do banco'}` }
   }
 
-  const { error } = await supabase.from('atendimentos').insert(
+  const { error } = await supabaseAdmin.from('atendimentos').insert(
     atendimentosParaInserir.map((atendimento) =>
       removerMetadadosDisponibilidade({
         ...atendimento,
@@ -1003,7 +1013,9 @@ export async function deletarAtendimentosSelecionados(ids: string[], agendamento
 }
 
 export async function editarAtendimento(id: string, formData: FormData) {
-  const supabase = await createClient()
+  const ctx = await requirePermissaoAgendaAdmin()
+  if ('error' in ctx) return { error: ctx.error }
+  const { supabaseAdmin, userId, podeGerirAgendaEquipe } = ctx
 
   const profissional_id = formData.get('profissional_id') as string
   const dataStr = formData.get('data') as string
@@ -1019,6 +1031,10 @@ export async function editarAtendimento(id: string, formData: FormData) {
 
   if (!profissional_id) {
     return { error: 'Selecione um profissional.' }
+  }
+
+  if (!podeGerirAgendaEquipe && profissional_id !== userId) {
+    return { error: 'Você só pode editar agendamentos da sua própria agenda.' }
   }
 
   const roleProfissional = await carregarRoleProfissional(profissional_id)
@@ -1039,7 +1055,7 @@ export async function editarAtendimento(id: string, formData: FormData) {
   }
 
   const erroConflito = await validarConflitosProfissional(
-    supabase,
+    supabaseAdmin,
     profissional_id,
     [{ data: dataStr, hora_inicio: horaInicio, hora_fim: horaFim }],
     { ignorarAtendimentoId: id },
@@ -1054,9 +1070,9 @@ export async function editarAtendimento(id: string, formData: FormData) {
   let duracao = (end.getTime() - start.getTime()) / 60000
   if (duracao <= 0) duracao = 30
 
-  const { data: atendimentoAtual, error: atendimentoAtualError } = await supabase
+  const { data: atendimentoAtual, error: atendimentoAtualError } = await supabaseAdmin
     .from('atendimentos')
-    .select('agendamento_id')
+    .select('agendamento_id, profissional_id')
     .eq('id', id)
     .maybeSingle()
 
@@ -1065,7 +1081,11 @@ export async function editarAtendimento(id: string, formData: FormData) {
     return { error: 'Não foi possível editar o agendamento.' }
   }
 
-  const { error } = await supabase
+  if (!podeGerirAgendaEquipe && atendimentoAtual?.profissional_id !== userId) {
+    return { error: 'Você só pode editar agendamentos da sua própria agenda.' }
+  }
+
+  const { error } = await supabaseAdmin
     .from('atendimentos')
     .update({
       profissional_id: profissional_id || null,
@@ -1083,12 +1103,12 @@ export async function editarAtendimento(id: string, formData: FormData) {
 
   if (atendimentoAtual?.agendamento_id) {
     const [{ data: agendamentoPai, error: parentLookupError }, { count: totalFilhos, error: filhosError }] = await Promise.all([
-      supabase
+      supabaseAdmin
         .from('agendamentos')
         .select('is_recorrente')
         .eq('id', atendimentoAtual.agendamento_id)
         .maybeSingle(),
-      supabase
+      supabaseAdmin
         .from('atendimentos')
         .select('id', { count: 'exact', head: true })
         .eq('agendamento_id', atendimentoAtual.agendamento_id),
@@ -1102,7 +1122,7 @@ export async function editarAtendimento(id: string, formData: FormData) {
     const deveSincronizarPai = !agendamentoPai?.is_recorrente && (totalFilhos ?? 0) <= 1
 
     if (deveSincronizarPai) {
-      const { error: parentError } = await supabase
+      const { error: parentError } = await supabaseAdmin
         .from('agendamentos')
         .update({
           profissional_id: profissional_id || null,
@@ -1128,7 +1148,9 @@ export async function editarAtendimento(id: string, formData: FormData) {
 }
 
 export async function mudarStatusAgendamento(id: string, novoStatus: string) {
-  const supabase = await createClient()
+  const ctx = await requirePermissaoAgendaAdmin()
+  if ('error' in ctx) return { error: ctx.error }
+  const { supabaseAdmin, userId, podeGerirAgendaEquipe } = ctx
   const statusKey = getAtendimentoStatusKey(novoStatus)
   if (statusKey === 'desconhecido') {
     return { error: `Status inválido: ${novoStatus}` }
@@ -1136,14 +1158,31 @@ export async function mudarStatusAgendamento(id: string, novoStatus: string) {
 
   const statusCanonico = normalizeAtendimentoStatus(novoStatus)
 
-  const { error } = await supabase
+  if (!podeGerirAgendaEquipe) {
+    const { data: atendimentoAlvo } = await supabaseAdmin
+      .from('atendimentos')
+      .select('profissional_id')
+      .eq('id', id)
+      .maybeSingle()
+
+    if (atendimentoAlvo?.profissional_id !== userId) {
+      return { error: 'Você só pode alterar o status dos seus próprios agendamentos.' }
+    }
+  }
+
+  const { data: updatedRows, error } = await supabaseAdmin
     .from('atendimentos')
     .update({ status: statusCanonico })
     .eq('id', id)
+    .select('id')
 
   if (error) {
     console.error('Erro ao mudar status:', error.message)
     return { error: `Não foi possível alterar o status para "${statusCanonico}": ${error.message}` }
+  }
+
+  if (!updatedRows || updatedRows.length === 0) {
+    return { error: 'O status não foi alterado. Atualize a agenda e tente novamente.' }
   }
 
   revalidatePath('/agenda')

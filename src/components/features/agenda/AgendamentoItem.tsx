@@ -386,18 +386,26 @@ function Modal({
     }
 
     setLoading(true)
-    await mudarStatusAgendamento(agendamento.id, novoStatus)
-    setStatus(novoStatus)
+    const resultado = await mudarStatusAgendamento(agendamento.id, novoStatus)
     setLoading(false)
+    if (resultado?.error) {
+      toast.error(resultado.error)
+      return
+    }
+    setStatus(novoStatus)
     router.refresh()
   }
 
   async function handleConfirmarFalta(reagendar: boolean) {
     setConfirmacaoFalta(false)
     setLoading(true)
-    await mudarStatusAgendamento(agendamento.id, 'Falta')
-    setStatus('Falta')
+    const resultado = await mudarStatusAgendamento(agendamento.id, 'Falta')
     setLoading(false)
+    if (resultado?.error) {
+      toast.error(resultado.error)
+      return
+    }
+    setStatus('Falta')
     router.refresh()
     if (reagendar) {
       const proxima = agendamento.agendamento_id ? await obterProximaData(agendamento.id) : null
