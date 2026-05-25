@@ -7,7 +7,7 @@ import {
 import { ptBR } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, Clock, CheckCircle, XCircle } from 'lucide-react'
 import Link from 'next/link'
-import { formatAppDateKey, getAppHour, parseAppDate } from '@/lib/datetime'
+import { formatAppDateKey, getAppDayRangeUTC, getAppHour, parseAppDate } from '@/lib/datetime'
 import { BtnCopiarDisponibilidade } from '@/components/features/configuracoes'
 import { normalizarDisponibilidade, type DisponibilidadeDia } from '@/lib/disponibilidade'
 import { obterIntervalosJornada, toHora } from '@/lib/jornada'
@@ -116,7 +116,12 @@ async function ViewIndividual({
 
   const inicioDaSemana = startOfWeek(dataSelecionada, { weekStartsOn: 0 })
   const fimDaSemana = endOfWeek(dataSelecionada, { weekStartsOn: 0 })
-  const diasDaSemana = Array.from({ length: 7 }, (_, i) => addDays(inicioDaSemana, i))
+  // Normalizar para meio-dia UTC: evita offset de 1 dia quando o servidor roda em UTC
+  // (midnight UTC = 21h Fortaleza do dia anterior, causando formatAppDateKey errado)
+  const diasDaSemana = Array.from({ length: 7 }, (_, i) => {
+    const d = addDays(inicioDaSemana, i)
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 12, 0, 0))
+  })
 
   const semanaLabel = `${format(inicioDaSemana, "d 'De' MMM", { locale: ptBR })} – ${format(fimDaSemana, "d 'De' MMM", { locale: ptBR })}`
   const prevData = format(subWeeks(dataSelecionada, 1), 'yyyy-MM-dd')
@@ -137,12 +142,15 @@ async function ViewIndividual({
     (jornada ?? []).map(j => [j.dia_semana, normalizarDisponibilidade(j)])
   )
 
+  const inicioKey = formatAppDateKey(diasDaSemana[0])
+  const fimKey = formatAppDateKey(diasDaSemana[6])
+
   const { data: jornadasMensais } = await supabase
     .from('jornada_mensal_profissional')
     .select('profissional_id, data, jornada_inicio, jornada_fim, intervalo_inicio, intervalo_fim, ativo')
     .eq('profissional_id', targetId)
-    .gte('data', formatAppDateKey(inicioDaSemana))
-    .lte('data', formatAppDateKey(fimDaSemana))
+    .gte('data', inicioKey)
+    .lte('data', fimKey)
 
   const jornadaMensalMap = buildMapaMensalPorProfissional((jornadasMensais ?? []) as Array<{
     profissional_id: string
@@ -158,8 +166,8 @@ async function ViewIndividual({
     .from('atendimentos')
     .select('data_agendamento, duracao_minutos')
     .eq('profissional_id', targetId)
-    .gte('data_agendamento', inicioDaSemana.toISOString())
-    .lte('data_agendamento', fimDaSemana.toISOString())
+    .gte('data_agendamento', getAppDayRangeUTC(inicioKey).start)
+    .lte('data_agendamento', getAppDayRangeUTC(fimKey).end)
     .not('status', 'in', STATUS_NAO_BLOQUEIAM_RAW_SQL)
 
   type DiaDados = {
@@ -178,7 +186,8 @@ async function ViewIndividual({
     const jornDia = resolverJornadaDoDia(dia, jornadaMap, jornadaMensalMap)
     if (!jornDia) return { dia, trabalha: false, livres: [], totalOcupado: 0, totalLivre: 0 }
 
-    const agsDoDia = (agendamentos ?? []).filter(a => isSameDay(new Date(a.data_agendamento), dia))
+    const diaKey = formatAppDateKey(dia)
+    const agsDoDia = (agendamentos ?? []).filter(a => formatAppDateKey(new Date(a.data_agendamento)) === diaKey)
     const ocupados: IntervaloBloqueado[] = agsDoDia.map(a => {
       const d = new Date(a.data_agendamento)
       const horaMin = getAppHour(d) * 60 + parseInt(format(d, 'mm'))
@@ -395,7 +404,10 @@ async function ViewGeral({
 
   const inicioDaSemana = startOfWeek(dataSelecionada, { weekStartsOn: 0 })
   const fimDaSemana = endOfWeek(dataSelecionada, { weekStartsOn: 0 })
-  const diasDaSemana = Array.from({ length: 7 }, (_, i) => addDays(inicioDaSemana, i))
+  const diasDaSemana = Array.from({ length: 7 }, (_, i) => {
+    const d = addDays(inicioDaSemana, i)
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 12, 0, 0))
+  })
 
   const semanaLabel = `${format(inicioDaSemana, "d 'De' MMM", { locale: ptBR })} – ${format(fimDaSemana, "d 'De' MMM", { locale: ptBR })}`
   const prevData = format(subWeeks(dataSelecionada, 1), 'yyyy-MM-dd')
@@ -422,12 +434,15 @@ async function ViewGeral({
     jornadaMap.get(j.profissional_id)!.set(j.dia_semana, normalizarDisponibilidade(j))
   }
 
+  const inicioKey = formatAppDateKey(diasDaSemana[0])
+  const fimKey = formatAppDateKey(diasDaSemana[6])
+
   const { data: jornadasMensais } = await supabase
     .from('jornada_mensal_profissional')
     .select('profissional_id, data, jornada_inicio, jornada_fim, intervalo_inicio, intervalo_fim, ativo')
     .in('profissional_id', profIds)
-    .gte('data', formatAppDateKey(inicioDaSemana))
-    .lte('data', formatAppDateKey(fimDaSemana))
+    .gte('data', inicioKey)
+    .lte('data', fimKey)
 
   const jornadaMensalMap = buildMapaMensalPorProfissional((jornadasMensais ?? []) as Array<{
     profissional_id: string
@@ -445,8 +460,8 @@ async function ViewGeral({
         .from('atendimentos')
         .select('profissional_id, data_agendamento, duracao_minutos')
         .in('profissional_id', profIdsComJornada)
-        .gte('data_agendamento', inicioDaSemana.toISOString())
-        .lte('data_agendamento', fimDaSemana.toISOString())
+        .gte('data_agendamento', getAppDayRangeUTC(inicioKey).start)
+        .lte('data_agendamento', getAppDayRangeUTC(fimKey).end)
         .not('status', 'in', STATUS_NAO_BLOQUEIAM_RAW_SQL)
     : { data: [] }
 
@@ -474,8 +489,9 @@ async function ViewGeral({
         grid.push({ profId: prof.id, nome: prof.nome, dia, trabalha: false, livres: [] })
         continue
       }
+      const diaKey = formatAppDateKey(dia)
       const agsDoDia = (todosAgendamentos ?? []).filter(
-        a => a.profissional_id === prof.id && isSameDay(new Date(a.data_agendamento), dia)
+        a => a.profissional_id === prof.id && formatAppDateKey(new Date(a.data_agendamento)) === diaKey
       )
       const ocupados: IntervaloBloqueado[] = agsDoDia.map(a => {
         const h = getAppHour(new Date(a.data_agendamento))
