@@ -1131,11 +1131,12 @@ function Modal({
   return (
     <>
       {createPortal(modalContent, document.body)}
-      {confirmacaoFalta && (
+      {typeof document !== 'undefined' && confirmacaoFalta && createPortal(
         <ConfirmacaoFaltaModal
           onConfirmar={handleConfirmarFalta}
           onCancelar={() => setConfirmacaoFalta(false)}
-        />
+        />,
+        document.body
       )}
       {modalReagendamento && createPortal(
         <ModalSessaoReposicao
