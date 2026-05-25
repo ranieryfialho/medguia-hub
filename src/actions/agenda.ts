@@ -1,5 +1,6 @@
 'use server'
 
+import { createClient as createSupabaseAdminClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { buildAppDateTimeISO, formatAppDateKey } from '@/lib/datetime'
@@ -22,10 +23,47 @@ import {
   isStatusNaoEfetivo,
   normalizeAtendimentoStatus,
 } from '@/lib/atendimento-status'
+import { isGestorSistema } from '@/lib/permissoes'
 
 function extractTimePart(dateTime: string) {
   const [, timePart = '00:00:00'] = dateTime.split('T')
   return timePart.replace(/([+-]\d{2}:\d{2}|Z)$/, '')
+}
+
+type ResultadoExclusao = { success?: true; error?: string }
+
+async function requirePermissaoAgendaAdmin() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { error: 'Não autenticado.' as const }
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('ativo, nivel_acesso, modulos_liberados')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  if (!profile?.ativo) {
+    return { error: 'Usuário inativo.' as const }
+  }
+
+  const modulos = profile.modulos_liberados ?? []
+  const temModuloAgenda = modulos.length === 0 || modulos.includes('agenda')
+  const podeGerirAgenda = temModuloAgenda || isGestorSistema(profile.nivel_acesso)
+
+  if (!podeGerirAgenda) {
+    return { error: 'Sem permissão para excluir agendamentos.' as const }
+  }
+
+  const supabaseAdmin = createSupabaseAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+
+  return { supabaseAdmin }
 }
 
 async function carregarDisponibilidadesProfissional(profissionalId: string) {
@@ -734,33 +772,40 @@ export async function buscarHistoricoPacienteResumo(pacienteId: string): Promise
   }
 }
 
-export async function deletarAgendamento(id: string) {
-  const supabase = await createClient()
+export async function deletarAgendamento(id: string): Promise<ResultadoExclusao> {
+  const ctx = await requirePermissaoAgendaAdmin()
+  if ('error' in ctx) return { error: ctx.error }
+  const { supabaseAdmin } = ctx
 
-  const { data: atendimento } = await supabase
+  const { data: atendimento } = await supabaseAdmin
     .from('atendimentos')
     .select('agendamento_id')
     .eq('id', id)
     .maybeSingle()
 
-  const { error } = await supabase
+  const { data: deletedRows, error } = await supabaseAdmin
     .from('atendimentos')
     .delete()
     .eq('id', id)
+    .select('id')
 
   if (error) {
     console.error('Erro ao deletar:', error.message)
     return { error: 'Não foi possível excluir o agendamento.' }
   }
 
+  if (!deletedRows || deletedRows.length === 0) {
+    return { error: 'O agendamento não foi removido. Verifique as permissões ou tente atualizar a agenda.' }
+  }
+
   if (atendimento?.agendamento_id) {
-    const { count } = await supabase
+    const { count } = await supabaseAdmin
       .from('atendimentos')
       .select('id', { count: 'exact', head: true })
       .eq('agendamento_id', atendimento.agendamento_id)
 
     if (count === 0) {
-      await supabase.from('agendamentos').delete().eq('id', atendimento.agendamento_id)
+      await supabaseAdmin.from('agendamentos').delete().eq('id', atendimento.agendamento_id)
     }
   }
 
@@ -804,33 +849,49 @@ function calcularProximaDataAgenda(
   return null
 }
 
-export async function deletarAtendimentoPontualDaRecorrencia(id: string) {
-  const supabase = await createClient()
+export async function deletarAtendimentoPontualDaRecorrencia(id: string): Promise<ResultadoExclusao> {
+  const ctx = await requirePermissaoAgendaAdmin()
+  if ('error' in ctx) return { error: ctx.error }
+  const { supabaseAdmin } = ctx
 
-  const { data: atual } = await supabase
+  const { data: atual } = await supabaseAdmin
     .from('atendimentos')
     .select('agendamento_id, data_agendamento')
     .eq('id', id)
     .single()
 
   if (!atual?.agendamento_id) {
-    const { error } = await supabase.from('atendimentos').delete().eq('id', id)
+    const { data: deletedRows, error } = await supabaseAdmin
+      .from('atendimentos')
+      .delete()
+      .eq('id', id)
+      .select('id')
     if (error) return { error: 'Não foi possível excluir o agendamento.' }
+    if (!deletedRows || deletedRows.length === 0) {
+      return { error: 'O agendamento não foi removido. Verifique as permissões ou tente atualizar a agenda.' }
+    }
     revalidatePath('/agenda')
     return { success: true }
   }
 
-  const { data: agendamento } = await supabase
+  const { data: agendamento } = await supabaseAdmin
     .from('agendamentos')
     .select('frequencia, dias_semana, data_inicio, duracao_minutos, paciente_id, profissional_id, tipo, observacoes, gerou_venda, marcou_retorno, is_recorrente')
     .eq('id', atual.agendamento_id)
     .single()
 
-  const { error: deleteError } = await supabase.from('atendimentos').delete().eq('id', id)
+  const { data: deletedRows, error: deleteError } = await supabaseAdmin
+    .from('atendimentos')
+    .delete()
+    .eq('id', id)
+    .select('id')
   if (deleteError) return { error: 'Não foi possível excluir o agendamento.' }
+  if (!deletedRows || deletedRows.length === 0) {
+    return { error: 'O agendamento não foi removido. Verifique as permissões ou tente atualizar a agenda.' }
+  }
 
   if (agendamento?.is_recorrente && agendamento?.frequencia) {
-    const { data: ultimaSessao } = await supabase
+    const { data: ultimaSessao } = await supabaseAdmin
       .from('atendimentos')
       .select('data_agendamento, numero_sessao, total_sessoes')
       .eq('agendamento_id', atual.agendamento_id)
@@ -854,7 +915,7 @@ export async function deletarAtendimentoPontualDaRecorrencia(id: string) {
         const novoNumero = (ultimaSessao.numero_sessao ?? 1) + 1
         const novoTotal = (ultimaSessao.total_sessoes ?? novoNumero - 1) + 1
 
-        const { error: insertError } = await supabase.from('atendimentos').insert({
+        const { error: insertError } = await supabaseAdmin.from('atendimentos').insert({
           paciente_id: agendamento.paciente_id,
           profissional_id: agendamento.profissional_id,
           data_agendamento: novaDataISO,
@@ -870,7 +931,7 @@ export async function deletarAtendimentoPontualDaRecorrencia(id: string) {
         })
 
         if (!insertError) {
-          await supabase
+          await supabaseAdmin
             .from('atendimentos')
             .update({ total_sessoes: novoTotal })
             .eq('agendamento_id', atual.agendamento_id)
@@ -884,17 +945,19 @@ export async function deletarAtendimentoPontualDaRecorrencia(id: string) {
   return { success: true }
 }
 
-export async function deletarTodasRecorrencias(agendamentoId: string) {
-  const supabase = await createClient()
+export async function deletarTodasRecorrencias(agendamentoId: string): Promise<ResultadoExclusao> {
+  const ctx = await requirePermissaoAgendaAdmin()
+  if ('error' in ctx) return { error: ctx.error }
+  const { supabaseAdmin } = ctx
 
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .from('atendimentos')
     .delete()
     .eq('agendamento_id', agendamentoId)
 
   if (error) return { error: 'Não foi possível excluir os agendamentos.' }
 
-  await supabase.from('agendamentos').delete().eq('id', agendamentoId)
+  await supabaseAdmin.from('agendamentos').delete().eq('id', agendamentoId)
 
   revalidatePath('/agenda')
   revalidatePath('/confirmacoes')
@@ -913,16 +976,26 @@ export async function buscarAtendimentosPendentesRecorrencia(agendamentoId: stri
   return { data: data ?? [] }
 }
 
-export async function deletarAtendimentosSelecionados(ids: string[], agendamentoId: string) {
-  const supabase = await createClient()
-  const { error } = await supabase.from('atendimentos').delete().in('id', ids)
+export async function deletarAtendimentosSelecionados(ids: string[], agendamentoId: string): Promise<ResultadoExclusao> {
+  const ctx = await requirePermissaoAgendaAdmin()
+  if ('error' in ctx) return { error: ctx.error }
+  const { supabaseAdmin } = ctx
+
+  const { data: deletedRows, error } = await supabaseAdmin
+    .from('atendimentos')
+    .delete()
+    .in('id', ids)
+    .select('id')
   if (error) return { error: 'Não foi possível excluir os agendamentos.' }
-  const { count } = await supabase
+  if (!deletedRows || deletedRows.length === 0) {
+    return { error: 'Nenhum atendimento foi removido. Verifique as permissões ou tente atualizar a agenda.' }
+  }
+  const { count } = await supabaseAdmin
     .from('atendimentos')
     .select('id', { count: 'exact', head: true })
     .eq('agendamento_id', agendamentoId)
   if (count === 0) {
-    await supabase.from('agendamentos').delete().eq('id', agendamentoId)
+    await supabaseAdmin.from('agendamentos').delete().eq('id', agendamentoId)
   }
   revalidatePath('/agenda')
   revalidatePath('/confirmacoes')
