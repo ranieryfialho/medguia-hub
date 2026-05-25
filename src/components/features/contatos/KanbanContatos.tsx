@@ -178,6 +178,7 @@ type BaseSeedModalState = {
   open: boolean
   columnKey: string
   preview: PreviewPacienteBaseContato[]
+  selectedIds: Set<string>
   loading: boolean
   confirming: boolean
 }
@@ -227,6 +228,7 @@ export function KanbanContatos({
     open: false,
     columnKey: 'a_contactar',
     preview: [],
+    selectedIds: new Set<string>(),
     loading: false,
     confirming: false,
   })
@@ -820,12 +822,15 @@ export function KanbanContatos({
   async function loadBaseSeedPreview(columnKey: string, search = '') {
     if (!isBaseSeedColumn(columnKey)) return
 
+    const isColumnChange = (prev: BaseSeedModalState) => prev.columnKey !== columnKey
+
     setBaseSeedModal((prev) => ({
       ...prev,
       open: true,
       columnKey,
       loading: true,
-      preview: prev.columnKey === columnKey ? prev.preview : [],
+      preview: isColumnChange(prev) ? [] : prev.preview,
+      selectedIds: isColumnChange(prev) ? new Set<string>() : prev.selectedIds,
     }))
 
     const result = await listarPreviewPacientesBaseContato(columnKey, 50, search || undefined)
@@ -837,17 +842,20 @@ export function KanbanContatos({
         columnKey,
         loading: false,
         preview: [],
+        selectedIds: new Set<string>(),
       }))
       toast.error('Nao foi possivel listar os pacientes disponiveis.')
       return
     }
 
+    const items = result.items ?? []
     setBaseSeedModal((prev) => ({
       ...prev,
       open: true,
       columnKey,
       loading: false,
-      preview: result.items ?? [],
+      preview: items,
+      selectedIds: new Set(items.map((p) => p.id)),
     }))
   }
 
@@ -864,9 +872,9 @@ export function KanbanContatos({
   async function handleConfirmBaseSeed() {
     if (!isBaseSeedColumn(baseSeedModal.columnKey) || baseSeedModal.confirming) return
 
-    const pacienteIds = baseSeedModal.preview.map((paciente) => paciente.id)
+    const pacienteIds = [...baseSeedModal.selectedIds]
     if (!pacienteIds.length) {
-      toast('Nao ha pacientes disponiveis para adicionar.')
+      toast('Selecione ao menos um paciente para adicionar.')
       return
     }
 
@@ -905,9 +913,30 @@ export function KanbanContatos({
       ...prev,
       open: false,
       preview: [],
+      selectedIds: new Set<string>(),
       loading: false,
       confirming: false,
     }))
+  }
+
+  function toggleBaseSeedSelection(id: string) {
+    setBaseSeedModal((prev) => {
+      const next = new Set(prev.selectedIds)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return { ...prev, selectedIds: next }
+    })
+  }
+
+  function toggleAllBaseSeedSelection() {
+    setBaseSeedModal((prev) => {
+      const allIds = prev.preview.map((p) => p.id)
+      const allSelected = allIds.every((id) => prev.selectedIds.has(id))
+      return { ...prev, selectedIds: allSelected ? new Set<string>() : new Set(allIds) }
+    })
   }
 
   async function moveContato(pacienteId: string, columnKey: string) {
@@ -1698,16 +1727,29 @@ export function KanbanContatos({
                   <p className="text-xs text-[#6d7a75] mt-1">
                     {baseSeedModal.loading
                       ? 'Buscando pacientes...'
-                      : `${baseSeedModal.preview.length} paciente${baseSeedModal.preview.length === 1 ? '' : 's'} entrarao nesta confirmacao.`}
+                      : `${baseSeedModal.preview.length} encontrado${baseSeedModal.preview.length === 1 ? '' : 's'} — ${baseSeedModal.selectedIds.size} selecionado${baseSeedModal.selectedIds.size === 1 ? '' : 's'}`}
                   </p>
                 </div>
                 {!baseSeedModal.loading && (
-                  <button
-                    onClick={() => void loadBaseSeedPreview(baseSeedModal.columnKey, baseSeedSearch)}
-                    className="text-xs font-semibold text-[#006b5a] hover:underline"
-                  >
-                    Atualizar lista
-                  </button>
+                  <div className="flex items-center gap-3">
+                    {baseSeedModal.preview.length > 0 && (
+                      <button
+                        onClick={toggleAllBaseSeedSelection}
+                        disabled={baseSeedModal.confirming}
+                        className="text-xs font-semibold text-[#006b5a] hover:underline disabled:opacity-40"
+                      >
+                        {baseSeedModal.preview.every((p) => baseSeedModal.selectedIds.has(p.id))
+                          ? 'Desmarcar todos'
+                          : 'Selecionar todos'}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => void loadBaseSeedPreview(baseSeedModal.columnKey, baseSeedSearch)}
+                      className="text-xs font-semibold text-[#9BB0AD] hover:underline"
+                    >
+                      Atualizar lista
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -1724,20 +1766,41 @@ export function KanbanContatos({
               ) : (
                 <div className="rounded-2xl border border-[#dee3e3] bg-white overflow-hidden">
                   <div className="max-h-[45vh] overflow-y-auto divide-y divide-[#eef2f1]">
-                    {baseSeedModal.preview.map((paciente, index) => (
-                      <div key={paciente.id} className="px-4 py-3 flex items-start gap-3">
-                        <div className="w-7 h-7 rounded-full bg-[#f0f5f4] text-[#6d7a75] text-[11px] font-bold flex items-center justify-center shrink-0">
-                          {index + 1}
+                    {baseSeedModal.preview.map((paciente) => {
+                      const isSelected = baseSeedModal.selectedIds.has(paciente.id)
+                      return (
+                      <button
+                        key={paciente.id}
+                        type="button"
+                        disabled={baseSeedModal.confirming}
+                        onClick={() => toggleBaseSeedSelection(paciente.id)}
+                        className={`w-full px-4 py-3 flex items-center gap-3 text-left transition-colors disabled:cursor-not-allowed ${
+                          isSelected ? 'bg-[#f0f9f7]' : 'hover:bg-[#fafcfc]'
+                        }`}
+                      >
+                        <div
+                          className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
+                            isSelected
+                              ? 'bg-[#006b5a] border-[#006b5a]'
+                              : 'border-[#dee3e3] bg-white'
+                          }`}
+                        >
+                          {isSelected && (
+                            <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                              <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-[#1A2E2B]">{paciente.nome}</p>
-                          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[#6d7a75]">
+                          <p className={`text-sm font-semibold ${isSelected ? 'text-[#1A2E2B]' : 'text-[#4a5a55]'}`}>{paciente.nome}</p>
+                          <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-[#6d7a75]">
                             <span>{paciente.telefone || 'Sem telefone'}</span>
                             <span>{paciente.email || 'Sem email'}</span>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      </button>
+                    )})}
+
                   </div>
                 </div>
               )}
@@ -1745,7 +1808,9 @@ export function KanbanContatos({
 
             <div className="px-4 sm:px-5 py-4 border-t border-[#dee3e3] flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2 shrink-0 bg-white">
               <p className="text-xs text-[#9BB0AD]">
-                A confirmacao adiciona exatamente os pacientes listados acima.
+                {baseSeedModal.selectedIds.size > 0
+                  ? `${baseSeedModal.selectedIds.size} de ${baseSeedModal.preview.length} paciente${baseSeedModal.preview.length === 1 ? '' : 's'} selecionado${baseSeedModal.selectedIds.size === 1 ? '' : 's'}.`
+                  : 'Selecione ao menos um paciente para continuar.'}
               </p>
               <div className="flex items-center gap-2">
                 <button
@@ -1757,12 +1822,12 @@ export function KanbanContatos({
                 </button>
                 <button
                   onClick={() => void handleConfirmBaseSeed()}
-                  disabled={baseSeedModal.loading || baseSeedModal.confirming || baseSeedModal.preview.length === 0}
+                  disabled={baseSeedModal.loading || baseSeedModal.confirming || baseSeedModal.selectedIds.size === 0}
                   className="px-4 py-2.5 rounded-xl bg-[#006b5a] text-white text-sm font-semibold hover:bg-[#004f43] transition-colors disabled:opacity-40"
                 >
                   {baseSeedModal.confirming
                     ? 'Adicionando...'
-                    : `Adicionar ${baseSeedModal.preview.length} card${baseSeedModal.preview.length === 1 ? '' : 's'}`}
+                    : `Adicionar ${baseSeedModal.selectedIds.size} card${baseSeedModal.selectedIds.size === 1 ? '' : 's'}`}
                 </button>
               </div>
             </div>
