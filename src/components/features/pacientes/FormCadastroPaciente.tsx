@@ -8,6 +8,7 @@ import toast from 'react-hot-toast'
 import type { OrigemPaciente } from '@/actions/origens-paciente'
 import type { PlanoSaude } from '@/actions/planos-saude'
 import { ComboboxPaciente } from '@/components/features/pacientes'
+import { formatarCPF, formatarRG, formatarTelefone, mascararCPFInput, mascararRGInput, mascararTelefoneInput } from '@/lib/input-masks'
 
 type CadastroPacienteState = PacienteFormState
 type NomeSuggestion = {
@@ -155,7 +156,10 @@ export function FormCadastroPaciente({ origens = [], planos = [] }: { origens?: 
             <input 
               type="text" 
               name="cpf" 
-              defaultValue={state?.fields?.cpf as string || ''}
+              defaultValue={formatarCPF(state?.fields?.cpf as string || '')}
+              onInput={(e) => {
+                e.currentTarget.value = mascararCPFInput(e.currentTarget.value)
+              }}
               className="w-full bg-input border border-border-input rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-primary-500" 
               placeholder="000.000.000-00" 
             />
@@ -176,7 +180,10 @@ export function FormCadastroPaciente({ origens = [], planos = [] }: { origens?: 
               type="text" 
               name="telefone" 
               required 
-              defaultValue={state?.fields?.telefone as string || ''}
+              defaultValue={formatarTelefone(state?.fields?.telefone as string || '')}
+              onInput={(e) => {
+                e.currentTarget.value = mascararTelefoneInput(e.currentTarget.value)
+              }}
               className="w-full bg-input border border-border-input rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-primary-500" 
               placeholder="(00) 00000-0000" 
             />
@@ -186,7 +193,10 @@ export function FormCadastroPaciente({ origens = [], planos = [] }: { origens?: 
             <input 
               type="text" 
               name="telefone_secundario" 
-              defaultValue={state?.fields?.telefone_secundario as string || ''}
+              defaultValue={formatarTelefone(state?.fields?.telefone_secundario as string || '')}
+              onInput={(e) => {
+                e.currentTarget.value = mascararTelefoneInput(e.currentTarget.value)
+              }}
               className="w-full bg-input border border-border-input rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-primary-500" 
               placeholder="(00) 00000-0000" 
             />
@@ -230,7 +240,10 @@ export function FormCadastroPaciente({ origens = [], planos = [] }: { origens?: 
             <input 
               type="text" 
               name="rg" 
-              defaultValue={state?.fields?.rg as string || ''}
+              defaultValue={formatarRG(state?.fields?.rg as string || '')}
+              onInput={(e) => {
+                e.currentTarget.value = mascararRGInput(e.currentTarget.value)
+              }}
               className="w-full bg-input border border-border-input rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-primary-500" 
               placeholder="RG" 
             />

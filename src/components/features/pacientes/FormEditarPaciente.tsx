@@ -1,12 +1,13 @@
 'use client'
 
 import { useActionState, useEffect, useState } from 'react'
-import { editarPaciente } from '@/actions/pacientes'
+import { editarPaciente, type PacienteDuplicado, type PacienteFormState } from '@/actions/pacientes'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import type { OrigemPaciente } from '@/actions/origens-paciente'
 import type { PlanoSaude } from '@/actions/planos-saude'
 import { ComboboxPaciente } from '@/components/features/pacientes'
+import { formatarCPF, formatarRG, formatarTelefone, mascararCPFInput, mascararRGInput, mascararTelefoneInput } from '@/lib/input-masks'
 import { extrairMetadataInativacao } from '@/lib/paciente-inativacao'
 
 function parseOrigem(origem: string) {
@@ -43,8 +44,15 @@ function tipoOrigem(nome: string) {
   return 'outro'
 }
 
-export function FormEditarPaciente({ paciente, origens = [], planos = [] }: { paciente: any; origens?: OrigemPaciente[]; planos?: PlanoSaude[] }) {
-  const [state, formAction, isPending] = useActionState<any, FormData>(editarPaciente, { error: '', fields: {} })
+type PacienteEdicao = Record<string, string | boolean | null | undefined> & {
+  id: string
+  nome: string
+  ativo?: boolean | null
+  endereco_sem_numero?: boolean | null
+}
+
+export function FormEditarPaciente({ paciente, origens = [], planos = [] }: { paciente: PacienteEdicao; origens?: OrigemPaciente[]; planos?: PlanoSaude[] }) {
+  const [state, formAction, isPending] = useActionState<PacienteFormState, FormData>(editarPaciente, { error: '', fields: {} })
 
   useEffect(() => {
     if (state?.error) {
@@ -54,30 +62,54 @@ export function FormEditarPaciente({ paciente, origens = [], planos = [] }: { pa
 
   const getValue = (field: string) => {
     if (state?.fields && state.fields[field] !== undefined) {
-      return state.fields[field] as string
+      return String(state.fields[field] ?? '')
     }
-    return paciente[field] || ''
+    const value = paciente[field]
+    return typeof value === 'string' ? value : ''
   }
 
-  const origemInicial = parseOrigem(getValue('origem'))
-  const [origemSelecionada, setOrigemSelecionada] = useState<string>(origemInicial.origemBase)
-  const [metaCanal] = useState<string>(origemInicial.metaCanal)
-  const [metaAnuncio, setMetaAnuncio] = useState<string>(origemInicial.metaAnuncio)
-  const metadataInativacao = extrairMetadataInativacao(paciente.observacoes_gerais)
-  const tipo = tipoOrigem(origemSelecionada)
-  const origemPersistida = montarOrigem(origemSelecionada, metaCanal, metaAnuncio)
+  const origemAtual = parseOrigem(getValue('origem'))
+  const metadataInativacao = extrairMetadataInativacao(getValue('observacoes_gerais'))
 
   // Define se o paciente está ativo para marcar o select corretamente
   const isAtivo = state?.fields?.ativo !== undefined 
     ? state.fields.ativo === 'true' 
     : paciente.ativo !== false
   const [statusAtivoSelecionado, setStatusAtivoSelecionado] = useState<boolean>(isAtivo)
+  const [origemSelecionada, setOrigemSelecionada] = useState<string>(origemAtual.origemBase)
+  const [metaCanal] = useState<string>(origemAtual.metaCanal)
+  const [metaAnuncio, setMetaAnuncio] = useState<string>(origemAtual.metaAnuncio)
   const [motivoInatividade, setMotivoInatividade] = useState<string>(
     (state?.fields?.motivo_inatividade as string) || metadataInativacao.motivo,
   )
   const [obitoInatividade, setObitoInatividade] = useState<boolean>(
     state?.fields?.obito_inatividade === 'on' || metadataInativacao.obito,
   )
+  const duplicateCandidates: PacienteDuplicado[] = Array.isArray(state?.duplicateCandidates) ? state.duplicateCandidates : []
+  const tipo = tipoOrigem(origemSelecionada)
+  const origemPersistida = montarOrigem(origemSelecionada, metaCanal, metaAnuncio)
+  const enderecoSemNumero = state?.fields?.endereco_sem_numero !== undefined
+    ? state.fields.endereco_sem_numero === 'on'
+    : Boolean(paciente.endereco_sem_numero)
+  const origemAtualNormalizada = origemAtual.origemBase.trim().toLowerCase()
+  const temOrigemAtualNaLista = origens.some((origem) => origem.nome.trim().toLowerCase() === origemAtualNormalizada)
+  const opcoesOrigem = temOrigemAtualNaLista || !origemAtual.origemBase
+    ? origens
+    : [{ id: `origem-atual-${origemAtual.origemBase}`, nome: origemAtual.origemBase, ativo: false, ordem: -1 }, ...origens]
+
+  useEffect(() => {
+    setStatusAtivoSelecionado(isAtivo)
+  }, [isAtivo])
+
+  useEffect(() => {
+    setOrigemSelecionada(origemAtual.origemBase)
+    setMetaAnuncio(origemAtual.metaAnuncio)
+  }, [origemAtual.origemBase, origemAtual.metaAnuncio])
+
+  useEffect(() => {
+    setMotivoInatividade((state?.fields?.motivo_inatividade as string) || metadataInativacao.motivo)
+    setObitoInatividade(state?.fields?.obito_inatividade === 'on' || metadataInativacao.obito)
+  }, [metadataInativacao.motivo, metadataInativacao.obito, state?.fields?.motivo_inatividade, state?.fields?.obito_inatividade])
 
   return (
     <form action={formAction} className="pb-24">
@@ -92,7 +124,7 @@ export function FormEditarPaciente({ paciente, origens = [], planos = [] }: { pa
               type="radio"
               name="ativo"
               value="true"
-              defaultChecked={isAtivo}
+              checked={statusAtivoSelecionado}
               onChange={() => setStatusAtivoSelecionado(true)}
               className="peer sr-only"
             />
@@ -111,7 +143,7 @@ export function FormEditarPaciente({ paciente, origens = [], planos = [] }: { pa
               type="radio"
               name="ativo"
               value="false"
-              defaultChecked={!isAtivo}
+              checked={!statusAtivoSelecionado}
               onChange={() => setStatusAtivoSelecionado(false)}
               className="peer sr-only"
             />
@@ -166,7 +198,15 @@ export function FormEditarPaciente({ paciente, origens = [], planos = [] }: { pa
           </div>
           <div>
             <label className="block text-xs font-medium text-text-secondary mb-1">CPF</label>
-            <input type="text" name="cpf" defaultValue={getValue('cpf')} className="w-full bg-input border border-border-input rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-primary-500" />
+            <input
+              type="text"
+              name="cpf"
+              defaultValue={formatarCPF(getValue('cpf'))}
+              onInput={(e) => {
+                e.currentTarget.value = mascararCPFInput(e.currentTarget.value)
+              }}
+              className="w-full bg-input border border-border-input rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-primary-500"
+            />
           </div>
           <div>
             <label className="block text-xs font-medium text-text-secondary mb-1">Data de Nascimento</label>
@@ -174,11 +214,28 @@ export function FormEditarPaciente({ paciente, origens = [], planos = [] }: { pa
           </div>
           <div>
             <label className="block text-xs font-medium text-text-secondary mb-1">Telefone Principal *</label>
-            <input type="text" name="telefone" required defaultValue={getValue('telefone')} className="w-full bg-input border border-border-input rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-primary-500" />
+            <input
+              type="text"
+              name="telefone"
+              required
+              defaultValue={formatarTelefone(getValue('telefone'))}
+              onInput={(e) => {
+                e.currentTarget.value = mascararTelefoneInput(e.currentTarget.value)
+              }}
+              className="w-full bg-input border border-border-input rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-primary-500"
+            />
           </div>
           <div>
             <label className="block text-xs font-medium text-text-secondary mb-1">Telefone Secundário</label>
-            <input type="text" name="telefone_secundario" defaultValue={getValue('telefone_secundario')} className="w-full bg-input border border-border-input rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-primary-500" />
+            <input
+              type="text"
+              name="telefone_secundario"
+              defaultValue={formatarTelefone(getValue('telefone_secundario'))}
+              onInput={(e) => {
+                e.currentTarget.value = mascararTelefoneInput(e.currentTarget.value)
+              }}
+              className="w-full bg-input border border-border-input rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-primary-500"
+            />
           </div>
           <div>
             <label className="block text-xs font-medium text-text-secondary mb-1">Email</label>
@@ -199,7 +256,15 @@ export function FormEditarPaciente({ paciente, origens = [], planos = [] }: { pa
           </div>
           <div>
             <label className="block text-xs font-medium text-text-secondary mb-1">RG</label>
-            <input type="text" name="rg" defaultValue={getValue('rg')} className="w-full bg-input border border-border-input rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-primary-500" />
+            <input
+              type="text"
+              name="rg"
+              defaultValue={formatarRG(getValue('rg'))}
+              onInput={(e) => {
+                e.currentTarget.value = mascararRGInput(e.currentTarget.value)
+              }}
+              className="w-full bg-input border border-border-input rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-primary-500"
+            />
           </div>
           <div className="md:col-span-1">
             <label className="block text-xs font-medium text-text-secondary mb-1">Órgão emissor do RG</label>
@@ -214,6 +279,7 @@ export function FormEditarPaciente({ paciente, origens = [], planos = [] }: { pa
           <div>
             <label className="block text-xs font-medium text-text-secondary mb-1">Como soube de nós? *</label>
             <select
+              required
               value={origemSelecionada}
               onChange={e => {
                 const value = e.target.value
@@ -225,9 +291,9 @@ export function FormEditarPaciente({ paciente, origens = [], planos = [] }: { pa
               className="w-full bg-input border border-border-input rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-primary-500"
             >
               <option value="">Selecione</option>
-              {origens.map(o => (
+              {opcoesOrigem.map(o => (
                 <option key={o.id} value={o.nome}>
-                  {o.nome}
+                  {o.nome}{o.ativo ? '' : ' (inativa)'}
                 </option>
               ))}
             </select>
@@ -271,7 +337,7 @@ export function FormEditarPaciente({ paciente, origens = [], planos = [] }: { pa
           </div>
           <div className="pb-2">
             <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
-              <input type="checkbox" name="endereco_sem_numero" defaultChecked={paciente.endereco_sem_numero} className="rounded border-border-input text-primary-500 focus:ring-primary-500" />
+              <input type="checkbox" name="endereco_sem_numero" defaultChecked={enderecoSemNumero} className="rounded border-border-input text-primary-500 focus:ring-primary-500" />
               Endereço sem número
             </label>
           </div>
@@ -304,6 +370,33 @@ export function FormEditarPaciente({ paciente, origens = [], planos = [] }: { pa
         </div>
       </div>
 
+      {duplicateCandidates.length > 0 && (
+        <div className="mb-8 rounded-2xl border border-amber-300 bg-amber-50 p-5">
+          <h2 className="text-lg font-semibold text-amber-950 mb-2">Possível duplicidade encontrada</h2>
+          <p className="text-sm text-amber-900 mb-4">
+            {state.warning || 'Já existe paciente com dados parecidos. Revise os cadastros abaixo antes de atualizar.'}
+          </p>
+          <div className="space-y-3">
+            {duplicateCandidates.map((duplicado) => (
+              <div key={duplicado.id} className="rounded-lg border border-amber-200 bg-white p-3 text-sm text-slate-800">
+                <div className="font-semibold">{duplicado.nome}</div>
+                <div className="mt-1 text-slate-600">
+                  {[
+                    duplicado.cpf ? `CPF: ${duplicado.cpf}` : null,
+                    duplicado.telefone ? `Telefone: ${duplicado.telefone}` : null,
+                    duplicado.email ? `Email: ${duplicado.email}` : null,
+                    duplicado.data_nascimento ? `Nascimento: ${duplicado.data_nascimento}` : null,
+                  ].filter(Boolean).join(' • ') || 'Sem identificadores complementares'}
+                </div>
+                <div className="mt-1 text-xs font-medium text-amber-700">
+                  {Array.isArray(duplicado.motivos) ? duplicado.motivos.join(' • ') : 'nome igual'}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="fixed bottom-0 right-0 left-55 bg-surface border-t border-border p-4 flex justify-end gap-3 z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
         <Link href="/pacientes" className="px-6 py-2 border border-border text-text-secondary rounded-md text-sm font-medium hover:bg-page transition-colors">
           Cancelar
@@ -311,6 +404,17 @@ export function FormEditarPaciente({ paciente, origens = [], planos = [] }: { pa
         <button type="submit" disabled={isPending} className="px-6 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-md text-sm font-semibold transition-colors disabled:opacity-70">
           {isPending ? 'Atualizando...' : 'Atualizar Paciente'}
         </button>
+        {duplicateCandidates.length > 0 && (
+          <button
+            type="submit"
+            name="confirmar_duplicado"
+            value="1"
+            disabled={isPending}
+            className="px-6 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-md text-sm font-semibold transition-colors disabled:opacity-70"
+          >
+            {isPending ? 'Confirmando...' : 'Atualizar mesmo assim'}
+          </button>
+        )}
       </div>
     </form>
   )

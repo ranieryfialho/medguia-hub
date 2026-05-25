@@ -176,8 +176,10 @@ export async function editarPaciente(prevState: PacienteFormState | null, formDa
   const supabase = await createClient()
   const id = formData.get('id') as string
 
+  const confirmarDuplicado = formData.get('confirmar_duplicado') === '1'
   const cpfRaw = (formData.get('cpf') as string || '').trim()
   const cpf = cpfRaw ? normalizarCPF(cpfRaw) : ''
+  const dataNascimentoRaw = (formData.get('data_nascimento') as string || '').trim()
   const ativo = formData.get('ativo') === 'true'
   const motivoInatividade = formData.get('motivo_inatividade') as string || ''
   const obitoInatividade = formData.get('obito_inatividade') === 'on'
@@ -187,7 +189,7 @@ export async function editarPaciente(prevState: PacienteFormState | null, formDa
     ativo,
     nome: formData.get('nome') as string,
     cpf: cpf || null,
-    data_nascimento: formData.get('data_nascimento') as string,
+    data_nascimento: dataNascimentoRaw || null,
     telefone: formData.get('telefone') as string,
     telefone_secundario: formData.get('telefone_secundario') as string,
     email: formData.get('email') as string,
@@ -207,6 +209,12 @@ export async function editarPaciente(prevState: PacienteFormState | null, formDa
     }),
     convenio: formData.get('convenio') as string,
   }
+  const fields = {
+    ...dadosPaciente,
+    ativo: ativo ? 'true' : 'false',
+    motivo_inatividade: motivoInatividade,
+    obito_inatividade: obitoInatividade ? 'on' : '',
+  }
 
   if (cpf) {
     const { data: cpfExistente } = await supabase
@@ -217,7 +225,29 @@ export async function editarPaciente(prevState: PacienteFormState | null, formDa
       .maybeSingle()
 
     if (cpfExistente) {
-      return { error: 'Já existe um paciente cadastrado com este CPF.', fields: dadosPaciente }
+      return { error: 'Já existe um paciente cadastrado com este CPF.', fields }
+    }
+  }
+
+  if (!confirmarDuplicado) {
+    const duplicados = await buscarPossiveisDuplicadosPaciente(
+      supabase,
+      {
+        nome: dadosPaciente.nome,
+        telefone: dadosPaciente.telefone,
+        email: dadosPaciente.email,
+        data_nascimento: dadosPaciente.data_nascimento,
+      },
+      id,
+    )
+
+    if (duplicados.length > 0) {
+      return {
+        error: '',
+        warning: 'Encontramos pacientes já cadastrados com dados parecidos. Revise antes de atualizar.',
+        fields,
+        duplicateCandidates: duplicados,
+      }
     }
   }
 
@@ -227,7 +257,7 @@ export async function editarPaciente(prevState: PacienteFormState | null, formDa
     .eq('id', id)
 
   if (error) {
-    return { error: `Erro ao editar paciente: ${error.message}`, fields: dadosPaciente }
+    return { error: `Erro ao editar paciente: ${error.message}`, fields }
   }
 
   // ROTAS ATUALIZADAS
