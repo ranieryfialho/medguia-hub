@@ -269,6 +269,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 observacoes,
                 numero_sessao,
                 total_sessoes,
+                marcou_retorno,
                 agendamento_pai:agendamentos(plano_saude, tipo),
                 pacientes (nome),
                 profissional:profiles!profissional_id(full_name)
@@ -290,6 +291,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 observacoes,
                 numero_sessao,
                 total_sessoes,
+                marcou_retorno,
                 agendamento_pai:agendamentos(plano_saude, tipo),
                 pacientes (nome),
                 profissional:profiles!profissional_id(full_name)
@@ -314,6 +316,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 observacoes,
                 numero_sessao,
                 total_sessoes,
+                marcou_retorno,
                 agendamento_pai:agendamentos(plano_saude, tipo),
                 pacientes (nome, telefone, email),
                 profissional:profiles!profissional_id(full_name, role)
@@ -336,6 +339,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 observacoes,
                 numero_sessao,
                 total_sessoes,
+                marcou_retorno,
                 agendamento_pai:agendamentos(plano_saude, tipo),
                 pacientes (nome, telefone, email),
                 profissional:profiles!profissional_id(full_name, role)

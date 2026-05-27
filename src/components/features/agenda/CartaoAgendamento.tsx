@@ -33,6 +33,7 @@ type Sessao = {
   total_sessoes_tipo?: number | null
   observacoes?: string | null
   duracao_minutos?: number | null
+  marcou_retorno?: boolean | null
   prontuario?: ProntuarioResumo | null
   profissional?: { full_name?: string | null } | null
 }
@@ -247,6 +248,11 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
                         {grupo.tipo.trim() !== (sessao.tipo?.trim() || '').trim() && (
                           <span className="rounded-full border border-slate-200 bg-white/80 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
                             {formatarTipoComContagem(sessao)}
+                          </span>
+                        )}
+                        {sessao.marcou_retorno && (
+                          <span className="rounded-full border border-[#c7d2fe] bg-[#e0e7ff] px-2 py-0.5 text-[10px] font-bold text-[#3730a3]">
+                            Retorno
                           </span>
                         )}
                       </div>

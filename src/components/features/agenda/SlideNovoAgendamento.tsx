@@ -145,6 +145,7 @@ interface AtendimentoParaEditar {
   duracao_minutos?: number | null
   tipo: string
   observacoes?: string | null
+  marcou_retorno?: boolean | null
 }
 
 interface SlideProps {
@@ -210,6 +211,8 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
     setHoraInicioValue(novaHoraInicio)
     setHoraFimValue(somarUmaHora(novaHoraInicio))
   }
+
+  const [marcouRetorno, setMarcouRetorno] = useState(false)
 
   // Estados da Recorrência
   const [isRecorrente, setIsRecorrente] = useState(false)
@@ -278,6 +281,7 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
       }
       setSelectedTipo(atendimentoParaEditar.tipo ?? primeiroTipoDisponivel)
       setObservacoesValue(atendimentoParaEditar.observacoes ?? '')
+      setMarcouRetorno(atendimentoParaEditar.marcou_retorno ?? false)
     })
 
     return () => {
@@ -486,6 +490,7 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
   }
 
   function resetForm() {
+    setMarcouRetorno(false)
     setIsRecorrente(false)
     setFrequencia('1')
     setDiasSelecionados([])
@@ -519,6 +524,7 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
     formData.set('protocolo_atendimento_tipos_json', JSON.stringify(modoAtendimento === 'protocolo' ? tiposDoProtocolo : []))
     formData.set('protocolo_atendimento_nome', modoAtendimento === 'protocolo' ? (protocoloAtendimentoSelecionado?.nome ?? '') : '')
     formData.set('observacoes', observacoesValue)
+    formData.set('marcou_retorno', marcouRetorno ? 'on' : 'off')
     if (tipoProfissional === 'medico') {
       formData.set('plano_saude', selectedPlanoSaude)
     }
@@ -1213,6 +1219,25 @@ export function SlideNovoAgendamento({ pacientes: pacientesInicial, profissionai
               )}
             </div>
             )}
+
+            {/* Toggle de Retorno */}
+            <div className="pt-4 border-t border-[#bcc9c4]/30">
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={marcouRetorno}
+                    onChange={(e) => setMarcouRetorno(e.target.checked)}
+                  />
+                  <div className="w-11 h-6 bg-[#dee3e3] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#4f46e5]"></div>
+                </div>
+                <div>
+                  <span className="font-semibold text-[#083142]">Retorno</span>
+                  <p className="text-xs text-[#6d7a75]">Marque se este é um agendamento de retorno</p>
+                </div>
+              </label>
+            </div>
 
             <div className="space-y-1 relative pt-4">
               <label className="text-xs font-semibold text-[#6d7a75] absolute top-2 left-3 bg-white px-1 z-10">Observações</label>

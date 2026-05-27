@@ -50,6 +50,7 @@ export type AgendamentoDetalhe = {
   total_sessoes?: number | null
   numero_sessao_tipo?: number | null
   total_sessoes_tipo?: number | null
+  marcou_retorno?: boolean | null
   pacientes: { nome: string; telefone?: string | null; email?: string | null } | null
   profissional?: { full_name?: string | null; role?: string | null } | null
   criador?: { full_name?: string | null } | null
@@ -1205,6 +1206,11 @@ export function AgendamentoItemDia({
                       {agendamento.numero_sessao}/{agendamento.total_sessoes}
                     </span>
                   )}
+                  {agendamento.marcou_retorno && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 bg-[#e0e7ff] text-[#3730a3] rounded-full border border-[#c7d2fe] whitespace-nowrap">
+                      Retorno
+                    </span>
+                  )}
                 </div>
                 <p className={`text-[11px] ${config.subText} mt-1 font-medium italic`}>{agendamento.agendamento_pai?.tipo?.trim() || agendamento.tipo}</p>
                 {agendamento.agendamento_pai?.tipo?.trim() && (
@@ -1300,7 +1306,12 @@ export function AgendamentoItemSemana({
         onClick={() => setModalAberto(true)}
         className={`${config.cardBg} border-l-4 ${config.border} p-2 rounded-lg mb-1 shadow-sm cursor-pointer hover:scale-[1.02] transition-transform`}
       >
-        <p className={`text-[10px] font-bold ${config.titleText} truncate`}>{primeiroNome}</p>
+        <div className="flex items-center gap-1 flex-wrap">
+          <p className={`text-[10px] font-bold ${config.titleText} truncate`}>{primeiroNome}</p>
+          {agendamento.marcou_retorno && (
+            <span className="text-[9px] font-bold px-1 py-0.5 bg-[#e0e7ff] text-[#3730a3] rounded whitespace-nowrap">↩ Ret.</span>
+          )}
+        </div>
         <p className={`text-[9px] ${config.subText} truncate`}>
           {agendamento.agendamento_pai?.tipo?.trim()
             ? `${agendamento.agendamento_pai.tipo.trim()} - ${exibirContagemTipoSeparada ? descricaoTipoComContagem : agendamento.tipo}`

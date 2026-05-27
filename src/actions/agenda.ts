@@ -1085,6 +1085,8 @@ export async function editarAtendimento(id: string, formData: FormData) {
     return { error: 'Você só pode editar agendamentos da sua própria agenda.' }
   }
 
+  const marcou_retorno = formData.get('marcou_retorno') === 'on'
+
   const { error } = await supabaseAdmin
     .from('atendimentos')
     .update({
@@ -1093,6 +1095,7 @@ export async function editarAtendimento(id: string, formData: FormData) {
       tipo: tipo || 'Sessão',
       duracao_minutos: duracao,
       observacoes: observacoes || null,
+      marcou_retorno,
     })
     .eq('id', id)
 

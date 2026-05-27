@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ChevronUp,
   RefreshCw,
+  RotateCcw,
   Stethoscope,
   TrendingUp,
   Undo2,
@@ -42,6 +43,7 @@ type AtendimentoResumo = {
   tipo: string | null
   status: string | null
   data_agendamento: string
+  marcou_retorno?: boolean | null
   profissional?: { full_name: string | null } | Array<{ full_name: string | null }> | null
   pacientes?: { nome: string | null; telefone: string | null; email: string | null } | Array<{ nome: string | null; telefone: string | null; email: string | null }> | null
 }
@@ -218,6 +220,7 @@ export default async function RelatorioConsultasPage({
     role: string | null
   }>
 
+  // Para o dropdown, filtramos por podeEntrarNoWidgetDisponibilidade (padrão do widget de agenda).
   const profissionais = perfisProfissionais
     .filter((item) => item.role !== 'medico')
     .filter((item: { id: string; full_name: string | null; role: string | null }) =>
@@ -235,13 +238,28 @@ export default async function RelatorioConsultasPage({
       nome: item.full_name || 'Sem nome',
     }))
 
+  // Para o filtro da query, usamos TODOS os profissionais do tipo correto (sem restrição de
+  // disponibilidade_profissional), para que o relatório reflita todos os atendimentos da visão.
+  const todosFisios = perfisProfissionais
+    .filter((item) => item.role !== 'medico')
+    .map((item) => item.id)
+  const todosMedicos = perfisProfissionais
+    .filter((item) => item.role === 'medico')
+    .map((item) => item.id)
+
   const responsavelSelecionadoId = visao === 'medicos' ? medico_id : profissional_id
   const opcoesResponsaveis = visao === 'medicos' ? medicos : profissionais
   const profissionaisFiltroEfetivos = isGestorOuMaster
-    ? (responsavelSelecionadoId ? [responsavelSelecionadoId] : opcoesResponsaveis.map((item) => item.id))
+    ? (responsavelSelecionadoId
+        ? [responsavelSelecionadoId]
+        : visao === 'medicos' ? todosMedicos : todosFisios)
     : [user.id]
 
-  const profissionaisMap = new Map([...profissionais, ...medicos].map((item) => [item.id, item.nome]))
+  // Inclui todos os perfis ativos no map de nomes (não apenas os com disponibilidade configurada)
+  // para que profissionais sem jornada também apareçam corretamente nos relatórios.
+  const profissionaisMap = new Map(
+    perfisProfissionais.map((item) => [item.id, item.full_name || 'Sem nome'])
+  )
 
   let atendimentosQuery = supabase
     .from('atendimentos')
@@ -252,6 +270,7 @@ export default async function RelatorioConsultasPage({
       tipo,
       status,
       data_agendamento,
+      marcou_retorno,
       profissional:profiles!profissional_id(full_name),
       pacientes(nome, telefone, email)
     `)
@@ -362,6 +381,14 @@ export default async function RelatorioConsultasPage({
     }
   }
 
+  function isRetorno(atendimento: AtendimentoResumo): boolean {
+    if (!!atendimento.marcou_retorno) return true
+    if (atendimento.agendamento_id) {
+      return !!agendamentosMap.get(atendimento.agendamento_id)?.marcou_retorno
+    }
+    return false
+  }
+
   const atendimentosDoPeriodo = atendimentos
   const detalhamentoConsultas = atendimentosDoPeriodo.map((atendimento) => {
     const paciente = firstRelation(atendimento.pacientes)
@@ -379,6 +406,7 @@ export default async function RelatorioConsultasPage({
         || 'Sem responsável',
       dataAvaliacao: atendimento.data_agendamento,
       contato,
+      marcouRetorno: isRetorno(atendimento),
     }
   })
   const detalhamentoConsultasOrdenado = [...detalhamentoConsultas].sort((a, b) => {
@@ -484,6 +512,7 @@ export default async function RelatorioConsultasPage({
   }).length
   const totalPendentes = atendimentosDoPeriodo.filter((item) => STATUS_PENDENTES.has(lowerSafe(item.status))).length
   const totalCanceladosOuFalta = atendimentosDoPeriodo.filter((item) => STATUS_CANCELADOS.has(lowerSafe(item.status))).length
+  const totalRetornos = atendimentosDoPeriodo.filter((item) => isRetorno(item)).length
 
   function pct(n: number, total: number) {
     return total > 0 ? `${Math.round((n / total) * 100)}%` : '—'
@@ -588,6 +617,15 @@ export default async function RelatorioConsultasPage({
                 canceladosOuFalta: linha.canceladosOuFalta,
               }))}
               porStatus={statusMap}
+              totalRetornos={totalRetornos}
+              retornos={detalhamentoConsultasOrdenado
+                .filter((c) => c.marcouRetorno)
+                .map((consulta) => ({
+                  pacienteNome: consulta.pacienteNome,
+                  tipo: consulta.tipo,
+                  profissionalNome: consulta.profissionalNome,
+                  dataAvaliacao: `${formatAppDate(consulta.dataAvaliacao)} ${formatAppTime(consulta.dataAvaliacao)}`,
+                }))}
               porPlanoSaude={visao === 'medicos'
                 ? linhasPlanoSaudeOrdenadas.map((linha) => ({
                     profissionalNome: linha.profissionalNome,
@@ -695,7 +733,7 @@ export default async function RelatorioConsultasPage({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
           <div className="flex items-center gap-2 text-slate-500 mb-2">
             <TrendingUp size={15} />
@@ -710,7 +748,57 @@ export default async function RelatorioConsultasPage({
           </div>
           <p className="text-2xl font-bold text-slate-900">{totalCanceladosOuFalta}</p>
         </div>
+        <div className="bg-white rounded-xl shadow-sm border border-[#c7d2fe] p-4">
+          <div className="flex items-center gap-2 mb-2" style={{ color: '#3730a3' }}>
+            <RotateCcw size={15} />
+            <span className="text-xs font-semibold uppercase tracking-wide">Retornos</span>
+          </div>
+          <p className="text-2xl font-bold" style={{ color: '#3730a3' }}>{totalRetornos}</p>
+          {totalAgendamentos > 0 && (
+            <p className="text-xs text-slate-400 mt-1">{pct(totalRetornos, totalAgendamentos)} do total</p>
+          )}
+        </div>
       </div>
+
+      {totalRetornos > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-[#c7d2fe] overflow-hidden">
+          <div className="px-5 py-4 border-b border-[#e0e7ff] flex items-center gap-2">
+            <RotateCcw size={16} style={{ color: '#3730a3' }} />
+            <h2 className="font-semibold" style={{ color: '#3730a3' }}>
+              Retornos no período
+            </h2>
+            <span className="ml-auto text-xs font-bold px-2 py-0.5 rounded-full bg-[#e0e7ff] text-[#3730a3]">
+              {totalRetornos}
+            </span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-[#f5f3ff] text-[#4c1d95] uppercase text-xs">
+                <tr>
+                  <th className="text-left px-4 py-3">Paciente</th>
+                  <th className="text-left px-4 py-3">Tipo</th>
+                  <th className="text-left px-4 py-3">Responsável</th>
+                  <th className="text-left px-4 py-3 whitespace-nowrap">Data</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#ede9fe]">
+                {detalhamentoConsultasOrdenado
+                  .filter((c) => c.marcouRetorno)
+                  .map((consulta) => (
+                    <tr key={consulta.id}>
+                      <td className="px-4 py-3 font-medium text-slate-900">{consulta.pacienteNome}</td>
+                      <td className="px-4 py-3 text-slate-700">{consulta.tipo}</td>
+                      <td className="px-4 py-3 text-slate-700">{consulta.profissionalNome}</td>
+                      <td className="px-4 py-3 text-slate-700 whitespace-nowrap">
+                        {`${formatAppDate(consulta.dataAvaliacao)} ${formatAppTime(consulta.dataAvaliacao)}`}
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100">
@@ -964,7 +1052,16 @@ export default async function RelatorioConsultasPage({
               {detalhamentoConsultasPaginado.map((consulta) => (
                 <tr key={consulta.id}>
                   <td className="px-4 py-3 font-medium text-slate-900">{consulta.pacienteNome}</td>
-                  <td className="px-4 py-3 text-slate-700">{consulta.tipo}</td>
+                  <td className="px-4 py-3 text-slate-700">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span>{consulta.tipo}</span>
+                      {consulta.marcouRetorno && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-[#c7d2fe] bg-[#e0e7ff] text-[#3730a3] whitespace-nowrap">
+                          Retorno
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-4 py-3 text-slate-700">{consulta.profissionalNome}</td>
                   <td className="px-4 py-3 text-slate-700 whitespace-nowrap">
                     {`${formatAppDate(consulta.dataAvaliacao)} ${formatAppTime(consulta.dataAvaliacao)}`}

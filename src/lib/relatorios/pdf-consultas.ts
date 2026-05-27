@@ -35,6 +35,13 @@ export type PdfDetalheConsulta = {
   contato: string
 }
 
+export type PdfRetornoConsulta = {
+  pacienteNome: string
+  tipo: string
+  profissionalNome: string
+  dataAvaliacao: string
+}
+
 export type GerarPdfConsultasInput = {
   visao: 'fisioterapia' | 'medicos'
   periodoLabel: string
@@ -44,10 +51,12 @@ export type GerarPdfConsultasInput = {
   totalRecorrentes: number
   totalPendentes: number
   totalCanceladosOuFalta: number
+  totalRetornos: number
   porTipo: PdfLinhaTipoConsulta[]
   porProfissional: PdfLinhaProfissionalConsulta[]
   porStatus: Record<string, number>
   porPlanoSaude?: PdfLinhaPlanoSaudePorProfissional[]
+  retornos: PdfRetornoConsulta[]
   detalhamentoConsultas: PdfDetalheConsulta[]
 }
 
@@ -79,6 +88,10 @@ export async function gerarPdfConsultas(input: GerarPdfConsultasInput) {
   desenharPaginaProfissionais(doc, input.visao, profissionaisOrdenados)
   doc.addPage()
   desenharPaginaStatus(doc, statusOrdenados)
+  if (input.retornos.length > 0) {
+    doc.addPage()
+    desenharPaginaRetornos(doc, input.retornos)
+  }
   if (input.visao === 'medicos') {
     doc.addPage()
     desenharPaginaPlanosSaude(doc, planosOrdenados)
@@ -113,6 +126,7 @@ function desenharPaginaResumo(doc: jsPDF, input: GerarPdfConsultasInput, tiposOr
     ['Recorrentes', String(input.totalRecorrentes)],
     ['Pendentes', String(input.totalPendentes)],
     ['Cancelado/Falta', String(input.totalCanceladosOuFalta)],
+    ['Retornos', String(input.totalRetornos)],
   ])
 
   y += 10
@@ -233,6 +247,50 @@ function desenharPaginaStatus(doc: jsPDF, status: [string, number][]) {
 
   for (const [nome, quantidade] of status) {
     y = desenharLinhaTabela(doc, y, [nome, String(quantidade)], widths)
+  }
+}
+
+function desenharPaginaRetornos(doc: jsPDF, retornos: PdfRetornoConsulta[]) {
+  const RETORNO: RGB = [55, 48, 163]
+  let y = desenharCabecalhoInterno(doc, 'Retornos no Período', `${retornos.length} consulta${retornos.length !== 1 ? 's' : ''} marcada${retornos.length !== 1 ? 's' : ''} como retorno`)
+  const headers = ['Paciente', 'Tipo', 'Responsável', 'Data']
+  const widths = [60, 34, 46, 36]
+
+  // cabeçalho em cor retorno
+  let x = MARGIN_X
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(7.5)
+  doc.setTextColor(...RETORNO)
+  doc.setDrawColor(...LINE)
+  for (let i = 0; i < headers.length; i++) {
+    doc.rect(x, y + 4, widths[i], 9, 'S')
+    doc.text(headers[i], x + 2, y + 4 + 5.6, { maxWidth: widths[i] - 4 })
+    x += widths[i]
+  }
+  y += 13
+
+  for (const retorno of retornos) {
+    if (y > PAGE_HEIGHT - 20) {
+      doc.addPage()
+      y = desenharCabecalhoInterno(doc, 'Retornos no Período', 'Continuação')
+      x = MARGIN_X
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(7.5)
+      doc.setTextColor(...RETORNO)
+      for (let i = 0; i < headers.length; i++) {
+        doc.rect(x, y + 4, widths[i], 9, 'S')
+        doc.text(headers[i], x + 2, y + 4 + 5.6, { maxWidth: widths[i] - 4 })
+        x += widths[i]
+      }
+      y += 13
+    }
+
+    y = desenharLinhaTabela(doc, y, [
+      retorno.pacienteNome,
+      retorno.tipo,
+      retorno.profissionalNome,
+      retorno.dataAvaliacao,
+    ], widths)
   }
 }
 
@@ -403,11 +461,20 @@ function montarDestaques(input: GerarPdfConsultasInput, tipos: PdfLinhaTipoConsu
     ? ((input.totalConcluidos / input.totalAtendimentos) * 100).toFixed(1)
     : '0.0'
 
-  return [
+  const destaques = [
     `Foram registrados ${input.totalAgendamentos} agendamentos e ${input.totalAtendimentos} confirmados no período, com ${input.totalConcluidos} concluídos.`,
     `A taxa de produtividade sobre os confirmados ficou em ${taxaConclusao}% e o volume de recorrentes foi de ${input.totalRecorrentes}.`,
     principalTipo
       ? `O tipo com maior volume foi "${principalTipo.tipo}", com ${principalTipo.atendimentos} confirmados e ${principalTipo.agendamentos} agendamentos.`
       : 'Não houve tipos de consulta com volume registrado no período.',
   ]
+
+  if (input.totalRetornos > 0) {
+    const pctRetorno = input.totalAgendamentos > 0
+      ? `(${Math.round((input.totalRetornos / input.totalAgendamentos) * 100)}% do total)`
+      : ''
+    destaques.push(`Foram identificados ${input.totalRetornos} retorno${input.totalRetornos !== 1 ? 's' : ''} ${pctRetorno}. Consulte a página de Retornos para o detalhamento completo.`)
+  }
+
+  return destaques
 }
