@@ -11,7 +11,6 @@ import { Suspense } from 'react'
 import { format } from 'date-fns'
 import { buscarProntuariosPorPaciente } from '@/actions/prontuarios'
 import { extrairMetadataInativacao } from '@/lib/paciente-inativacao'
-import { normalizeAtendimentoStatus } from '@/lib/atendimento-status'
 import { buildSessaoEfetivaMap } from '@/lib/sessoes'
 import {
   AlertTriangle,
@@ -19,6 +18,23 @@ import {
   CalendarClock,
   Megaphone
 } from 'lucide-react'
+import { getAtendimentoStatusKey } from '@/lib/atendimento-status'
+
+// Deriva o status dominante do grupo — mesma lógica de CartaoAgendamento
+function getStatusGeralGrupo(sessoes: { status: string }[]): string {
+  const contagem: Record<string, number> = {}
+  for (const s of sessoes) {
+    const key = getAtendimentoStatusKey(s.status)
+    contagem[key] = (contagem[key] || 0) + 1
+  }
+  const ordem = ['em_atendimento', 'aguardando_consulta', 'aguardando', 'confirmado', 'concluido', 'falta', 'reagendado', 'cancelado']
+  for (const status of ordem) {
+    if (contagem[status]) return status
+  }
+  return 'desconhecido'
+}
+
+const PENDENTE_KEYS = new Set(['em_atendimento', 'aguardando_consulta', 'aguardando', 'confirmado'])
 
 function formatarOrigemPaciente(origem: string | null | undefined) {
   if (!origem) return 'Não informada'
@@ -98,7 +114,8 @@ export default async function PacienteDetailsPage({
       .from('atendimentos')
       .select(`*, agendamento:agendamentos(tipo, is_recorrente, plano_saude), profissional:profiles!profissional_id(full_name)`)
       .eq('paciente_id', pacienteId)
-      .order('data_agendamento', { ascending: false }),
+      .order('data_agendamento', { ascending: false })
+      .order('created_at', { ascending: false }),
     buscarProntuariosPorPaciente(pacienteId),
     supabase
       .from('vendas')
@@ -207,7 +224,9 @@ export default async function PacienteDetailsPage({
       : true
 
     const matchesStatus = statusFiltro && statusFiltro !== 'todos'
-      ? grupo.sessoes.some(s => normalizeAtendimentoStatus(s.status) === statusFiltro)
+      ? statusFiltro === 'pendente'
+        ? PENDENTE_KEYS.has(getStatusGeralGrupo(grupo.sessoes))
+        : getStatusGeralGrupo(grupo.sessoes) === statusFiltro
       : true
 
     return matchesBusca && matchesStatus

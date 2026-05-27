@@ -5,11 +5,11 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
 
 const CHIPS = [
-  { label: 'Todos', value: 'todos' },
-  { label: 'Ativos', value: 'tratamento_ativo' },
-  { label: 'Pausados', value: 'pausado' },
-  { label: 'Aguardando', value: 'aguardando_avaliacao' },
-  { label: 'Finalizados', value: 'alta' },
+  { label: 'Todos',      value: 'todos'     },
+  { label: 'Pendentes',  value: 'pendente'  },
+  { label: 'Realizados', value: 'concluido' },
+  { label: 'Faltou',     value: 'falta'     },
+  { label: 'Cancelados', value: 'cancelado' },
 ]
 
 export function FiltrosJornada() {
