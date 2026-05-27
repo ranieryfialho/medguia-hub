@@ -34,16 +34,20 @@ import { ProntuariosBadge } from './ProntuariosBadge'
 import { temAcesso, temAcessoGrupo } from '@/lib/modulos'
 import type { ModuloChave } from '@/lib/modulos'
 
+const DEV_EMAIL = 'ranieryfialho@gmail.com'
+
 export function Sidebar({
   onMobileClose,
   onOpenNovoAgendamento,
   modulosLiberados: modulosLiberadosProp,
   prontuariosPendentes: prontuariosPendentesProp,
+  userEmail,
 }: {
   onMobileClose?: () => void
   onOpenNovoAgendamento?: () => void
   modulosLiberados?: string[]
   prontuariosPendentes?: number
+  userEmail?: string
 }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -136,6 +140,11 @@ export function Sidebar({
                 {pv('confirmacoes:mensagens') && (
                   <Link href="/confirmacoes/mensagens" onClick={handleNavClick} className={subLinkCls(!!isActive('/confirmacoes/mensagens'))}>
                     Mensagens
+                  </Link>
+                )}
+                {userEmail === DEV_EMAIL && (
+                  <Link href="/confirmacoes/testar" onClick={handleNavClick} className={subLinkCls(!!isActive('/confirmacoes/testar'))}>
+                    Testar Envios
                   </Link>
                 )}
               </div>

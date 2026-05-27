@@ -23,6 +23,7 @@ type HeaderData = {
   userNivelAcesso: string
   modulosLiberados: string[]
   prontuariosPendentes: number
+  userEmail: string
 }
 
 export function AppShell({
@@ -74,6 +75,7 @@ export function AppShell({
             onOpenNovoAgendamento={() => setSlideNovoAberto(true)}
             modulosLiberados={headerData.modulosLiberados}
             prontuariosPendentes={headerData.prontuariosPendentes}
+            userEmail={headerData.userEmail}
           />
         </div>
 

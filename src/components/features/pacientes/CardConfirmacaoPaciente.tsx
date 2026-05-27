@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { format } from 'date-fns'
 import { MoreVertical, CheckCircle, XCircle, Phone, RefreshCw, AlertCircle, User } from 'lucide-react'
-import { BtnWhatsApp } from '../shared'
+import { BtnWhatsApp, BtnSMS, BtnEmail } from '../shared'
 import { ModalSessaoReposicao } from '../shared'
 import { registrarContato, obterProximaData, adicionarSessaoReposicao, criarAtendimentoReagendado } from '@/actions/confirmacoes'
 import toast from 'react-hot-toast'
@@ -12,6 +12,7 @@ type Paciente = {
   id: string
   nome: string
   telefone: string
+  email?: string | null
   data_agendamento: string
   tipo: string
   atendimento_id: string
@@ -187,6 +188,8 @@ export function CardConfirmacaoPaciente({ paciente, showDate = false }: Props) {
           {/* Ações */}
           <div className="flex items-center gap-2 shrink-0">
             <BtnWhatsApp numero={paciente.telefone} paciente={paciente} />
+            <BtnSMS paciente={paciente} />
+            <BtnEmail paciente={paciente} />
 
             <button
               ref={buttonRef}

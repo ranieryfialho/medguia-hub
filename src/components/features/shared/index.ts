@@ -25,3 +25,6 @@ export { FormAdicionarNotaEvento } from './FormAdicionarNotaEvento';
 export { FormNovoEvento } from './FormNovoEvento';
 export { FormRegistrarAvaliacao } from './FormRegistrarAvaliacao';
 export { SeletorTemplateWhatsApp } from './SeletorTemplateWhatsApp';
+export { SeletorTemplateCanal } from './SeletorTemplateCanal';
+export { BtnSMS } from './BtnSMS';
+export { BtnEmail } from './BtnEmail';

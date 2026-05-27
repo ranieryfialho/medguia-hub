@@ -3,7 +3,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
-export async function listarTemplates(categoria?: 'confirmacao' | 'reativacao') {
+export type CategoriaTemplate = 'confirmacao' | 'reativacao' | 'confirmacao_sms' | 'confirmacao_email'
+
+export async function listarTemplates(categoria?: CategoriaTemplate) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -30,7 +32,7 @@ export async function listarTemplates(categoria?: 'confirmacao' | 'reativacao') 
   return data ?? []
 }
 
-export async function salvarTemplate(nome: string, conteudo: string, categoria: 'confirmacao' | 'reativacao' = 'confirmacao') {
+export async function salvarTemplate(nome: string, conteudo: string, categoria: CategoriaTemplate = 'confirmacao') {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 

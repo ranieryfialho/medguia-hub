@@ -22,7 +22,7 @@ type AtendimentoRow = {
   numero_sessao: number | null
   total_sessoes: number | null
   contato_confirmacao: string | null
-  paciente: { id: string; nome: string; telefone: string } | null
+  paciente: { id: string; nome: string; telefone: string; email: string | null } | null
   profissional: { full_name: string } | null
 }
 
@@ -124,7 +124,7 @@ export default async function CardsPage() {
       numero_sessao,
       total_sessoes,
       contato_confirmacao,
-      paciente:pacientes(id, nome, telefone),
+      paciente:pacientes(id, nome, telefone, email),
       profissional:profiles!profissional_id(full_name)
     `)
     .eq('status', 'Aguardando')
@@ -171,6 +171,7 @@ export default async function CardsPage() {
           agendamento_id: a.agendamento_id,
           nome: a.paciente!.nome,
           telefone: a.paciente!.telefone,
+          email: a.paciente!.email,
           data_agendamento: a.data_agendamento,
           tipo: a.tipo,
           profissional_nome: a.profissional?.full_name || 'Profissional',

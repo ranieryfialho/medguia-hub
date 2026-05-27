@@ -1,13 +1,23 @@
 import { createClient } from '@/lib/supabase/server'
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const supabase = await createClient()
+
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return Response.json({ error: 'Não autenticado' }, { status: 401 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const categoria = searchParams.get('categoria') ?? 'confirmacao'
 
     const { data: templates, error } = await supabase
       .from('templates_mensagem')
       .select('id, nome, conteudo')
-      .eq('categoria', 'confirmacao')
+      .eq('categoria', categoria)
+      .or(`criado_por.is.null,criado_por.eq.${user.id}`)
       .order('criado_em', { ascending: false })
 
     if (error) {
