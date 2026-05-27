@@ -11,6 +11,11 @@ jobs:
       - name: Checkout do código
         uses: actions/checkout@v4
 
+      - name: Debug - verificar conectividade
+        run: |
+          echo "IP do runner: $(curl -s https://api.ipify.org)"
+          nc -zv -w 10 ${{ secrets.VPS_HOST }} 22 && echo "✅ Porta 22 acessível" || echo "❌ Porta 22 bloqueada"
+
       - name: Copiar arquivos para a VPS
         uses: appleboy/scp-action@master
         with:
