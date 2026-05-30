@@ -1,6 +1,7 @@
 services:
-  web:
+  medguia-hub:
     build: .
+    container_name: medguia-hub
     ports:
       - "3000:3000"
     env_file:
