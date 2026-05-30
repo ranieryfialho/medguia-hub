@@ -1,13 +1,20 @@
 import Image from 'next/image'
-import { Search, Bell } from 'lucide-react'
+import Link from 'next/link'
+import { Search, Bell, HardDrive } from 'lucide-react'
+import { buscarStatusConexaoGoogle } from '@/actions/google-drive'
+import { temAcesso } from '@/lib/modulos'
 
 type HeaderProps = {
   nomeUsuario: string
   cargoUsuario: string
   avatarUrl: string
+  modulosLiberados?: string[]
 }
 
-export function Header({ nomeUsuario, cargoUsuario, avatarUrl }: HeaderProps) {
+export async function Header({ nomeUsuario, cargoUsuario, avatarUrl, modulosLiberados = [] }: HeaderProps) {
+  const mostrarDrive = temAcesso(modulosLiberados, 'configuracoes:google_drive')
+  const statusDrive = mostrarDrive ? await buscarStatusConexaoGoogle() : null
+
   return (
     <header className="hidden lg:flex sticky top-0 z-40 bg-[#f5faf9]/90 backdrop-blur-md justify-between items-center w-full px-8 py-4 border-b border-[#dee3e3]/50">
       <div className="flex-1 flex items-center">
@@ -24,6 +31,21 @@ export function Header({ nomeUsuario, cargoUsuario, avatarUrl }: HeaderProps) {
       </div>
 
       <div className="flex items-center gap-4">
+        {mostrarDrive && statusDrive && (
+          <Link
+            href="/configuracoes/google-drive"
+            title={statusDrive.conectado ? `Google Drive: ${statusDrive.email ?? 'conectado'}` : 'Google Drive: desconectado'}
+            className="relative p-2 rounded-full hover:bg-[#dee3e3] transition-colors text-[#3d4945]"
+          >
+            <HardDrive size={20} />
+            <span
+              className={`absolute top-1 right-1 w-2.5 h-2.5 rounded-full border-2 border-[#f5faf9] ${
+                statusDrive.conectado ? 'bg-emerald-500' : 'bg-slate-400'
+              }`}
+            />
+          </Link>
+        )}
+
         <button className="p-2 rounded-full hover:bg-[#dee3e3] transition-colors text-[#3d4945]">
           <Bell size={20} />
         </button>

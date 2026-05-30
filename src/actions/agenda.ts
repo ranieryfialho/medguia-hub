@@ -24,6 +24,7 @@ import {
   normalizeAtendimentoStatus,
 } from '@/lib/atendimento-status'
 import { isGestorSistema } from '@/lib/permissoes'
+import { criarPastasAtendimentosLote } from '@/actions/google-drive'
 
 function extractTimePart(dateTime: string) {
   const [, timePart = '00:00:00'] = dateTime.split('T')
@@ -389,18 +390,25 @@ export async function criarAgendamento(formData: FormData) {
     return { error: `Erro ao criar agendamento: ${erroAgendamento?.message ?? 'Resposta vazia do banco'}` }
   }
 
-  const { error } = await supabaseAdmin.from('atendimentos').insert(
-    atendimentosParaInserir.map((atendimento) =>
-      removerMetadadosDisponibilidade({
-        ...atendimento,
-        agendamento_id: agendamentoPai.id,
-      }),
-    ),
-  )
+  const { data: atendimentosCriados, error } = await supabaseAdmin
+    .from('atendimentos')
+    .insert(
+      atendimentosParaInserir.map((atendimento) =>
+        removerMetadadosDisponibilidade({
+          ...atendimento,
+          agendamento_id: agendamentoPai.id,
+        }),
+      ),
+    )
+    .select('id, data_agendamento, tipo')
 
   if (error) {
     console.error('Erro ao agendar:', error.message)
     return { error: `Erro ao salvar atendimento(s): ${error.message}` }
+  }
+
+  if (atendimentosCriados?.length) {
+    void criarPastasAtendimentosLote(atendimentosCriados, paciente_id)
   }
 
   revalidatePath('/agenda')

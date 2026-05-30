@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { atualizarMetadataInativacao } from '@/lib/paciente-inativacao'
+import { criarPastaPaciente } from '@/actions/google-drive'
 
 function normalizarCPF(cpf: string): string {
   return cpf.replace(/\D/g, '')
@@ -159,15 +160,18 @@ export async function criarPaciente(prevState: PacienteFormState | null, formDat
     }
   }
 
-  const { error } = await supabase
+  const { data: novoPaciente, error } = await supabase
     .from('pacientes')
     .insert(dadosPaciente)
+    .select('id, nome')
+    .single()
 
   if (error) {
     return { error: `Erro ao criar paciente: ${error.message}`, fields: dadosPaciente }
   }
 
-  // ROTAS ATUALIZADAS
+  void criarPastaPaciente(novoPaciente.id, novoPaciente.nome)
+
   revalidatePath('/pacientes')
   redirect('/pacientes')
 }

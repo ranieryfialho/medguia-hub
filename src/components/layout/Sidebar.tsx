@@ -29,6 +29,7 @@ import {
   Heart,
   UserPlus,
   Layers,
+  HardDrive,
 } from 'lucide-react'
 import { ProntuariosBadge } from './ProntuariosBadge'
 import { temAcesso, temAcessoGrupo } from '@/lib/modulos'
@@ -55,7 +56,7 @@ export function Sidebar({
   const [confirmacoesOpen, setConfirmacoesOpen] = useState(() => pathname?.startsWith('/confirmacoes') ?? false)
   const [contatosOpen, setContatosOpen] = useState(() => pathname?.startsWith('/contatos') ?? false)
   const [configOpen, setConfigOpen] = useState(() => pathname?.startsWith('/configuracoes') ?? false)
-  const [equipeOpen, setEquipeOpen] = useState(() => (pathname?.startsWith('/equipe') || pathname?.startsWith('/relatorios/tempo-fabril')) ?? false)
+  const [equipeOpen, setEquipeOpen] = useState(() => (pathname?.startsWith('/equipe') || pathname?.startsWith('/relatorios/tempo-fabril') || pathname?.startsWith('/configuracoes/jornada') || pathname?.startsWith('/configuracoes/disponibilidade')) ?? false)
   const [comercialOpen, setComercialOpen] = useState(() => (pathname?.startsWith('/vendas') || pathname?.startsWith('/produtos') || pathname?.startsWith('/relatorios/vendas') || pathname?.startsWith('/vendas/protocolos')) ?? false)
   const [pacientesOpen, setPacientesOpen] = useState(() => pathname?.startsWith('/pacientes') ?? false)
   const modulos = modulosLiberadosProp ?? []
@@ -298,6 +299,18 @@ export function Sidebar({
                     Gestão de Acessos
                   </Link>
                 )}
+                {pv('configuracoes:jornada') && (
+                  <Link href="/configuracoes/jornada" onClick={handleNavClick} className={subLinkCls(!!isActive('/configuracoes/jornada'))}>
+                    <Clock size={14} />
+                    Jornada de Trabalho
+                  </Link>
+                )}
+                {pv('configuracoes:disponibilidade') && (
+                  <Link href="/configuracoes/disponibilidade" onClick={handleNavClick} className={subLinkCls(!!isActive('/configuracoes/disponibilidade'))}>
+                    <Calendar size={14} />
+                    Disponibilidade
+                  </Link>
+                )}
               </div>
             )}
           </div>
@@ -312,16 +325,10 @@ export function Sidebar({
             </button>
             {configOpen && (
               <div className="mt-1 ml-4 space-y-0.5 border-l-2 border-[#bcc9c4]/40 pl-3">
-                {pv('configuracoes:jornada') && (
-                  <Link href="/configuracoes/jornada" onClick={handleNavClick} className={subLinkCls(!!isActive('/configuracoes/jornada'))}>
-                    <Clock size={14} />
-                    Jornada de Trabalho
-                  </Link>
-                )}
-                {pv('configuracoes:disponibilidade') && (
-                  <Link href="/configuracoes/disponibilidade" onClick={handleNavClick} className={subLinkCls(!!isActive('/configuracoes/disponibilidade'))}>
-                    <Calendar size={14} />
-                    Disponibilidade
+                {pv('configuracoes:google_drive') && (
+                  <Link href="/configuracoes/google-drive" onClick={handleNavClick} className={subLinkCls(!!isActive('/configuracoes/google-drive'))}>
+                    <HardDrive size={14} />
+                    Google Drive
                   </Link>
                 )}
               </div>

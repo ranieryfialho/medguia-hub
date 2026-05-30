@@ -18,6 +18,8 @@ export function FiltrosPacientes() {
 
   // Debounce da busca: aguarda 400ms após o usuário parar de digitar
   useEffect(() => {
+    if (busca === buscaAtual) return
+
     const timer = setTimeout(() => {
       const params = new URLSearchParams(searchParams.toString())
       if (busca) {
@@ -26,12 +28,12 @@ export function FiltrosPacientes() {
         params.delete('busca')
       }
       params.delete('pagina') // reset para página 1
-      router.push(`?${params.toString()}`)
+      router.replace(`?${params.toString()}`)
     }, 400)
 
     return () => clearTimeout(timer)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [busca])
+  }, [busca, buscaAtual])
 
   const toggleInativos = (checked: boolean) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -41,14 +43,14 @@ export function FiltrosPacientes() {
       params.delete('inativos')
     }
     params.delete('pagina')
-    router.push(`?${params.toString()}`)
+    router.replace(`?${params.toString()}`)
   }
 
   const mudarLimite = (valor: string) => {
     const params = new URLSearchParams(searchParams.toString())
     params.set('limite', valor)
     params.delete('pagina')
-    router.push(`?${params.toString()}`)
+    router.replace(`?${params.toString()}`)
   }
 
   return (

@@ -17,6 +17,7 @@ export type ModuloChave =
   | 'equipe:acessos'
   | 'configuracoes:jornada'
   | 'configuracoes:disponibilidade'
+  | 'configuracoes:google_drive'
 
 export type NivelAcesso = 'basico' | 'gestor' | 'master'
 export type CargoColaborador = 'fisioterapeuta' | 'recepcionista' | 'medico' | 'gestor'
@@ -78,14 +79,15 @@ export const GRUPOS_MODULOS: GrupoModulos[] = [
       { chave: 'equipe:membros', label: 'Membros da Equipe', rota: '/equipe' },
       { chave: 'equipe:tempo_fabril', label: 'Tempo Fábril', rota: '/relatorios/tempo-fabril' },
       { chave: 'equipe:acessos', label: 'Gestão de Acessos', rota: '/equipe/acessos' },
+      { chave: 'configuracoes:jornada', label: 'Jornada de Trabalho', rota: '/configuracoes/jornada' },
+      { chave: 'configuracoes:disponibilidade', label: 'Disponibilidade', rota: '/configuracoes/disponibilidade' },
     ],
   },
   {
     label: 'Configurações',
     chave_grupo: 'configuracoes',
     modulos: [
-      { chave: 'configuracoes:jornada', label: 'Jornada de Trabalho', rota: '/configuracoes/jornada' },
-      { chave: 'configuracoes:disponibilidade', label: 'Disponibilidade', rota: '/configuracoes/disponibilidade' },
+      { chave: 'configuracoes:google_drive', label: 'Google Drive', rota: '/configuracoes/google-drive' },
     ],
   },
 ]
@@ -135,7 +137,7 @@ export const TEMPLATES_PERFIL: Record<TemplatePerfilChave, { label: string; modu
       'pacientes', 'prontuarios',
       'comercial:vendas', 'comercial:produtos', 'comercial:relatorio_vendas',
       'equipe:membros', 'equipe:tempo_fabril',
-      'configuracoes:jornada', 'configuracoes:disponibilidade',
+      'configuracoes:jornada', 'configuracoes:disponibilidade', 'configuracoes:google_drive',
     ],
   },
   comercial: {

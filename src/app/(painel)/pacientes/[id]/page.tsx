@@ -176,12 +176,28 @@ export default async function PacienteDetailsPage({
   const observacoesGeraisLimpa = metadataInativacao.observacoesLimpa
 
   // Agrupar atendimentos por agendamento_id
+  const atendimentoIds = atendimentosComProntuario.map(a => a.id)
+  const pastaUrlMap = new Map<string, string>()
+
+  if (atendimentoIds.length > 0) {
+    const { data: pastasData } = await supabase
+      .from('atendimento_pastas_drive')
+      .select('atendimento_id, google_drive_folder_url')
+      .in('atendimento_id', atendimentoIds)
+
+    if (pastasData) {
+      for (const pasta of pastasData) {
+        pastaUrlMap.set(pasta.atendimento_id, pasta.google_drive_folder_url)
+      }
+    }
+  }
+
   const gruposMap = new Map<string, {
     agendamento_id: string | null
     tipo: string
     plano_saude: string | null
     is_recorrente: boolean
-    sessoes: Array<AtendimentoComRelacoes & { prontuario: ProntuarioResumo | null }>
+    sessoes: Array<AtendimentoComRelacoes & { prontuario: ProntuarioResumo | null; google_drive_pasta_url: string | null }>
   }>()
 
   for (const atend of atendimentosComProntuario) {
@@ -203,6 +219,7 @@ export default async function PacienteDetailsPage({
       numero_sessao_tipo: sessaoEfetivaMap.get(atend.id)?.sessao_tipo_efetiva ?? atend.numero_sessao_tipo ?? null,
       total_sessoes_tipo: sessaoEfetivaMap.get(atend.id)?.total_tipo_efetivo ?? atend.total_sessoes_tipo ?? null,
       prontuario,
+      google_drive_pasta_url: pastaUrlMap.get(atend.id) ?? null,
     })
   }
 

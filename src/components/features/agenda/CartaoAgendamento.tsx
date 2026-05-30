@@ -1,17 +1,30 @@
 'use client'
-
+// hmr-test
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
   CalendarDays, ChevronDown, ChevronUp, RefreshCw, Calendar,
-  CheckCircle, Hourglass, Stethoscope, CheckCheck, XCircle, User, UserX, CalendarClock, ClipboardList, Layers, StickyNote, Timer
+  CheckCircle, Hourglass, Stethoscope, CheckCheck, XCircle, User, UserX, CalendarClock, ClipboardList, Layers, StickyNote, Timer, FolderOpen,
+  VideoIcon, FileIcon, Loader2, X, ExternalLink, Images
 } from 'lucide-react'
 import {
   getAtendimentoStatusKey,
   isStatusConcluido,
   normalizeAtendimentoStatus,
 } from '@/lib/atendimento-status'
+import { listarMidiasAtendimento } from '@/actions/google-drive'
+
+type MidiaItem = {
+  id: string
+  google_drive_file_id: string
+  google_drive_file_url: string | null
+  nome: string
+  mime_type: string
+  tamanho_bytes: number | null
+  criado_em: string
+}
 
 type ProntuarioResumo = {
   evolucao: string | null
@@ -34,6 +47,7 @@ type Sessao = {
   observacoes?: string | null
   duracao_minutos?: number | null
   marcou_retorno?: boolean | null
+  google_drive_pasta_url?: string | null
   prontuario?: ProntuarioResumo | null
   profissional?: { full_name?: string | null } | null
 }
@@ -91,6 +105,22 @@ function formatarTipoComContagem(sessao: Sessao) {
 
 export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
   const [expandido, setExpandido] = useState(false)
+  const [midiasMap, setMidiasMap] = useState<Record<string, MidiaItem[]>>({})
+  const [midiasErroMap, setMidiasErroMap] = useState<Record<string, string>>({})
+  const [midiasCarregando, setMidiasCarregando] = useState<Record<string, boolean>>({})
+  const [midiaAmpliada, setMidiaAmpliada] = useState<MidiaItem | null>(null)
+  const [videoErro, setVideoErro] = useState(false)
+
+  async function carregarMidias(sessaoId: string) {
+    if (midiasMap[sessaoId] !== undefined) return
+    setMidiasCarregando(prev => ({ ...prev, [sessaoId]: true }))
+    const resultado = await listarMidiasAtendimento(sessaoId)
+    if (resultado.error) {
+      setMidiasErroMap(prev => ({ ...prev, [sessaoId]: resultado.error! }))
+    }
+    setMidiasMap(prev => ({ ...prev, [sessaoId]: resultado.midias }))
+    setMidiasCarregando(prev => ({ ...prev, [sessaoId]: false }))
+  }
 
   const { sessoes, tipo, plano_saude, is_recorrente } = grupo
   const statusGeral = calcularStatusGeral(sessoes)
@@ -112,6 +142,7 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
   const pendentes = sessoes.length - concluidas - canceladas
 
   return (
+    <>
     <div className="relative mb-8 last:mb-0 animate-in fade-in duration-300">
       {/* Ícone na timeline */}
       <div className={`absolute -left-[10px] top-0 w-10 h-10 rounded-full ${config.bg} flex items-center justify-center border-4 border-white z-10 shadow-md ring-2 ring-white/50`}>
@@ -145,6 +176,11 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
               {is_recorrente && (
                 <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-bold rounded uppercase tracking-wider flex items-center gap-1">
                   <RefreshCw size={10} /> Recorrente
+                </span>
+              )}
+              {sessoes.some(s => s.google_drive_pasta_url) && (
+                <span className="px-2 py-0.5 bg-green-50 text-green-700 text-[10px] font-bold rounded uppercase tracking-wider flex items-center gap-1">
+                  <FolderOpen size={10} /> Mídia
                 </span>
               )}
             </div>
@@ -270,6 +306,20 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
                       {temProntuario && (
                         <ClipboardList size={12} className="text-[#006b5a]" />
                       )}
+                      {sessao.google_drive_pasta_url && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); carregarMidias(sessao.id) }}
+                          title="Ver mídias deste atendimento"
+                          className="flex items-center gap-1 text-[10px] font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded border border-green-200 hover:bg-green-100 transition-colors"
+                        >
+                          {midiasCarregando[sessao.id]
+                            ? <Loader2 size={11} className="animate-spin" />
+                            : <Images size={11} />
+                          }
+                          Mídias
+                        </button>
+                      )}
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${sc.bg} ${sc.cor} border border-current/20`}>
                         {sc.label}
                       </span>
@@ -314,6 +364,83 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
                       )}
                     </div>
                   )}
+
+                  {/* Galeria de mídias */}
+                  {midiasMap[sessao.id] !== undefined && (
+                    <div className="px-3 pb-3 pt-0">
+                      <div className="h-px bg-current/10 mb-2" />
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-1.5">
+                          <Images size={11} className="text-green-700" />
+                          <span className="text-[10px] font-bold text-green-700 uppercase tracking-wide">
+                            Mídias ({midiasMap[sessao.id].length})
+                          </span>
+                        </div>
+                        {sessao.google_drive_pasta_url && (
+                          <a
+                            href={sessao.google_drive_pasta_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={e => e.stopPropagation()}
+                            className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-[#006b5a] transition-colors"
+                          >
+                            <FolderOpen size={10} /> Ver no Drive
+                          </a>
+                        )}
+                      </div>
+                      {midiasErroMap[sessao.id] ? (
+                        <p className="text-[11px] text-red-500 italic">Erro ao carregar: {midiasErroMap[sessao.id]}</p>
+                      ) : midiasMap[sessao.id].length === 0 ? (
+                        <p className="text-[11px] text-slate-400 italic">Nenhuma mídia enviada.</p>
+                      ) : (
+                        <div className="grid grid-cols-4 gap-1.5">
+                          {midiasMap[sessao.id].map(midia => {
+                            const isImage = midia.mime_type.startsWith('image/')
+                            const isVideo = midia.mime_type.startsWith('video/')
+                            return (
+                              <button
+                                key={midia.id}
+                                type="button"
+                                onClick={e => { e.stopPropagation(); setVideoErro(false); setMidiaAmpliada(midia) }}
+                                className="relative aspect-square rounded-lg overflow-hidden bg-slate-100 border border-slate-200 hover:border-green-400 hover:shadow-sm transition-all group"
+                              >
+                                {isImage ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={`/api/drive/file/${midia.google_drive_file_id}`}
+                                    alt={midia.nome}
+                                    className="w-full h-full object-cover"
+                                    loading="lazy"
+                                  />
+                                ) : isVideo ? (
+                                  <>
+                                      <video
+                                      src={`/api/drive/file/${midia.google_drive_file_id}`}
+                                      preload="metadata"
+                                      className="w-full h-full object-cover"
+                                      muted
+                                      playsInline
+                                    />
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
+                                      <div className="w-7 h-7 rounded-full bg-white/90 flex items-center justify-center shadow">
+                                        <VideoIcon size={14} className="text-[#006b5a] ml-0.5" />
+                                      </div>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div className="w-full h-full flex flex-col items-center justify-center gap-1 p-1">
+                                    <FileIcon size={18} className="text-slate-400" />
+                                    <span className="text-[8px] text-slate-500 text-center leading-tight line-clamp-2 w-full px-0.5">{midia.nome}</span>
+                                  </div>
+                                )}
+                                {!isVideo && <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded-lg" />}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )
             })}
@@ -322,5 +449,86 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
         </div>
       </div>
     </div>
+
+    {/* Lightbox */}
+    {midiaAmpliada && typeof document !== 'undefined' && createPortal(
+      <div
+        className="fixed inset-0 z-9999 bg-black/90 flex items-center justify-center p-4"
+        onClick={() => setMidiaAmpliada(null)}
+      >
+        <button
+          type="button"
+          onClick={() => setMidiaAmpliada(null)}
+          className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+        >
+          <X size={20} />
+        </button>
+        <div
+          className="relative max-w-4xl max-h-[90vh] flex flex-col items-center gap-3"
+          onClick={e => e.stopPropagation()}
+        >
+          {(() => {
+            const m = midiaAmpliada
+            if (m.mime_type.startsWith('image/')) return (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={`/api/drive/file/${m.google_drive_file_id}`}
+                alt={m.nome}
+                className="max-h-[80vh] max-w-full rounded-xl object-contain"
+              />
+            )
+            if (m.mime_type.startsWith('video/')) return videoErro ? (
+              <div className="bg-white rounded-xl p-8 flex flex-col items-center gap-3 max-w-sm text-center">
+                <VideoIcon size={40} className="text-slate-300" />
+                <p className="text-sm font-semibold text-slate-700">Não foi possível reproduzir</p>
+                <p className="text-xs text-slate-400">O codec pode não ser suportado pelo navegador.</p>
+                {m.google_drive_file_url && (
+                  <a
+                    href={m.google_drive_file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#006b5a] text-white text-xs font-semibold hover:bg-[#005a4b] transition-colors"
+                  >
+                    <ExternalLink size={13} />
+                    Abrir no Google Drive
+                  </a>
+                )}
+              </div>
+            ) : (
+              <video
+                src={`/api/drive/file/${m.google_drive_file_id}`}
+                controls
+                autoPlay
+                playsInline
+                onError={() => setVideoErro(true)}
+                className="max-h-[80vh] max-w-full rounded-xl"
+              />
+            )
+            return (
+              <div className="bg-white rounded-xl p-8 flex flex-col items-center gap-3">
+                <FileIcon size={48} className="text-slate-400" />
+                <p className="text-sm font-semibold text-slate-800">{m.nome}</p>
+              </div>
+            )
+          })()}
+          <div className="flex items-center gap-3">
+            <p className="text-white/70 text-xs">{midiaAmpliada.nome}</p>
+            {midiaAmpliada.google_drive_file_url && (
+              <a
+                href={midiaAmpliada.google_drive_file_url ?? undefined}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 text-white text-xs font-semibold hover:bg-white/20 transition-colors"
+              >
+                <ExternalLink size={12} />
+                Abrir no Drive
+              </a>
+            )}
+          </div>
+        </div>
+      </div>,
+      document.body
+    )}
+    </>
   )
 }
