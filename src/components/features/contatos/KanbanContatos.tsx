@@ -4,45 +4,15 @@ import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, useT
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
-  Calendar,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  ChevronUp,
-  ExternalLink,
-  MessageCircle,
-  Pencil,
-  Plus,
-  Search,
-  Send,
-  Settings2,
-  StickyNote,
-  Trash2,
-  UserCircle2,
-  X,
-  Clock,
-} from 'lucide-react'
-import {
   adicionarNota,
   atualizarColunaContato,
   atualizarResponsavelContato,
   buscarNotas,
-  criarColunaKanbanContato,
-  editarColunaKanbanContato,
   listarPreviewPacientesBaseContato,
   materializarPacientesBaseContatoPorIds,
-  moverColunaKanbanContato,
-  removerColunaKanbanContato,
   type PreviewPacienteBaseContato,
-  type StatusContato,
 } from '@/actions/contatos'
-import {
-  LABEL_POR_STATUS_CONTATO,
-  getVisualColunaContato,
-  OPCOES_COR_COLUNA,
-  type ColunaCorContato,
-  type KanbanColunaContato,
-} from '@/lib/contatos-kanban'
+import { getVisualColunaContato, type KanbanColunaContato } from '@/lib/contatos-kanban'
 import {
   CONTATOS_KANBAN_PAGE_SIZE,
   type ContatoPaciente,
@@ -51,137 +21,28 @@ import {
   type ProfileSimples,
 } from '@/lib/contatos-kanban-data'
 import {
-  ORIGENS_IMPORTACAO_CONTATOS,
-  type OrigemImportacaoContato,
-} from '@/lib/contatos-origens-importacao'
-import {
   listarUltimosAtendimentosPorPacientes,
   type UltimoAtendimentoClient,
 } from '@/lib/ultimo-atendimento'
-import { differenceInCalendarDays, format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 
-type Nota = {
-  id: string
-  texto: string
-  criado_em: string
-  autor_id: string | null
-  autor_nome?: string | null
-}
-
-type Template = {
-  id: string
-  nome: string
-  conteudo: string
-  criado_por: string | null
-}
-
-type ColumnFormState = {
-  chave: string | null
-  nome: string
-  statusBase: StatusContato
-  corChave: ColunaCorContato
-  origensImportacao: OrigemImportacaoContato[]
-}
-
-const HISTORICO_ATENDIMENTOS_ANOS = 2
-const ATTENDANCE_BATCH_SIZE = 200
-
-function getInitials(name: string) {
-  return name
-    .split(' ')
-    .slice(0, 2)
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-}
-
-const AVATAR_PALETTE = ['#006b5a', '#406375', '#779aad', '#637370', '#2CBFAB', '#b45309', '#7c3aed']
-
-function getAvatarColor(name: string): string {
-  let h = 0
-  for (const c of name) h = c.charCodeAt(0) + ((h << 5) - h)
-  return AVATAR_PALETTE[Math.abs(h) % AVATAR_PALETTE.length]
-}
-
-function diasDesde(dateStr: string | null): number | null {
-  if (!dateStr) return null
-  const diff = differenceInCalendarDays(new Date(), new Date(dateStr))
-  return Math.max(0, diff)
-}
-
-function labelDias(dias: number): string {
-  if (dias === 0) return 'Hoje'
-  if (dias === 1) return 'Ontem'
-  return `${dias}d`
-}
-
-function whatsappLink(tel: string): string {
-  const n = tel.replace(/\D/g, '')
-  return `https://wa.me/${n.startsWith('55') ? n : '55' + n}`
-}
-
-function whatsappLinkComMsg(tel: string, msg: string): string {
-  const n = tel.replace(/\D/g, '')
-  const phone = n.startsWith('55') ? n : '55' + n
-  return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`
-}
-
-function diasCor(dias: number): string {
-  if (dias < 30) return '#006b5a'
-  if (dias < 90) return '#b45309'
-  return '#ba1a1a'
-}
-
-function interpolarTemplate(conteudo: string, contato: ContatoPaciente): string {
-  const dias = diasDesde(contato.ultimo_atendimento_data)
-  const dataUltimo = contato.ultimo_atendimento_data
-    ? format(new Date(contato.ultimo_atendimento_data), 'dd/MM/yyyy', { locale: ptBR })
-    : ''
-
-  return conteudo
-    .replace(/\{\{nome\}\}/g, contato.nome)
-    .replace(/\{\{dias\}\}/g, dias !== null ? String(dias) : '')
-    .replace(/\{\{data_ultimo\}\}/g, dataUltimo)
-    .replace(/\{\{ultimo_tipo\}\}/g, contato.ultimo_atendimento_tipo ?? '')
-    .replace(/\{\{data\}\}/g, '')
-    .replace(/\{\{hora\}\}/g, '')
-    .replace(/\{\{profissional\}\}/g, '')
-    .replace(/\{\{tipo\}\}/g, '')
-    .replace(/\{\{sessao\}\}/g, '')
-}
-
-function defaultColumnForm(): ColumnFormState {
-  return {
-    chave: null,
-    nome: '',
-    statusBase: 'a_contactar',
-    corChave: 'a_contactar',
-    origensImportacao: [],
-  }
-}
-
-type ContatoBaseRealtimeRow = {
-  paciente_id: string
-  status: StatusContato
-  kanban_coluna_chave: string
-  responsavel_id: string | null
-}
-
-type KanbanColunaRealtimeRow = KanbanColunaContato
-type NotaContatoRealtimeRow = {
-  paciente_id: string
-}
-
-type BaseSeedModalState = {
-  open: boolean
-  columnKey: string
-  preview: PreviewPacienteBaseContato[]
-  selectedIds: Set<string>
-  loading: boolean
-  confirming: boolean
-}
+import { KanbanToolbar } from './KanbanToolbar'
+import { KanbanColumn } from './KanbanColumn'
+import { BaseSeedModal } from './BaseSeedModal'
+import { ContatoDetailModal } from './ContatoDetailModal'
+import { ColumnsManagementModal } from './ColumnsManagementModal'
+import { useKanbanColumns } from './hooks/useKanbanColumns'
+import {
+  ATTENDANCE_BATCH_SIZE,
+  HISTORICO_ATENDIMENTOS_ANOS,
+  isBaseSeedColumn,
+  type BaseSeedModalState,
+  type ContatoBaseRealtimeRow,
+  type KanbanColunaRealtimeRow,
+  type Nota,
+  type NotaContatoRealtimeRow,
+  type Template,
+} from './kanban-utils'
 
 export function KanbanContatos({
   initialBoard,
@@ -200,30 +61,31 @@ export function KanbanContatos({
   columns: KanbanColunaContato[]
   userNivelAcesso: string
 }) {
+  // Board state
   const [contatos, setContatos] = useState<ContatoPaciente[]>(initialBoard.contatos)
   const [columnTotals, setColumnTotals] = useState<Record<string, number>>(initialBoard.columnTotals)
   const [columnOffsets, setColumnOffsets] = useState<Record<string, number>>(initialBoard.columnOffsets)
   const [availableBaseTotals, setAvailableBaseTotals] = useState<Record<string, number>>(initialBoard.availableBaseTotals)
   const [totalFiltered, setTotalFiltered] = useState(initialBoard.totalFiltered)
-  const [columns, setColumns] = useState<KanbanColunaContato[]>(initialColumns)
+  const [loadingBoard, setLoadingBoard] = useState(false)
+  const [loadingColumns, setLoadingColumns] = useState<Record<string, boolean>>({})
+
+  // UI state
   const [search, setSearch] = useState('')
   const [responsavelFilter, setResponsavelFilter] = useState<string | null>(null)
   const [activeColuna, setActiveColuna] = useState<string>(initialColumns[0]?.chave ?? 'a_contactar')
   const [selected, setSelected] = useState<ContatoPaciente | null>(null)
+  const [teamFilterOpen, setTeamFilterOpen] = useState(false)
+  const [mobileModalTab, setMobileModalTab] = useState<'detalhes' | 'notas'>('detalhes')
+  const [templatePickerOpen, setTemplatePickerOpen] = useState(true)
+  const [localTemplates, setLocalTemplates] = useState<Template[]>(templates)
+
+  // Notes state
   const [notas, setNotas] = useState<Nota[]>([])
   const [loadingNotas, setLoadingNotas] = useState(false)
   const [novaNotaTexto, setNovaNotaTexto] = useState('')
-  const [templatePickerOpen, setTemplatePickerOpen] = useState(true)
-  const [columnsModalOpen, setColumnsModalOpen] = useState(false)
-  const [columnForm, setColumnForm] = useState<ColumnFormState>(() => defaultColumnForm())
-  const [columnSaving, setColumnSaving] = useState(false)
-  const [mobileModalTab, setMobileModalTab] = useState<'detalhes' | 'notas'>('detalhes')
-  const [teamFilterOpen, setTeamFilterOpen] = useState(false)
-  const [columnModalTab, setColumnModalTab] = useState<'lista' | 'form'>('lista')
-  const [localTemplates, setLocalTemplates] = useState<Template[]>(templates)
-  const [loadingBoard, setLoadingBoard] = useState(false)
-  const [loadingColumns, setLoadingColumns] = useState<Record<string, boolean>>({})
-  const [loadingBaseBatches, setLoadingBaseBatches] = useState<Record<string, boolean>>({})
+
+  // Base seed modal state
   const [baseSeedModal, setBaseSeedModal] = useState<BaseSeedModalState>({
     open: false,
     columnKey: 'a_contactar',
@@ -233,6 +95,8 @@ export function KanbanContatos({
     confirming: false,
   })
   const [baseSeedSearch, setBaseSeedSearch] = useState('')
+  const [loadingBaseBatches, setLoadingBaseBatches] = useState<Record<string, boolean>>({})
+
   const [, startTransition] = useTransition()
   const [supabase] = useState(createClient)
   const contatosRef = useRef<ContatoPaciente[]>(initialBoard.contatos)
@@ -246,34 +110,61 @@ export function KanbanContatos({
   const router = useRouter()
   const canManageColumns = userNivelAcesso === 'gestor' || userNivelAcesso === 'master'
   const selectedId = selected?.id
+
+  // Column management hook
+  const {
+    columns,
+    setColumns,
+    columnForm,
+    setColumnForm,
+    columnSaving,
+    columnsModalOpen,
+    setColumnsModalOpen,
+    columnModalTab,
+    setColumnModalTab,
+    getColumnByKey,
+    getColumnCardCount,
+    openCreateColumnModal,
+    openEditColumnModal,
+    handleSaveColumn,
+    handleDeleteColumn,
+    handleMoveColumn,
+  } = useKanbanColumns({
+    initialColumns,
+    columnTotals,
+    setContatos,
+    setSelected,
+    setColumnTotals,
+    setColumnOffsets,
+    setActiveColuna,
+    canManageColumns,
+  })
+
+  // Derived
   const totalAvailableBaseCards =
     (availableBaseTotals.a_contactar ?? 0) + (availableBaseTotals.recuperacao_base ?? 0)
 
-  function getFallbackStatus(contato: ContatoPaciente): StatusContato {
+  function getFallbackStatus(contato: ContatoPaciente) {
     return contato.recuperacao_base ? 'recuperacao_base' : 'a_contactar'
   }
 
-  function sortColumns(nextColumns: KanbanColunaContato[]) {
-    return [...nextColumns].sort((a, b) => a.ordem - b.ordem)
-  }
-
   const applyContatoRealtime = useEffectEvent((row: ContatoBaseRealtimeRow) => {
-    const previousContato = contatosRef.current.find((contato) => contato.id === row.paciente_id)
+    const previousContato = contatosRef.current.find((c) => c.id === row.paciente_id)
     const previousColumnKey = previousContato?.kanban_coluna_chave ?? null
 
     setContatos((prev) =>
-      prev.map((contato) =>
-        contato.id === row.paciente_id
+      prev.map((c) =>
+        c.id === row.paciente_id
           ? {
-              ...contato,
+              ...c,
               status: row.status,
               kanban_coluna_chave: row.kanban_coluna_chave,
               responsavel_id: row.responsavel_id,
               responsavel_nome: row.responsavel_id
-                ? profiles.find((profile) => profile.id === row.responsavel_id)?.full_name ?? null
+                ? profiles.find((p) => p.id === row.responsavel_id)?.full_name ?? null
                 : null,
             }
-          : contato
+          : c
       )
     )
 
@@ -285,7 +176,7 @@ export function KanbanContatos({
             kanban_coluna_chave: row.kanban_coluna_chave,
             responsavel_id: row.responsavel_id,
             responsavel_nome: row.responsavel_id
-              ? profiles.find((profile) => profile.id === row.responsavel_id)?.full_name ?? null
+              ? profiles.find((p) => p.id === row.responsavel_id)?.full_name ?? null
               : null,
           }
         : prev
@@ -307,6 +198,7 @@ export function KanbanContatos({
     setLoadingNotas(false)
   }, [])
 
+  // Sync board data from server
   useEffect(() => {
     contatosRef.current = contatos
   }, [contatos])
@@ -322,24 +214,13 @@ export function KanbanContatos({
   useEffect(() => {
     attendanceLoadedIdsRef.current = new Set(
       initialBoard.contatos
-        .filter((contato) => contato.ultimo_atendimento_data !== null)
-        .map((contato) => contato.id)
+        .filter((c) => c.ultimo_atendimento_data !== null)
+        .map((c) => c.id)
     )
     attendanceLoadingIdsRef.current = new Set()
   }, [initialBoard])
 
-  useEffect(() => {
-    setColumns(initialColumns)
-  }, [initialColumns])
-
-  useEffect(() => {
-    if (!columns.length) return
-
-    if (!columns.some((column) => column.chave === activeColuna)) {
-      setActiveColuna(columns[0].chave)
-    }
-  }, [columns, activeColuna])
-
+  // Supabase realtime
   useEffect(() => {
     let active = true
     const channelName = `kanban-contatos:${crypto.randomUUID()}`
@@ -363,20 +244,14 @@ export function KanbanContatos({
               if (!row.paciente_id) return
 
               setContatos((prev) =>
-                prev.map((contato) => {
-                  if (contato.id !== row.paciente_id) return contato
-                  const fallbackStatus = getFallbackStatus(contato)
-                  return {
-                    ...contato,
-                    status: fallbackStatus,
-                    kanban_coluna_chave: fallbackStatus,
-                    responsavel_id: null,
-                    responsavel_nome: null,
-                  }
+                prev.map((c) => {
+                  if (c.id !== row.paciente_id) return c
+                  const fallbackStatus = getFallbackStatus(c)
+                  return { ...c, status: fallbackStatus, kanban_coluna_chave: fallbackStatus, responsavel_id: null, responsavel_nome: null }
                 })
               )
 
-              const previousContato = contatosRef.current.find((contato) => contato.id === row.paciente_id)
+              const previousContato = contatosRef.current.find((c) => c.id === row.paciente_id)
               const previousColumnKey = previousContato?.kanban_coluna_chave ?? null
               const fallbackColumnKey = previousContato ? getFallbackStatus(previousContato) : null
 
@@ -391,13 +266,7 @@ export function KanbanContatos({
               setSelected((prev) => {
                 if (!prev || prev.id !== row.paciente_id) return prev
                 const fallbackStatus = getFallbackStatus(prev)
-                return {
-                  ...prev,
-                  status: fallbackStatus,
-                  kanban_coluna_chave: fallbackStatus,
-                  responsavel_id: null,
-                  responsavel_nome: null,
-                }
+                return { ...prev, status: fallbackStatus, kanban_coluna_chave: fallbackStatus, responsavel_id: null, responsavel_nome: null }
               })
 
               scheduleBoardRefresh(true)
@@ -409,7 +278,7 @@ export function KanbanContatos({
 
             if (payload.new && typeof payload.new === 'object') {
               const row = payload.new as ContatoBaseRealtimeRow
-              const alreadyLoaded = contatosRef.current.some((contato) => contato.id === row.paciente_id)
+              const alreadyLoaded = contatosRef.current.some((c) => c.id === row.paciente_id)
 
               if (alreadyLoaded) {
                 applyContatoRealtime(row)
@@ -429,7 +298,7 @@ export function KanbanContatos({
             if (payload.eventType === 'DELETE') {
               const row = payload.old as Partial<KanbanColunaRealtimeRow>
               if (!row.chave) return
-              setColumns((prev) => prev.filter((column) => column.chave !== row.chave))
+              setColumns((prev) => prev.filter((c) => c.chave !== row.chave))
               return
             }
 
@@ -437,8 +306,8 @@ export function KanbanContatos({
 
             const nextColumn = payload.new as KanbanColunaRealtimeRow
             setColumns((prev) => {
-              const withoutCurrent = prev.filter((column) => column.chave !== nextColumn.chave)
-              return sortColumns([...withoutCurrent, nextColumn])
+              const withoutCurrent = prev.filter((c) => c.chave !== nextColumn.chave)
+              return [...withoutCurrent, nextColumn].sort((a, b) => a.ordem - b.ordem)
             })
           }
         )
@@ -471,9 +340,7 @@ export function KanbanContatos({
       active = false
       authListener.subscription.unsubscribe()
       void currentChannelPromise.then((channel) => {
-        if (channel) {
-          supabase.removeChannel(channel)
-        }
+        if (channel) supabase.removeChannel(channel)
       })
     }
   }, [
@@ -483,9 +350,11 @@ export function KanbanContatos({
     profiles,
     reloadNotas,
     selectedId,
+    setColumns,
     supabase,
   ])
 
+  // Notes reset when selected changes
   useEffect(() => {
     if (!selected) return
     setNotas([])
@@ -494,12 +363,13 @@ export function KanbanContatos({
     void reloadNotas(selected.id)
   }, [reloadNotas, selected, selectedId])
 
+  // Template order from localStorage
   useEffect(() => {
     try {
       const stored = localStorage.getItem('medguia_template_order')
       if (!stored) return
       const order: string[] = JSON.parse(stored)
-      setLocalTemplates(prev => {
+      setLocalTemplates((prev) => {
         const sorted = [...prev].sort((a, b) => {
           const ai = order.indexOf(a.id)
           const bi = order.indexOf(b.id)
@@ -514,46 +384,37 @@ export function KanbanContatos({
   }, [])
 
   function moveTemplate(id: string, dir: 'up' | 'down') {
-    setLocalTemplates(prev => {
-      const idx = prev.findIndex(t => t.id === id)
+    setLocalTemplates((prev) => {
+      const idx = prev.findIndex((t) => t.id === id)
       if (idx === -1) return prev
       const newIdx = dir === 'up' ? idx - 1 : idx + 1
       if (newIdx < 0 || newIdx >= prev.length) return prev
       const next = [...prev]
       ;[next[idx], next[newIdx]] = [next[newIdx], next[idx]]
       try {
-        localStorage.setItem('medguia_template_order', JSON.stringify(next.map(t => t.id)))
+        localStorage.setItem('medguia_template_order', JSON.stringify(next.map((t) => t.id)))
       } catch {}
       return next
     })
   }
 
   const visibleAttendanceIds = useMemo(() => {
-    const ids = contatos.map((contato) => contato.id)
-    if (selectedId && !ids.includes(selectedId)) {
-      ids.push(selectedId)
-    }
+    const ids = contatos.map((c) => c.id)
+    if (selectedId && !ids.includes(selectedId)) ids.push(selectedId)
     return ids
   }, [contatos, selectedId])
 
   const profilesComContagem = useMemo(
-    () =>
-      profiles.map((profile) => ({
-        ...profile,
-        count: responsavelCounts[profile.id] ?? 0,
-      })),
+    () => profiles.map((p) => ({ ...p, count: responsavelCounts[p.id] ?? 0 })),
     [profiles, responsavelCounts]
   )
 
   const contatosByColumn = useMemo(() => {
     const grouped = new Map<string, ContatoPaciente[]>()
-    for (const contato of contatos) {
-      const contatosDaColuna = grouped.get(contato.kanban_coluna_chave)
-      if (contatosDaColuna) {
-        contatosDaColuna.push(contato)
-      } else {
-        grouped.set(contato.kanban_coluna_chave, [contato])
-      }
+    for (const c of contatos) {
+      const list = grouped.get(c.kanban_coluna_chave)
+      if (list) list.push(c)
+      else grouped.set(c.kanban_coluna_chave, [c])
     }
     return grouped
   }, [contatos])
@@ -572,9 +433,7 @@ export function KanbanContatos({
     setLoadingBoard(true)
     try {
       const response = await fetch(`/api/contatos/kanban?${params.toString()}`, { cache: 'no-store' })
-      if (!response.ok) {
-        throw new Error('Erro ao atualizar kanban.')
-      }
+      if (!response.ok) throw new Error('Erro ao atualizar kanban.')
 
       const data = (await response.json()) as ContatosKanbanBoardData
       setContatos(data.contatos)
@@ -582,9 +441,7 @@ export function KanbanContatos({
       setColumnOffsets(data.columnOffsets)
       setAvailableBaseTotals(data.availableBaseTotals)
       setTotalFiltered(data.totalFiltered)
-      if (!options?.preserveSelected) {
-        setSelected(null)
-      }
+      if (!options?.preserveSelected) setSelected(null)
     } catch {
       toast.error('Nao foi possivel atualizar os contatos.')
     } finally {
@@ -593,10 +450,7 @@ export function KanbanContatos({
   }, [])
 
   const scheduleBoardRefresh = useEffectEvent((preserveSelected = true) => {
-    if (boardRefreshTimeoutRef.current !== null) {
-      window.clearTimeout(boardRefreshTimeoutRef.current)
-    }
-
+    if (boardRefreshTimeoutRef.current !== null) window.clearTimeout(boardRefreshTimeoutRef.current)
     boardRefreshTimeoutRef.current = window.setTimeout(() => {
       boardRefreshTimeoutRef.current = null
       void refreshBoard(search, responsavelFilter, { preserveSelected })
@@ -604,10 +458,7 @@ export function KanbanContatos({
   })
 
   const scheduleBaseSeedPreviewRefresh = useEffectEvent((columnKey: string) => {
-    if (baseSeedRefreshTimeoutRef.current !== null) {
-      window.clearTimeout(baseSeedRefreshTimeoutRef.current)
-    }
-
+    if (baseSeedRefreshTimeoutRef.current !== null) window.clearTimeout(baseSeedRefreshTimeoutRef.current)
     baseSeedRefreshTimeoutRef.current = window.setTimeout(() => {
       baseSeedRefreshTimeoutRef.current = null
       void loadBaseSeedPreview(columnKey, baseSeedSearch)
@@ -619,39 +470,28 @@ export function KanbanContatos({
     void loadBaseSeedPreview(baseSeedModal.columnKey, baseSeedSearch)
   })
 
+  // Debounce search + filter changes
   useEffect(() => {
     if (!didHydrateFiltersRef.current) {
       didHydrateFiltersRef.current = true
       return
     }
-
-    const timeoutId = window.setTimeout(() => {
-      void refreshBoard(search, responsavelFilter)
-    }, 250)
-
-    return () => {
-      window.clearTimeout(timeoutId)
-    }
+    const id = window.setTimeout(() => void refreshBoard(search, responsavelFilter), 250)
+    return () => window.clearTimeout(id)
   }, [refreshBoard, responsavelFilter, search])
 
+  // Cleanup timeouts on unmount
   useEffect(() => {
     return () => {
-      if (boardRefreshTimeoutRef.current !== null) {
-        window.clearTimeout(boardRefreshTimeoutRef.current)
-      }
-      if (baseSeedRefreshTimeoutRef.current !== null) {
-        window.clearTimeout(baseSeedRefreshTimeoutRef.current)
-      }
-      if (baseSeedSearchTimeoutRef.current !== null) {
-        window.clearTimeout(baseSeedSearchTimeoutRef.current)
-      }
+      if (boardRefreshTimeoutRef.current !== null) window.clearTimeout(boardRefreshTimeoutRef.current)
+      if (baseSeedRefreshTimeoutRef.current !== null) window.clearTimeout(baseSeedRefreshTimeoutRef.current)
+      if (baseSeedSearchTimeoutRef.current !== null) window.clearTimeout(baseSeedSearchTimeoutRef.current)
     }
   }, [])
 
+  // Debounce base seed search
   useEffect(() => {
-    if (baseSeedSearchTimeoutRef.current !== null) {
-      window.clearTimeout(baseSeedSearchTimeoutRef.current)
-    }
+    if (baseSeedSearchTimeoutRef.current !== null) window.clearTimeout(baseSeedSearchTimeoutRef.current)
     baseSeedSearchTimeoutRef.current = window.setTimeout(() => {
       baseSeedSearchTimeoutRef.current = null
       triggerBaseSeedSearchRefresh()
@@ -661,37 +501,28 @@ export function KanbanContatos({
   async function handleLoadMore(columnKey: string) {
     const currentOffset = columnOffsets[columnKey] ?? 0
     const total = columnTotals[columnKey] ?? 0
-
-    if (loadingColumns[columnKey] || currentOffset >= total) {
-      return
-    }
+    if (loadingColumns[columnKey] || currentOffset >= total) return
 
     setLoadingColumns((prev) => ({ ...prev, [columnKey]: true }))
-
     try {
       const params = new URLSearchParams({
         columnKey,
         offset: String(currentOffset),
         limit: String(CONTATOS_KANBAN_PAGE_SIZE),
       })
-
       const trimmedSearch = search.trim()
       if (trimmedSearch) params.set('search', trimmedSearch)
       if (responsavelFilter) params.set('responsavel', responsavelFilter)
 
       const response = await fetch(`/api/contatos/kanban?${params.toString()}`, { cache: 'no-store' })
-      if (!response.ok) {
-        throw new Error('Erro ao carregar mais contatos.')
-      }
+      if (!response.ok) throw new Error('Erro ao carregar mais contatos.')
 
       const page = (await response.json()) as ContatosKanbanColumnPage
       setContatos((prev) => {
-        const existingIds = new Set(prev.map((contato) => contato.id))
+        const existingIds = new Set(prev.map((c) => c.id))
         const merged = [...prev]
-        for (const contato of page.items) {
-          if (!existingIds.has(contato.id)) {
-            merged.push(contato)
-          }
+        for (const c of page.items) {
+          if (!existingIds.has(c.id)) merged.push(c)
         }
         return merged
       })
@@ -704,25 +535,23 @@ export function KanbanContatos({
     }
   }
 
+  // Load attendance data for visible contacts
   useEffect(() => {
     const idsToLoad = visibleAttendanceIds.filter(
       (id) => !attendanceLoadedIdsRef.current.has(id) && !attendanceLoadingIdsRef.current.has(id)
     )
-
     if (!idsToLoad.length) return
 
-    const atendimentoCutoff = new Date()
-    atendimentoCutoff.setFullYear(atendimentoCutoff.getFullYear() - HISTORICO_ATENDIMENTOS_ANOS)
-    const atendimentoCutoffIso = atendimentoCutoff.toISOString()
+    const cutoff = new Date()
+    cutoff.setFullYear(cutoff.getFullYear() - HISTORICO_ATENDIMENTOS_ANOS)
+    const cutoffIso = cutoff.toISOString()
     let cancelled = false
 
-    for (const id of idsToLoad) {
-      attendanceLoadingIdsRef.current.add(id)
-    }
+    for (const id of idsToLoad) attendanceLoadingIdsRef.current.add(id)
 
     const chunks: string[][] = []
-    for (let index = 0; index < idsToLoad.length; index += ATTENDANCE_BATCH_SIZE) {
-      chunks.push(idsToLoad.slice(index, index + ATTENDANCE_BATCH_SIZE))
+    for (let i = 0; i < idsToLoad.length; i += ATTENDANCE_BATCH_SIZE) {
+      chunks.push(idsToLoad.slice(i, i + ATTENDANCE_BATCH_SIZE))
     }
 
     const loadAttendance = async () => {
@@ -732,34 +561,29 @@ export function KanbanContatos({
             listarUltimosAtendimentosPorPacientes(
               supabase as unknown as UltimoAtendimentoClient,
               ids,
-              atendimentoCutoffIso
+              cutoffIso
             )
           )
         )
-
         if (cancelled) return
 
         const attendanceMap = new Map(
-          results.flat().map((atendimento) => [
-            atendimento.paciente_id,
-            {
-              ultimo_atendimento_data: atendimento.data_agendamento,
-              ultimo_atendimento_tipo: atendimento.tipo,
-            },
+          results.flat().map((a) => [
+            a.paciente_id,
+            { ultimo_atendimento_data: a.data_agendamento, ultimo_atendimento_tipo: a.tipo },
           ])
         )
 
         setContatos((prev) =>
-          prev.map((contato) => {
-            const attendance = attendanceMap.get(contato.id)
-            return attendance ? { ...contato, ...attendance } : contato
+          prev.map((c) => {
+            const a = attendanceMap.get(c.id)
+            return a ? { ...c, ...a } : c
           })
         )
-
         setSelected((prev) => {
           if (!prev) return prev
-          const attendance = attendanceMap.get(prev.id)
-          return attendance ? { ...prev, ...attendance } : prev
+          const a = attendanceMap.get(prev.id)
+          return a ? { ...prev, ...a } : prev
         })
 
         for (const id of idsToLoad) {
@@ -767,190 +591,26 @@ export function KanbanContatos({
           attendanceLoadedIdsRef.current.add(id)
         }
       } catch {
-        for (const id of idsToLoad) {
-          attendanceLoadingIdsRef.current.delete(id)
-        }
+        for (const id of idsToLoad) attendanceLoadingIdsRef.current.delete(id)
       }
     }
 
     void loadAttendance()
-
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [supabase, visibleAttendanceIds])
-
-  function getColumnByKey(chave: string) {
-    return columns.find((column) => column.chave === chave) ?? null
-  }
-
-  function getColumnCardCount(chave: string) {
-    return columnTotals[chave] ?? 0
-  }
-
-  function isBaseSeedColumn(chave: string) {
-    return chave === 'a_contactar' || chave === 'recuperacao_base'
-  }
-
-  async function handleAddBaseBatch(columnKey: string) {
-    if (!isBaseSeedColumn(columnKey)) return
-
-    setLoadingBaseBatches((prev) => ({ ...prev, [columnKey]: true }))
-    openBaseSeedModal(columnKey)
-    setLoadingBaseBatches((prev) => ({ ...prev, [columnKey]: false }))
-    return
-    /*
-      const result = await materializarPacientesBaseContato(columnKey, 50)
-      if (result?.error) {
-        toast.error('Nao foi possivel adicionar pacientes Ã  base.')
-        return
-      }
-
-      const inserted = result?.inserted ?? 0
-      if (inserted === 0) {
-        toast('Nao ha mais pacientes disponiveis para esta coluna.')
-      } else {
-        toast.success(`${inserted} paciente${inserted > 1 ? 's' : ''} adicionado${inserted > 1 ? 's' : ''}.`)
-      }
-
-      await refreshBoard(search, responsavelFilter)
-    } finally {
-      setLoadingBaseBatches((prev) => ({ ...prev, [columnKey]: false }))
-    }*/
-  }
-
-  async function loadBaseSeedPreview(columnKey: string, search = '') {
-    if (!isBaseSeedColumn(columnKey)) return
-
-    const isColumnChange = (prev: BaseSeedModalState) => prev.columnKey !== columnKey
-
-    setBaseSeedModal((prev) => ({
-      ...prev,
-      open: true,
-      columnKey,
-      loading: true,
-      preview: isColumnChange(prev) ? [] : prev.preview,
-      selectedIds: isColumnChange(prev) ? new Set<string>() : prev.selectedIds,
-    }))
-
-    const result = await listarPreviewPacientesBaseContato(columnKey, 50, search || undefined)
-
-    if (result?.error) {
-      setBaseSeedModal((prev) => ({
-        ...prev,
-        open: true,
-        columnKey,
-        loading: false,
-        preview: [],
-        selectedIds: new Set<string>(),
-      }))
-      toast.error('Nao foi possivel listar os pacientes disponiveis.')
-      return
-    }
-
-    const items = result.items ?? []
-    setBaseSeedModal((prev) => ({
-      ...prev,
-      open: true,
-      columnKey,
-      loading: false,
-      preview: items,
-      selectedIds: new Set(items.map((p) => p.id)),
-    }))
-  }
-
-  function openBaseSeedModal(columnKey?: string) {
-    const fallbackKey =
-      columnKey ??
-      ((availableBaseTotals.a_contactar ?? 0) >= (availableBaseTotals.recuperacao_base ?? 0)
-        ? 'a_contactar'
-        : 'recuperacao_base')
-
-    void loadBaseSeedPreview(fallbackKey)
-  }
-
-  async function handleConfirmBaseSeed() {
-    if (!isBaseSeedColumn(baseSeedModal.columnKey) || baseSeedModal.confirming) return
-
-    const pacienteIds = [...baseSeedModal.selectedIds]
-    if (!pacienteIds.length) {
-      toast('Selecione ao menos um paciente para adicionar.')
-      return
-    }
-
-    setBaseSeedModal((prev) => ({ ...prev, confirming: true }))
-
-    try {
-      const result = await materializarPacientesBaseContatoPorIds(baseSeedModal.columnKey, pacienteIds)
-
-      if (result?.error) {
-        toast.error('Nao foi possivel adicionar os pacientes na base.')
-        return
-      }
-
-      const inserted = result?.inserted ?? 0
-      if (inserted === 0) {
-        toast('Os pacientes desta lista ja foram adicionados por outra atualizacao.')
-      } else {
-        toast.success(`${inserted} paciente${inserted > 1 ? 's' : ''} adicionado${inserted > 1 ? 's' : ''}.`)
-      }
-
-      setBaseSeedModal((prev) => ({
-        ...prev,
-        open: false,
-        preview: [],
-      }))
-
-      await refreshBoard(search, responsavelFilter)
-    } finally {
-      setBaseSeedModal((prev) => ({ ...prev, confirming: false }))
-    }
-  }
-
-  function closeBaseSeedModal() {
-    setBaseSeedSearch('')
-    setBaseSeedModal((prev) => ({
-      ...prev,
-      open: false,
-      preview: [],
-      selectedIds: new Set<string>(),
-      loading: false,
-      confirming: false,
-    }))
-  }
-
-  function toggleBaseSeedSelection(id: string) {
-    setBaseSeedModal((prev) => {
-      const next = new Set(prev.selectedIds)
-      if (next.has(id)) {
-        next.delete(id)
-      } else {
-        next.add(id)
-      }
-      return { ...prev, selectedIds: next }
-    })
-  }
-
-  function toggleAllBaseSeedSelection() {
-    setBaseSeedModal((prev) => {
-      const allIds = prev.preview.map((p) => p.id)
-      const allSelected = allIds.every((id) => prev.selectedIds.has(id))
-      return { ...prev, selectedIds: allSelected ? new Set<string>() : new Set(allIds) }
-    })
-  }
 
   async function moveContato(pacienteId: string, columnKey: string) {
     const targetColumn = getColumnByKey(columnKey)
     if (!targetColumn) return
 
-    const currentContato = contatos.find((contato) => contato.id === pacienteId)
+    const currentContato = contatos.find((c) => c.id === pacienteId)
     const previousColumnKey = currentContato?.kanban_coluna_chave ?? null
 
     setContatos((prev) =>
-      prev.map((contato) =>
-        contato.id === pacienteId
-          ? { ...contato, kanban_coluna_chave: targetColumn.chave, status: targetColumn.status_base }
-          : contato
+      prev.map((c) =>
+        c.id === pacienteId
+          ? { ...c, kanban_coluna_chave: targetColumn.chave, status: targetColumn.status_base }
+          : c
       )
     )
 
@@ -976,28 +636,21 @@ export function KanbanContatos({
   }
 
   function moverEsquerda(pacienteId: string, colunaChave: string) {
-    const idx = columns.findIndex((column) => column.chave === colunaChave)
-    if (idx > 0) {
-      void moveContato(pacienteId, columns[idx - 1].chave)
-    }
+    const idx = columns.findIndex((c) => c.chave === colunaChave)
+    if (idx > 0) void moveContato(pacienteId, columns[idx - 1].chave)
   }
 
   function moverDireita(pacienteId: string, colunaChave: string) {
-    const idx = columns.findIndex((column) => column.chave === colunaChave)
-    if (idx >= 0 && idx < columns.length - 1) {
-      void moveContato(pacienteId, columns[idx + 1].chave)
-    }
+    const idx = columns.findIndex((c) => c.chave === colunaChave)
+    if (idx >= 0 && idx < columns.length - 1) void moveContato(pacienteId, columns[idx + 1].chave)
   }
 
   async function handleResponsavelChange(responsavelId: string) {
     if (!selected) return
-
     const nomeResponsavel = responsavelId
       ? profiles.find((p) => p.id === responsavelId)?.full_name ?? null
       : null
-
     const update = { responsavel_id: responsavelId || null, responsavel_nome: nomeResponsavel }
-
     setContatos((prev) => prev.map((c) => (c.id === selected.id ? { ...c, ...update } : c)))
     setSelected((prev) => (prev ? { ...prev, ...update } : null))
     await atualizarResponsavelContato(selected.id, responsavelId || null)
@@ -1005,351 +658,155 @@ export function KanbanContatos({
 
   async function handleAddNota() {
     if (!novaNotaTexto.trim() || !selected) return
-
     const texto = novaNotaTexto.trim()
     setNovaNotaTexto('')
     const res = await adicionarNota(selected.id, texto)
-
-    if (!res.error) {
-      await reloadNotas(selected.id)
-    }
+    if (!res.error) await reloadNotas(selected.id)
   }
 
-  function openCreateColumnModal() {
-    setColumnForm(defaultColumnForm())
-    setColumnModalTab('form')
-    setColumnsModalOpen(true)
-  }
+  // Base seed modal handlers
+  async function loadBaseSeedPreview(columnKey: string, searchStr = '') {
+    if (!isBaseSeedColumn(columnKey)) return
 
-  function openEditColumnModal(column: KanbanColunaContato) {
-    setColumnForm({
-      chave: column.chave,
-      nome: column.nome,
-      statusBase: column.status_base,
-      corChave: column.cor_chave,
-      origensImportacao: [],
-    })
-    setColumnModalTab('form')
-    setColumnsModalOpen(true)
-  }
+    const isColumnChange = (prev: BaseSeedModalState) => prev.columnKey !== columnKey
+    setBaseSeedModal((prev) => ({
+      ...prev,
+      open: true,
+      columnKey,
+      loading: true,
+      preview: isColumnChange(prev) ? [] : prev.preview,
+      selectedIds: isColumnChange(prev) ? new Set<string>() : prev.selectedIds,
+    }))
 
-  async function handleSaveColumn() {
-    if (!canManageColumns || !columnForm.nome.trim()) return
-
-    setColumnSaving(true)
-
-    const payload = {
-      nome: columnForm.nome,
-      statusBase: columnForm.statusBase,
-      corChave: columnForm.corChave,
-      origensImportacao: columnForm.chave ? [] : columnForm.origensImportacao,
-    }
-
-    const result = columnForm.chave
-      ? await editarColunaKanbanContato({ chave: columnForm.chave, ...payload })
-      : await criarColunaKanbanContato(payload)
+    const result = await listarPreviewPacientesBaseContato(columnKey, 50, searchStr || undefined)
 
     if (result?.error) {
-      setColumnSaving(false)
+      setBaseSeedModal((prev) => ({ ...prev, open: true, columnKey, loading: false, preview: [], selectedIds: new Set<string>() }))
+      toast.error('Nao foi possivel listar os pacientes disponiveis.')
       return
     }
 
-    if (columnForm.chave) {
-      setColumns((prev) =>
-        prev.map((column) =>
-          column.chave === columnForm.chave
-            ? { ...column, nome: payload.nome.trim(), status_base: payload.statusBase, cor_chave: payload.corChave }
-            : column
-        )
-      )
-      setContatos((prev) =>
-        prev.map((contato) =>
-          contato.kanban_coluna_chave === columnForm.chave
-            ? { ...contato, status: payload.statusBase }
-            : contato
-        )
-      )
-      setSelected((prev) =>
-        prev?.kanban_coluna_chave === columnForm.chave
-          ? { ...prev, status: payload.statusBase }
-          : prev
-      )
-    } else if ('chave' in result && typeof result.chave === 'string' && result.chave) {
-      const createdKey = result.chave
-      const nextOrder = columns.reduce((max, column) => Math.max(max, column.ordem), 0) + 1
-      setColumns((prev) => [
-        ...prev,
-        {
-          chave: createdKey,
-          nome: payload.nome.trim(),
-          tipo: 'custom',
-          status_base: payload.statusBase,
-          cor_chave: payload.corChave,
-          ordem: nextOrder,
-        },
-      ])
-      setColumnTotals((prev) => ({ ...prev, [createdKey]: 0 }))
-      setColumnOffsets((prev) => ({ ...prev, [createdKey]: 0 }))
-    }
-
-    setColumnSaving(false)
-    setColumnsModalOpen(false)
-    setColumnForm(defaultColumnForm())
-    router.refresh()
+    const items = result.items ?? []
+    setBaseSeedModal((prev) => ({
+      ...prev,
+      open: true,
+      columnKey,
+      loading: false,
+      preview: items,
+      selectedIds: new Set(items.map((p: PreviewPacienteBaseContato) => p.id)),
+    }))
   }
 
-  async function handleDeleteColumn(column: KanbanColunaContato) {
-    if (!canManageColumns || column.tipo !== 'custom') return
-    const cardCount = getColumnCardCount(column.chave)
-    if (cardCount > 0) return
-    if (!window.confirm(`Excluir a coluna "${column.nome}"? Os contatos dela voltarao para ${LABEL_POR_STATUS_CONTATO[column.status_base]}.`)) {
+  function openBaseSeedModal(columnKey?: string) {
+    const fallbackKey =
+      columnKey ??
+      ((availableBaseTotals.a_contactar ?? 0) >= (availableBaseTotals.recuperacao_base ?? 0)
+        ? 'a_contactar'
+        : 'recuperacao_base')
+    void loadBaseSeedPreview(fallbackKey)
+  }
+
+  async function handleAddBaseBatch(columnKey: string) {
+    if (!isBaseSeedColumn(columnKey)) return
+    setLoadingBaseBatches((prev) => ({ ...prev, [columnKey]: true }))
+    openBaseSeedModal(columnKey)
+    setLoadingBaseBatches((prev) => ({ ...prev, [columnKey]: false }))
+  }
+
+  async function handleConfirmBaseSeed() {
+    if (!isBaseSeedColumn(baseSeedModal.columnKey) || baseSeedModal.confirming) return
+    const pacienteIds = [...baseSeedModal.selectedIds]
+    if (!pacienteIds.length) {
+      toast('Selecione ao menos um paciente para adicionar.')
       return
     }
 
-    const result = await removerColunaKanbanContato(column.chave)
-    if (result?.error) return
-
-    setColumns((prev) => prev.filter((item) => item.chave !== column.chave))
-    setColumnTotals((prev) => {
-      const next = { ...prev }
-      delete next[column.chave]
-      return next
-    })
-    setColumnOffsets((prev) => {
-      const next = { ...prev }
-      delete next[column.chave]
-      return next
-    })
-    setContatos((prev) =>
-      prev.map((contato) =>
-        contato.kanban_coluna_chave === column.chave
-          ? {
-              ...contato,
-              kanban_coluna_chave: column.status_base,
-              status: column.status_base,
-            }
-          : contato
-      )
-    )
-    setSelected((prev) =>
-      prev?.kanban_coluna_chave === column.chave
-        ? { ...prev, kanban_coluna_chave: column.status_base, status: column.status_base }
-        : prev
-    )
-
-    if (activeColuna === column.chave) {
-      setActiveColuna(column.status_base)
-    }
-
-    router.refresh()
-  }
-
-  async function handleMoveColumn(column: KanbanColunaContato, direction: 'left' | 'right') {
-    if (!canManageColumns) return
-
-    const result = await moverColunaKanbanContato(column.chave, direction)
-    if (result?.error) return
-
-    setColumns((prev) => {
-      const next = [...prev].sort((a, b) => a.ordem - b.ordem)
-      const currentIndex = next.findIndex((item) => item.chave === column.chave)
-      const targetIndex = direction === 'left' ? currentIndex - 1 : currentIndex + 1
-
-      if (currentIndex < 0 || targetIndex < 0 || targetIndex >= next.length) {
-        return prev
+    setBaseSeedModal((prev) => ({ ...prev, confirming: true }))
+    try {
+      const result = await materializarPacientesBaseContatoPorIds(baseSeedModal.columnKey, pacienteIds)
+      if (result?.error) {
+        toast.error('Nao foi possivel adicionar os pacientes na base.')
+        return
       }
 
-      const current = next[currentIndex]
-      const target = next[targetIndex]
+      const inserted = result?.inserted ?? 0
+      if (inserted === 0) {
+        toast('Os pacientes desta lista ja foram adicionados por outra atualizacao.')
+      } else {
+        toast.success(`${inserted} paciente${inserted > 1 ? 's' : ''} adicionado${inserted > 1 ? 's' : ''}.`)
+      }
 
-      next[currentIndex] = { ...target, ordem: current.ordem }
-      next[targetIndex] = { ...current, ordem: target.ordem }
-
-      return next.sort((a, b) => a.ordem - b.ordem)
-    })
-
-    router.refresh()
+      setBaseSeedModal((prev) => ({ ...prev, open: false, preview: [] }))
+      await refreshBoard(search, responsavelFilter)
+    } finally {
+      setBaseSeedModal((prev) => ({ ...prev, confirming: false }))
+    }
   }
 
+  function closeBaseSeedModal() {
+    setBaseSeedSearch('')
+    setBaseSeedModal((prev) => ({
+      ...prev,
+      open: false,
+      preview: [],
+      selectedIds: new Set<string>(),
+      loading: false,
+      confirming: false,
+    }))
+  }
+
+  function toggleBaseSeedSelection(id: string) {
+    setBaseSeedModal((prev) => {
+      const next = new Set(prev.selectedIds)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return { ...prev, selectedIds: next }
+    })
+  }
+
+  function toggleAllBaseSeedSelection() {
+    setBaseSeedModal((prev) => {
+      const allIds = prev.preview.map((p) => p.id)
+      const allSelected = allIds.every((id) => prev.selectedIds.has(id))
+      return { ...prev, selectedIds: allSelected ? new Set<string>() : new Set(allIds) }
+    })
+  }
+
+  // Derived
   const selectedColumn = selected ? getColumnByKey(selected.kanban_coluna_chave) ?? getColumnByKey(selected.status) : null
-  const baseSeedColumns = columns.filter((column) => isBaseSeedColumn(column.chave))
-  const activeBaseSeedColumn = baseSeedColumns.find((column) => column.chave === baseSeedModal.columnKey) ?? null
+  const baseSeedColumns = columns.filter((c) => isBaseSeedColumn(c.chave))
+  const activeBaseSeedColumn = baseSeedColumns.find((c) => c.chave === baseSeedModal.columnKey) ?? null
 
   return (
     <div className="space-y-4 w-full">
-      <div className="bg-white rounded-2xl border border-[#dee3e3] p-3 sm:p-4 shadow-sm flex flex-col gap-2.5 sm:gap-3">
-        {/* Linha 1: busca + botões de ação */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 min-w-0">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9BB0AD] pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Buscar paciente..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2.5 border border-[#dee3e3] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b5a]/20 focus:border-[#006b5a] bg-[#f8faf9] transition-all"
-            />
-          </div>
+      <KanbanToolbar
+        search={search}
+        onSearchChange={setSearch}
+        responsavelFilter={responsavelFilter}
+        onResponsavelFilterChange={setResponsavelFilter}
+        teamFilterOpen={teamFilterOpen}
+        onTeamFilterOpenChange={setTeamFilterOpen}
+        profiles={profiles}
+        profilesComContagem={profilesComContagem}
+        semResponsavelCount={semResponsavelCount}
+        columns={columns}
+        columnTotals={columnTotals}
+        totalFiltered={totalFiltered}
+        contatosCount={contatos.length}
+        loadingBoard={loadingBoard}
+        loadingBaseBatches={loadingBaseBatches}
+        totalAvailableBaseCards={totalAvailableBaseCards}
+        baseSeedColumnKey={baseSeedModal.columnKey}
+        canManageColumns={canManageColumns}
+        onAddBaseBatch={handleAddBaseBatch}
+        onOpenCreateColumnModal={openCreateColumnModal}
+      />
 
-          {/* Botão filtro equipe — só mobile */}
-          {profiles.length > 0 && (
-            <button
-              onClick={() => setTeamFilterOpen((v) => !v)}
-              className={`sm:hidden relative shrink-0 w-10 h-10 flex items-center justify-center rounded-xl border transition-all ${
-                teamFilterOpen || responsavelFilter
-                  ? 'bg-[#006b5a] border-[#006b5a] text-white'
-                  : 'bg-white border-[#dee3e3] text-[#6d7a75]'
-              }`}
-              title="Filtrar por responsavel"
-            >
-              <UserCircle2 size={18} />
-              {responsavelFilter && !teamFilterOpen && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-white border border-[#006b5a]" />
-              )}
-            </button>
-          )}
-
-          {/* Limpar filtros — ícone compacto quando há filtro ativo */}
-          {(search || responsavelFilter) && (
-            <button
-              onClick={() => { setSearch(''); setResponsavelFilter(null); setTeamFilterOpen(false) }}
-              className="shrink-0 w-10 h-10 flex items-center justify-center rounded-xl text-[#ba1a1a] bg-[#ba1a1a]/8 hover:bg-[#ba1a1a]/15 border border-[#ba1a1a]/20 transition-colors"
-              title="Limpar filtros"
-            >
-              <X size={16} strokeWidth={2.5} />
-            </button>
-          )}
-
-          <button
-            onClick={() => void handleAddBaseBatch(baseSeedModal.columnKey)}
-            disabled={loadingBoard || loadingBaseBatches[baseSeedModal.columnKey] || totalAvailableBaseCards <= 0}
-            className="shrink-0 h-10 px-3 sm:px-4 flex items-center justify-center gap-2 rounded-xl border border-[#dee3e3] bg-white text-[#083142] text-sm font-bold hover:border-[#006b5a]/35 hover:text-[#006b5a] transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
-            title={totalAvailableBaseCards > 0 ? 'Adicionar cards da base' : 'Nenhum paciente disponivel para adicionar'}
-          >
-            <Plus size={16} strokeWidth={2.5} />
-            <span className="hidden sm:inline">Adicionar cards</span>
-            <span className="rounded-full bg-[#f0f5f4] px-2 py-0.5 text-[11px] text-[#6d7a75]">
-              {totalAvailableBaseCards}
-            </span>
-          </button>
-
-          {/* Nova coluna */}
-          {canManageColumns && (
-            <button
-              onClick={openCreateColumnModal}
-              className="shrink-0 w-10 h-10 sm:w-auto sm:px-4 flex items-center justify-center gap-2 rounded-xl bg-[#006b5a] text-white text-sm font-bold hover:bg-[#004f43] transition-all shadow-sm active:scale-95"
-            >
-              <Plus size={16} strokeWidth={2.5} />
-              <span className="hidden sm:inline">Nova coluna</span>
-            </button>
-          )}
-
-          {/* Contadores — só desktop */}
-          <div className="hidden lg:flex items-center gap-2.5 border-l border-[#dee3e3] pl-3 shrink-0">
-            {columns.map((column) => {
-              const count = columnTotals[column.chave] ?? 0
-              const visual = getVisualColunaContato(column)
-              return (
-                <span key={column.chave} className="text-[11px] font-bold" style={{ color: visual.cor }}>
-                  {count}
-                </span>
-              )
-            })}
-            <span className="text-[11px] font-bold text-[#9BB0AD] bg-[#f0f5f4] px-2 py-1 rounded-lg border border-[#dee3e3]">
-              {totalFiltered} total
-            </span>
-          </div>
-        </div>
-
-        {/* Linha 2: filtro de equipe
-            - Mobile: só aparece quando teamFilterOpen = true
-            - Desktop (sm+): sempre visível */}
-        {profiles.length > 0 && (
-          <div className={`${teamFilterOpen ? 'flex' : 'hidden'} sm:flex items-center gap-2 sm:gap-3`}>
-            <span className="text-[10px] text-[#9BB0AD] font-bold uppercase tracking-wider shrink-0 hidden sm:block">
-              Equipe
-            </span>
-
-            {/* Container scrollável com fade hint na borda direita */}
-            <div className="relative flex-1 min-w-0">
-              <div className="flex gap-2 overflow-x-auto hide-scrollbar snap-x py-1 pr-6">
-                <button
-                  onClick={() => setResponsavelFilter(responsavelFilter === '__none__' ? null : '__none__')}
-                  className={`relative shrink-0 snap-start w-9 h-9 rounded-full border-2 border-dashed flex items-center justify-center transition-all ${
-                    responsavelFilter === '__none__'
-                      ? 'border-[#006b5a] bg-[#f0fcf9] ring-2 ring-offset-1 ring-[#006b5a] z-10'
-                      : 'border-[#bcc9c4] hover:border-[#9BB0AD] bg-white'
-                  }`}
-                  title="Sem responsavel"
-                >
-                  <UserCircle2 size={15} className="text-[#9BB0AD]" />
-                  {semResponsavelCount > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 bg-[#dee3e3] text-[#3d4945] text-[9px] font-extrabold rounded-full flex items-center justify-center">
-                      {semResponsavelCount > 99 ? '99+' : semResponsavelCount}
-                    </span>
-                  )}
-                </button>
-
-                {profilesComContagem.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => setResponsavelFilter(responsavelFilter === p.id ? null : p.id)}
-                    style={{ backgroundColor: getAvatarColor(p.full_name) }}
-                    className={`relative shrink-0 snap-start w-9 h-9 rounded-full flex items-center justify-center text-white text-[11px] font-bold transition-all shadow-sm ${
-                      responsavelFilter === p.id
-                        ? 'ring-2 ring-offset-2 ring-[#006b5a] scale-110 z-10'
-                        : p.count === 0 ? 'opacity-35 hover:opacity-60' : 'opacity-90 hover:opacity-100 hover:scale-105'
-                    }`}
-                    title={`${p.full_name} (${p.count})`}
-                  >
-                    {getInitials(p.full_name)}
-                    {p.count > 0 && (
-                      <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 bg-white/95 text-[#1A2E2B] text-[9px] font-extrabold rounded-full flex items-center justify-center border border-[#f0f5f4]">
-                        {p.count > 99 ? '99+' : p.count}
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-              {/* Fade hint indicando que há mais avatares para a direita */}
-              <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent pointer-events-none" />
-            </div>
-
-            {/* Limpar filtros — texto completo no desktop */}
-            {(search || responsavelFilter) && (
-              <button
-                onClick={() => { setSearch(''); setResponsavelFilter(null) }}
-                className="hidden sm:flex items-center gap-1 text-xs text-[#ba1a1a] hover:text-[#ba1a1a] bg-[#ba1a1a]/8 hover:bg-[#ba1a1a]/15 font-bold transition-colors px-3 py-1.5 rounded-lg border border-[#ba1a1a]/20 shrink-0 whitespace-nowrap"
-              >
-                <X size={12} strokeWidth={2.5} />
-                Limpar
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Info strip mobile — compacto, sem linha extra desnecessária */}
-        <div className="flex items-center gap-2 sm:hidden">
-          <span className="text-[11px] text-[#9BB0AD] font-medium">
-            {contatos.length} de {totalFiltered} pacientes
-          </span>
-          {responsavelFilter && (
-            <button
-              onClick={() => setResponsavelFilter(null)}
-              className="flex items-center gap-1 text-[11px] font-bold text-[#006b5a] bg-[#f0fcf9] px-2 py-0.5 rounded-full border border-[#c3ede6]"
-            >
-              Equipe ativa
-              <X size={9} strokeWidth={2.5} />
-            </button>
-          )}
-        </div>
-      </div>
-
+      {/* Mobile column tabs */}
       <div className="flex lg:hidden gap-2 overflow-x-auto pb-2 hide-scrollbar snap-x snap-mandatory">
         {columns.map((column) => {
           const count = columnTotals[column.chave] ?? 0
           const visual = getVisualColunaContato(column)
-
           return (
             <button
               id={`tab-${column.chave}`}
@@ -1379,1033 +836,107 @@ export function KanbanContatos({
         })}
       </div>
 
-      <div 
+      {/* Kanban board */}
+      <div
         className="flex gap-4 lg:gap-5 overflow-x-auto pb-6 pt-2 lg:pt-0 snap-x snap-mandatory hide-scrollbar items-start h-[calc(100svh-230px)] lg:h-[calc(100vh-140px)] min-h-[500px]"
         onScroll={(e) => {
-          if (window.innerWidth >= 1024) return;
-          const container = e.currentTarget;
-          const scrollLeft = container.scrollLeft;
-          const children = Array.from(container.children) as HTMLElement[];
-          if (!children.length) return;
-          let closest = children[0];
-          let minDistance = Infinity;
-          const center = scrollLeft + container.clientWidth / 2;
-          
-          children.forEach(child => {
-            const childCenter = child.offsetLeft + child.clientWidth / 2 - container.offsetLeft;
-            const distance = Math.abs(childCenter - center);
-            if (distance < minDistance) {
-              minDistance = distance;
-              closest = child;
-            }
-          });
-          
-          const newActive = closest.id.replace('col-', '');
+          if (window.innerWidth >= 1024) return
+          const container = e.currentTarget
+          const scrollLeft = container.scrollLeft
+          const children = Array.from(container.children) as HTMLElement[]
+          if (!children.length) return
+          let closest = children[0]
+          let minDistance = Infinity
+          const center = scrollLeft + container.clientWidth / 2
+          children.forEach((child) => {
+            const childCenter = child.offsetLeft + child.clientWidth / 2 - container.offsetLeft
+            const distance = Math.abs(childCenter - center)
+            if (distance < minDistance) { minDistance = distance; closest = child }
+          })
+          const newActive = closest.id.replace('col-', '')
           if (newActive !== activeColuna) {
-            setActiveColuna(newActive);
-            const tab = document.getElementById(`tab-${newActive}`);
-            if (tab) {
-               tab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-            }
+            setActiveColuna(newActive)
+            document.getElementById(`tab-${newActive}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
           }
         }}
       >
-        {columns.map((column, colIdx) => {
-          const cards = contatosByColumn.get(column.chave) ?? []
-          const totalCards = columnTotals[column.chave] ?? 0
-          const hiddenCount = Math.max(0, totalCards - cards.length)
-          const visual = getVisualColunaContato(column)
-
-          return (
-            <div
-              id={`col-${column.chave}`}
-              key={column.chave}
-              className="group/col w-[85vw] sm:w-[360px] lg:w-[320px] flex-none snap-center lg:snap-align-none flex flex-col h-full max-h-full"
-            >
-              <div
-                className="flex items-center gap-2 px-4 py-3 rounded-t-2xl border border-b-0 shadow-sm z-10"
-                style={{ borderColor: visual.cor + '30', backgroundColor: visual.corBg }}
-              >
-                <span className="w-2.5 h-2.5 rounded-full flex-none shadow-sm" style={{ backgroundColor: visual.cor }} />
-                <span className="font-bold text-sm lg:text-base flex-1" style={{ color: visual.cor }}>
-                  {column.nome}
-                </span>
-                {column.tipo === 'custom' && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/70 text-[#3d4945] font-semibold hidden sm:inline-block">
-                    {LABEL_POR_STATUS_CONTATO[column.status_base]}
-                  </span>
-                )}
-                <span
-                  className="text-xs font-extrabold px-2.5 py-0.5 rounded-full shadow-sm"
-                  style={{ backgroundColor: visual.corBadgeBg, color: visual.corBadgeText }}
-                >
-                  {totalCards}
-                </span>
-              </div>
-
-              <div
-                className="border border-t-0 rounded-b-2xl p-2.5 sm:p-3 space-y-3 overflow-y-auto flex-1 flex flex-col hide-scrollbar"
-                style={{
-                  borderColor: visual.cor + '30',
-                  backgroundColor: visual.corBg + 'AA',
-                }}
-              >
-                {canManageColumns && (
-                  <div className="flex items-center justify-end gap-1.5 pb-2 lg:opacity-0 lg:group-hover/col:opacity-100 transition-opacity duration-150">
-                    <div className="flex items-center rounded-full border border-[#e2e8e6] bg-white shadow-sm overflow-hidden">
-                      <button
-                        onClick={() => void handleMoveColumn(column, 'left')}
-                        className="w-6 h-6 flex items-center justify-center text-[#b0bfbb] hover:bg-[#f0f5f4] hover:text-[#006b5a] transition-colors"
-                        title="Mover coluna para a esquerda"
-                      >
-                        <ChevronLeft size={11} />
-                      </button>
-                      <div className="w-px h-3 bg-[#e2e8e6]" />
-                      <button
-                        onClick={() => void handleMoveColumn(column, 'right')}
-                        className="w-6 h-6 flex items-center justify-center text-[#b0bfbb] hover:bg-[#f0f5f4] hover:text-[#006b5a] transition-colors"
-                        title="Mover coluna para a direita"
-                      >
-                        <ChevronRight size={11} />
-                      </button>
-                    </div>
-                    {column.tipo === 'custom' && (
-                      <>
-                        <button
-                          onClick={() => openEditColumnModal(column)}
-                          className="w-6 h-6 rounded-full border border-[#e2e8e6] bg-white shadow-sm text-[#b0bfbb] hover:bg-[#f0f5f4] hover:text-[#406375] hover:border-[#c3d0cd] transition-all flex items-center justify-center"
-                          title="Editar coluna"
-                        >
-                          <Pencil size={11} />
-                        </button>
-                        <button
-                          onClick={() => void handleDeleteColumn(column)}
-                          disabled={getColumnCardCount(column.chave) > 0}
-                          className="w-6 h-6 rounded-full border border-[#e2e8e6] bg-white shadow-sm text-[#b0bfbb] hover:bg-red-50 hover:text-[#ba1a1a] hover:border-red-200 transition-all flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
-                          title={getColumnCardCount(column.chave) > 0 ? 'Esvazie a coluna antes de excluir' : 'Excluir coluna'}
-                        >
-                          <Trash2 size={11} />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                )}
-
-                {cards.length === 0 ? (
-                  <div className="flex items-center justify-center h-16 text-xs text-[#9BB0AD]">
-                    {loadingBoard ? 'Carregando...' : 'Vazio'}
-                  </div>
-                ) : (
-                  cards.map((contato) => {
-                    const dias = diasDesde(contato.ultimo_atendimento_data)
-                    const cor = dias !== null ? diasCor(dias) : '#9BB0AD'
-
-                    return (
-                      <div
-                        key={contato.id}
-                        onClick={() => setSelected(contato)}
-                        className="bg-white rounded-lg border border-[#dee3e3] p-3.5 cursor-pointer hover:border-[#006b5a]/40 hover:shadow-sm transition-all group"
-                      >
-                        <div className="flex items-start gap-2.5 mb-2.5">
-                          <div
-                            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold shrink-0 mt-0.5"
-                            style={{ backgroundColor: getAvatarColor(contato.nome) }}
-                          >
-                            {getInitials(contato.nome)}
-                          </div>
-                          <span className="font-semibold text-[#1A2E2B] text-sm leading-snug flex-1 line-clamp-2">
-                            {contato.nome}
-                          </span>
-                          {contato.telefone && (
-                            <a
-                              href={whatsappLink(contato.telefone)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366]/25 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
-                              title="Abrir WhatsApp"
-                            >
-                              <MessageCircle size={13} />
-                            </a>
-                          )}
-                        </div>
-
-                        {contato.telefone && (
-                          <div className="flex items-center gap-1.5 text-xs text-[#6d7a75] mb-2.5">
-                            <MessageCircle size={11} className="shrink-0 text-[#25D366]" />
-                            <span>{contato.telefone}</span>
-                          </div>
-                        )}
-
-                        <div className="flex items-center justify-between">
-                          {contato.ultimo_atendimento_data ? (
-                            <div className="flex items-center gap-1 text-xs text-[#9BB0AD]">
-                              <Calendar size={11} />
-                              <span>{format(new Date(contato.ultimo_atendimento_data), 'dd/MM/yy')}</span>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-[#9BB0AD]">Sem atendimento</span>
-                          )}
-
-                          {dias !== null && (
-                            <div
-                              className="flex items-center gap-0.5 text-[11px] font-bold px-1.5 py-0.5 rounded-full"
-                              style={{ color: cor, backgroundColor: cor + '18' }}
-                            >
-                              <Clock size={10} />
-                              <span>{labelDias(dias)}</span>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-[#dee3e3]">
-                          {contato.responsavel_nome ? (
-                            <div className="flex items-center gap-1.5">
-                              <div
-                                className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-bold"
-                                style={{ backgroundColor: getAvatarColor(contato.responsavel_nome) }}
-                                title={contato.responsavel_nome}
-                              >
-                                {getInitials(contato.responsavel_nome)}
-                              </div>
-                              <span className="text-[11px] text-[#6d7a75] truncate max-w-[100px]">
-                                {contato.responsavel_nome.split(' ')[0]}
-                              </span>
-                            </div>
-                          ) : (
-                            <div className="w-5 h-5 rounded-full border border-dashed border-[#bcc9c4] flex items-center justify-center">
-                              <span className="text-[8px] text-[#9BB0AD]">?</span>
-                            </div>
-                          )}
-
-                          <div className="flex gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                            {colIdx > 0 && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  moverEsquerda(contato.id, contato.kanban_coluna_chave)
-                                }}
-                                className="w-7 h-7 lg:w-5 lg:h-5 flex items-center justify-center rounded bg-[#f0f5f4] hover:bg-[#dee3e3] text-[#6d7a75] transition-colors"
-                                title="Mover para coluna anterior"
-                              >
-                                <ChevronLeft size={11} />
-                              </button>
-                            )}
-                            {colIdx < columns.length - 1 && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  moverDireita(contato.id, contato.kanban_coluna_chave)
-                                }}
-                                className="w-7 h-7 lg:w-5 lg:h-5 flex items-center justify-center rounded bg-[#f0f5f4] hover:bg-[#dee3e3] text-[#6d7a75] transition-colors"
-                                title="Mover para proxima coluna"
-                              >
-                                <ChevronRight size={11} />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })
-                )}
-
-                {hiddenCount > 0 && (
-                  <button
-                    onClick={() => void handleLoadMore(column.chave)}
-                    disabled={loadingColumns[column.chave]}
-                    className="w-full mt-1 py-2 text-xs font-semibold rounded-lg border border-dashed transition-colors"
-                    style={{ borderColor: visual.cor + '60', color: visual.cor, backgroundColor: visual.corBg }}
-                  >
-                    {loadingColumns[column.chave] ? 'Carregando...' : `Ver mais ${hiddenCount} ->`}
-                  </button>
-                )}
-              </div>
-            </div>
-          )
-        })}
+        {columns.map((column, colIdx) => (
+          <KanbanColumn
+            key={column.chave}
+            column={column}
+            colIdx={colIdx}
+            columnsLength={columns.length}
+            cards={contatosByColumn.get(column.chave) ?? []}
+            totalCards={columnTotals[column.chave] ?? 0}
+            loadingBoard={loadingBoard}
+            loadingColumn={loadingColumns[column.chave] ?? false}
+            canManageColumns={canManageColumns}
+            onMoveColumn={(col, dir) => void handleMoveColumn(col, dir)}
+            onEditColumn={openEditColumnModal}
+            onDeleteColumn={(col) => void handleDeleteColumn(col)}
+            onLoadMore={(key) => void handleLoadMore(key)}
+            onSelectContato={setSelected}
+            onMoveLeft={moverEsquerda}
+            onMoveRight={moverDireita}
+            getColumnCardCount={getColumnCardCount}
+          />
+        ))}
       </div>
 
-      {baseSeedModal.open && (
-        <div
-          className="fixed inset-0 z-50 bg-[#171d1c]/45 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4"
-          onClick={closeBaseSeedModal}
-        >
-          <div
-            className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-3xl max-h-[90vh] flex flex-col overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-center pt-3 pb-1 sm:hidden shrink-0">
-              <div className="w-10 h-1 rounded-full bg-[#dee3e3]" />
-            </div>
-
-            <div className="px-4 sm:px-5 py-4 border-b border-[#dee3e3] flex items-start gap-3 shrink-0">
-              <div className="w-10 h-10 rounded-2xl bg-[#f0fcf9] text-[#006b5a] flex items-center justify-center shrink-0">
-                <Plus size={18} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <h3 className="font-bold text-[#083142] text-base sm:text-lg">Adicionar cards da base</h3>
-                <p className="text-xs sm:text-sm text-[#6d7a75] mt-1">
-                  Revise a lista antes de confirmar. Serao adicionados apenas pacientes que ainda nao possuem card no kanban.
-                </p>
-              </div>
-              <button
-                onClick={closeBaseSeedModal}
-                className="p-1.5 rounded-lg hover:bg-[#f0f5f4] text-[#9BB0AD] shrink-0"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <div className="px-4 sm:px-5 py-4 border-b border-[#dee3e3] shrink-0">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {baseSeedColumns.map((column) => {
-                  const visual = getVisualColunaContato(column)
-                  const isActive = column.chave === baseSeedModal.columnKey
-                  const availableCount = availableBaseTotals[column.chave] ?? 0
-
-                  return (
-                    <button
-                      key={column.chave}
-                      onClick={() => void loadBaseSeedPreview(column.chave, baseSeedSearch)}
-                      className={`rounded-2xl border px-4 py-3 text-left transition-colors ${
-                        isActive ? 'shadow-sm' : 'hover:border-[#bcc9c4]'
-                      }`}
-                      style={{
-                        borderColor: isActive ? visual.cor : '#dee3e3',
-                        backgroundColor: isActive ? visual.corBg : '#ffffff',
-                      }}
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="font-semibold text-sm" style={{ color: visual.cor }}>
-                            {column.nome}
-                          </p>
-                          <p className="text-xs text-[#6d7a75] mt-1">
-                            {availableCount} disponiveis para virar card
-                          </p>
-                        </div>
-                        <span
-                          className="text-xs font-extrabold px-2.5 py-1 rounded-full"
-                          style={{ backgroundColor: visual.corBadgeBg, color: visual.corBadgeText }}
-                        >
-                          {availableCount}
-                        </span>
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 space-y-3 bg-[#f8faf9]">
-              <div className="relative">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9BB0AD] pointer-events-none" />
-                <input
-                  type="text"
-                  placeholder="Buscar paciente por nome..."
-                  value={baseSeedSearch}
-                  onChange={(e) => setBaseSeedSearch(e.target.value)}
-                  disabled={baseSeedModal.confirming}
-                  className="w-full pl-9 pr-3 py-2 border border-[#dee3e3] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#006b5a]/20 focus:border-[#006b5a] bg-white transition-all disabled:opacity-50"
-                />
-                {baseSeedSearch && (
-                  <button
-                    onClick={() => setBaseSeedSearch('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded text-[#9BB0AD] hover:text-[#6d7a75]"
-                  >
-                    <X size={13} />
-                  </button>
-                )}
-              </div>
-
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-[#1A2E2B]">
-                    {activeBaseSeedColumn?.nome ?? 'Base selecionada'}
-                  </p>
-                  <p className="text-xs text-[#6d7a75] mt-1">
-                    {baseSeedModal.loading
-                      ? 'Buscando pacientes...'
-                      : `${baseSeedModal.preview.length} encontrado${baseSeedModal.preview.length === 1 ? '' : 's'} — ${baseSeedModal.selectedIds.size} selecionado${baseSeedModal.selectedIds.size === 1 ? '' : 's'}`}
-                  </p>
-                </div>
-                {!baseSeedModal.loading && (
-                  <div className="flex items-center gap-3">
-                    {baseSeedModal.preview.length > 0 && (
-                      <button
-                        onClick={toggleAllBaseSeedSelection}
-                        disabled={baseSeedModal.confirming}
-                        className="text-xs font-semibold text-[#006b5a] hover:underline disabled:opacity-40"
-                      >
-                        {baseSeedModal.preview.every((p) => baseSeedModal.selectedIds.has(p.id))
-                          ? 'Desmarcar todos'
-                          : 'Selecionar todos'}
-                      </button>
-                    )}
-                    <button
-                      onClick={() => void loadBaseSeedPreview(baseSeedModal.columnKey, baseSeedSearch)}
-                      className="text-xs font-semibold text-[#9BB0AD] hover:underline"
-                    >
-                      Atualizar lista
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {baseSeedModal.loading ? (
-                <div className="rounded-2xl border border-[#dee3e3] bg-white px-4 py-8 text-sm text-[#6d7a75] text-center">
-                  Carregando pacientes disponiveis...
-                </div>
-              ) : baseSeedModal.preview.length === 0 ? (
-                <div className="rounded-2xl border border-[#dee3e3] bg-white px-4 py-8 text-sm text-[#6d7a75] text-center">
-                  {baseSeedSearch.trim()
-                    ? `Nenhum paciente encontrado para "${baseSeedSearch.trim()}".`
-                    : 'Nenhum paciente disponivel nesta base no momento.'}
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-[#dee3e3] bg-white overflow-hidden">
-                  <div className="max-h-[45vh] overflow-y-auto divide-y divide-[#eef2f1]">
-                    {baseSeedModal.preview.map((paciente) => {
-                      const isSelected = baseSeedModal.selectedIds.has(paciente.id)
-                      return (
-                      <button
-                        key={paciente.id}
-                        type="button"
-                        disabled={baseSeedModal.confirming}
-                        onClick={() => toggleBaseSeedSelection(paciente.id)}
-                        className={`w-full px-4 py-3 flex items-center gap-3 text-left transition-colors disabled:cursor-not-allowed ${
-                          isSelected ? 'bg-[#f0f9f7]' : 'hover:bg-[#fafcfc]'
-                        }`}
-                      >
-                        <div
-                          className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
-                            isSelected
-                              ? 'bg-[#006b5a] border-[#006b5a]'
-                              : 'border-[#dee3e3] bg-white'
-                          }`}
-                        >
-                          {isSelected && (
-                            <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                              <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className={`text-sm font-semibold ${isSelected ? 'text-[#1A2E2B]' : 'text-[#4a5a55]'}`}>{paciente.nome}</p>
-                          <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-[#6d7a75]">
-                            <span>{paciente.telefone || 'Sem telefone'}</span>
-                            <span>{paciente.email || 'Sem email'}</span>
-                          </div>
-                        </div>
-                      </button>
-                    )})}
-
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="px-4 sm:px-5 py-4 border-t border-[#dee3e3] flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2 shrink-0 bg-white">
-              <p className="text-xs text-[#9BB0AD]">
-                {baseSeedModal.selectedIds.size > 0
-                  ? `${baseSeedModal.selectedIds.size} de ${baseSeedModal.preview.length} paciente${baseSeedModal.preview.length === 1 ? '' : 's'} selecionado${baseSeedModal.selectedIds.size === 1 ? '' : 's'}.`
-                  : 'Selecione ao menos um paciente para continuar.'}
-              </p>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={closeBaseSeedModal}
-                  disabled={baseSeedModal.confirming}
-                  className="px-4 py-2.5 rounded-xl border border-[#dee3e3] text-sm font-semibold text-[#6d7a75] hover:bg-[#f8faf9] transition-colors disabled:opacity-40"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={() => void handleConfirmBaseSeed()}
-                  disabled={baseSeedModal.loading || baseSeedModal.confirming || baseSeedModal.selectedIds.size === 0}
-                  className="px-4 py-2.5 rounded-xl bg-[#006b5a] text-white text-sm font-semibold hover:bg-[#004f43] transition-colors disabled:opacity-40"
-                >
-                  {baseSeedModal.confirming
-                    ? 'Adicionando...'
-                    : `Adicionar ${baseSeedModal.selectedIds.size} card${baseSeedModal.selectedIds.size === 1 ? '' : 's'}`}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <BaseSeedModal
+        state={baseSeedModal}
+        search={baseSeedSearch}
+        onSearchChange={setBaseSeedSearch}
+        availableBaseTotals={availableBaseTotals}
+        baseSeedColumns={baseSeedColumns}
+        activeBaseSeedColumn={activeBaseSeedColumn}
+        onClose={closeBaseSeedModal}
+        onConfirm={() => void handleConfirmBaseSeed()}
+        onToggleSelection={toggleBaseSeedSelection}
+        onToggleAll={toggleAllBaseSeedSelection}
+        onLoadPreview={loadBaseSeedPreview}
+      />
 
       {selected && (
-        <div
-          className="fixed inset-0 z-50 bg-[#171d1c]/40 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4"
-          onClick={() => setSelected(null)}
-        >
-          <div
-            className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-7xl max-h-[95vh] flex flex-col lg:flex-row overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="w-full border-b border-[#dee3e3] bg-white/95 backdrop-blur-sm lg:hidden rounded-t-2xl sm:rounded-none">
-              <div className="flex justify-center pt-3 pb-1">
-                <div className="w-12 h-1.5 rounded-full bg-[#dee3e3]"></div>
-              </div>
-              <div className="px-4 pb-4 flex items-start gap-3 mt-1">
-                <div
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
-                  style={{ backgroundColor: getAvatarColor(selected.nome) }}
-                >
-                  {getInitials(selected.nome)}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-bold text-[#083142] truncate">{selected.nome}</h3>
-                  <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    {selectedColumn && (
-                      <span
-                        className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                        style={{
-                          color: getVisualColunaContato(selectedColumn).cor,
-                          backgroundColor: getVisualColunaContato(selectedColumn).corBadgeBg,
-                        }}
-                      >
-                        {selectedColumn.nome}
-                      </span>
-                    )}
-                    {selected.telefone && (
-                      <span className="text-xs text-[#6d7a75] truncate">{selected.telefone}</span>
-                    )}
-                  </div>
-                </div>
-                <button
-                  onClick={() => setSelected(null)}
-                  className="p-1.5 rounded-lg hover:bg-[#f0f5f4] text-[#9BB0AD] hover:text-[#3d4945] transition-colors shrink-0"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-              <div className="px-4 pb-4">
-                <div className="grid grid-cols-2 gap-2 bg-[#f0f5f4] p-1 rounded-xl">
-                  <button
-                    onClick={() => setMobileModalTab('detalhes')}
-                    className={`px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors ${mobileModalTab === 'detalhes' ? 'bg-white text-[#006b5a] shadow-sm' : 'text-[#6d7a75]'}`}
-                  >
-                    Detalhes
-                  </button>
-                  <button
-                    onClick={() => setMobileModalTab('notas')}
-                    className={`px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors ${mobileModalTab === 'notas' ? 'bg-white text-[#006b5a] shadow-sm' : 'text-[#6d7a75]'}`}
-                  >
-                    Notas
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className={`${mobileModalTab === 'notas' ? 'flex' : 'hidden'} lg:flex flex-1 flex-col min-w-0 min-h-0`}>
-              <div className="hidden lg:flex px-5 py-4 border-b border-[#dee3e3] items-center gap-3">
-                <div
-                  className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
-                  style={{ backgroundColor: getAvatarColor(selected.nome) }}
-                >
-                  {getInitials(selected.nome)}
-                </div>
-                <div className="min-w-0">
-                  <h3 className="font-bold text-[#083142] truncate">{selected.nome}</h3>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    {selectedColumn && (
-                      <span
-                        className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                        style={{
-                          color: getVisualColunaContato(selectedColumn).cor,
-                          backgroundColor: getVisualColunaContato(selectedColumn).corBadgeBg,
-                        }}
-                      >
-                        {selectedColumn.nome}
-                      </span>
-                    )}
-                    {selected.telefone && (
-                      <span className="text-xs text-[#6d7a75]">{selected.telefone}</span>
-                    )}
-                  </div>
-                </div>
-                <button
-                  onClick={() => setSelected(null)}
-                  className="ml-auto p-1.5 rounded-lg hover:bg-[#f0f5f4] text-[#9BB0AD] hover:text-[#3d4945] transition-colors shrink-0"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
-                {loadingNotas ? (
-                  <div className="flex items-center justify-center h-24 text-sm text-[#9BB0AD]">
-                    Carregando notas...
-                  </div>
-                ) : notas.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-32 gap-2 text-[#9BB0AD]">
-                    <StickyNote size={28} strokeWidth={1.5} />
-                    <p className="text-sm">Nenhuma nota ainda. Adicione a primeira abaixo.</p>
-                  </div>
-                ) : (
-                  notas.map((nota) => (
-                    <div key={nota.id} className="bg-[#f0f5f4] rounded-xl px-4 py-3">
-                      <p className="text-sm text-[#1A2E2B] whitespace-pre-wrap">{nota.texto}</p>
-                      <div className="flex items-center justify-between mt-2">
-                        <p className="text-[11px] text-[#9BB0AD]">
-                          {format(new Date(nota.criado_em), "dd 'de' MMM 'as' HH:mm", { locale: ptBR })}
-                        </p>
-                        {nota.autor_nome && (
-                          <p className="text-[10px] font-semibold text-[#006b5a] bg-white px-2 py-1 rounded">
-                            {nota.autor_nome}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              <div className="px-5 py-3 border-t border-[#dee3e3] flex gap-2">
-                <input
-                  type="text"
-                  value={novaNotaTexto}
-                  onChange={(e) => setNovaNotaTexto(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault()
-                      void handleAddNota()
-                    }
-                  }}
-                  placeholder="Adicionar nota de contato..."
-                  className="flex-1 border border-[#dee3e3] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#006b5a] bg-[#f0f5f4]/50"
-                />
-                <button
-                  onClick={() => void handleAddNota()}
-                  disabled={!novaNotaTexto.trim()}
-                  className="px-3 py-2 bg-[#006b5a] text-white rounded-lg hover:bg-[#004f43] transition-colors disabled:opacity-40 flex items-center gap-1.5 text-sm font-semibold"
-                >
-                  <Send size={14} />
-                </button>
-              </div>
-            </div>
-
-            <div className={`${mobileModalTab === 'detalhes' ? 'block' : 'hidden'} lg:block lg:w-96 flex-none border-t lg:border-t-0 lg:border-l border-[#dee3e3] bg-[#f0f5f4]/40 p-4 lg:p-5 space-y-4 lg:space-y-5 overflow-y-auto max-h-[95vh] lg:max-h-none`}>
-              <div>
-                <p className="text-[10px] text-[#9BB0AD] font-semibold uppercase tracking-wider mb-1.5">Etapa</p>
-                <select
-                  value={selected.kanban_coluna_chave}
-                  onChange={(e) => {
-                    const nextKey = e.target.value
-                    setSelected((prev) => {
-                      if (!prev) return null
-                      const targetColumn = getColumnByKey(nextKey)
-                      if (!targetColumn) return prev
-                      return {
-                        ...prev,
-                        kanban_coluna_chave: targetColumn.chave,
-                        status: targetColumn.status_base,
-                      }
-                    })
-                    startTransition(async () => {
-                      await moveContato(selected.id, nextKey)
-                    })
-                  }}
-                  className="w-full border border-[#dee3e3] rounded-lg px-2.5 py-2 text-sm text-[#1A2E2B] focus:outline-none focus:border-[#006b5a] bg-white"
-                >
-                  {columns.map((column) => (
-                    <option key={column.chave} value={column.chave}>
-                      {column.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <p className="text-[10px] text-[#9BB0AD] font-semibold uppercase tracking-wider mb-1.5">Responsavel</p>
-                <select
-                  value={selected.responsavel_id ?? ''}
-                  onChange={(e) => void handleResponsavelChange(e.target.value)}
-                  className="w-full border border-[#dee3e3] rounded-lg px-2.5 py-2 text-sm text-[#1A2E2B] focus:outline-none focus:border-[#006b5a] bg-white"
-                >
-                  <option value="">Sem responsavel</option>
-                  {profiles.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.full_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <p className="text-[10px] text-[#9BB0AD] font-semibold uppercase tracking-wider mb-1.5">Ultimo atendimento</p>
-                {selected.ultimo_atendimento_data ? (
-                  <>
-                    <p className="text-sm font-semibold text-[#1A2E2B]">
-                      {format(new Date(selected.ultimo_atendimento_data), "dd 'de' MMM, yyyy", { locale: ptBR })}
-                    </p>
-                    {selected.ultimo_atendimento_tipo && (
-                      <p className="text-xs text-[#6d7a75] mt-0.5">{selected.ultimo_atendimento_tipo}</p>
-                    )}
-                  </>
-                ) : (
-                  <p className="text-sm text-[#9BB0AD]">Nenhum registro</p>
-                )}
-              </div>
-
-              {selected.telefone && (
-                <div>
-                  <p className="text-[10px] text-[#9BB0AD] font-semibold uppercase tracking-wider mb-2">Contato rapido</p>
-                  <a
-                    href={whatsappLink(selected.telefone)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 w-full px-3 py-2 bg-[#25D366] text-white rounded-lg text-xs font-bold hover:bg-[#1da851] transition-colors"
-                  >
-                    <MessageCircle size={13} />
-                    WhatsApp
-                  </a>
-                </div>
-              )}
-
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-[10px] text-[#9BB0AD] font-semibold uppercase tracking-wider">Mensagem pronta</p>
-                  <a
-                    href="/confirmacoes/mensagens"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-0.5 text-[10px] text-[#006b5a] hover:underline"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    Gerenciar
-                    <ExternalLink size={9} />
-                  </a>
-                </div>
-
-                {templates.length === 0 ? (
-                  <p className="text-xs text-[#9BB0AD]">Nenhum template cadastrado.</p>
-                ) : (
-                  <div className="space-y-3">
-                    <button
-                      onClick={() => setTemplatePickerOpen((value) => !value)}
-                      className="w-full flex items-center justify-between px-3 py-2 bg-white border border-[#dee3e3] rounded-lg text-xs font-medium text-[#1A2E2B] hover:border-[#006b5a]/40 transition-colors"
-                    >
-                      <span>Escolher modelo</span>
-                      <ChevronDown size={13} className={`transition-transform ${templatePickerOpen ? 'rotate-180' : ''}`} />
-                    </button>
-
-                    {templatePickerOpen && selected.telefone && (
-                      <div className="space-y-2 max-h-60 overflow-y-auto">
-                        {localTemplates.map((t, idx) => (
-                          <div
-                            key={t.id}
-                            className="bg-white border border-[#dee3e3] rounded-lg p-3 hover:border-[#25D366]/50 hover:bg-[#f0fdf9] transition-colors flex items-start gap-2"
-                          >
-                            <div className="flex flex-col shrink-0 mt-0.5 -ml-0.5">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); moveTemplate(t.id, 'up') }}
-                                disabled={idx === 0}
-                                className="p-0.5 text-[#c3d0ce] hover:text-[#006b5a] disabled:opacity-25 disabled:cursor-default transition-colors"
-                              >
-                                <ChevronUp size={12} />
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); moveTemplate(t.id, 'down') }}
-                                disabled={idx === localTemplates.length - 1}
-                                className="p-0.5 text-[#c3d0ce] hover:text-[#006b5a] disabled:opacity-25 disabled:cursor-default transition-colors"
-                              >
-                                <ChevronDown size={12} />
-                              </button>
-                            </div>
-                            <a
-                              href={whatsappLinkComMsg(selected.telefone, interpolarTemplate(t.conteudo, selected))}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="flex items-start gap-2 flex-1 min-w-0"
-                            >
-                              <MessageCircle size={14} className="shrink-0 mt-1 text-[#25D366]" />
-                              <div className="min-w-0 flex-1">
-                                <p className="text-xs font-semibold text-[#1A2E2B]">{t.nome}</p>
-                                <p className="text-[10px] text-[#9BB0AD] mt-1.5 whitespace-pre-wrap leading-relaxed line-clamp-4">
-                                  {interpolarTemplate(t.conteudo, selected)}
-                                </p>
-                              </div>
-                            </a>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {templatePickerOpen && !selected.telefone && (
-                      <p className="text-xs text-[#9BB0AD] px-1">Paciente sem telefone cadastrado.</p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {selected.email && (
-                <div>
-                  <p className="text-[10px] text-[#9BB0AD] font-semibold uppercase tracking-wider mb-1.5">Email</p>
-                  <p className="text-xs text-[#1A2E2B] break-all">{selected.email}</p>
-                </div>
-              )}
-
-              {!selected.telefone && !selected.email && (
-                <div className="flex flex-col items-center gap-2 py-4 text-[#9BB0AD]">
-                  <UserCircle2 size={28} strokeWidth={1.5} />
-                  <p className="text-xs text-center">Nenhum contato cadastrado</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <ContatoDetailModal
+          selected={selected}
+          selectedColumn={selectedColumn}
+          notas={notas}
+          loadingNotas={loadingNotas}
+          novaNotaTexto={novaNotaTexto}
+          onNovaNotaTextoChange={setNovaNotaTexto}
+          mobileModalTab={mobileModalTab}
+          onMobileModalTabChange={setMobileModalTab}
+          columns={columns}
+          profiles={profiles}
+          localTemplates={localTemplates}
+          templatePickerOpen={templatePickerOpen}
+          onTemplatePickerOpenChange={setTemplatePickerOpen}
+          onClose={() => setSelected(null)}
+          onMoveContato={(pacienteId, columnKey) => {
+            startTransition(() => { void moveContato(pacienteId, columnKey) })
+          }}
+          onResponsavelChange={(id) => void handleResponsavelChange(id)}
+          onAddNota={() => void handleAddNota()}
+          onMoveTemplate={moveTemplate}
+        />
       )}
 
       {canManageColumns && columnsModalOpen && (
-        <div
-          className="fixed inset-0 z-50 bg-[#171d1c]/45 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4"
-          onClick={() => {
-            setColumnsModalOpen(false)
-            setColumnForm(defaultColumnForm())
-          }}
-        >
-          <div
-            className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-3xl max-h-[92vh] flex flex-col overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Drag handle — mobile only */}
-            <div className="flex justify-center pt-3 pb-1 sm:hidden shrink-0">
-              <div className="w-10 h-1 rounded-full bg-[#dee3e3]" />
-            </div>
-
-            {/* Header */}
-            <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-[#dee3e3] flex items-center gap-3 shrink-0">
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#f0fcf9] text-[#006b5a] flex items-center justify-center shrink-0">
-                <Settings2 size={15} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <h3 className="font-bold text-[#083142] text-sm sm:text-base">Gerenciar colunas</h3>
-                <p className="text-xs text-[#6d7a75] hidden sm:block">Colunas padrao tambem podem mudar de ordem. Apenas colunas customizadas podem ser editadas ou removidas quando estiverem vazias.</p>
-              </div>
-              <button
-                onClick={() => {
-                  setColumnsModalOpen(false)
-                  setColumnForm(defaultColumnForm())
-                }}
-                className="p-1.5 rounded-lg hover:bg-[#f0f5f4] text-[#9BB0AD] shrink-0"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            {/* Tabs — mobile only */}
-            <div className="sm:hidden px-4 pt-3 shrink-0">
-              <div className="grid grid-cols-2 gap-1.5 bg-[#f0f5f4] p-1 rounded-xl">
-                <button
-                  onClick={() => setColumnModalTab('lista')}
-                  className={`py-2.5 rounded-lg text-xs font-semibold transition-colors ${columnModalTab === 'lista' ? 'bg-white text-[#006b5a] shadow-sm' : 'text-[#6d7a75]'}`}
-                >
-                  Colunas ({columns.length})
-                </button>
-                <button
-                  onClick={() => setColumnModalTab('form')}
-                  className={`py-2.5 rounded-lg text-xs font-semibold transition-colors ${columnModalTab === 'form' ? 'bg-white text-[#006b5a] shadow-sm' : 'text-[#6d7a75]'}`}
-                >
-                  {columnForm.chave ? 'Editar coluna' : 'Nova coluna'}
-                </button>
-              </div>
-            </div>
-
-            {/* Body */}
-            <div className="flex-1 overflow-hidden flex flex-col sm:grid sm:grid-cols-[1.2fr_0.8fr] min-h-0">
-              {/* Lista de colunas */}
-              <div className={`${columnModalTab === 'lista' ? 'flex' : 'hidden'} sm:flex flex-col p-4 sm:p-5 sm:border-r border-[#dee3e3] gap-2.5 overflow-y-auto`}>
-                {columns.map((column, index) => {
-                  const visual = getVisualColunaContato(column)
-                  return (
-                    <div key={column.chave} className="border border-[#dee3e3] rounded-xl p-3 bg-[#f9faf8]">
-                      <div className="flex items-center gap-3">
-                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0" style={{ backgroundColor: visual.corBg, color: visual.cor }}>
-                          {index + 1}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <p className="font-semibold text-[#1A2E2B] text-sm">{column.nome}</p>
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${column.tipo === 'sistema' ? 'bg-[#e8ecff] text-[#3730a3]' : 'bg-[#f0fcf9] text-[#006b5a]'}`}>
-                              {column.tipo === 'sistema' ? 'Padrao' : 'Custom'}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-[#9BB0AD] mt-0.5 hidden sm:block">Chave: {column.chave}</p>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            onClick={() => void handleMoveColumn(column, 'left')}
-                            className="w-8 h-8 rounded-lg bg-white border border-[#dee3e3] hover:border-[#006b5a]/40 text-[#6d7a75] flex items-center justify-center"
-                            title="Mover para a esquerda"
-                          >
-                            <ChevronLeft size={14} />
-                          </button>
-                          <button
-                            onClick={() => void handleMoveColumn(column, 'right')}
-                            className="w-8 h-8 rounded-lg bg-white border border-[#dee3e3] hover:border-[#006b5a]/40 text-[#6d7a75] flex items-center justify-center"
-                            title="Mover para a direita"
-                          >
-                            <ChevronRight size={14} />
-                          </button>
-                          {column.tipo === 'custom' && (
-                            <>
-                              <button
-                                onClick={() => { openEditColumnModal(column); setColumnModalTab('form') }}
-                                className="w-8 h-8 rounded-lg bg-white border border-[#dee3e3] hover:border-[#006b5a]/40 text-[#6d7a75] flex items-center justify-center"
-                                title="Editar"
-                              >
-                                <Pencil size={14} />
-                              </button>
-                              <button
-                                onClick={() => void handleDeleteColumn(column)}
-                                disabled={getColumnCardCount(column.chave) > 0}
-                                className="w-8 h-8 rounded-lg bg-white border border-[#dee3e3] hover:border-[#ba1a1a]/40 text-[#ba1a1a] flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
-                                title={getColumnCardCount(column.chave) > 0 ? 'Esvazie a coluna antes de excluir' : 'Excluir'}
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-
-                {/* Botão nova coluna — no final da lista, só mobile */}
-                <button
-                  onClick={() => { setColumnForm(defaultColumnForm()); setColumnModalTab('form') }}
-                  className="sm:hidden w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-[#dee3e3] text-sm font-semibold text-[#6d7a75] hover:border-[#006b5a]/40 hover:text-[#006b5a] transition-colors"
-                >
-                  <Plus size={15} />
-                  Nova coluna
-                </button>
-              </div>
-
-              {/* Formulário */}
-              <div className={`${columnModalTab === 'form' ? 'flex' : 'hidden'} sm:flex flex-col p-4 sm:p-5 gap-4 overflow-y-auto`}>
-                <div className="flex items-center justify-between">
-                  <h4 className="font-semibold text-[#1A2E2B] text-sm">
-                    {columnForm.chave ? 'Editar coluna' : 'Nova coluna'}
-                  </h4>
-                  {columnForm.chave && (
-                    <button
-                      onClick={() => { setColumnForm(defaultColumnForm()) }}
-                      className="text-xs text-[#006b5a] hover:underline"
-                    >
-                      Criar nova
-                    </button>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-[#6d7a75] mb-1.5">Nome</label>
-                  <input
-                    type="text"
-                    value={columnForm.nome}
-                    onChange={(e) => setColumnForm((prev) => ({ ...prev, nome: e.target.value }))}
-                    placeholder="Ex: Retorno em 3 dias"
-                    className="w-full border border-[#dee3e3] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#006b5a]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-[#6d7a75] mb-1.5">Categoria do Relatorio</label>
-                  <select
-                    value={columnForm.statusBase}
-                    onChange={(e) => setColumnForm((prev) => ({ ...prev, statusBase: e.target.value as StatusContato }))}
-                    className="w-full border border-[#dee3e3] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#006b5a] bg-white"
-                  >
-                    {Object.entries(LABEL_POR_STATUS_CONTATO).map(([value, label]) => (
-                      <option key={value} value={value}>{label}</option>
-                    ))}
-                  </select>
-                  <p className="text-[11px] text-[#9BB0AD] mt-1.5">
-                    Define em qual categoria essa coluna entra nos relatorios e indicadores.
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-[#6d7a75] mb-1.5">Cor da coluna</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {OPCOES_COR_COLUNA.map((option) => (
-                      <button
-                        key={option.key}
-                        type="button"
-                        onClick={() => setColumnForm((prev) => ({ ...prev, corChave: option.key }))}
-                        className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors ${
-                          columnForm.corChave === option.key
-                            ? 'border-[#006b5a] bg-[#f0fcf9]'
-                            : 'border-[#dee3e3] bg-white hover:border-[#bcc9c4]'
-                        }`}
-                      >
-                        <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: option.visual.cor }} />
-                        <span className="text-[#1A2E2B]">{option.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {!columnForm.chave && (
-                  <div>
-                    <label className="block text-xs font-semibold text-[#6d7a75] mb-1.5">Puxar pacientes por origem</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {ORIGENS_IMPORTACAO_CONTATOS.map((origem) => {
-                        const selected = columnForm.origensImportacao.includes(origem)
-                        return (
-                          <button
-                            key={origem}
-                            type="button"
-                            onClick={() =>
-                              setColumnForm((prev) => ({
-                                ...prev,
-                                origensImportacao: selected
-                                  ? prev.origensImportacao.filter((item) => item !== origem)
-                                  : [...prev.origensImportacao, origem],
-                              }))
-                            }
-                            className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors ${
-                              selected
-                                ? 'border-[#006b5a] bg-[#f0fcf9] text-[#006b5a]'
-                                : 'border-[#dee3e3] bg-white hover:border-[#bcc9c4] text-[#1A2E2B]'
-                            }`}
-                          >
-                            <span
-                              className={`flex h-4 w-4 items-center justify-center rounded border text-[10px] font-bold ${
-                                selected
-                                  ? 'border-[#006b5a] bg-[#006b5a] text-white'
-                                  : 'border-[#bcc9c4] text-transparent'
-                              }`}
-                            >
-                              ✓
-                            </span>
-                            <span>{origem}</span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                    <p className="text-[11px] text-[#9BB0AD] mt-1.5">
-                      Ao criar a coluna, o sistema move para ela os pacientes ativos dessas origens que ainda estao nas etapas base do kanban.
-                    </p>
-                  </div>
-                )}
-
-                <button
-                  onClick={() => void handleSaveColumn()}
-                  disabled={columnSaving || !columnForm.nome.trim()}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[#006b5a] text-white text-sm font-semibold hover:bg-[#004f43] transition-colors disabled:opacity-40 mt-auto"
-                >
-                  <Plus size={14} />
-                  {columnForm.chave ? 'Salvar alteracoes' : 'Criar coluna'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ColumnsManagementModal
+          columns={columns}
+          columnForm={columnForm}
+          onColumnFormChange={setColumnForm}
+          columnSaving={columnSaving}
+          columnModalTab={columnModalTab}
+          onColumnModalTabChange={setColumnModalTab}
+          columnTotals={columnTotals}
+          onClose={() => setColumnsModalOpen(false)}
+          onSave={() => void handleSaveColumn()}
+          onDelete={(col) => void handleDeleteColumn(col)}
+          onMove={(col, dir) => void handleMoveColumn(col, dir)}
+          onOpenEditForm={openEditColumnModal}
+        />
       )}
     </div>
   )
