@@ -126,7 +126,12 @@ export function TestarEnviosClient() {
         return
       }
 
-      toast.success(`${canal === 'email' ? 'Email' : 'SMS'} de teste enviado para ${destino}!`)
+      if (canal === 'sms') {
+        toast.success(data.message || `SMS aceito pela Twilio para ${destino}.`)
+        return
+      }
+
+      toast.success(`Email de teste enviado para ${destino}!`)
     } catch {
       toast.error('Erro ao enviar')
     } finally {

@@ -5,6 +5,7 @@ function getAppUrl(request: Request): string {
   if (process.env.NEXT_PUBLIC_APP_URL) {
     return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '')
   }
+
   const url = new URL(request.url)
   const host = request.headers.get('x-forwarded-host') ?? url.host
   const proto = request.headers.get('x-forwarded-proto') ?? url.protocol.replace(':', '')
@@ -14,7 +15,9 @@ function getAppUrl(request: Request): string {
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
     if (!user) {
       return Response.json({ error: 'Não autenticado' }, { status: 401 })
@@ -34,33 +37,59 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Twilio não configurado' }, { status: 500 })
     }
 
-    // Gera token de confirmação (sempre, para o link aparecer no SMS)
     const token = crypto.randomUUID()
-    const linkConfirmacao = `${getAppUrl(request)}/confirmar/${token}`
+    const appUrl = getAppUrl(request)
+    const linkConfirmacao = `${appUrl}/confirmar/${token}`
 
     if (atendimento_id) {
       const { error: updateError } = await supabase
         .from('atendimentos')
         .update({ token_confirmacao: token })
         .eq('id', atendimento_id)
+
       if (updateError) {
         console.error('[sms] Erro ao salvar token:', updateError.message)
       }
     }
 
     const mensagemFinal = mensagem.replace(/{{link_confirmacao}}/g, linkConfirmacao)
-
     const client = twilio(accountSid, authToken)
     const telefoneFormatado = telefone.replace(/\D/g, '')
     const to = telefoneFormatado.startsWith('55') ? `+${telefoneFormatado}` : `+55${telefoneFormatado}`
+    const statusCallback = `${appUrl}/api/confirmacoes/sms-status`
 
-    await client.messages.create({
+    const sms = await client.messages.create({
       body: mensagemFinal,
       from: fromNumber,
       to,
+      statusCallback: atendimento_id
+        ? `${statusCallback}?atendimento_id=${encodeURIComponent(atendimento_id)}`
+        : statusCallback,
     })
 
-    return Response.json({ success: true })
+    if (atendimento_id) {
+      const { error: updateError } = await supabase
+        .from('atendimentos')
+        .update({
+          sms_sid: sms.sid,
+          sms_status: sms.status,
+          sms_error_code: null,
+          sms_error_message: null,
+          data_ultimo_envio_sms: new Date().toISOString(),
+        })
+        .eq('id', atendimento_id)
+
+      if (updateError) {
+        console.error('[sms] Erro ao salvar metadata do envio:', updateError.message)
+      }
+    }
+
+    return Response.json({
+      success: true,
+      sid: sms.sid,
+      status: sms.status,
+      message: 'SMS aceito pela Twilio. A entrega final depende da operadora.',
+    })
   } catch (error) {
     console.error('Erro ao enviar SMS:', error)
     return Response.json({ error: 'Erro ao enviar SMS' }, { status: 500 })

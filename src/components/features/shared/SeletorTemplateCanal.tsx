@@ -149,7 +149,11 @@ export function SeletorTemplateCanal({
         return
       }
 
-      toast.success(`${canal === 'sms' ? 'SMS' : 'Email'} enviado para ${paciente.nome}!`)
+      if (canal === 'sms') {
+        toast.success(data.message || `SMS aceito pela Twilio para ${paciente.nome}.`)
+      } else {
+        toast.success(`Email enviado para ${paciente.nome}!`)
+      }
       onClose()
     } catch {
       toast.error(`Erro ao enviar ${canal === 'sms' ? 'SMS' : 'email'}`)

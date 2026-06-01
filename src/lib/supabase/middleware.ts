@@ -6,7 +6,8 @@ function isPublicRoute(pathname: string) {
     pathname === '/' ||
     pathname.startsWith('/login') ||
     pathname.startsWith('/confirmar/') ||
-    pathname === '/api/confirmacoes/sms-reply'
+    pathname === '/api/confirmacoes/sms-reply' ||
+    pathname === '/api/confirmacoes/sms-status'
   )
 }
 

@@ -1,4 +1,11 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@supabase/supabase-js'
+
+function createSupabaseAdminClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+}
 
 // Twilio envia os dados como application/x-www-form-urlencoded
 export async function POST(request: Request) {
@@ -14,7 +21,7 @@ export async function POST(request: Request) {
       return twimlResponse('Não entendemos sua resposta. Responda SIM para confirmar ou NÃO para cancelar.')
     }
 
-    const supabase = await createClient()
+    const supabase = createSupabaseAdminClient()
 
     // Normaliza o telefone recebido do Twilio (+5511999999999 → 11999999999)
     const telefoneNormalizado = from.replace(/\D/g, '').replace(/^55/, '')
@@ -28,10 +35,12 @@ export async function POST(request: Request) {
       .order('data_agendamento', { ascending: true })
       .limit(20)
       .then(({ data }) => ({
-        data: data?.find(a => {
-          const tel = (a.paciente as unknown as { telefone: string })?.telefone?.replace(/\D/g, '').replace(/^55/, '') ?? ''
-          return tel === telefoneNormalizado || tel.endsWith(telefoneNormalizado) || telefoneNormalizado.endsWith(tel)
-        }) ?? null
+        data:
+          data?.find(a => {
+            const tel =
+              (a.paciente as unknown as { telefone: string })?.telefone?.replace(/\D/g, '').replace(/^55/, '') ?? ''
+            return tel === telefoneNormalizado || tel.endsWith(telefoneNormalizado) || telefoneNormalizado.endsWith(tel)
+          }) ?? null,
       }))
 
     if (!atendimento) {
@@ -46,7 +55,7 @@ export async function POST(request: Request) {
         .update({ status: 'Confirmado', contato_confirmacao: 'confirmou' })
         .eq('id', atendimento.id)
 
-      return twimlResponse(`✅ Obrigado, ${nome}! Sua consulta foi confirmada. Até logo!`)
+      return twimlResponse(`Obrigado, ${nome}! Sua consulta foi confirmada. Até logo!`)
     }
 
     if (resposta === 'nao') {
