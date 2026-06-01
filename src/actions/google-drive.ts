@@ -307,6 +307,10 @@ export async function iniciarMigracao(): Promise<{ success: boolean; error?: str
         const result = await migrarProximoLote(50)
         errosAcumulados += result.erros
         await salvarStatusMigracaoDB('running', errosAcumulados)
+        // Lote sem nenhum sucesso = erro sistêmico (token expirado, rate limit, etc.)
+        if (!result.concluido && result.processados === 0 && result.erros > 0) {
+          return { concluido: false, error: `Lote sem progresso (${result.erros} erros). Verifique os logs do servidor.` }
+        }
         return { concluido: result.concluido, error: result.error }
       },
       async () => {
@@ -317,6 +321,7 @@ export async function iniciarMigracao(): Promise<{ success: boolean; error?: str
         const finalStatus: MigrationStatus =
           reason === 'completed' ? 'completed' : reason === 'paused' ? 'paused' : 'idle'
         await salvarStatusMigracaoDB(finalStatus, errosAcumulados)
+        console.log(`[Drive] Migração finalizada: ${finalStatus} (${errosAcumulados} erros acumulados)`)
       },
     )
 
@@ -375,13 +380,14 @@ export async function migrarProximoLote(tamanhoLote = 50): Promise<{
     let erros = 0
 
     for (const paciente of pacientes) {
-      try {
-        await criarPastaPaciente(paciente.id, paciente.nome)
+      const resultado = await criarPastaPaciente(paciente.id, paciente.nome)
+      if (resultado.success) {
         processados++
-        await new Promise(r => setTimeout(r, 150))
-      } catch {
+      } else {
+        console.error(`[Drive] Falha ao criar pasta do paciente ${paciente.id} (${paciente.nome}): ${resultado.error}`)
         erros++
       }
+      await new Promise(r => setTimeout(r, 150))
     }
 
     const { data: restantesData } = await db.rpc('contar_pacientes_sem_pasta_drive')
