@@ -1,40 +1,63 @@
 'use client'
 
-import { useState, useCallback, useTransition } from 'react'
+import { useState, useEffect, useTransition } from 'react'
 import { FolderOpen, Link2, Link2Off, RefreshCw, CheckCircle, AlertCircle, Loader2, ImageIcon, Zap, FolderTree } from 'lucide-react'
 import toast from 'react-hot-toast'
 import {
   iniciarConexaoGoogleDrive,
   desconectarGoogleDrive,
-  migrarProximoLote,
   buscarStatsMigracao,
+  buscarStatusMigracao,
+  iniciarMigracao,
+  pausarMigracao,
 } from '@/actions/google-drive'
 
 type StatusConexao = { conectado: boolean; email?: string }
 type Stats = { total: number; processados: number; restantes: number; error?: string }
+type MigrationStatus = 'idle' | 'running' | 'paused' | 'completed'
 
 export function GoogleDriveConfigClient({
   status: statusInicial,
   statsInicial,
+  statusMigracaoInicial,
 }: {
   status: StatusConexao
   statsInicial: Stats
+  statusMigracaoInicial: { status: MigrationStatus; erros: number }
 }) {
   const [status, setStatus] = useState(statusInicial)
   const [stats, setStats] = useState(statsInicial)
-  const [migrando, setMigrando] = useState(false)
-  const [pausado, setPausado] = useState(false)
+  const [statusMigracao, setStatusMigracao] = useState<MigrationStatus>(statusMigracaoInicial.status)
+  const [totalErros, setTotalErros] = useState(statusMigracaoInicial.erros)
   const [desconectando, setDesconectando] = useState(false)
-  const [totalErros, setTotalErros] = useState(0)
+  const [iniciando, setIniciando] = useState(false)
+  const [pausando, setPausando] = useState(false)
   const [conectando, startConectar] = useTransition()
 
+  const migrando = statusMigracao === 'running'
   const progresso = stats.total > 0 ? Math.round((stats.processados / stats.total) * 100) : 0
-  const concluido = stats.restantes === 0 && stats.total > 0
+  const concluido = statusMigracao === 'completed' || (stats.restantes === 0 && stats.total > 0)
 
-  const atualizarStats = useCallback(async () => {
-    const novasStats = await buscarStatsMigracao()
-    setStats(novasStats)
-  }, [])
+  // Poll DB every 3 s while migration is running — works even for users who weren't on the page when it started
+  useEffect(() => {
+    if (statusMigracao !== 'running') return
+
+    const interval = setInterval(async () => {
+      const [novasStats, novoStatusMigracao] = await Promise.all([
+        buscarStatsMigracao(),
+        buscarStatusMigracao(),
+      ])
+      setStats(novasStats)
+      setStatusMigracao(novoStatusMigracao.status)
+      setTotalErros(novoStatusMigracao.erros)
+
+      if (novoStatusMigracao.status === 'completed') {
+        toast.success('Migração concluída! Todos os pacientes têm pasta no Drive.')
+      }
+    }, 3000)
+
+    return () => clearInterval(interval)
+  }, [statusMigracao])
 
   async function handleDesconectar() {
     setDesconectando(true)
@@ -50,48 +73,39 @@ export function GoogleDriveConfigClient({
   }
 
   async function handleIniciarMigracao() {
-    setMigrando(true)
-    setPausado(false)
-    setTotalErros(0)
-
-    let errosAcumulados = 0
-
-    while (true) {
-      if (pausado) break
-
-      try {
-        const resultado = await migrarProximoLote(50)
-
-        errosAcumulados += resultado.erros
-        setTotalErros(errosAcumulados)
-
-        if (resultado.error) {
-          toast.error(`Erro: ${resultado.error}`)
-          break
-        }
-
-        await atualizarStats()
-
-        if (resultado.concluido) {
-          toast.success('Migração concluída! Todos os pacientes têm pasta no Drive.')
-          break
-        }
-
-        await new Promise(r => setTimeout(r, 300))
-      } catch (err) {
-        toast.error('Erro inesperado na migração')
-        console.error(err)
-        break
+    setIniciando(true)
+    try {
+      const result = await iniciarMigracao()
+      if (result.success) {
+        setStatusMigracao('running')
+        setTotalErros(0)
+      } else {
+        toast.error(result.error ?? 'Erro ao iniciar migração')
       }
+    } finally {
+      setIniciando(false)
     }
-
-    setMigrando(false)
   }
 
-  function handlePausar() {
-    setPausado(true)
-    setMigrando(false)
-    toast('Migração pausada. Clique em retomar para continuar.', { icon: '⏸️' })
+  async function handlePausar() {
+    setPausando(true)
+    try {
+      await pausarMigracao()
+      setStatusMigracao('paused')
+      toast('Migração pausada. Clique em retomar para continuar.', { icon: '⏸️' })
+    } finally {
+      setPausando(false)
+    }
+  }
+
+  async function handleAtualizarStats() {
+    const [novasStats, novoStatusMigracao] = await Promise.all([
+      buscarStatsMigracao(),
+      buscarStatusMigracao(),
+    ])
+    setStats(novasStats)
+    setStatusMigracao(novoStatusMigracao.status)
+    setTotalErros(novoStatusMigracao.erros)
   }
 
   return (
@@ -151,7 +165,7 @@ export function GoogleDriveConfigClient({
             <h2 className="font-bold text-[#083142]">Migração de pacientes existentes</h2>
             <p className="mt-1 text-sm text-[#6d7a75]">
               Cria pastas no Drive para todos os pacientes cadastrados que ainda não possuem uma.
-              O processo pode ser pausado e retomado a qualquer momento.
+              O processo continua em segundo plano mesmo que você saia desta página.
             </p>
           </div>
 
@@ -204,9 +218,10 @@ export function GoogleDriveConfigClient({
                 <button
                   type="button"
                   onClick={handlePausar}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-amber-300 text-amber-700 text-sm font-semibold hover:bg-amber-50 transition-colors"
+                  disabled={pausando}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-amber-300 text-amber-700 text-sm font-semibold hover:bg-amber-50 transition-colors disabled:opacity-50"
                 >
-                  <Loader2 size={15} className="animate-spin" />
+                  {pausando ? <Loader2 size={15} className="animate-spin" /> : <Loader2 size={15} className="animate-spin" />}
                   Pausar migração
                 </button>
               ) : (
@@ -214,15 +229,15 @@ export function GoogleDriveConfigClient({
                   <button
                     type="button"
                     onClick={handleIniciarMigracao}
-                    disabled={stats.restantes === 0}
+                    disabled={iniciando || stats.restantes === 0}
                     className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#006b5a] text-white text-sm font-semibold hover:bg-[#005a4b] transition-colors disabled:opacity-50"
                   >
-                    <RefreshCw size={15} />
+                    {iniciando ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
                     {stats.processados > 0 ? 'Retomar migração' : 'Iniciar migração'}
                   </button>
                   <button
                     type="button"
-                    onClick={atualizarStats}
+                    onClick={handleAtualizarStats}
                     className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#bcc9c4] text-[#3d4945] text-sm font-semibold hover:bg-[#f0f5f4] transition-colors"
                   >
                     <RefreshCw size={15} />
@@ -237,7 +252,8 @@ export function GoogleDriveConfigClient({
             <p className="text-xs font-semibold text-[#3d4945]">Como funciona</p>
             <ul className="text-xs text-[#6d7a75] space-y-0.5 list-disc list-inside">
               <li>Lotes de 50 pacientes por vez, com intervalo entre chamadas à API do Drive</li>
-              <li>Se pausar, retoma exatamente de onde parou</li>
+              <li>Continua rodando em segundo plano mesmo que você saia desta página</li>
+              <li>O status é compartilhado — qualquer usuário pode ver e pausar a migração</li>
               <li>Pacientes processados são salvos imediatamente — sem risco de duplicação</li>
               <li>Estrutura: <span className="font-mono">MedGuia - Pacientes / Nome do Paciente [ID]</span></li>
             </ul>

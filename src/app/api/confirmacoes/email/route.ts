@@ -5,7 +5,15 @@ import { ConfirmacaoConsulta } from '@/lib/email-templates/ConfirmacaoConsulta'
 import { LOGO_FOT_URL } from '@/lib/email-logo'
 import * as React from 'react'
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+function getAppUrl(request: Request): string {
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '')
+  }
+  const url = new URL(request.url)
+  const host = request.headers.get('x-forwarded-host') ?? url.host
+  const proto = request.headers.get('x-forwarded-proto') ?? url.protocol.replace(':', '')
+  return `${proto}://${host}`
+}
 
 export async function POST(request: Request) {
   try {
@@ -31,7 +39,7 @@ export async function POST(request: Request) {
 
     // Gera token de confirmação
     const token = crypto.randomUUID()
-    const linkConfirmacao: string = `${APP_URL}/confirmar/${token}`
+    const linkConfirmacao: string = `${getAppUrl(request)}/confirmar/${token}`
 
     if (atendimento_id) {
       const { error: updateError } = await supabase

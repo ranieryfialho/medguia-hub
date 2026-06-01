@@ -1,5 +1,5 @@
 import { requireModulo } from '@/lib/guard'
-import { buscarStatusConexaoGoogle, buscarStatsMigracao } from '@/actions/google-drive'
+import { buscarStatusConexaoGoogle, buscarStatsMigracao, buscarStatusMigracao } from '@/actions/google-drive'
 import { GoogleDriveConfigClient } from './GoogleDriveConfigClient'
 
 type PageProps = {
@@ -10,9 +10,10 @@ export default async function GoogleDrivePage({ searchParams }: PageProps) {
   await requireModulo('configuracoes:jornada')
 
   const params = await searchParams
-  const [status, stats] = await Promise.all([
+  const [status, stats, statusMigracao] = await Promise.all([
     buscarStatusConexaoGoogle(),
     buscarStatsMigracao(),
+    buscarStatusMigracao(),
   ])
 
   return (
@@ -43,6 +44,7 @@ export default async function GoogleDrivePage({ searchParams }: PageProps) {
       <GoogleDriveConfigClient
         status={status}
         statsInicial={stats}
+        statusMigracaoInicial={statusMigracao}
       />
     </div>
   )

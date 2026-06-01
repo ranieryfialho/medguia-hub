@@ -11,12 +11,41 @@ import {
   getStatusConexao,
   removerConexao,
 } from '@/lib/google-drive'
+import { startBackgroundMigration, isMigrationRunning } from '@/lib/migration-runner'
 
 function createServiceClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   )
+}
+
+type MigrationStatus = 'idle' | 'running' | 'paused' | 'completed'
+
+async function lerStatusMigracaoDB(): Promise<MigrationStatus> {
+  const db = createServiceClient()
+  const { data } = await db
+    .from('configuracoes_sistema')
+    .select('valor')
+    .eq('chave', 'google_drive_migration_status')
+    .maybeSingle()
+  return (data?.valor as MigrationStatus) ?? 'idle'
+}
+
+async function salvarStatusMigracaoDB(status: MigrationStatus, erros?: number): Promise<void> {
+  const db = createServiceClient()
+  await db.from('configuracoes_sistema').upsert({
+    chave: 'google_drive_migration_status',
+    valor: status,
+    atualizado_em: new Date().toISOString(),
+  })
+  if (erros !== undefined) {
+    await db.from('configuracoes_sistema').upsert({
+      chave: 'google_drive_migration_erros',
+      valor: String(erros),
+      atualizado_em: new Date().toISOString(),
+    })
+  }
 }
 
 export async function iniciarConexaoGoogleDrive() {
@@ -233,6 +262,72 @@ export async function buscarPastaAtendimento(atendimentoId: string): Promise<{
   } catch {
     return { url: null, driveConectado: false }
   }
+}
+
+export async function buscarStatusMigracao(): Promise<{
+  status: MigrationStatus
+  erros: number
+}> {
+  const db = createServiceClient()
+  const { data } = await db
+    .from('configuracoes_sistema')
+    .select('chave, valor')
+    .in('chave', ['google_drive_migration_status', 'google_drive_migration_erros'])
+
+  const map = Object.fromEntries(
+    (data ?? []).map((r: { chave: string; valor: string }) => [r.chave, r.valor]),
+  )
+  let status = ((map['google_drive_migration_status'] ?? 'idle') as MigrationStatus)
+  const erros = Number(map['google_drive_migration_erros'] ?? 0)
+
+  // If DB says running but the in-process runner is gone (server restart), reset to paused
+  if (status === 'running' && !isMigrationRunning()) {
+    await salvarStatusMigracaoDB('paused')
+    status = 'paused'
+  }
+
+  return { status, erros }
+}
+
+export async function iniciarMigracao(): Promise<{ success: boolean; error?: string }> {
+  try {
+    const driveStatus = await getStatusConexao()
+    if (!driveStatus.conectado) {
+      return { success: false, error: 'Google Drive não conectado' }
+    }
+
+    if (isMigrationRunning()) return { success: true }
+
+    await salvarStatusMigracaoDB('running', 0)
+
+    let errosAcumulados = 0
+
+    startBackgroundMigration(
+      async () => {
+        const result = await migrarProximoLote(50)
+        errosAcumulados += result.erros
+        await salvarStatusMigracaoDB('running', errosAcumulados)
+        return { concluido: result.concluido, error: result.error }
+      },
+      async () => {
+        const dbStatus = await lerStatusMigracaoDB()
+        return dbStatus === 'running'
+      },
+      async (reason) => {
+        const finalStatus: MigrationStatus =
+          reason === 'completed' ? 'completed' : reason === 'paused' ? 'paused' : 'idle'
+        await salvarStatusMigracaoDB(finalStatus, errosAcumulados)
+      },
+    )
+
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: String(err) }
+  }
+}
+
+export async function pausarMigracao(): Promise<void> {
+  await salvarStatusMigracaoDB('paused')
 }
 
 export async function buscarStatsMigracao(): Promise<{
