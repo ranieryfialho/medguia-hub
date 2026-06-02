@@ -1,11 +1,18 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@supabase/supabase-js'
 import { CheckCircle, XCircle, Clock, ShieldCheck, CircleAlert } from 'lucide-react'
+
+function createSupabaseAdminClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+}
 
 type Props = { params: Promise<{ token: string }> }
 
 export default async function ConfirmarPage({ params }: Props) {
   const { token } = await params
-  const supabase = await createClient()
+  const supabase = createSupabaseAdminClient()
 
   const { data: raw } = await supabase
     .from('atendimentos')
