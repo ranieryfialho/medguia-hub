@@ -12,6 +12,12 @@ function getAppUrl(request: Request): string {
   return `${proto}://${host}`
 }
 
+function gerarTokenCurto(): string {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
+  const bytes = crypto.getRandomValues(new Uint8Array(8))
+  return Array.from(bytes).map(b => chars[b % chars.length]).join('')
+}
+
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
@@ -38,13 +44,14 @@ export async function POST(request: Request) {
     }
 
     const token = crypto.randomUUID()
+    const tokenCurto = gerarTokenCurto()
     const appUrl = getAppUrl(request)
-    const linkConfirmacao = `${appUrl}/confirmar/${token}`
+    const linkConfirmacao = `${appUrl}/c/${tokenCurto}`
 
     if (atendimento_id) {
       const { error: updateError } = await supabase
         .from('atendimentos')
-        .update({ token_confirmacao: token })
+        .update({ token_confirmacao: token, token_curto: tokenCurto })
         .eq('id', atendimento_id)
 
       if (updateError) {
