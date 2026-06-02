@@ -205,23 +205,23 @@ export default async function CardsPage({
   return (
     <div className="w-full space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 bg-white/80 backdrop-blur-md p-4 rounded-xl shadow-sm border border-slate-100">
-        <div className="flex items-center gap-3">
-          <PhoneCall size={24} className="text-[#006b5a]" />
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight text-[#006b5a]">Confirmações</h2>
+      <div className="flex items-center justify-between gap-2 bg-white/80 backdrop-blur-md p-4 rounded-xl shadow-sm border border-slate-100">
+        <div className="flex items-center gap-3 min-w-0">
+          <PhoneCall size={22} className="text-[#006b5a] shrink-0" />
+          <div className="min-w-0">
+            <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#006b5a]">Confirmações</h2>
             <p className="text-xs text-slate-500 mt-0.5">
               {totalConsultas} {totalConsultas === 1 ? 'consulta para' : 'consultas para'} confirmar
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <Suspense fallback={null}>
             <OrdenacaoCards ordemAtual={ordemAtual} />
           </Suspense>
           <Link
             href="/confirmacoes/semana"
-            className="text-xs font-semibold text-[#006b5a] bg-[#006b5a]/10 hover:bg-[#006b5a]/20 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+            className="hidden sm:block text-xs font-semibold text-[#006b5a] bg-[#006b5a]/10 hover:bg-[#006b5a]/20 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
           >
             Ver semana →
           </Link>
