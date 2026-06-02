@@ -4,6 +4,8 @@ import { buildSessaoEfetivaMap } from '@/lib/sessoes'
 import { PhoneCall, CalendarDays } from 'lucide-react'
 import Link from 'next/link'
 import { requireModulo } from '@/lib/guard'
+import { OrdenacaoCards, type OrdemCards } from './OrdenacaoCards'
+import { Suspense } from 'react'
 
 type Periodo = {
   dataInicio: string
@@ -108,8 +110,18 @@ function periodoParaContatar(): { periodos: Periodo[]; isSexta: boolean } {
   }
 }
 
-export default async function CardsPage() {
+export default async function CardsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ordem?: string }>
+}) {
   await requireModulo('confirmacoes:cards')
+
+  const { ordem } = await searchParams
+  const ordemAtual: OrdemCards =
+    ordem === 'data_desc' ? 'data_desc'
+    : ordem === 'nome_asc' ? 'nome_asc'
+    : 'data_asc'
 
   const supabase = await createClient()
   const { periodos, isSexta } = periodoParaContatar()
@@ -134,7 +146,7 @@ export default async function CardsPage() {
         .map(p => `and(data_agendamento.gte.${p.dataInicio},data_agendamento.lte.${p.dataFim})`)
         .join(',')
     )
-    .order('data_agendamento', { ascending: true }) as { data: AtendimentoRow[] | null }
+    .order('data_agendamento', { ascending: ordemAtual !== 'data_desc' }) as { data: AtendimentoRow[] | null }
 
   const agendamentoIds = [...new Set(
     (atendimentos ?? [])
@@ -181,6 +193,10 @@ export default async function CardsPage() {
         }
       })
 
+    if (ordemAtual === 'nome_asc') {
+      lista.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+    }
+
     return { periodo, lista }
   })
 
@@ -199,12 +215,17 @@ export default async function CardsPage() {
             </p>
           </div>
         </div>
-        <Link
-          href="/confirmacoes/semana"
-          className="text-xs font-semibold text-[#006b5a] bg-[#006b5a]/10 hover:bg-[#006b5a]/20 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
-        >
-          Ver semana →
-        </Link>
+        <div className="flex items-center gap-2">
+          <Suspense fallback={null}>
+            <OrdenacaoCards ordemAtual={ordemAtual} />
+          </Suspense>
+          <Link
+            href="/confirmacoes/semana"
+            className="text-xs font-semibold text-[#006b5a] bg-[#006b5a]/10 hover:bg-[#006b5a]/20 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+          >
+            Ver semana →
+          </Link>
+        </div>
       </div>
 
       {/* Banner contextual */}
