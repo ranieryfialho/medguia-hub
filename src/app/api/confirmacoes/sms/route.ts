@@ -43,7 +43,6 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Twilio não configurado' }, { status: 500 })
     }
 
-    const token = crypto.randomUUID()
     const tokenCurto = gerarTokenCurto()
     const appUrl = getAppUrl(request)
     const linkConfirmacao = `${appUrl}/c/${tokenCurto}`
@@ -51,7 +50,7 @@ export async function POST(request: Request) {
     if (atendimento_id) {
       const { error: updateError } = await supabase
         .from('atendimentos')
-        .update({ token_confirmacao: token, token_curto: tokenCurto })
+        .update({ token_curto: tokenCurto })
         .eq('id', atendimento_id)
 
       if (updateError) {
