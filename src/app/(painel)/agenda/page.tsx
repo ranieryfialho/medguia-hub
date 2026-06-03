@@ -603,13 +603,13 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                       {shouldFilterByStatus ? `${statusSelecionados.length} selecionado(s)` : 'Todos visíveis'}
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:flex lg:flex-nowrap lg:justify-end lg:gap-1.5">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {STATUS_FILTER_OPTIONS.map((status) => {
                       const isChecked = !shouldFilterByStatus || statusSelecionadosSet.has(status.value)
                       return (
                         <label
                           key={status.value}
-                          className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs sm:text-sm font-semibold transition-colors cursor-pointer lg:min-w-0 lg:flex-1 lg:px-2 lg:py-2 lg:text-[11px] xl:px-3 xl:text-xs ${
+                          className={`inline-flex w-full min-h-10 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors cursor-pointer ${
                             isChecked
                               ? 'border-[#006b5a]/30 bg-[#e8f3f0] text-[#006b5a]'
                               : 'border-[#bcc9c4] bg-white text-[#3d4945]'
