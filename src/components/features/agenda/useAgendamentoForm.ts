@@ -401,7 +401,11 @@ export function useAgendamentoForm({
   }
 
   function handleUpdateSlot(id: string, field: keyof Omit<SlotLivre, 'id'>, value: string) {
-    setSlotsLivres((prev) => prev.map((s) => s.id === id ? { ...s, [field]: value } : s))
+    setSlotsLivres((prev) => prev.map((s) => {
+      if (s.id !== id) return s
+      if (field === 'hora_inicio') return { ...s, hora_inicio: value, hora_fim: somarUmaHora(value) }
+      return { ...s, [field]: value }
+    }))
   }
 
   function handleClose() {
