@@ -187,6 +187,25 @@ export async function criarAgendamento(formData: FormData) {
   const frequencia = formData.get('frequencia') as string // '1', '2', '3', ou 'mes'
   const diasSemana = formData.get('dias_semana') as string // ex: "1,3,5"
   let ocorrencias = Math.max(1, Math.min(365, parseInt(formData.get('ocorrencias') as string) || 1))
+  const slotsLivreJson = (formData.get('slots_livre_json') as string | null) ?? ''
+  const slotsLivre: Array<{ data: string; hora_inicio: string; hora_fim: string }> = []
+  if (frequencia === 'livre' && slotsLivreJson) {
+    try {
+      const parsed = JSON.parse(slotsLivreJson) as unknown
+      if (Array.isArray(parsed)) {
+        for (const s of parsed) {
+          if (s && typeof s === 'object' && 'data' in s && 'hora_inicio' in s && 'hora_fim' in s) {
+            slotsLivre.push(s as { data: string; hora_inicio: string; hora_fim: string })
+          }
+        }
+      }
+    } catch {
+      return { error: 'Erro ao processar datas livres.' }
+    }
+  }
+  if (frequencia === 'livre' && slotsLivre.length === 0) {
+    return { error: 'Adicione ao menos uma data no modo de datas livres.' }
+  }
   let tiposDoProtocolo: string[] = []
 
   if (protocoloAtendimentoTiposJson) {
@@ -200,7 +219,9 @@ export async function criarAgendamento(formData: FormData) {
     }
   }
 
-  if (tiposDoProtocolo.length > 0) {
+  if (frequencia === 'livre') {
+    ocorrencias = slotsLivre.length
+  } else if (tiposDoProtocolo.length > 0) {
     ocorrencias = tiposDoProtocolo.length
   }
 
@@ -260,8 +281,32 @@ export async function criarAgendamento(formData: FormData) {
       numero_sessao: 1,
       total_sessoes: 1,
     })
+  } else if (frequencia === 'livre') {
+    // AGENDAMENTO RECORRENTE — DATAS LIVRES
+    for (const [index, slot] of slotsLivre.entries()) {
+      const slotStart = new Date(`1970-01-01T${slot.hora_inicio}:00`)
+      const slotEnd = new Date(`1970-01-01T${slot.hora_fim}:00`)
+      let duracaoSlot = (slotEnd.getTime() - slotStart.getTime()) / 60000
+      if (duracaoSlot <= 0) duracaoSlot = 30
+      atendimentosParaInserir.push({
+        paciente_id,
+        profissional_id,
+        data_agendamento: buildAppDateTimeISO(slot.data, slot.hora_inicio),
+        tipo: tiposDoProtocolo[index] ?? tipo,
+        duracao_minutos: duracaoSlot,
+        observacoes,
+        status: 'Aguardando',
+        criado_por: userId,
+        gerou_venda,
+        marcou_retorno,
+        agendamento_id: '',
+        data: slot.data,
+        hora_inicio: slot.hora_inicio,
+        hora_fim: slot.hora_fim,
+      })
+    }
   } else {
-    // AGENDAMENTO RECORRENTE
+    // AGENDAMENTO RECORRENTE — PADRÃO
     const dataInicio = new Date(`${dataStr}T00:00:00-03:00`)
     let count = 0
 
@@ -908,7 +953,7 @@ export async function deletarAtendimentoPontualDaRecorrencia(id: string): Promis
     return { error: 'O agendamento não foi removido. Verifique as permissões ou tente atualizar a agenda.' }
   }
 
-  if (agendamento?.is_recorrente && agendamento?.frequencia) {
+  if (agendamento?.is_recorrente && agendamento?.frequencia && agendamento.frequencia !== 'livre') {
     const { data: ultimaSessao } = await supabaseAdmin
       .from('atendimentos')
       .select('data_agendamento, numero_sessao, total_sessoes')

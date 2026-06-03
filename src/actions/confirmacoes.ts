@@ -79,7 +79,7 @@ export async function obterProximaData(atendimentoId: string): Promise<{ data: s
     .limit(1)
     .single()
 
-  if (!agendamento?.is_recorrente || !agendamento?.frequencia || !ultimaSessao) return null
+  if (!agendamento?.is_recorrente || !agendamento?.frequencia || agendamento.frequencia === 'livre' || !ultimaSessao) return null
 
   const proximaDataStr = calcularProximaData(
     ultimaSessao.data_agendamento,
