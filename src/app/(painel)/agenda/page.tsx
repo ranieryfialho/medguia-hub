@@ -23,7 +23,7 @@ import { normalizarDisponibilidade, type DisponibilidadeDia } from '@/lib/dispon
 import { buildMapaMensalPorProfissional, resolverJornadaDoDia } from '@/lib/jornada-planejada'
 import { podeEntrarNaAgendaOuRelatorio } from '@/lib/profissionais'
 import { requireModulo } from '@/lib/guard'
-import { podeGerirEquipe } from '@/lib/permissoes'
+import { podeGerirEquipe, isGestorSistema } from '@/lib/permissoes'
 import {
   getAtendimentoStatusKey,
   getStatusRawValuesForKeys,
@@ -124,7 +124,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
     role: profile?.role,
     nivelAcesso: profile?.nivel_acesso,
   })
-  const podeVerComercial = podeGerirAgendaEquipe
+  const podeVerComercial = isGestorSistema(profile?.nivel_acesso)
 
   const params = await searchParams
   const view = typeof params.view === 'string' ? params.view : 'dia'
