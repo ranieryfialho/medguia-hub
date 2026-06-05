@@ -53,10 +53,13 @@ export function RelatorioVendasClient({
 
   const dadosLinha = Object.entries(porPeriodo)
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([data, faturamento]) => ({
-      data: new Date(data).toLocaleDateString('pt-BR', { month: 'short', day: 'numeric' }),
-      faturamento,
-    }))
+    .map(([data, faturamento]) => {
+      const [y, m, d] = data.split('-').map(Number)
+      return {
+        data: new Date(y, m - 1, d).toLocaleDateString('pt-BR', { month: 'short', day: 'numeric' }),
+        faturamento,
+      }
+    })
 
   const dadosProfissional = [...porProfissional]
     .sort((a, b) => b.faturamento - a.faturamento)

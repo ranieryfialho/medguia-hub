@@ -28,6 +28,7 @@ export type GerarPdfVendasInput = {
   porOrigem: Record<string, { quantidade: number; faturamento: number }>
   porProfissional: AgregacaoNome[]
   porProduto: AgregacaoNome[]
+  porReferenciador?: AgregacaoNome[]
   porCategoria?: Record<string, { quantidade: number; faturamento: number }>
   vendasDetalhadas?: VendaDetalhe[]
 }
@@ -67,6 +68,11 @@ export async function gerarPdfVendas(input: GerarPdfVendasInput) {
   desenharPaginaProfissionais(doc, profOrdenados, input.totalFaturado)
   doc.addPage()
   desenharPaginaProdutos(doc, prodOrdenados, input.totalFaturado, input.porOrigem, input.totalFaturado)
+
+  if (input.porReferenciador && input.porReferenciador.length > 0) {
+    doc.addPage()
+    desenharPaginaReferenciadores(doc, input.porReferenciador, input.totalFaturado)
+  }
 
   if (input.porCategoria && Object.keys(input.porCategoria).some(k => k !== 'sem_categoria')) {
     doc.addPage()
@@ -188,6 +194,31 @@ function desenharPaginaProdutos(
       fmt(data.faturamento),
       `${pct}%`,
     ], widthsOrig)
+  }
+}
+
+function desenharPaginaReferenciadores(doc: jsPDF, referenciadores: AgregacaoNome[], totalFaturado: number) {
+  let y = desenharCabecalhoInterno(doc, 'Desempenho por Médico Referenciador', 'Consolidado completo')
+
+  y += 4
+  const headers = ['Médico Referenciador', 'Vendas', 'Faturamento', '% Total']
+  const widths = [80, 18, 52, 28]
+  y = desenharLinhaTabela(doc, y, headers, widths, true)
+
+  const ordenados = [...referenciadores].sort((a, b) => b.faturamento - a.faturamento)
+  for (const ref of ordenados) {
+    if (y > PAGE_HEIGHT - 22) {
+      doc.addPage()
+      y = desenharCabecalhoInterno(doc, 'Desempenho por Médico Referenciador', 'Continuação')
+      y = desenharLinhaTabela(doc, y + 4, headers, widths, true)
+    }
+    const pct = totalFaturado > 0 ? ((ref.faturamento / totalFaturado) * 100).toFixed(1) : '0.0'
+    y = desenharLinhaTabela(doc, y, [
+      ref.nome,
+      String(ref.quantidade),
+      fmt(ref.faturamento),
+      `${pct}%`,
+    ], widths)
   }
 }
 

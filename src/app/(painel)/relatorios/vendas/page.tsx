@@ -68,8 +68,12 @@ export default async function RelatorioVendasPage({
   const supabase = await createClient()
   const resolvedParams = await searchParams
 
-  const data_inicio = (resolvedParams.data_inicio as string) || ''
-  const data_fim = (resolvedParams.data_fim as string) || ''
+  const hoje = new Date()
+  const primeiroDiaMesAtual = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-01`
+  const ultimoDiaMesAtual = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate()).padStart(2, '0')}`
+
+  const data_inicio = (resolvedParams.data_inicio as string | undefined) ?? primeiroDiaMesAtual
+  const data_fim = (resolvedParams.data_fim as string | undefined) ?? ultimoDiaMesAtual
   const origem = (resolvedParams.origem as string) || ''
   const forma_pagamento = (resolvedParams.forma_pagamento as string) || ''
   const profissional_id = (resolvedParams.profissional_id as string) || ''
@@ -163,8 +167,6 @@ export default async function RelatorioVendasPage({
   let orcamentoRecusadoValor = 0
   let orcamentoConvertidoCount = 0
 
-  const agora = new Date()
-  const dias90 = new Date(agora.getTime() - 90 * 24 * 60 * 60 * 1000)
   const produtoIdsSet = produtoIds.length > 0 ? new Set(produtoIds) : null
 
   for (const venda of vendas) {
@@ -258,11 +260,11 @@ export default async function RelatorioVendasPage({
       porCategoria[cat].faturamento += item.quantidade * item.preco_unitario
     }
 
-    // Por período (últimos 90 dias)
-    if (new Date(venda.data_venda) >= dias90) {
-      const dia = formatAppDateKey(venda.data_venda)
-      if (!porPeriodo[dia]) porPeriodo[dia] = 0
-      porPeriodo[dia] += totalVenda
+    // Por período — respeita o range do filtro ativo
+    const diaKey = formatAppDateKey(venda.data_venda)
+    if ((!data_inicio || diaKey >= data_inicio) && (!data_fim || diaKey <= data_fim)) {
+      if (!porPeriodo[diaKey]) porPeriodo[diaKey] = 0
+      porPeriodo[diaKey] += totalVenda
     }
   }
 
@@ -306,6 +308,7 @@ export default async function RelatorioVendasPage({
               porOrigem={porOrigem}
               porProfissional={profissionaisResumo}
               porProduto={produtosResumo}
+              porReferenciador={Object.values(porReferenciador)}
               porCategoria={porCategoria}
               vendasDetalhadas={vendasDetalhadas}
             />
