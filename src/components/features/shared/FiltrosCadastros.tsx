@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
+import { SelectCheckbox } from './SelectCheckbox'
 
 type TipoFiltro = '12meses' | 'mes' | 'semana' | 'personalizado'
 
@@ -11,11 +12,13 @@ type Props = {
   semana: string
   inicio: string
   fim: string
+  origens?: string[]
+  selectedOrigems?: string[]
 }
 
-export function FiltrosCadastros({ tipo: tipoInicial, mes, semana, inicio, fim }: Props) {
+export function FiltrosCadastros({ tipo: tipoInicial, mes, semana, inicio, fim, origens = [], selectedOrigems = [] }: Props) {
   const [tipo, setTipo] = useState<TipoFiltro>(tipoInicial)
-  const isFiltered = tipoInicial !== '12meses'
+  const isFiltered = tipoInicial !== '12meses' || selectedOrigems.length > 0
 
   return (
     <form method="get" className="bg-surface rounded-lg border border-border p-4">
@@ -81,6 +84,17 @@ export function FiltrosCadastros({ tipo: tipoInicial, mes, semana, inicio, fim }
               />
             </div>
           </>
+        )}
+
+        {origens.length > 0 && (
+          <div className="min-w-[220px]">
+            <SelectCheckbox
+              name="detalhe_origem"
+              label="Filtrar por origem"
+              options={origens}
+              selectedValues={selectedOrigems}
+            />
+          </div>
         )}
 
         <button

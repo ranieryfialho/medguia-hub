@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { requireModulo } from '@/lib/guard'
 import { APP_TIME_ZONE, formatAppDateKey, getAppDayRangeUTC } from '@/lib/datetime'
 import { Users, CalendarDays, TrendingUp, UserPlus } from 'lucide-react'
-import { FiltrosCadastros, BtnGerarPdfCadastros, SelectCheckbox } from '@/components/features/shared'
+import { FiltrosCadastros, BtnGerarPdfCadastros } from '@/components/features/shared'
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>
 type TipoFiltro = '12meses' | 'mes' | 'semana' | 'personalizado'
@@ -250,7 +250,7 @@ export default async function RelatorioCadastrosPacientesPage({
     queryFim = undefined
   }
 
-  const isFiltered = tipo !== '12meses'
+  const isFiltered = tipo !== '12meses' || detalheOrigensSelecionadas.length > 0
 
   const baseQuery = supabase
     .from('pacientes')
@@ -263,7 +263,14 @@ export default async function RelatorioCadastrosPacientesPage({
     ? await baseQuery.lte('created_at', queryFim)
     : await baseQuery
 
-  const pacientes = (pacientesRaw ?? []) as PacienteRelatorio[]
+  const pacientesAll = (pacientesRaw ?? []) as PacienteRelatorio[]
+  const pacientes = detalheOrigensSelecionadas.length > 0
+    ? pacientesAll.filter(p => detalheOrigensSelecionadas.includes(parsearOrigem(p.origem)))
+    : pacientesAll
+
+  const todasOrigensDisponiveis = Array.from(
+    new Set(pacientesAll.map(p => parsearOrigem(p.origem)))
+  ).sort((a, b) => a.localeCompare(b, 'pt-BR'))
 
   const porMes = new Map<string, number>()
   const porSemana = new Map<string, number>()
@@ -314,14 +321,20 @@ export default async function RelatorioCadastrosPacientesPage({
   const totalSemanaAtual = porSemana.get(getSemanaKey(agora.toISOString())) ?? 0
 
   const periodoLabel = (() => {
-    if (tipo === 'mes' && mesParam) return `Mês: ${formatarMes(mesParam)}`
-    if (tipo === 'semana' && semanaParam) return `Semana: ${formatarSemana(getMondayKey(semanaParam))}`
-    if (tipo === 'personalizado') {
+    let base: string
+    if (tipo === 'mes' && mesParam) base = `Mês: ${formatarMes(mesParam)}`
+    else if (tipo === 'semana' && semanaParam) base = `Semana: ${formatarSemana(getMondayKey(semanaParam))}`
+    else if (tipo === 'personalizado') {
       const de = inicioParam ? formatarDia(inicioParam) : '—'
       const ate = fimParam ? formatarDia(fimParam) : '—'
-      return `Período: ${de} a ${ate}`
+      base = `Período: ${de} a ${ate}`
+    } else {
+      base = 'Últimos 12 meses'
     }
-    return 'Últimos 12 meses'
+    if (detalheOrigensSelecionadas.length > 0) {
+      base += ` · Origem: ${detalheOrigensSelecionadas.join(', ')}`
+    }
+    return base
   })()
 
   const pdfInput = {
@@ -338,11 +351,7 @@ export default async function RelatorioCadastrosPacientesPage({
     anunciosMeta: anunciosMeta.map(([anuncio, qtd]) => ({ anuncio, qtd })),
   }
 
-  const pacientesFiltradosPorOrigem = detalheOrigensSelecionadas.length > 0
-    ? pacientes.filter((paciente) => detalheOrigensSelecionadas.includes(parsearOrigem(paciente.origem)))
-    : pacientes
-
-  const pacientesOrdenados = [...pacientesFiltradosPorOrigem].sort((a, b) => {
+  const pacientesOrdenados = [...pacientes].sort((a, b) => {
     if (detalheOrdem === 'alfabetica') {
       return (a.nome ?? '').localeCompare(b.nome ?? '', 'pt-BR')
     }
@@ -428,6 +437,8 @@ export default async function RelatorioCadastrosPacientesPage({
         semana={semanaParam}
         inicio={inicioParam}
         fim={fimParam}
+        origens={todasOrigensDisponiveis}
+        selectedOrigems={detalheOrigensSelecionadas}
       />
 
       {isFiltered ? (
@@ -679,79 +690,31 @@ export default async function RelatorioCadastrosPacientesPage({
             Relação completa dos pacientes cadastrados no período com origem, data, indicação e dados de contato.
           </p>
         </div>
-        <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/70 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ordenar por</span>
-              {[
-                { valor: 'data' as const, label: 'Data' },
-                { valor: 'alfabetica' as const, label: 'Alfabética' },
-                { valor: 'origem' as const, label: 'Origem' },
-              ].map((opcao) => (
-                <Link
-                  key={opcao.valor}
-                  href={buildDetalhamentoUrl(params, {
-                    detalhe_ordem: opcao.valor,
-                    detalhe_limite: detalheLimite,
-                    detalhe_pagina: 1,
-                    detalhe_origem: detalheOrigensSelecionadas,
-                  })}
-                  className={`rounded-full px-3 py-1.5 text-sm transition-colors ${
-                    detalheOrdem === opcao.valor
-                      ? 'bg-[#006b5a] text-white'
-                      : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-                  }`}
-                >
-                  {opcao.label}
-                </Link>
-              ))}
-            </div>
-            <form action="/pacientes/relatorio-cadastros" method="get" className="flex flex-col gap-2 sm:flex-row sm:items-end">
-              {Array.isArray(params.tipo)
-                ? params.tipo.map((value) => <input key={`tipo-${value}`} type="hidden" name="tipo" value={value} />)
-                : typeof params.tipo === 'string' && <input type="hidden" name="tipo" value={params.tipo} />}
-              {Array.isArray(params.mes)
-                ? params.mes.map((value) => <input key={`mes-${value}`} type="hidden" name="mes" value={value} />)
-                : typeof params.mes === 'string' && <input type="hidden" name="mes" value={params.mes} />}
-              {Array.isArray(params.semana)
-                ? params.semana.map((value) => <input key={`semana-${value}`} type="hidden" name="semana" value={value} />)
-                : typeof params.semana === 'string' && <input type="hidden" name="semana" value={params.semana} />}
-              {Array.isArray(params.inicio)
-                ? params.inicio.map((value) => <input key={`inicio-${value}`} type="hidden" name="inicio" value={value} />)
-                : typeof params.inicio === 'string' && <input type="hidden" name="inicio" value={params.inicio} />}
-              {Array.isArray(params.fim)
-                ? params.fim.map((value) => <input key={`fim-${value}`} type="hidden" name="fim" value={value} />)
-                : typeof params.fim === 'string' && <input type="hidden" name="fim" value={params.fim} />}
-              <input type="hidden" name="detalhe_ordem" value={detalheOrdem} />
-              <input type="hidden" name="detalhe_limite" value={String(detalheLimite)} />
-              <div className="min-w-[260px]">
-                <SelectCheckbox
-                  name="detalhe_origem"
-                  label="Filtrar origens"
-                  options={origens.map(([origem]) => origem)}
-                  selectedValues={detalheOrigensSelecionadas}
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="submit"
-                  className="rounded-md bg-[#006b5a] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#005346]"
-                >
-                  Filtrar
-                </button>
-                <Link
-                  href={buildDetalhamentoUrl(params, {
-                    detalhe_limite: detalheLimite,
-                    detalhe_ordem: detalheOrdem,
-                    detalhe_pagina: 1,
-                    detalhe_origem: [],
-                  })}
-                  className="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100"
-                >
-                  Limpar
-                </Link>
-              </div>
-            </form>
+        <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/70 flex flex-wrap gap-4 items-center justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ordenar por</span>
+            {[
+              { valor: 'data' as const, label: 'Data' },
+              { valor: 'alfabetica' as const, label: 'Alfabética' },
+              { valor: 'origem' as const, label: 'Origem' },
+            ].map((opcao) => (
+              <Link
+                key={opcao.valor}
+                href={buildDetalhamentoUrl(params, {
+                  detalhe_ordem: opcao.valor,
+                  detalhe_limite: detalheLimite,
+                  detalhe_pagina: 1,
+                  detalhe_origem: detalheOrigensSelecionadas,
+                })}
+                className={`rounded-full px-3 py-1.5 text-sm transition-colors ${
+                  detalheOrdem === opcao.valor
+                    ? 'bg-[#006b5a] text-white'
+                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                }`}
+              >
+                {opcao.label}
+              </Link>
+            ))}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Por página</span>
