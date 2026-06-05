@@ -30,6 +30,7 @@ import {
   UserPlus,
   Layers,
   HardDrive,
+  Lock,
 } from 'lucide-react'
 import { ProntuariosBadge } from './ProntuariosBadge'
 import { temAcesso, temAcessoGrupo } from '@/lib/modulos'
@@ -269,8 +270,8 @@ export function Sidebar({
           </div>
         )}
 
-        {pvGrupo('equipe') && (
-          <div>
+        <div>
+          {pvGrupo('equipe') ? (
             <button
               onClick={() => setEquipeOpen(v => !v)}
               className={groupCls(!!isActive('/equipe') || !!isActive('/relatorios/tempo-fabril'))}
@@ -279,42 +280,51 @@ export function Sidebar({
               <span className="flex-1 text-left">Equipe</span>
               <ChevronDown size={16} className={`transition-transform duration-200 ${equipeOpen ? 'rotate-180' : ''}`} />
             </button>
-            {equipeOpen && (
-              <div className="mt-1 ml-4 space-y-0.5 border-l-2 border-[#bcc9c4]/40 pl-3">
-                {pv('equipe:membros') && (
-                  <Link href="/equipe" onClick={handleNavClick} className={subLinkCls(!!isActive('/equipe') && !isActive('/equipe/acessos') && !isActive('/relatorios'))}>
-                    <UserCheck size={14} />
-                    Membros
-                  </Link>
-                )}
-                {pv('equipe:tempo_fabril') && (
-                  <Link href="/relatorios/tempo-fabril" onClick={handleNavClick} className={subLinkCls(!!isActive('/relatorios/tempo-fabril'))}>
-                    <BarChart3 size={14} />
-                    Tempo Fabril
-                  </Link>
-                )}
-                {pv('equipe:acessos') && (
-                  <Link href="/equipe/acessos" onClick={handleNavClick} className={subLinkCls(!!isActive('/equipe/acessos'))}>
-                    <ShieldCheck size={14} />
-                    Gestão de Acessos
-                  </Link>
-                )}
-                {pv('configuracoes:jornada') && (
-                  <Link href="/configuracoes/jornada" onClick={handleNavClick} className={subLinkCls(!!isActive('/configuracoes/jornada'))}>
-                    <Clock size={14} />
-                    Jornada de Trabalho
-                  </Link>
-                )}
-                {pv('configuracoes:disponibilidade') && (
-                  <Link href="/configuracoes/disponibilidade" onClick={handleNavClick} className={subLinkCls(!!isActive('/configuracoes/disponibilidade'))}>
-                    <Calendar size={14} />
-                    Disponibilidade
-                  </Link>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+          ) : (
+            <div
+              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-[#bcc9c4] cursor-not-allowed select-none"
+              title="Você não tem acesso a nenhum item deste menu"
+            >
+              <Briefcase size={20} className="shrink-0" />
+              <span className="flex-1 text-left">Equipe</span>
+              <Lock size={13} className="shrink-0" />
+            </div>
+          )}
+          {pvGrupo('equipe') && equipeOpen && (
+            <div className="mt-1 ml-4 space-y-0.5 border-l-2 border-[#bcc9c4]/40 pl-3">
+              {pv('equipe:membros') && (
+                <Link href="/equipe" onClick={handleNavClick} className={subLinkCls(!!isActive('/equipe') && !isActive('/equipe/acessos') && !isActive('/relatorios'))}>
+                  <UserCheck size={14} />
+                  Membros
+                </Link>
+              )}
+              {pv('equipe:tempo_fabril') && (
+                <Link href="/relatorios/tempo-fabril" onClick={handleNavClick} className={subLinkCls(!!isActive('/relatorios/tempo-fabril'))}>
+                  <BarChart3 size={14} />
+                  Tempo Fabril
+                </Link>
+              )}
+              {pv('equipe:acessos') && (
+                <Link href="/equipe/acessos" onClick={handleNavClick} className={subLinkCls(!!isActive('/equipe/acessos'))}>
+                  <ShieldCheck size={14} />
+                  Gestão de Acessos
+                </Link>
+              )}
+              {pv('configuracoes:jornada') && (
+                <Link href="/configuracoes/jornada" onClick={handleNavClick} className={subLinkCls(!!isActive('/configuracoes/jornada'))}>
+                  <Clock size={14} />
+                  Jornada de Trabalho
+                </Link>
+              )}
+              {pv('configuracoes:disponibilidade') && (
+                <Link href="/configuracoes/disponibilidade" onClick={handleNavClick} className={subLinkCls(!!isActive('/configuracoes/disponibilidade'))}>
+                  <Calendar size={14} />
+                  Disponibilidade
+                </Link>
+              )}
+            </div>
+          )}
+        </div>
 
         {pvGrupo('configuracoes') && (
           <div>
