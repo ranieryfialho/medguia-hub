@@ -236,10 +236,12 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, podeVerComerc
         style={{ paddingTop: 'calc(20px + env(safe-area-inset-top, 0px))', paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))' }}
       >
         <div
-          className="relative z-10 flex w-full max-w-[28rem] sm:max-w-md flex-col rounded-2xl bg-white shadow-2xl pointer-events-auto"
+          className="relative z-10 flex w-full max-w-[28rem] sm:max-w-md lg:max-w-4xl flex-col lg:flex-row rounded-2xl bg-white shadow-2xl pointer-events-auto overflow-hidden"
           style={{ maxHeight: 'calc(100svh - 40px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))' }}
           onClick={(e) => e.stopPropagation()}
         >
+          {/* LEFT PANEL */}
+          <div className="flex flex-col lg:w-80 xl:w-96 lg:shrink-0 lg:border-r lg:border-[#bcc9c4]/30 relative">
           <Link
             href={`/pacientes/${agendamento.paciente_id}/editar`}
             title="Editar paciente"
@@ -250,7 +252,7 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, podeVerComerc
 
           {/* Header */}
           <div
-            className="rounded-t-2xl px-5 sm:px-6 pt-3 pb-5 bg-white safe-top"
+            className="px-5 sm:px-6 pt-3 pb-5 bg-white"
             style={{ paddingTop: 'calc(20px + env(safe-area-inset-top, 0px))' }}
           >
             <div className="flex items-start gap-3 sm:gap-4">
@@ -385,8 +387,12 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, podeVerComerc
             </div>
           </div>
 
+          </div>
+
+          {/* RIGHT PANEL */}
+          <div className="flex flex-col flex-1 min-h-0 min-w-0 border-t lg:border-t-0 border-[#bcc9c4]/30">
           {/* Tabs */}
-          <div className="flex shrink-0 border-y border-[#bcc9c4]/30 bg-[#f5faf9]">
+          <div className="flex shrink-0 border-b border-[#bcc9c4]/30 bg-[#f5faf9]">
             {[
               { key: 'detalhes', label: 'Detalhes', icon: null },
               { key: 'evolucao', label: 'Evolucao', icon: <ClipboardList size={13} /> },
@@ -510,7 +516,7 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, podeVerComerc
 
           {/* Footer */}
           <div
-            className="flex justify-center sm:justify-end rounded-b-2xl border-t border-[#bcc9c4]/20 bg-white px-5 sm:px-6 pt-3 pb-5"
+            className="flex justify-center sm:justify-end border-t border-[#bcc9c4]/20 bg-white px-5 sm:px-6 pt-3 pb-5"
             style={{ paddingBottom: 'calc(20px + env(safe-area-inset-bottom, 0px))' }}
           >
             <button
@@ -520,6 +526,7 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, podeVerComerc
             >
               Fechar
             </button>
+          </div>
           </div>
 
           {modalSelecao && agendamento.agendamento_id && (

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Save, Loader2, Activity, MessageSquare, Layers, StickyNote } from 'lucide-react'
 import {
   buscarProntuarioPorAtendimento,
@@ -48,6 +48,33 @@ function dorBarColor(n: number): string {
 
 const FIELD_CLASS =
   'w-full border border-slate-200 rounded-xl px-3.5 py-3 text-sm text-slate-800 placeholder:text-slate-300 resize-none focus:outline-none focus:border-[#006b5a] focus:ring-2 focus:ring-[#006b5a]/10 transition-all touch-manipulation'
+
+function AutoResizeTextarea({ value, onChange, placeholder, rows, className }: {
+  value: string
+  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void
+  placeholder?: string
+  rows?: number
+  className?: string
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [value])
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      rows={rows}
+      className={className}
+      style={{ overflow: 'hidden' }}
+    />
+  )
+}
 
 function SectionLabel({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
   return (
@@ -179,7 +206,7 @@ export function ProntuarioEvolucao({ atendimentoId, pacienteId, onSuccess }: Pro
       {/* Queixa principal */}
       <div>
         <SectionLabel icon={MessageSquare} label="Queixa Principal" />
-        <textarea
+        <AutoResizeTextarea
           value={queixaPrincipal}
           onChange={e => setQueixaPrincipal(e.target.value)}
           placeholder="Descreva a queixa do paciente nesta sessão..."
@@ -191,7 +218,7 @@ export function ProntuarioEvolucao({ atendimentoId, pacienteId, onSuccess }: Pro
       {/* Evolução da sessão */}
       <div>
         <SectionLabel icon={Activity} label="Evolução da Sessão" />
-        <textarea
+        <AutoResizeTextarea
           value={evolucao}
           onChange={e => setEvolucao(e.target.value)}
           placeholder="Como foi a sessão? Resposta do paciente ao tratamento..."
@@ -203,7 +230,7 @@ export function ProntuarioEvolucao({ atendimentoId, pacienteId, onSuccess }: Pro
       {/* Procedimentos realizados */}
       <div>
         <SectionLabel icon={Layers} label="Procedimentos Realizados" />
-        <textarea
+        <AutoResizeTextarea
           value={procedimentos}
           onChange={e => setProcedimentos(e.target.value)}
           placeholder="Técnicas e procedimentos aplicados..."
@@ -215,7 +242,7 @@ export function ProntuarioEvolucao({ atendimentoId, pacienteId, onSuccess }: Pro
       {/* Observações */}
       <div>
         <SectionLabel icon={StickyNote} label="Observações" />
-        <textarea
+        <AutoResizeTextarea
           value={observacoes}
           onChange={e => setObservacoes(e.target.value)}
           placeholder="Outras observações relevantes..."

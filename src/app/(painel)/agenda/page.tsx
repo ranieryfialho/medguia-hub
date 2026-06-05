@@ -12,7 +12,7 @@ import {
 } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
-import { AgendaFiltrosAutoSubmit, SlideNovoAgendamento } from '@/components/features/agenda'
+import { AgendaFiltrosAutoSubmit, SlideNovoAgendamento, AgendaDatePicker } from '@/components/features/agenda'
 import { AgendamentoItemDia, AgendamentoItemSemana } from '@/components/features/agenda'
 import type { AgendamentoDetalhe } from '@/components/features/agenda'
 import { buildSessaoEfetivaMap } from '@/lib/sessoes'
@@ -181,6 +181,16 @@ export default async function AgendaPage({ searchParams }: PageProps) {
   const prevUrl = buildAgendaUrl(baseQuery, { data: formatAppDateKey(prevDate) })
   const nextUrl = buildAgendaUrl(baseQuery, { data: formatAppDateKey(nextDate) })
 
+  const baseParamsDatePicker = (() => {
+    const p = new URLSearchParams()
+    p.set('view', view)
+    if (myAppointmentsOnly) p.set('meus', 'true')
+    if (profissionalSelecionado) p.set('profissional', profissionalSelecionado)
+    if (horarioSelecionado) p.set('horario', horarioSelecionado)
+    for (const status of statusSelecionados) p.append('status', status)
+    return p.toString()
+  })()
+
   const inicioDaSemana = startOfWeek(dataSelecionada, { weekStartsOn: 0 })
   const diasDaSemana = Array.from({ length: 7 }, (_, i) => {
     const d = addDays(inicioDaSemana, i)
@@ -189,7 +199,6 @@ export default async function AgendaPage({ searchParams }: PageProps) {
 
   const mesAnoAtual = format(dataSelecionada, "MMMM, yyyy", { locale: ptBR })
   const diaFormatadoSelecionado = format(dataSelecionada, "dd MMM", { locale: ptBR })
-  const mesAnoLateral = format(dataSelecionada, "MMMM yyyy", { locale: ptBR })
 
   const anoMes = dataString.slice(0, 7) // 'yyyy-MM'
   const ano = parseInt(anoMes.slice(0, 4), 10)
@@ -861,7 +870,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
           {/* Mini calendário — ocupa o espaço restante */}
           <div className="flex-1 min-h-0 bg-[#f0f5f4] rounded-3xl p-3 sm:p-4 overflow-hidden flex flex-col">
             <div className="flex-shrink-0 flex items-center justify-between mb-3">
-              <h4 className="text-sm font-bold text-[#3d4945] uppercase tracking-widest capitalize">{mesAnoLateral}</h4>
+              <AgendaDatePicker key={dataString} dataAtual={dataString} baseParams={baseParamsDatePicker} />
               <div className="flex gap-1 text-[#3d4945]">
                 <Link href={buildAgendaUrl(baseQuery, { data: format(subMonths(dataSelecionada, 1), 'yyyy-MM-dd') })}>
                   <ChevronLeft size={18} className="cursor-pointer hover:text-[#006b5a]" />

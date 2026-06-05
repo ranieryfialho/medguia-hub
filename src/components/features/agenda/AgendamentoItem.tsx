@@ -98,22 +98,22 @@ export function AgendamentoItemDia({
         <div className="relative py-3 border-t border-dashed border-[#bcc9c4]/50 flex items-center">
           <div
             onClick={() => setModalAberto(true)}
-            className={`${config.cardBg} border-l-4 ${config.border} p-3 rounded-xl w-full flex items-center justify-between transition-transform cursor-pointer ${!isMenuOpen ? 'hover:scale-[1.01]' : ''}`}
+            className={`${config.cardBg} border-l-4 ${config.border} p-3 rounded-xl w-full grid grid-cols-[1fr_auto] items-center gap-2 transition-transform cursor-pointer ${!isMenuOpen ? 'hover:scale-[1.01]' : ''}`}
           >
-            <div className="flex items-center gap-3">
-              <div className={`w-9 h-9 rounded-full bg-white flex items-center justify-center shadow-sm ${config.iconText}`}>
+            <div className="flex items-center gap-3 min-w-0">
+              <div className={`w-9 h-9 shrink-0 rounded-full bg-white flex items-center justify-center shadow-sm ${config.iconText}`}>
                 <Icone size={18} />
               </div>
-              <div>
-                <div className="flex flex-wrap items-start gap-1.5 sm:items-center sm:gap-2">
-                  <p className={`text-sm font-bold ${config.titleText}`}>{nomePaciente}</p>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <p className={`text-sm font-bold truncate min-w-0 flex-1 ${config.titleText}`}>{nomePaciente}</p>
                   {agendamento.total_sessoes && agendamento.total_sessoes > 1 && (
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 bg-white/60 text-[#006b5a] rounded-full border border-[#006b5a]/20 whitespace-nowrap">
+                    <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 bg-white/60 text-[#006b5a] rounded-full border border-[#006b5a]/20 whitespace-nowrap">
                       {agendamento.numero_sessao}/{agendamento.total_sessoes}
                     </span>
                   )}
                   {agendamento.marcou_retorno && (
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 bg-[#e0e7ff] text-[#3730a3] rounded-full border border-[#c7d2fe] whitespace-nowrap">
+                    <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 bg-[#e0e7ff] text-[#3730a3] rounded-full border border-[#c7d2fe] whitespace-nowrap">
                       Retorno
                     </span>
                   )}
@@ -144,7 +144,7 @@ export function AgendamentoItemDia({
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <div className="flex items-center gap-2 sm:gap-3 justify-end">
               {agendamento.google_drive_pasta_url && (
                 <a
                   href={agendamento.google_drive_pasta_url}
