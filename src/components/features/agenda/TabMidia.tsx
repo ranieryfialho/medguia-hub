@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  ExternalLink, FileIcon, FolderOpen, FolderPlus, ImageIcon,
+  ExternalLink, FileIcon, FileText, FolderOpen, FolderPlus, ImageIcon,
   Loader2, RefreshCw, Upload, VideoIcon, X,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -33,6 +33,7 @@ export function TabMidia({
   const [uploadando, setUploadando] = useState(false)
   const [midiaAmpliada, setMidiaAmpliada] = useState<MidiaItem | null>(null)
   const [videoErro, setVideoErro] = useState(false)
+  const [pdfCarregando, setPdfCarregando] = useState(false)
   const uploadInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -168,11 +169,12 @@ export function TabMidia({
                 {midias.map((midia) => {
                   const isImage = midia.mime_type.startsWith('image/')
                   const isVideo = midia.mime_type.startsWith('video/')
+                  const isPdf = midia.mime_type === 'application/pdf'
                   return (
                     <button
                       key={midia.id}
                       type="button"
-                      onClick={() => { setVideoErro(false); setMidiaAmpliada(midia) }}
+                      onClick={() => { setVideoErro(false); setPdfCarregando(midia.mime_type === 'application/pdf'); setMidiaAmpliada(midia) }}
                       className="relative aspect-square rounded-xl overflow-hidden bg-[#f0f5f4] border border-[#bcc9c4]/40 hover:border-[#006b5a]/40 hover:shadow-md transition-all group"
                     >
                       {isImage ? (
@@ -198,6 +200,14 @@ export function TabMidia({
                             </div>
                           </div>
                         </>
+                      ) : isPdf ? (
+                        <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 p-2">
+                          <div className="w-10 h-10 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center">
+                            <FileText size={20} className="text-red-500" />
+                          </div>
+                          <span className="text-[9px] font-bold text-red-500 uppercase tracking-wide">PDF</span>
+                          <span className="text-[8px] text-[#6d7a75] text-center leading-tight line-clamp-2 w-full px-1">{midia.nome}</span>
+                        </div>
                       ) : (
                         <div className="w-full h-full flex flex-col items-center justify-center gap-1 p-2">
                           <FileIcon size={22} className="text-[#6d7a75]" />
@@ -291,6 +301,21 @@ export function TabMidia({
                   className="max-h-[80vh] max-w-full rounded-xl"
                 />
               )
+            ) : midiaAmpliada.mime_type === 'application/pdf' ? (
+              <div style={{ position: 'relative', width: 'min(90vw, 860px)', height: '80vh' }}>
+                {pdfCarregando && (
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'white', borderRadius: '12px', zIndex: 1, gap: '12px' }}>
+                    <Loader2 size={32} className="animate-spin text-[#006b5a]" />
+                    <p className="text-sm font-medium text-[#6d7a75]">Carregando PDF...</p>
+                  </div>
+                )}
+                <iframe
+                  src={`/api/drive/file/${midiaAmpliada.google_drive_file_id}`}
+                  title={midiaAmpliada.nome}
+                  onLoad={() => setPdfCarregando(false)}
+                  style={{ width: '100%', height: '100%', border: 'none', borderRadius: '12px', background: 'white', display: 'block' }}
+                />
+              </div>
             ) : (
               <div className="bg-white rounded-xl p-8 flex flex-col items-center gap-3">
                 <FileIcon size={48} className="text-[#6d7a75]" />

@@ -37,6 +37,7 @@ export async function GET(
     }
     responseHeaders.set('accept-ranges', 'bytes')
     responseHeaders.set('cache-control', 'private, max-age=3600')
+    responseHeaders.set('content-disposition', 'inline')
 
     return new Response(driveResponse.body, {
       status: driveResponse.status,

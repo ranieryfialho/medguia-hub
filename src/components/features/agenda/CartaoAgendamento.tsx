@@ -7,7 +7,7 @@ import { ptBR } from 'date-fns/locale'
 import {
   CalendarDays, ChevronDown, ChevronUp, RefreshCw, Calendar,
   CheckCircle, Hourglass, Stethoscope, CheckCheck, XCircle, User, UserX, CalendarClock, ClipboardList, Layers, StickyNote, Timer, FolderOpen,
-  VideoIcon, FileIcon, Loader2, X, ExternalLink, Images
+  VideoIcon, FileIcon, FileText, Loader2, X, ExternalLink, Images
 } from 'lucide-react'
 import {
   getAtendimentoStatusKey,
@@ -109,6 +109,7 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
   const [midiasErroMap, setMidiasErroMap] = useState<Record<string, string>>({})
   const [midiasCarregando, setMidiasCarregando] = useState<Record<string, boolean>>({})
   const [midiaAmpliada, setMidiaAmpliada] = useState<MidiaItem | null>(null)
+  const [pdfCarregando, setPdfCarregando] = useState(false)
   const [videoErro, setVideoErro] = useState(false)
 
   async function carregarMidias(sessaoId: string) {
@@ -397,11 +398,12 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
                           {midiasMap[sessao.id].map(midia => {
                             const isImage = midia.mime_type.startsWith('image/')
                             const isVideo = midia.mime_type.startsWith('video/')
+                            const isPdf = midia.mime_type === 'application/pdf'
                             return (
                               <button
                                 key={midia.id}
                                 type="button"
-                                onClick={e => { e.stopPropagation(); setVideoErro(false); setMidiaAmpliada(midia) }}
+                                onClick={e => { e.stopPropagation(); setVideoErro(false); setPdfCarregando(midia.mime_type === 'application/pdf'); setMidiaAmpliada(midia) }}
                                 className="relative aspect-square rounded-lg overflow-hidden bg-slate-100 border border-slate-200 hover:border-green-400 hover:shadow-sm transition-all group"
                               >
                                 {isImage ? (
@@ -427,6 +429,14 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
                                       </div>
                                     </div>
                                   </>
+                                ) : isPdf ? (
+                                  <div className="w-full h-full flex flex-col items-center justify-center gap-1 p-1">
+                                    <div className="w-8 h-8 rounded-md bg-red-50 border border-red-200 flex items-center justify-center">
+                                      <FileText size={16} className="text-red-500" />
+                                    </div>
+                                    <span className="text-[7px] font-bold text-red-500 uppercase tracking-wide">PDF</span>
+                                    <span className="text-[7px] text-slate-500 text-center leading-tight line-clamp-2 w-full px-0.5">{midia.nome}</span>
+                                  </div>
                                 ) : (
                                   <div className="w-full h-full flex flex-col items-center justify-center gap-1 p-1">
                                     <FileIcon size={18} className="text-slate-400" />
@@ -503,6 +513,22 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
                 onError={() => setVideoErro(true)}
                 className="max-h-[80vh] max-w-full rounded-xl"
               />
+            )
+            if (m.mime_type === 'application/pdf') return (
+              <div style={{ position: 'relative', width: 'min(90vw, 860px)', height: '80vh' }}>
+                {pdfCarregando && (
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'white', borderRadius: '12px', zIndex: 1, gap: '12px' }}>
+                    <Loader2 size={32} className="animate-spin text-[#006b5a]" />
+                    <p className="text-sm font-medium text-slate-500">Carregando PDF...</p>
+                  </div>
+                )}
+                <iframe
+                  src={`/api/drive/file/${m.google_drive_file_id}`}
+                  title={m.nome}
+                  onLoad={() => setPdfCarregando(false)}
+                  style={{ width: '100%', height: '100%', border: 'none', borderRadius: '12px', background: 'white', display: 'block' }}
+                />
+              </div>
             )
             return (
               <div className="bg-white rounded-xl p-8 flex flex-col items-center gap-3">
