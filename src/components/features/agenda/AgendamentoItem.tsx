@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { User } from 'lucide-react'
+import Link from 'next/link'
+import { User, Pencil } from 'lucide-react'
 import type { PlanoSaude } from '@/actions/planos-saude'
 import { formatAppTime } from '@/lib/datetime'
 import { MenuAcoesAgendamento } from './MenuAcoesAgendamento'
@@ -157,6 +158,22 @@ export function AgendamentoItemDia({
                   📂
                 </a>
               )}
+              <Link
+                href={`/pacientes/${agendamento.paciente_id}`}
+                onClick={(e) => e.stopPropagation()}
+                title="Ver jornada do paciente"
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-[#3d4945]/50 hover:text-[#006b5a] hover:bg-[#dee3e3] transition-colors"
+              >
+                <User size={15} />
+              </Link>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setSlideEditarAberto(true) }}
+                title="Editar agendamento"
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-[#3d4945]/50 hover:text-[#006b5a] hover:bg-[#dee3e3] transition-colors"
+              >
+                <Pencil size={14} />
+              </button>
               <span className={`hidden sm:inline-block px-3 py-1 ${config.badgeBg} text-white text-[10px] font-bold rounded-full uppercase tracking-widest`}>
                 {config.label}
               </span>
