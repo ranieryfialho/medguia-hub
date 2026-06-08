@@ -27,11 +27,16 @@ export async function buscarNotificacoes(): Promise<Notificacao[]> {
       .eq('usuario_id', user.id)
       .order('criado_em', { ascending: false })
       .limit(30),
-    supabase.from('profiles').select('role').eq('id', user.id).single(),
+    supabase
+      .from('profiles')
+      .select('role, pendentes_descartados')
+      .eq('id', user.id)
+      .single(),
   ])
 
   const role = profile?.role ?? ''
-  const pendentes = await buscarProntuariosPendentes(supabase, user.id, role)
+  const descartados = new Set<string>(profile?.pendentes_descartados ?? [])
+  const pendentes = await buscarProntuariosPendentes(supabase, user.id, role, descartados)
 
   return [...pendentes, ...(notifs ?? [])] as Notificacao[]
 }
@@ -41,6 +46,7 @@ async function buscarProntuariosPendentes(
   supabase: any,
   userId: string,
   role: string,
+  descartados: Set<string>,
 ): Promise<Notificacao[]> {
   if (role === 'medico') return []
 
@@ -65,7 +71,7 @@ async function buscarProntuariosPendentes(
   )
 
   return (atendimentos ?? [])
-    .filter((a: { id: string }) => !idsComProntuario.has(a.id))
+    .filter((a: { id: string }) => !idsComProntuario.has(a.id) && !descartados.has(`pending-${a.id}`))
     .map((a: { id: string; paciente_id: string; data_agendamento: string; pacientes?: { nome: string } }) => ({
       id: `pending-${a.id}`,
       tipo: 'prontuario_pendente',
@@ -79,7 +85,6 @@ async function buscarProntuariosPendentes(
 }
 
 export async function marcarComoLida(id: string): Promise<void> {
-  // IDs com prefixo "pending-" são calculados em tempo real — não existem no banco
   if (id.startsWith('pending-')) return
   const supabase = await createClient()
   await supabase.from('notificacoes').update({ lida: true }).eq('id', id)
@@ -96,9 +101,22 @@ export async function marcarTodasComoLidas(): Promise<void> {
     .eq('lida', false)
 }
 
-export async function limparNotificacoes(): Promise<void> {
+export async function limparNotificacoes(pendingIds: string[]): Promise<void> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
-  await supabase.from('notificacoes').delete().eq('usuario_id', user.id)
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('pendentes_descartados')
+    .eq('id', user.id)
+    .single()
+
+  const jaDescartados: string[] = profile?.pendentes_descartados ?? []
+  const novosDescartados = [...new Set([...jaDescartados, ...pendingIds])]
+
+  await Promise.all([
+    supabase.from('notificacoes').delete().eq('usuario_id', user.id),
+    supabase.from('profiles').update({ pendentes_descartados: novosDescartados }).eq('id', user.id),
+  ])
 }

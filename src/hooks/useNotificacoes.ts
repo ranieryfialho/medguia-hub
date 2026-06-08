@@ -10,31 +10,13 @@ import {
   type Notificacao,
 } from '@/actions/notificacoes'
 
-const DISMISSED_KEY = 'notif_dismissed_pending'
-
-function getDismissedIds(): Set<string> {
-  try {
-    const stored = localStorage.getItem(DISMISSED_KEY)
-    return new Set(stored ? (JSON.parse(stored) as string[]) : [])
-  } catch { return new Set() }
-}
-
-function saveDismissedIds(ids: string[]) {
-  try {
-    const existing = getDismissedIds()
-    ids.forEach((id) => existing.add(id))
-    localStorage.setItem(DISMISSED_KEY, JSON.stringify([...existing]))
-  } catch { /* noop */ }
-}
-
 export function useNotificacoes(userId: string) {
   const [notificacoes, setNotificacoes] = useState<Notificacao[]>([])
   const [carregando, setCarregando] = useState(true)
 
   const carregar = useCallback(async () => {
     const data = await buscarNotificacoes()
-    const dismissed = getDismissedIds()
-    setNotificacoes(data.filter((n) => !dismissed.has(n.id)))
+    setNotificacoes(data)
     setCarregando(false)
   }, [])
 
@@ -74,12 +56,10 @@ export function useNotificacoes(userId: string) {
   }, [])
 
   const limpar = useCallback(async (notificacoesAtuais: Notificacao[]) => {
-    await limparAction()
-    // Guarda IDs das pendentes calculadas para não reaparecerem após reload
     const pendingIds = notificacoesAtuais
       .filter((n) => n.id.startsWith('pending-'))
       .map((n) => n.id)
-    saveDismissedIds(pendingIds)
+    await limparAction(pendingIds)
     setNotificacoes([])
   }, [])
 
