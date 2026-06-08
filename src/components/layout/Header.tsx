@@ -1,18 +1,20 @@
 import Image from 'next/image'
 import Link from 'next/link'
-import { Bell, HardDrive } from 'lucide-react'
+import { HardDrive } from 'lucide-react'
 import { buscarStatusConexaoGoogle } from '@/actions/google-drive'
 import { temAcesso } from '@/lib/modulos'
 import { BuscaGlobalTrigger } from './BuscaGlobalTrigger'
+import { SinoNotificacoes } from './SinoNotificacoes'
 
 type HeaderProps = {
   nomeUsuario: string
   cargoUsuario: string
   avatarUrl: string
   modulosLiberados?: string[]
+  userId: string
 }
 
-export async function Header({ nomeUsuario, cargoUsuario, avatarUrl, modulosLiberados = [] }: HeaderProps) {
+export async function Header({ nomeUsuario, cargoUsuario, avatarUrl, modulosLiberados = [], userId }: HeaderProps) {
   const mostrarDrive = temAcesso(modulosLiberados, 'configuracoes:google_drive')
   const statusDrive = mostrarDrive ? await buscarStatusConexaoGoogle() : null
 
@@ -38,9 +40,7 @@ export async function Header({ nomeUsuario, cargoUsuario, avatarUrl, modulosLibe
           </Link>
         )}
 
-        <button className="p-2 rounded-full hover:bg-[#dee3e3] transition-colors text-[#3d4945]">
-          <Bell size={20} />
-        </button>
+        <SinoNotificacoes userId={userId} />
         <div className="flex items-center gap-3 pl-4 border-l border-[#bcc9c4]/50">
           <div className="text-right hidden sm:block">
             <p className="text-sm font-bold text-[#171d1c] leading-none capitalize">{nomeUsuario}</p>
