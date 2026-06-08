@@ -1,8 +1,9 @@
 import Image from 'next/image'
 import Link from 'next/link'
-import { Search, Bell, HardDrive } from 'lucide-react'
+import { Bell, HardDrive } from 'lucide-react'
 import { buscarStatusConexaoGoogle } from '@/actions/google-drive'
 import { temAcesso } from '@/lib/modulos'
+import { BuscaGlobalTrigger } from './BuscaGlobalTrigger'
 
 type HeaderProps = {
   nomeUsuario: string
@@ -18,16 +19,7 @@ export async function Header({ nomeUsuario, cargoUsuario, avatarUrl, modulosLibe
   return (
     <header className="hidden lg:flex sticky top-0 z-40 bg-[#f5faf9]/90 backdrop-blur-md justify-between items-center w-full px-8 py-4 border-b border-[#dee3e3]/50">
       <div className="flex-1 flex items-center">
-        <div className="relative group w-full max-w-md hidden sm:block">
-          <span className="absolute inset-y-0 left-3 flex items-center text-[#3d4945]">
-            <Search size={18} />
-          </span>
-          <input
-            className="bg-[#f0f5f4] border-none rounded-full pl-10 pr-6 py-2.5 text-sm w-full focus:ring-2 focus:ring-[#006b5a]/20 transition-all outline-none text-[#171d1c]"
-            placeholder="Buscar paciente ou consulta..."
-            type="text"
-          />
-        </div>
+        <BuscaGlobalTrigger className="w-full" />
       </div>
 
       <div className="flex items-center gap-4">

@@ -4,6 +4,8 @@ import { useState } from 'react'
 import Image from 'next/image'
 import { Sidebar } from './Sidebar'
 import { SlideNovoAgendamento } from '@/components/features/agenda'
+import { BuscaGlobal } from './BuscaGlobal'
+import { BuscaGlobalTrigger } from './BuscaGlobalTrigger'
 import { Menu } from 'lucide-react'
 import type { DisponibilidadeDia } from '@/lib/disponibilidade'
 import { SlideNovoAgendamentoProvider } from './SlideNovoAgendamentoContext'
@@ -100,10 +102,16 @@ export function AppShell({
                 className="w-8 h-8 rounded-xl object-cover border border-slate-200"
               />
             </div>
+            <div className="mt-2">
+              <BuscaGlobalTrigger className="w-full" />
+            </div>
           </div>
 
           {children}
         </div>
+
+        {/* Modal de busca global — renderizado uma vez, ativado via Ctrl+K ou trigger */}
+        <BuscaGlobal modulosLiberados={headerData.modulosLiberados} />
 
         {/* SlideNovoAgendamento fora da div com transform para fixed funcionar corretamente */}
         <SlideNovoAgendamento
