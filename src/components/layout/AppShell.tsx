@@ -6,6 +6,7 @@ import { Sidebar } from './Sidebar'
 import { SlideNovoAgendamento } from '@/components/features/agenda'
 import { BuscaGlobal } from './BuscaGlobal'
 import { BuscaGlobalTrigger } from './BuscaGlobalTrigger'
+import { SinoNotificacoes } from './SinoNotificacoes'
 import { Menu } from 'lucide-react'
 import type { DisponibilidadeDia } from '@/lib/disponibilidade'
 import { SlideNovoAgendamentoProvider } from './SlideNovoAgendamentoContext'
@@ -26,6 +27,7 @@ type HeaderData = {
   modulosLiberados: string[]
   prontuariosPendentes: number
   userEmail: string
+  userId: string
 }
 
 export function AppShell({
@@ -94,6 +96,7 @@ export function AppShell({
                 <Menu size={22} />
               </button>
               <span className="font-bold text-[#006b5a] text-base tracking-tight flex-1">MedGuia Hub</span>
+              <SinoNotificacoes userId={headerData.userId} />
               <Image
                 src={headerData.avatarUrl}
                 alt={headerData.nomeUsuario}

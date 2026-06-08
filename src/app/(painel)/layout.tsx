@@ -177,7 +177,7 @@ export default async function DashboardLayout({
       tiposConsulta={tiposConsulta}
       protocolosAtendimento={protocolosAtendimento}
       planosSaude={planosSaude}
-      headerData={{ nomeUsuario, cargoUsuario, avatarUrl, userRole, userNivelAcesso, modulosLiberados, prontuariosPendentes, userEmail: user?.email ?? '' }}
+      headerData={{ nomeUsuario, cargoUsuario, avatarUrl, userRole, userNivelAcesso, modulosLiberados, prontuariosPendentes, userEmail: user?.email ?? '', userId: user?.id ?? '' }}
     >
       <Header nomeUsuario={nomeUsuario} cargoUsuario={cargoUsuario} avatarUrl={avatarUrl} modulosLiberados={modulosLiberados} userId={user?.id ?? ''} />
       <main
