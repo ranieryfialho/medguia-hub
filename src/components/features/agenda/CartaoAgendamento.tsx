@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import Link from 'next/link'
 import {
   CalendarDays, ChevronDown, ChevronUp, RefreshCw, Calendar,
   CheckCircle, Hourglass, Stethoscope, CheckCheck, XCircle, User, UserX, CalendarClock, ClipboardList, Layers, StickyNote, Timer, FolderOpen,
@@ -193,6 +194,14 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
                   <> → {format(new Date(ultimaSessao.data_agendamento), "dd MMM yyyy", { locale: ptBR })}</>
                 )}
               </span>
+              <Link
+                href={`/agenda?view=dia&data=${format(new Date(primeiraSessao.data_agendamento), 'yyyy-MM-dd')}&horario=${format(new Date(primeiraSessao.data_agendamento), 'HH:mm')}`}
+                title="Ver na agenda"
+                className="flex items-center gap-1 text-[10px] font-bold text-[#006b5a] bg-[#e8f3f0] px-2 py-0.5 rounded border border-[#006b5a]/20 hover:bg-[#d0eae4] transition-colors shrink-0"
+              >
+                <Calendar size={10} />
+                Agenda
+              </Link>
             </div>
           </div>
 
