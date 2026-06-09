@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Calendar, ChevronDown, ClipboardList, Clock, FolderOpen,
-  Mail, MessageCircle, Pencil, Phone, Trash2, User,
+  Mail, MessageCircle, Pencil, Phone, Timer, Trash2, User,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import {
@@ -33,6 +33,7 @@ import {
   deveExibirContagemTipoSeparada, firstRelation, formatarTipoComContagem,
   type AgendamentoDetalhe,
 } from './agendamento-item-utils'
+import { useTempoEspera } from '@/hooks/useTempoEspera'
 
 type AgendamentoModalProps = {
   agendamento: AgendamentoDetalhe
@@ -84,6 +85,7 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, podeVerComerc
   const descricaoTipoComContagem = formatarTipoComContagem(agendamento)
   const exibirContagemTipoSeparada = deveExibirContagemTipoSeparada(agendamento)
   const duracaoMinutos = detalhesExtras?.duracao_minutos ?? agendamento.duracao_minutos
+  const tempoEspera = useTempoEspera(agendamento.id, agendamento.aguardando_desde, agendamento.em_atendimento_desde, () => router.refresh())
   const observacoes = detalhesExtras?.observacoes ?? agendamento.observacoes
   const horaInicio = formatAppTime(dataObj)
   const horaFim = duracaoMinutos ? formatAppTime(new Date(dataObj.getTime() + duracaoMinutos * 60000)) : null
@@ -453,6 +455,18 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, podeVerComerc
                     {nomeProtocolo && exibirContagemTipoSeparada && (
                       <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-[#5a6a65] border border-[#bcc9c4]">
                         {agendamento.numero_sessao_tipo ?? 0}/{agendamento.total_sessoes_tipo} em {agendamento.tipo}
+                      </span>
+                    )}
+                    {tempoEspera?.tipo === 'aguardando' && (
+                      <span className="rounded-full flex items-center gap-1 bg-teal-50 px-2 py-0.5 text-xs font-bold text-teal-700 border border-teal-200">
+                        <Timer size={11} />
+                        {tempoEspera.tempo}
+                      </span>
+                    )}
+                    {tempoEspera?.tipo === 'esperou' && (
+                      <span className="rounded-full flex items-center gap-1 bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-500 border border-slate-300">
+                        <Timer size={11} />
+                        Esperou {tempoEspera.tempo}
                       </span>
                     )}
                   </div>

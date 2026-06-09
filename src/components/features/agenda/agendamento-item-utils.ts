@@ -32,6 +32,8 @@ export type AgendamentoDetalhe = {
   total_sessoes_tipo?: number | null
   marcou_retorno?: boolean | null
   google_drive_pasta_url?: string | null
+  aguardando_desde?: string | null
+  em_atendimento_desde?: string | null
   pacientes: { nome: string; telefone?: string | null; email?: string | null } | null
   profissional?: { full_name?: string | null; role?: string | null } | null
   criador?: { full_name?: string | null } | null

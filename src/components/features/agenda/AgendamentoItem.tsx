@@ -2,9 +2,13 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { User, Pencil } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { User, Pencil, Timer, Stethoscope, Loader2 } from 'lucide-react'
 import type { PlanoSaude } from '@/actions/planos-saude'
 import { formatAppTime } from '@/lib/datetime'
+import { mudarStatusAgendamento } from '@/actions/agenda'
+import { getAtendimentoStatusKey } from '@/lib/atendimento-status'
+import { useTempoEspera } from '@/hooks/useTempoEspera'
 import { MenuAcoesAgendamento } from './MenuAcoesAgendamento'
 import { SlideNovoAgendamento } from './SlideNovoAgendamento'
 import { AgendamentoModal } from './AgendamentoModal'
@@ -14,6 +18,8 @@ import {
   formatarTipoComContagem,
   type AgendamentoDetalhe,
 } from './agendamento-item-utils'
+import toast from 'react-hot-toast'
+
 
 export type { AgendamentoDetalhe }
 
@@ -85,12 +91,29 @@ export function AgendamentoItemDia({
   const [modalAberto, setModalAberto] = useState(false)
   const [slideEditarAberto, setSlideEditarAberto] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [statusLoading, setStatusLoading] = useState<string | null>(null)
+  const router = useRouter()
   const config = getConfig(agendamento.status)
   const Icone = config.Icon
   const hora = formatAppTime(agendamento.data_agendamento)
   const nomePaciente = agendamento.pacientes?.nome || 'Paciente não identificado'
   const descricaoTipoComContagem = formatarTipoComContagem(agendamento)
   const exibirContagemTipoSeparada = deveExibirContagemTipoSeparada(agendamento)
+  const statusKey = getAtendimentoStatusKey(agendamento.status)
+  const mostrarChegou = ['confirmado', 'aguardando'].includes(statusKey)
+  const mostrarEmAtendimento = ['aguardando', 'aguardando_consulta'].includes(statusKey)
+  const tempoEspera = useTempoEspera(agendamento.id, agendamento.aguardando_desde, agendamento.em_atendimento_desde, () => router.refresh())
+
+  async function handleMudarStatus(novoStatus: string) {
+    setStatusLoading(novoStatus)
+    const result = await mudarStatusAgendamento(agendamento.id, novoStatus)
+    setStatusLoading(null)
+    if (result?.error) {
+      toast.error(result.error)
+    } else {
+      router.refresh()
+    }
+  }
 
   return (
     <>
@@ -116,6 +139,18 @@ export function AgendamentoItemDia({
                   {agendamento.marcou_retorno && (
                     <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 bg-[#e0e7ff] text-[#3730a3] rounded-full border border-[#c7d2fe] whitespace-nowrap">
                       Retorno
+                    </span>
+                  )}
+                  {tempoEspera?.tipo === 'aguardando' && (
+                    <span className="shrink-0 flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 bg-teal-100 text-teal-700 rounded-full border border-teal-300 whitespace-nowrap">
+                      <Timer size={9} />
+                      {tempoEspera.tempo}
+                    </span>
+                  )}
+                  {tempoEspera?.tipo === 'esperou' && (
+                    <span className="shrink-0 flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded-full border border-slate-300 whitespace-nowrap">
+                      <Timer size={9} />
+                      Esperou {tempoEspera.tempo}
                     </span>
                   )}
                 </div>
@@ -174,6 +209,37 @@ export function AgendamentoItemDia({
               >
                 <Pencil size={14} />
               </button>
+              {(mostrarChegou || mostrarEmAtendimento) && (
+                <>
+                  <span className="text-[#bcc9c4] select-none">|</span>
+                  {mostrarChegou && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleMudarStatus('Aguardando Consulta') }}
+                      disabled={!!statusLoading}
+                      title="Paciente chegou — marcar como Aguardando Consulta"
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-teal-600 hover:bg-teal-50 transition-colors disabled:opacity-40"
+                    >
+                      {statusLoading === 'Aguardando Consulta'
+                        ? <Loader2 size={14} className="animate-spin" />
+                        : <Timer size={14} />}
+                    </button>
+                  )}
+                  {mostrarEmAtendimento && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleMudarStatus('Em Atendimento') }}
+                      disabled={!!statusLoading}
+                      title="Iniciar atendimento — marcar como Em Atendimento"
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-blue-500 hover:bg-blue-50 transition-colors disabled:opacity-40"
+                    >
+                      {statusLoading === 'Em Atendimento'
+                        ? <Loader2 size={14} className="animate-spin" />
+                        : <Stethoscope size={14} />}
+                    </button>
+                  )}
+                </>
+              )}
               <span className={`hidden sm:inline-block px-3 py-1 ${config.badgeBg} text-white text-[10px] font-bold rounded-full uppercase tracking-widest`}>
                 {config.label}
               </span>

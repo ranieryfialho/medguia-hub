@@ -1,6 +1,7 @@
 'use client'
 // hmr-test
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createPortal } from 'react-dom'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -10,6 +11,7 @@ import {
   CheckCircle, Hourglass, Stethoscope, CheckCheck, XCircle, User, UserX, CalendarClock, ClipboardList, Layers, StickyNote, Timer, FolderOpen,
   VideoIcon, FileIcon, FileText, Loader2, X, ExternalLink, Images
 } from 'lucide-react'
+import { useTempoEspera } from '@/hooks/useTempoEspera'
 import {
   getAtendimentoStatusKey,
   isStatusConcluido,
@@ -49,8 +51,32 @@ type Sessao = {
   duracao_minutos?: number | null
   marcou_retorno?: boolean | null
   google_drive_pasta_url?: string | null
+  aguardando_desde?: string | null
+  em_atendimento_desde?: string | null
   prontuario?: ProntuarioResumo | null
   profissional?: { full_name?: string | null } | null
+}
+
+function TempoEsperaBadge({ atendimentoId, aguardandoDesde, emAtendimentoDesde, onExternalUpdate }: {
+  atendimentoId: string
+  aguardandoDesde: string | null | undefined
+  emAtendimentoDesde: string | null | undefined
+  onExternalUpdate?: () => void
+}) {
+  const resultado = useTempoEspera(atendimentoId, aguardandoDesde, emAtendimentoDesde, onExternalUpdate)
+  if (!resultado) return null
+  if (resultado.tipo === 'aguardando') return (
+    <span className="rounded-full border border-teal-200 bg-teal-50 px-2 py-0.5 text-[10px] font-bold text-teal-700 flex items-center gap-0.5 whitespace-nowrap">
+      <Timer size={9} />
+      {resultado.tempo}
+    </span>
+  )
+  return (
+    <span className="rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500 flex items-center gap-0.5 whitespace-nowrap">
+      <Timer size={9} />
+      Esperou {resultado.tempo}
+    </span>
+  )
 }
 
 type AgendamentoComSessoes = {
@@ -105,6 +131,7 @@ function formatarTipoComContagem(sessao: Sessao) {
 }
 
 export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
+  const router = useRouter()
   const [expandido, setExpandido] = useState(false)
   const [midiasMap, setMidiasMap] = useState<Record<string, MidiaItem[]>>({})
   const [midiasErroMap, setMidiasErroMap] = useState<Record<string, string>>({})
@@ -142,6 +169,8 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
   const concluidas = sessoes.filter(s => isStatusConcluido(s.status)).length
   const canceladas = sessoes.filter(s => ['cancelado', 'falta', 'reagendado'].includes(getAtendimentoStatusKey(s.status))).length
   const pendentes = sessoes.length - concluidas - canceladas
+
+  const sessaoComTempo = [...sessoesOrdenadas].reverse().find(s => s.aguardando_desde)
 
   return (
     <>
@@ -184,6 +213,14 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
                 <span className="px-2 py-0.5 bg-green-50 text-green-700 text-[10px] font-bold rounded uppercase tracking-wider flex items-center gap-1">
                   <FolderOpen size={10} /> Mídia
                 </span>
+              )}
+              {sessaoComTempo && (
+                <TempoEsperaBadge
+                  atendimentoId={sessaoComTempo.id}
+                  aguardandoDesde={sessaoComTempo.aguardando_desde}
+                  emAtendimentoDesde={sessaoComTempo.em_atendimento_desde}
+                  onExternalUpdate={() => router.refresh()}
+                />
               )}
             </div>
             <div className="flex items-center gap-2">
@@ -300,6 +337,14 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
                           <span className="rounded-full border border-[#c7d2fe] bg-[#e0e7ff] px-2 py-0.5 text-[10px] font-bold text-[#3730a3]">
                             Retorno
                           </span>
+                        )}
+                        {sessao.aguardando_desde && (
+                          <TempoEsperaBadge
+                            atendimentoId={sessao.id}
+                            aguardandoDesde={sessao.aguardando_desde}
+                            emAtendimentoDesde={sessao.em_atendimento_desde}
+                            onExternalUpdate={() => router.refresh()}
+                          />
                         )}
                       </div>
                       {sessao.observacoes && (

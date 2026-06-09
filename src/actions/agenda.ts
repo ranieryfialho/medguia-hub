@@ -1226,9 +1226,19 @@ export async function mudarStatusAgendamento(id: string, novoStatus: string) {
     }
   }
 
+  const agora = new Date().toISOString()
+  const updatePayload =
+    statusKey === 'aguardando_consulta'
+      ? { status: statusCanonico, aguardando_desde: agora, em_atendimento_desde: null }
+      : statusKey === 'em_atendimento'
+      ? { status: statusCanonico, em_atendimento_desde: agora }
+      : ['confirmado', 'aguardando'].includes(statusKey)
+      ? { status: statusCanonico, aguardando_desde: null, em_atendimento_desde: null }
+      : { status: statusCanonico }
+
   const { data: updatedRows, error } = await supabaseAdmin
     .from('atendimentos')
-    .update({ status: statusCanonico })
+    .update(updatePayload)
     .eq('id', id)
     .select('id')
 
