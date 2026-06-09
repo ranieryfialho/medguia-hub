@@ -1234,7 +1234,9 @@ export async function mudarStatusAgendamento(id: string, novoStatus: string) {
       ? { status: statusCanonico, em_atendimento_desde: agora }
       : ['confirmado', 'aguardando'].includes(statusKey)
       ? { status: statusCanonico, aguardando_desde: null, em_atendimento_desde: null }
-      : { status: statusCanonico }
+      // concluido/cancelado/falta/reagendado: congela o contador (em_atendimento_desde = agora)
+      // para que o badge mostre "Esperou X" em vez de continuar contando
+      : { status: statusCanonico, em_atendimento_desde: agora }
 
   const { data: updatedRows, error } = await supabaseAdmin
     .from('atendimentos')
@@ -1252,5 +1254,20 @@ export async function mudarStatusAgendamento(id: string, novoStatus: string) {
   }
 
   revalidatePath('/agenda')
+  return { success: true }
+}
+
+export async function chamarPaciente(id: string) {
+  const ctx = await requirePermissaoAgendaAdmin()
+  if ('error' in ctx) return { error: ctx.error }
+  const { supabaseAdmin } = ctx
+
+  const { error } = await supabaseAdmin
+    .from('atendimentos')
+    .update({ chamado_em: new Date().toISOString() })
+    .eq('id', id)
+
+  if (error) return { error: error.message }
+  revalidatePath('/painel')
   return { success: true }
 }
