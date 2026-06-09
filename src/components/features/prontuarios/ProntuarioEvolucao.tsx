@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Save, Loader2, Activity, MessageSquare, Layers, StickyNote } from 'lucide-react'
+import { Save, Loader2, Activity, MessageSquare, Layers, StickyNote, CheckCircle2 } from 'lucide-react'
 import {
   buscarProntuarioPorAtendimento,
   salvarProntuario,
@@ -92,11 +92,18 @@ function temCampoAbertoPreenchido(campos: string[]) {
 export function ProntuarioEvolucao({ atendimentoId, pacienteId, onSuccess }: Props) {
   const [loading, setLoading]                 = useState(true)
   const [saving, setSaving]                   = useState(false)
+  const [autoSaving, setAutoSaving]           = useState(false)
+  const [lastSavedAt, setLastSavedAt]         = useState<string | null>(null)
   const [escalaDor, setEscalaDor]             = useState<number | null>(null)
   const [queixaPrincipal, setQueixaPrincipal] = useState('')
   const [evolucao, setEvolucao]               = useState('')
   const [procedimentos, setProcedimentos]     = useState('')
   const [observacoes, setObservacoes]         = useState('')
+
+  const isDirty        = useRef(false)
+  const autoSaveTimer  = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const onSuccessRef   = useRef(onSuccess)
+  onSuccessRef.current = onSuccess
 
   useEffect(() => {
     buscarProntuarioPorAtendimento(atendimentoId).then(data => {
@@ -111,7 +118,39 @@ export function ProntuarioEvolucao({ atendimentoId, pacienteId, onSuccess }: Pro
     })
   }, [atendimentoId])
 
+  // Auto-save com debounce de 3s — só dispara após interação do usuário
+  useEffect(() => {
+    if (!isDirty.current) return
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
+
+    const temCampoAberto = temCampoAbertoPreenchido([queixaPrincipal, evolucao, procedimentos, observacoes])
+    if (escalaDor === null || !temCampoAberto) return
+
+    autoSaveTimer.current = setTimeout(async () => {
+      setAutoSaving(true)
+      const result = await salvarProntuario(atendimentoId, pacienteId, {
+        queixa_principal: queixaPrincipal,
+        evolucao,
+        procedimentos,
+        escala_dor: escalaDor,
+        observacoes,
+      })
+      setAutoSaving(false)
+      if (!result.error) {
+        const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+        setLastSavedAt(hora)
+        toast.success(`Evolução salva automaticamente às ${hora}`, { duration: 2000 })
+        onSuccessRef.current?.()
+      }
+    }, 3000)
+
+    return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [escalaDor, queixaPrincipal, evolucao, procedimentos, observacoes])
+
   async function handleSalvar() {
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
+
     const temCampoAberto = temCampoAbertoPreenchido([
       queixaPrincipal,
       evolucao,
@@ -137,6 +176,7 @@ export function ProntuarioEvolucao({ atendimentoId, pacienteId, onSuccess }: Pro
     if (result.error) {
       toast.error(`Erro ao salvar: ${result.error}`)
     } else {
+      setLastSavedAt(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }))
       toast.success('Evolução salva com sucesso')
       if (result.warning) {
         toast(result.warning, { icon: '⚠️' })
@@ -178,7 +218,7 @@ export function ProntuarioEvolucao({ atendimentoId, pacienteId, onSuccess }: Pro
             <button
               key={i}
               type="button"
-              onClick={() => setEscalaDor(prev => prev === i ? null : i)}
+              onClick={() => { isDirty.current = true; setEscalaDor(prev => prev === i ? null : i) }}
               className={`aspect-square w-full rounded-lg border text-xs font-bold active:scale-90 transition-all ${
                 escalaDor === i
                   ? `${PAIN_ACTIVE[i]} shadow-md`
@@ -208,7 +248,7 @@ export function ProntuarioEvolucao({ atendimentoId, pacienteId, onSuccess }: Pro
         <SectionLabel icon={MessageSquare} label="Queixa Principal" />
         <AutoResizeTextarea
           value={queixaPrincipal}
-          onChange={e => setQueixaPrincipal(e.target.value)}
+          onChange={e => { isDirty.current = true; setQueixaPrincipal(e.target.value) }}
           placeholder="Descreva a queixa do paciente nesta sessão..."
           rows={3}
           className={FIELD_CLASS}
@@ -220,7 +260,7 @@ export function ProntuarioEvolucao({ atendimentoId, pacienteId, onSuccess }: Pro
         <SectionLabel icon={Activity} label="Evolução da Sessão" />
         <AutoResizeTextarea
           value={evolucao}
-          onChange={e => setEvolucao(e.target.value)}
+          onChange={e => { isDirty.current = true; setEvolucao(e.target.value) }}
           placeholder="Como foi a sessão? Resposta do paciente ao tratamento..."
           rows={5}
           className={FIELD_CLASS}
@@ -232,7 +272,7 @@ export function ProntuarioEvolucao({ atendimentoId, pacienteId, onSuccess }: Pro
         <SectionLabel icon={Layers} label="Procedimentos Realizados" />
         <AutoResizeTextarea
           value={procedimentos}
-          onChange={e => setProcedimentos(e.target.value)}
+          onChange={e => { isDirty.current = true; setProcedimentos(e.target.value) }}
           placeholder="Técnicas e procedimentos aplicados..."
           rows={3}
           className={FIELD_CLASS}
@@ -244,7 +284,7 @@ export function ProntuarioEvolucao({ atendimentoId, pacienteId, onSuccess }: Pro
         <SectionLabel icon={StickyNote} label="Observações" />
         <AutoResizeTextarea
           value={observacoes}
-          onChange={e => setObservacoes(e.target.value)}
+          onChange={e => { isDirty.current = true; setObservacoes(e.target.value) }}
           placeholder="Outras observações relevantes..."
           rows={3}
           className={FIELD_CLASS}
@@ -254,12 +294,29 @@ export function ProntuarioEvolucao({ atendimentoId, pacienteId, onSuccess }: Pro
       {/* Botão salvar */}
       <button
         onClick={handleSalvar}
-        disabled={saving}
+        disabled={saving || autoSaving}
         className="w-full flex items-center justify-center gap-2.5 px-4 py-4 rounded-xl bg-[#006b5a] text-white font-bold text-sm hover:bg-[#005548] active:scale-[0.98] transition-all disabled:opacity-60 shadow-lg shadow-[#006b5a]/20 mt-2"
       >
         {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
         {saving ? 'Salvando...' : 'Salvar Evolução'}
       </button>
+
+      {/* Indicador de auto-save */}
+      {(autoSaving || lastSavedAt) && (
+        <div className="flex items-center justify-center pt-1">
+          {autoSaving ? (
+            <span className="flex items-center gap-1.5 text-[11px] text-slate-400">
+              <Loader2 size={11} className="animate-spin" />
+              Salvando automaticamente...
+            </span>
+          ) : (
+            <span className="flex items-center gap-1.5 text-[11px] text-[#006b5a]">
+              <CheckCircle2 size={11} />
+              Salvo automaticamente às {lastSavedAt}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   )
 }
