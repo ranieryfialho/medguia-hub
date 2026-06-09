@@ -117,144 +117,175 @@ export function AgendamentoItemDia({
 
   return (
     <>
-      <div className="grid grid-cols-[50px_1fr] sm:grid-cols-[72px_1fr] gap-2 sm:gap-3 group">
-        <div className="text-xs sm:text-sm font-bold text-[#3d4945]/60 flex items-start justify-end pt-2">{hora}</div>
-        <div className="relative py-3 border-t border-dashed border-[#bcc9c4]/50 flex items-center">
+      <div className="grid grid-cols-[38px_1fr] sm:grid-cols-[72px_1fr] gap-2 sm:gap-3 group">
+        <div className="text-[10px] sm:text-sm font-bold text-[#3d4945]/60 flex items-start justify-end pt-1">{hora}</div>
+        <div className="relative pt-1 pb-3 sm:py-3 border-t border-dashed border-[#bcc9c4]/50 flex items-center">
           <div
             onClick={() => setModalAberto(true)}
-            className={`${config.cardBg} border-l-4 ${config.border} p-3 rounded-xl w-full grid grid-cols-[1fr_auto] items-center gap-2 transition-transform cursor-pointer ${!isMenuOpen ? 'hover:scale-[1.01]' : ''}`}
+            className={`${config.cardBg} border-l-4 ${config.border} p-2.5 sm:p-3 rounded-xl w-full transition-transform cursor-pointer ${!isMenuOpen ? 'hover:scale-[1.01]' : ''}`}
           >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className={`w-9 h-9 shrink-0 rounded-full bg-white flex items-center justify-center shadow-sm ${config.iconText}`}>
-                <Icone size={18} />
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <p className={`text-sm font-bold truncate min-w-0 flex-1 ${config.titleText}`}>{nomePaciente}</p>
-                  {agendamento.total_sessoes && agendamento.total_sessoes > 1 && (
-                    <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 bg-white/60 text-[#006b5a] rounded-full border border-[#006b5a]/20 whitespace-nowrap">
-                      {agendamento.numero_sessao}/{agendamento.total_sessoes}
-                    </span>
-                  )}
-                  {agendamento.marcou_retorno && (
-                    <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 bg-[#e0e7ff] text-[#3730a3] rounded-full border border-[#c7d2fe] whitespace-nowrap">
-                      Retorno
-                    </span>
-                  )}
-                  {tempoEspera?.tipo === 'aguardando' && (
-                    <span className="shrink-0 flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 bg-teal-100 text-teal-700 rounded-full border border-teal-300 whitespace-nowrap">
-                      <Timer size={9} />
-                      {tempoEspera.tempo}
-                    </span>
-                  )}
-                  {tempoEspera?.tipo === 'esperou' && (
-                    <span className="shrink-0 flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded-full border border-slate-300 whitespace-nowrap">
-                      <Timer size={9} />
-                      Esperou {tempoEspera.tempo}
-                    </span>
-                  )}
+            {/* Grid principal: conteúdo + ícones de ação */}
+            <div className="grid grid-cols-[1fr_auto] items-center gap-2">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className={`w-9 h-9 shrink-0 rounded-full bg-white flex items-center justify-center shadow-sm ${config.iconText}`}>
+                  <Icone size={18} />
                 </div>
-                <p className={`text-[11px] ${config.subText} mt-1 font-medium italic`}>
-                  {agendamento.agendamento_pai?.tipo?.trim() || agendamento.tipo}
-                </p>
-                {agendamento.agendamento_pai?.tipo?.trim() && (
-                  <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                    <p className={`text-[11px] ${config.subText} font-medium`}>{descricaoTipoComContagem}</p>
-                    {exibirContagemTipoSeparada && (
-                      <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-white/60 text-[#5a6a65] rounded-full border border-[#bcc9c4] whitespace-nowrap">
-                        {agendamento.numero_sessao_tipo ?? 0}/{agendamento.total_sessoes_tipo}
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <p className={`text-sm font-bold truncate min-w-0 flex-1 ${config.titleText}`}>{nomePaciente}</p>
+                    {agendamento.total_sessoes && agendamento.total_sessoes > 1 && (
+                      <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 bg-white/60 text-[#006b5a] rounded-full border border-[#006b5a]/20 whitespace-nowrap">
+                        {agendamento.numero_sessao}/{agendamento.total_sessoes}
+                      </span>
+                    )}
+                    {agendamento.marcou_retorno && (
+                      <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 bg-[#e0e7ff] text-[#3730a3] rounded-full border border-[#c7d2fe] whitespace-nowrap">
+                        Retorno
+                      </span>
+                    )}
+                    {tempoEspera?.tipo === 'aguardando' && (
+                      <span className="shrink-0 flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 bg-teal-100 text-teal-700 rounded-full border border-teal-300 whitespace-nowrap">
+                        <Timer size={9} />
+                        {tempoEspera.tempo}
+                      </span>
+                    )}
+                    {tempoEspera?.tipo === 'esperou' && (
+                      <span className="shrink-0 flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded-full border border-slate-300 whitespace-nowrap">
+                        <Timer size={9} />
+                        Esperou {tempoEspera.tempo}
                       </span>
                     )}
                   </div>
-                )}
-                {agendamento.profissional?.full_name && (
-                  <p className={`text-[11px] ${config.subText} mt-0.5 font-medium flex items-center gap-1`}>
-                    <User size={10} className="shrink-0" />
-                    {agendamento.profissional.full_name}
+                  <p className={`text-[11px] ${config.subText} mt-1 font-medium italic`}>
+                    {agendamento.agendamento_pai?.tipo?.trim() || agendamento.tipo}
                   </p>
-                )}
-                {agendamento.observacoes && (
-                  <p className={`text-[11px] ${config.subText} mt-0.5 truncate max-w-[220px]`}>
-                    {agendamento.observacoes}
-                  </p>
-                )}
+                  {agendamento.agendamento_pai?.tipo?.trim() && (
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                      <p className={`text-[11px] ${config.subText} font-medium`}>{descricaoTipoComContagem}</p>
+                      {exibirContagemTipoSeparada && (
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-white/60 text-[#5a6a65] rounded-full border border-[#bcc9c4] whitespace-nowrap">
+                          {agendamento.numero_sessao_tipo ?? 0}/{agendamento.total_sessoes_tipo}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {agendamento.profissional?.full_name && (
+                    <p className={`text-[11px] ${config.subText} mt-0.5 font-medium flex items-center gap-1`}>
+                      <User size={10} className="shrink-0" />
+                      {agendamento.profissional.full_name}
+                    </p>
+                  )}
+                  {agendamento.observacoes && (
+                    <p className={`text-[11px] ${config.subText} mt-0.5 truncate max-w-[220px]`}>
+                      {agendamento.observacoes}
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2 sm:gap-3 justify-end">
-              {agendamento.google_drive_pasta_url && (
-                <a
-                  href={agendamento.google_drive_pasta_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+              {/* Coluna direita: só ícones pequenos — não infla a largura no mobile */}
+              <div className="flex items-center gap-2 sm:gap-3 justify-end">
+                {agendamento.google_drive_pasta_url && (
+                  <a
+                    href={agendamento.google_drive_pasta_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    title="Abrir pasta no Google Drive"
+                    className="text-slate-400 hover:text-[#006b5a] transition-colors"
+                  >
+                    📂
+                  </a>
+                )}
+                <Link
+                  href={`/pacientes/${agendamento.paciente_id}`}
                   onClick={(e) => e.stopPropagation()}
-                  title="Abrir pasta no Google Drive"
-                  className="text-slate-400 hover:text-[#006b5a] transition-colors"
+                  title="Ver jornada do paciente"
+                  className="w-7 h-7 flex items-center justify-center rounded-lg text-[#3d4945]/50 hover:text-[#006b5a] hover:bg-[#dee3e3] transition-colors"
                 >
-                  📂
-                </a>
-              )}
-              <Link
-                href={`/pacientes/${agendamento.paciente_id}`}
-                onClick={(e) => e.stopPropagation()}
-                title="Ver jornada do paciente"
-                className="w-7 h-7 flex items-center justify-center rounded-lg text-[#3d4945]/50 hover:text-[#006b5a] hover:bg-[#dee3e3] transition-colors"
-              >
-                <User size={15} />
-              </Link>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); setSlideEditarAberto(true) }}
-                title="Editar agendamento"
-                className="w-7 h-7 flex items-center justify-center rounded-lg text-[#3d4945]/50 hover:text-[#006b5a] hover:bg-[#dee3e3] transition-colors"
-              >
-                <Pencil size={14} />
-              </button>
-              {(mostrarChegou || mostrarEmAtendimento) && (
-                <>
-                  <span className="text-[#bcc9c4] select-none">|</span>
-                  {mostrarChegou && (
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); handleMudarStatus('Aguardando Consulta') }}
-                      disabled={!!statusLoading}
-                      title="Paciente chegou — marcar como Aguardando Consulta"
-                      className="w-7 h-7 flex items-center justify-center rounded-lg text-teal-600 hover:bg-teal-50 transition-colors disabled:opacity-40"
-                    >
-                      {statusLoading === 'Aguardando Consulta'
-                        ? <Loader2 size={14} className="animate-spin" />
-                        : <Timer size={14} />}
-                    </button>
-                  )}
-                  {mostrarEmAtendimento && (
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); handleMudarStatus('Em Atendimento') }}
-                      disabled={!!statusLoading}
-                      title="Iniciar atendimento — marcar como Em Atendimento"
-                      className="w-7 h-7 flex items-center justify-center rounded-lg text-blue-500 hover:bg-blue-50 transition-colors disabled:opacity-40"
-                    >
-                      {statusLoading === 'Em Atendimento'
-                        ? <Loader2 size={14} className="animate-spin" />
-                        : <Stethoscope size={14} />}
-                    </button>
-                  )}
-                </>
-              )}
-              <span className={`hidden sm:inline-block px-3 py-1 ${config.badgeBg} text-white text-[10px] font-bold rounded-full uppercase tracking-widest`}>
-                {config.label}
-              </span>
-              <div onClick={(e) => e.stopPropagation()}>
-                <MenuAcoesAgendamento
-                  id={agendamento.id}
-                  statusAtual={agendamento.status}
-                  onOpenChange={setIsMenuOpen}
-                  atendimentoId={agendamento.id}
-                  agendamentoId={agendamento.agendamento_id || undefined}
-                  pacienteNome={nomePaciente}
-                  dataAgendamento={agendamento.data_agendamento}
-                />
+                  <User size={15} />
+                </Link>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setSlideEditarAberto(true) }}
+                  title="Editar agendamento"
+                  className="hidden sm:flex w-7 h-7 items-center justify-center rounded-lg text-[#3d4945]/50 hover:text-[#006b5a] hover:bg-[#dee3e3] transition-colors"
+                >
+                  <Pencil size={14} />
+                </button>
+                {(mostrarChegou || mostrarEmAtendimento) && (
+                  <div className="hidden sm:flex items-center gap-2">
+                    <span className="text-[#bcc9c4] select-none">|</span>
+                    {mostrarChegou && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleMudarStatus('Aguardando Consulta') }}
+                        disabled={!!statusLoading}
+                        title="Paciente chegou — marcar como Aguardando Consulta"
+                        className="w-7 h-7 flex items-center justify-center rounded-lg text-teal-600 hover:bg-teal-50 transition-colors disabled:opacity-40"
+                      >
+                        {statusLoading === 'Aguardando Consulta'
+                          ? <Loader2 size={14} className="animate-spin" />
+                          : <Timer size={14} />}
+                      </button>
+                    )}
+                    {mostrarEmAtendimento && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleMudarStatus('Em Atendimento') }}
+                        disabled={!!statusLoading}
+                        title="Iniciar atendimento — marcar como Em Atendimento"
+                        className="w-7 h-7 flex items-center justify-center rounded-lg text-blue-500 hover:bg-blue-50 transition-colors disabled:opacity-40"
+                      >
+                        {statusLoading === 'Em Atendimento'
+                          ? <Loader2 size={14} className="animate-spin" />
+                          : <Stethoscope size={14} />}
+                      </button>
+                    )}
+                  </div>
+                )}
+                <span className={`hidden sm:inline-block px-3 py-1 ${config.badgeBg} text-white text-[10px] font-bold rounded-full uppercase tracking-widest`}>
+                  {config.label}
+                </span>
+                <div onClick={(e) => e.stopPropagation()}>
+                  <MenuAcoesAgendamento
+                    id={agendamento.id}
+                    statusAtual={agendamento.status}
+                    onOpenChange={setIsMenuOpen}
+                    atendimentoId={agendamento.id}
+                    agendamentoId={agendamento.agendamento_id || undefined}
+                    pacienteNome={nomePaciente}
+                    dataAgendamento={agendamento.data_agendamento}
+                  />
+                </div>
               </div>
             </div>
+            {/* Botões de ação rápida — mobile: abaixo do grid, fora da coluna auto */}
+            {(mostrarChegou || mostrarEmAtendimento) && (
+              <div className="sm:hidden mt-2 pl-12 flex flex-col gap-1.5">
+                {mostrarChegou && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); handleMudarStatus('Aguardando Consulta') }}
+                    disabled={!!statusLoading}
+                    className="flex items-center justify-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg text-teal-700 bg-teal-50 border border-teal-200 hover:bg-teal-100 transition-colors disabled:opacity-40"
+                  >
+                    {statusLoading === 'Aguardando Consulta' ? <Loader2 size={11} className="animate-spin" /> : <Timer size={11} />}
+                    Paciente chegou
+                  </button>
+                )}
+                {mostrarEmAtendimento && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); handleMudarStatus('Em Atendimento') }}
+                    disabled={!!statusLoading}
+                    className="flex items-center justify-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg text-blue-600 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors disabled:opacity-40"
+                  >
+                    {statusLoading === 'Em Atendimento' ? <Loader2 size={11} className="animate-spin" /> : <Stethoscope size={11} />}
+                    Iniciar atendimento
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
