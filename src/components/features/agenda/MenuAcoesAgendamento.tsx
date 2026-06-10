@@ -137,6 +137,7 @@ export function MenuAcoesAgendamento({ id, statusAtual, onOpenChange, atendiment
       return
     }
     toast.success(`${pacienteNome} — Falta registrada`)
+    router.refresh()
     if (reagendar && atendimentoId && dataAgendamento) {
       const proxima = agendamentoId ? await obterProximaData(atendimentoId) : null
       const horaAtual = format(new Date(dataAgendamento), 'HH:mm')

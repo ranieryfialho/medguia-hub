@@ -3,10 +3,11 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { User, Pencil, Timer, Stethoscope, Loader2 } from 'lucide-react'
+import { User, Pencil, Timer, Stethoscope, Loader2, Megaphone, CheckCheck } from 'lucide-react'
 import type { PlanoSaude } from '@/actions/planos-saude'
 import { formatAppTime } from '@/lib/datetime'
-import { mudarStatusAgendamento } from '@/actions/agenda'
+import { mudarStatusAgendamento, chamarPaciente } from '@/actions/agenda'
+import { createClient } from '@/lib/supabase/client'
 import { getAtendimentoStatusKey } from '@/lib/atendimento-status'
 import { useTempoEspera } from '@/hooks/useTempoEspera'
 import { MenuAcoesAgendamento } from './MenuAcoesAgendamento'
@@ -100,8 +101,11 @@ export function AgendamentoItemDia({
   const descricaoTipoComContagem = formatarTipoComContagem(agendamento)
   const exibirContagemTipoSeparada = deveExibirContagemTipoSeparada(agendamento)
   const statusKey = getAtendimentoStatusKey(agendamento.status)
-  const mostrarChegou = ['confirmado', 'aguardando'].includes(statusKey)
-  const mostrarEmAtendimento = ['aguardando', 'aguardando_consulta'].includes(statusKey)
+  const mostrarChegou         = ['confirmado', 'aguardando'].includes(statusKey)
+  const mostrarEmAtendimento  = ['aguardando', 'aguardando_consulta'].includes(statusKey)
+  const mostrarChamar                     = statusKey === 'aguardando_consulta'
+  const [chamarLoading, setChamarLoading] = useState(false)
+  const [chamadoAs, setChamadoAs]         = useState<string | null>(null)
   const tempoEspera = useTempoEspera(agendamento.id, agendamento.aguardando_desde, agendamento.em_atendimento_desde, () => router.refresh())
 
   async function handleMudarStatus(novoStatus: string) {
@@ -113,6 +117,35 @@ export function AgendamentoItemDia({
     } else {
       router.refresh()
     }
+  }
+
+  async function handleChamar() {
+    setChamarLoading(true)
+    const result = await chamarPaciente(agendamento.id)
+    setChamarLoading(false)
+    if (result?.error) {
+      toast.error(result.error)
+      return
+    }
+    setChamadoAs(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }))
+
+    // Broadcast direto para o painel TV — aguarda SUBSCRIBED antes de enviar
+    const nomeProfissional = agendamento.profissional?.full_name ?? 'Profissional'
+    const supabase = createClient()
+    const ch = supabase.channel('painel-chamadas')
+    await new Promise<void>((resolve) => {
+      const timeout = setTimeout(() => { supabase.removeChannel(ch); resolve() }, 3000)
+      ch.subscribe((status) => {
+        if (status !== 'SUBSCRIBED') return
+        clearTimeout(timeout)
+        ch.send({
+          type: 'broadcast',
+          event: 'chamar',
+          payload: { profissional: nomeProfissional, paciente: nomePaciente },
+        }).finally(() => { supabase.removeChannel(ch); resolve() })
+      })
+    })
+
   }
 
   return (
@@ -143,7 +176,7 @@ export function AgendamentoItemDia({
                         Retorno
                       </span>
                     )}
-                    {tempoEspera?.tipo === 'aguardando' && (
+                    {tempoEspera?.tipo === 'aguardando' && statusKey === 'aguardando_consulta' && (
                       <span className="shrink-0 flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 bg-teal-100 text-teal-700 rounded-full border border-teal-300 whitespace-nowrap">
                         <Timer size={9} />
                         {tempoEspera.tempo}
@@ -241,6 +274,29 @@ export function AgendamentoItemDia({
                           : <Stethoscope size={14} />}
                       </button>
                     )}
+                    {mostrarChamar && (
+                      chamadoAs ? (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setChamadoAs(null); handleChamar() }}
+                          title="Chamar novamente"
+                          className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-green-100 border border-green-300 text-green-700 text-[10px] font-bold hover:bg-green-200 transition-colors"
+                        >
+                          <CheckCheck size={11} />
+                          {chamadoAs}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleChamar() }}
+                          disabled={chamarLoading}
+                          title="Chamar paciente no painel da sala de espera"
+                          className="w-7 h-7 flex items-center justify-center rounded-lg text-orange-500 hover:bg-orange-50 transition-colors disabled:opacity-40"
+                        >
+                          {chamarLoading ? <Loader2 size={14} className="animate-spin" /> : <Megaphone size={14} />}
+                        </button>
+                      )
+                    )}
                   </div>
                 )}
                 <span className={`hidden sm:inline-block px-3 py-1 ${config.badgeBg} text-white text-[10px] font-bold rounded-full uppercase tracking-widest`}>
@@ -260,7 +316,7 @@ export function AgendamentoItemDia({
               </div>
             </div>
             {/* Botões de ação rápida — mobile: abaixo do grid, fora da coluna auto */}
-            {(mostrarChegou || mostrarEmAtendimento) && (
+            {(mostrarChegou || mostrarEmAtendimento || mostrarChamar) && (
               <div className="sm:hidden mt-2 pl-12 flex flex-col gap-1.5">
                 {mostrarChegou && (
                   <button
@@ -283,6 +339,28 @@ export function AgendamentoItemDia({
                     {statusLoading === 'Em Atendimento' ? <Loader2 size={11} className="animate-spin" /> : <Stethoscope size={11} />}
                     Iniciar atendimento
                   </button>
+                )}
+                {mostrarChamar && (
+                  chamadoAs ? (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setChamadoAs(null); handleChamar() }}
+                      className="flex items-center justify-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg text-green-700 bg-green-50 border border-green-300 hover:bg-green-100 transition-colors"
+                    >
+                      <CheckCheck size={11} />
+                      Chamado às {chamadoAs}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleChamar() }}
+                      disabled={chamarLoading}
+                      className="flex items-center justify-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg text-orange-600 bg-orange-50 border border-orange-200 hover:bg-orange-100 transition-colors disabled:opacity-40"
+                    >
+                      {chamarLoading ? <Loader2 size={11} className="animate-spin" /> : <Megaphone size={11} />}
+                      Chamar no painel
+                    </button>
+                  )
                 )}
               </div>
             )}
