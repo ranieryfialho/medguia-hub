@@ -23,12 +23,13 @@ export function GoogleDriveConfigClient({
 }: {
   status: StatusConexao
   statsInicial: Stats
-  statusMigracaoInicial: { status: MigrationStatus; erros: number }
+  statusMigracaoInicial: { status: MigrationStatus; erros: number; ultimoErro?: string }
 }) {
   const [status, setStatus] = useState(statusInicial)
   const [stats, setStats] = useState(statsInicial)
   const [statusMigracao, setStatusMigracao] = useState<MigrationStatus>(statusMigracaoInicial.status)
-  const [totalErros, setTotalErros] = useState(statusMigracaoInicial.erros)
+  const [totalErros, setTotalErros]   = useState(statusMigracaoInicial.erros)
+  const [ultimoErro, setUltimoErro]   = useState(statusMigracaoInicial.ultimoErro ?? '')
   const [desconectando, setDesconectando] = useState(false)
   const [iniciando, setIniciando] = useState(false)
   const [pausando, setPausando] = useState(false)
@@ -36,7 +37,7 @@ export function GoogleDriveConfigClient({
 
   const migrando = statusMigracao === 'running'
   const progresso = stats.total > 0 ? Math.round((stats.processados / stats.total) * 100) : 0
-  const concluido = statusMigracao === 'completed' || (stats.restantes === 0 && stats.total > 0)
+  const concluido = (statusMigracao === 'completed' || stats.restantes === 0) && stats.total > 0 && stats.restantes === 0
 
   // Auto-inicia migração quando Drive está conectado, há pendentes e nunca foi iniciada
   useEffect(() => {
@@ -63,7 +64,7 @@ export function GoogleDriveConfigClient({
       setStats(novasStats)
       setStatusMigracao(novoStatusMigracao.status)
       setTotalErros(novoStatusMigracao.erros)
-
+      setUltimoErro(novoStatusMigracao.ultimoErro ?? '')
       if (novoStatusMigracao.status === 'completed') {
         toast.success('Migração concluída! Todos os pacientes têm pasta no Drive.')
       }
@@ -87,11 +88,16 @@ export function GoogleDriveConfigClient({
 
   async function handleIniciarMigracao() {
     setIniciando(true)
+    // Se status era 'completed' mas ainda há pendentes, reseta antes de iniciar
+    if (statusMigracao === 'completed' && stats.restantes > 0) {
+      await pausarMigracao() // força 'paused' → iniciarMigracao aceita qualquer status não-running
+    }
     try {
       const result = await iniciarMigracao()
       if (result.success) {
         setStatusMigracao('running')
         setTotalErros(0)
+        setUltimoErro('')
       } else {
         toast.error(result.error ?? 'Erro ao iniciar migração')
       }
@@ -219,10 +225,17 @@ export function GoogleDriveConfigClient({
                 />
               </div>
               {totalErros > 0 && (
-                <p className="mt-2 flex items-center gap-1.5 text-xs text-amber-600">
-                  <AlertCircle size={12} />
-                  {totalErros} erro{totalErros !== 1 ? 's' : ''} — pacientes com erro serão ignorados e podem ser reprocessados depois.
-                </p>
+                <div className="mt-2 space-y-1">
+                  <p className="flex items-center gap-1.5 text-xs text-amber-600">
+                    <AlertCircle size={12} />
+                    {totalErros} erro{totalErros !== 1 ? 's' : ''} — pacientes com erro serão ignorados e podem ser reprocessados depois.
+                  </p>
+                  {ultimoErro && (
+                    <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 font-mono break-all">
+                      Último erro: {ultimoErro}
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           )}

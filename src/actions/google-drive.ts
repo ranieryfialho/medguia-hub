@@ -32,19 +32,15 @@ async function lerStatusMigracaoDB(): Promise<MigrationStatus> {
   return (data?.valor as MigrationStatus) ?? 'idle'
 }
 
-async function salvarStatusMigracaoDB(status: MigrationStatus, erros?: number): Promise<void> {
+async function salvarStatusMigracaoDB(status: MigrationStatus, erros?: number, ultimoErro?: string): Promise<void> {
   const db = createServiceClient()
-  await db.from('configuracoes_sistema').upsert({
-    chave: 'google_drive_migration_status',
-    valor: status,
-    atualizado_em: new Date().toISOString(),
-  })
+  const agora = new Date().toISOString()
+  await db.from('configuracoes_sistema').upsert({ chave: 'google_drive_migration_status', valor: status, atualizado_em: agora })
   if (erros !== undefined) {
-    await db.from('configuracoes_sistema').upsert({
-      chave: 'google_drive_migration_erros',
-      valor: String(erros),
-      atualizado_em: new Date().toISOString(),
-    })
+    await db.from('configuracoes_sistema').upsert({ chave: 'google_drive_migration_erros', valor: String(erros), atualizado_em: agora })
+  }
+  if (ultimoErro !== undefined) {
+    await db.from('configuracoes_sistema').upsert({ chave: 'google_drive_migration_ultimo_erro', valor: ultimoErro.slice(0, 500), atualizado_em: agora })
   }
 }
 
@@ -267,18 +263,20 @@ export async function buscarPastaAtendimento(atendimentoId: string): Promise<{
 export async function buscarStatusMigracao(): Promise<{
   status: MigrationStatus
   erros: number
+  ultimoErro?: string
 }> {
   const db = createServiceClient()
   const { data } = await db
     .from('configuracoes_sistema')
     .select('chave, valor')
-    .in('chave', ['google_drive_migration_status', 'google_drive_migration_erros'])
+    .in('chave', ['google_drive_migration_status', 'google_drive_migration_erros', 'google_drive_migration_ultimo_erro'])
 
   const map = Object.fromEntries(
     (data ?? []).map((r: { chave: string; valor: string }) => [r.chave, r.valor]),
   )
   let status = ((map['google_drive_migration_status'] ?? 'idle') as MigrationStatus)
   const erros = Number(map['google_drive_migration_erros'] ?? 0)
+  const ultimoErro = map['google_drive_migration_ultimo_erro'] ?? undefined
 
   // If DB says running but the in-process runner is gone (server restart), reset to paused
   if (status === 'running' && !isMigrationRunning()) {
@@ -286,7 +284,7 @@ export async function buscarStatusMigracao(): Promise<{
     status = 'paused'
   }
 
-  return { status, erros }
+  return { status, erros, ultimoErro }
 }
 
 export async function iniciarMigracao(): Promise<{ success: boolean; error?: string }> {
@@ -306,10 +304,11 @@ export async function iniciarMigracao(): Promise<{ success: boolean; error?: str
       async () => {
         const result = await migrarProximoLote(50)
         errosAcumulados += result.erros
-        await salvarStatusMigracaoDB('running', errosAcumulados)
-        // Lote sem nenhum sucesso = erro sistêmico (token expirado, rate limit, etc.)
+        await salvarStatusMigracaoDB('running', errosAcumulados, result.ultimoErro)
+        // Lote sem nenhum sucesso = pausa com mensagem de diagnóstico (não reseta para idle)
         if (!result.concluido && result.processados === 0 && result.erros > 0) {
-          return { concluido: false, error: `Lote sem progresso (${result.erros} erros). Verifique os logs do servidor.` }
+          const msg = result.ultimoErro ?? `Nenhum paciente processado no lote (${result.erros} erros).`
+          return { concluido: false, error: msg }
         }
         return { concluido: result.concluido, error: result.error }
       },
@@ -318,8 +317,9 @@ export async function iniciarMigracao(): Promise<{ success: boolean; error?: str
         return dbStatus === 'running'
       },
       async (reason) => {
+        // Em caso de erro, vai para 'paused' (mantém botão "Retomar") em vez de resetar para 'idle'
         const finalStatus: MigrationStatus =
-          reason === 'completed' ? 'completed' : reason === 'paused' ? 'paused' : 'idle'
+          reason === 'completed' ? 'completed' : reason === 'paused' ? 'paused' : 'paused'
         await salvarStatusMigracaoDB(finalStatus, errosAcumulados)
         console.log(`[Drive] Migração finalizada: ${finalStatus} (${errosAcumulados} erros acumulados)`)
       },
@@ -362,11 +362,16 @@ export async function migrarProximoLote(tamanhoLote = 50): Promise<{
   restantes: number
   concluido: boolean
   error?: string
+  ultimoErro?: string
 }> {
   try {
+    // Valida token uma única vez antes do loop — evita chamada de rede por paciente
     const status = await getStatusConexao()
     if (!status.conectado) {
-      return { processados: 0, erros: 0, restantes: 0, concluido: false, error: 'Google Drive não conectado' }
+      const msg = status.tokenInvalido
+        ? 'Sessão do Google Drive expirada. Reconecte a conta em Configurações → Google Drive.'
+        : 'Google Drive não conectado'
+      return { processados: 0, erros: 0, restantes: 0, concluido: false, error: msg }
     }
 
     const db = createServiceClient()
@@ -378,13 +383,16 @@ export async function migrarProximoLote(tamanhoLote = 50): Promise<{
 
     let processados = 0
     let erros = 0
+    let ultimoErro: string | undefined
 
     for (const paciente of pacientes) {
       const resultado = await criarPastaPaciente(paciente.id, paciente.nome)
       if (resultado.success) {
         processados++
       } else {
-        console.error(`[Drive] Falha ao criar pasta do paciente ${paciente.id} (${paciente.nome}): ${resultado.error}`)
+        const msg = `Paciente "${paciente.nome}" (${paciente.id.slice(0, 8)}): ${resultado.error}`
+        console.error(`[Drive] ${msg}`)
+        ultimoErro = msg
         erros++
       }
       await new Promise(r => setTimeout(r, 150))
@@ -393,9 +401,10 @@ export async function migrarProximoLote(tamanhoLote = 50): Promise<{
     const { data: restantesData } = await db.rpc('contar_pacientes_sem_pasta_drive')
     const restantes = Number(restantesData ?? 0)
 
-    return { processados, erros, restantes, concluido: restantes === 0 }
+    return { processados, erros, restantes, concluido: restantes === 0, ultimoErro }
   } catch (err) {
-    console.error('[Drive] Erro na migração em lote:', err)
-    return { processados: 0, erros: 1, restantes: -1, concluido: false, error: String(err) }
+    const msg = String(err)
+    console.error('[Drive] Erro na migração em lote:', msg)
+    return { processados: 0, erros: 1, restantes: -1, concluido: false, error: msg, ultimoErro: msg }
   }
 }
