@@ -51,21 +51,38 @@ function tocarChime(): Promise<void> {
   })
 }
 
+// Nomes masculinos comuns em vozes PT-BR (Windows/Chrome/Edge)
+const NOMES_MASCULINOS = /daniel|antonio|antônio|miguel|pedro|lucas|rafael|davi|carlos|joão|gustavo/i
+
+function getVozMasculina(): SpeechSynthesisVoice | null {
+  if (typeof window === 'undefined') return null
+  const voices = window.speechSynthesis.getVoices()
+  const pt = voices.filter(v => v.lang.replace('_', '-').toLowerCase().startsWith('pt'))
+  return pt.find(v => NOMES_MASCULINOS.test(v.name)) ?? null
+}
+
+let _vozPreferida: SpeechSynthesisVoice | null = null
+
+function criarUtterrance(texto: string): SpeechSynthesisUtterance {
+  const u = new SpeechSynthesisUtterance(texto)
+  u.lang = 'pt-BR'
+  u.rate = 0.82
+  u.volume = 1
+  const voz = _vozPreferida ?? getVozMasculina()
+  if (voz) u.voice = voz
+  return u
+}
+
 function falarComChime(texto: string) {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
   const anunciar = () => {
     window.speechSynthesis.cancel()
-    setTimeout(() => {
-      const u = new SpeechSynthesisUtterance(texto)
-      u.lang = 'pt-BR'; u.rate = 0.82; u.volume = 1
-      window.speechSynthesis.speak(u)
-    }, 100)
+    setTimeout(() => { window.speechSynthesis.speak(criarUtterrance(texto)) }, 100)
   }
   tocarChime().then(() => {
     window.speechSynthesis.cancel()
     setTimeout(() => {
-      const u1 = new SpeechSynthesisUtterance(texto)
-      u1.lang = 'pt-BR'; u1.rate = 0.82; u1.volume = 1
+      const u1 = criarUtterrance(texto)
       u1.onend = () => setTimeout(() => tocarChime().then(anunciar), 1000)
       window.speechSynthesis.speak(u1)
     }, 100)
@@ -89,10 +106,30 @@ export function PainelTV({ atendimentosIniciais }: { atendimentosIniciais: Atend
   const [janela, setJanela]             = useState(janelaAtual)
   const [modo, setModo]                 = useState<Modo>('janela')
   const [audioAtivado, setAudioAtivado] = useState(false)
+  const [vozesPT, setVozesPT]           = useState<SpeechSynthesisVoice[]>([])
+  const [vozIdx, setVozIdx]             = useState(0)
 
   const audioAtivadoRef = useRef(false)
   useEffect(() => { audioAtivadoRef.current = audioAtivado }, [audioAtivado])
   useEffect(() => { setAtendimentos(atendimentosIniciais) }, [atendimentosIniciais])
+
+  // Carrega vozes PT disponíveis (assíncrono no browser)
+  useEffect(() => {
+    const carregar = () => {
+      const all = window.speechSynthesis.getVoices()
+      const pt  = all.filter(v => v.lang.replace('_', '-').toLowerCase().startsWith('pt'))
+      if (pt.length === 0) return
+      setVozesPT(pt)
+      // Seleciona masculina automaticamente
+      const idxM = pt.findIndex(v => NOMES_MASCULINOS.test(v.name))
+      const idx  = idxM >= 0 ? idxM : 0
+      setVozIdx(idx)
+      _vozPreferida = pt[idx]
+    }
+    carregar()
+    window.speechSynthesis.addEventListener('voiceschanged', carregar)
+    return () => window.speechSynthesis.removeEventListener('voiceschanged', carregar)
+  }, [])
 
   useEffect(() => {
     const id = setInterval(() => router.refresh(), 20_000)
@@ -174,24 +211,52 @@ export function PainelTV({ atendimentosIniciais }: { atendimentosIniciais: Atend
     .filter(a => a.id !== chamando?.id)
     .slice(0, 3)
 
+  const trocarVoz = () => {
+    if (vozesPT.length === 0) return
+    const proximo = (vozIdx + 1) % vozesPT.length
+    setVozIdx(proximo)
+    _vozPreferida = vozesPT[proximo]
+  }
+
+  const nomeVozCurta = vozesPT[vozIdx]?.name
+    .replace(/microsoft\s*/i, '')
+    .replace(/online.*$/i, '')
+    .replace(/natural.*/i, '')
+    .trim()
+
   const botaoAudio = (
-    <button
-      onClick={() => {
-        const novoEstado = !audioAtivado
-        setAudioAtivado(novoEstado)
-        if (novoEstado) { getAudioCtx()?.resume(); tocarChime() }
-      }}
-      className={`fixed bottom-5 right-5 flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold border transition-all shadow-sm z-50 ${
-        audioAtivado
-          ? 'bg-primary-600 border-primary-600 text-white'
-          : chamando
-          ? 'bg-white/15 border-white/25 text-white/70 hover:bg-white/25'
-          : 'bg-surface border-border text-text-secondary hover:text-text-primary'
-      }`}
-    >
-      {audioAtivado ? <Volume2 size={13} /> : <VolumeX size={13} />}
-      {audioAtivado ? 'Áudio ativo' : 'Ativar áudio'}
-    </button>
+    <div className="fixed bottom-5 right-5 flex items-center gap-2 z-50">
+      {audioAtivado && vozesPT.length > 1 && (
+        <button
+          onClick={trocarVoz}
+          title="Trocar voz"
+          className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border transition-all shadow-sm ${
+            chamando
+              ? 'bg-white/15 border-white/25 text-white/70 hover:bg-white/25'
+              : 'bg-surface border-border text-text-secondary hover:text-text-primary'
+          }`}
+        >
+          🎙 {nomeVozCurta ?? 'Voz'}
+        </button>
+      )}
+      <button
+        onClick={() => {
+          const novoEstado = !audioAtivado
+          setAudioAtivado(novoEstado)
+          if (novoEstado) { getAudioCtx()?.resume(); tocarChime() }
+        }}
+        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold border transition-all shadow-sm ${
+          audioAtivado
+            ? 'bg-primary-600 border-primary-600 text-white'
+            : chamando
+            ? 'bg-white/15 border-white/25 text-white/70 hover:bg-white/25'
+            : 'bg-surface border-border text-text-secondary hover:text-text-primary'
+        }`}
+      >
+        {audioAtivado ? <Volume2 size={13} /> : <VolumeX size={13} />}
+        {audioAtivado ? 'Áudio ativo' : 'Ativar áudio'}
+      </button>
+    </div>
   )
 
   // ── OPÇÃO B: TAKEOVER quando há chamada ativa ──────────────────────────────
