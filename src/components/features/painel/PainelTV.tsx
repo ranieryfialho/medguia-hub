@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { format, startOfHour, endOfHour } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Volume2, VolumeX, Clock, List, Stethoscope } from 'lucide-react'
+import { Volume2, VolumeX, Stethoscope } from 'lucide-react'
 import { getAtendimentoStatusKey } from '@/lib/atendimento-status'
 
 export type AtendimentoPainel = {
@@ -95,7 +95,6 @@ function janelaAtual(): { inicio: Date; fim: Date; label: string } {
   return { inicio, fim, label: `${format(inicio, 'HH:mm')} – ${format(fim, 'HH:mm')}` }
 }
 
-type Modo = 'todos' | 'janela'
 
 export function PainelTV({ atendimentosIniciais }: { atendimentosIniciais: AtendimentoPainel[] }) {
   const router = useRouter()
@@ -103,8 +102,6 @@ export function PainelTV({ atendimentosIniciais }: { atendimentosIniciais: Atend
   const [now, setNow]                   = useState(() => Date.now())
   const [hora, setHora]                 = useState('')
   const [dataLabel, setDataLabel]       = useState('')
-  const [janela, setJanela]             = useState(janelaAtual)
-  const [modo, setModo]                 = useState<Modo>('janela')
   const [audioAtivado, setAudioAtivado] = useState(false)
   const [vozesPT, setVozesPT]           = useState<SpeechSynthesisVoice[]>([])
   const [vozIdx, setVozIdx]             = useState(0)
@@ -142,7 +139,6 @@ export function PainelTV({ atendimentosIniciais }: { atendimentosIniciais: Atend
       setNow(agora.getTime())
       setHora(format(agora, 'HH:mm'))
       setDataLabel(format(agora, "EEEE, dd 'de' MMMM", { locale: ptBR }))
-      setJanela(janelaAtual())
     }
     tick()
     const id = setInterval(tick, 1_000)
@@ -185,19 +181,13 @@ export function PainelTV({ atendimentosIniciais }: { atendimentosIniciais: Atend
     .filter(a => a.chamado_em && (now - new Date(a.chamado_em).getTime()) < CHAMADA_EXPIRA_MS)
     .sort((a, b) => new Date(b.chamado_em!).getTime() - new Date(a.chamado_em!).getTime())[0] ?? null
 
+  // Próximos após o chamado atual (para os chips do takeover na Option B)
   const filaCompleta = atendimentos
     .filter(a => {
       const key = getAtendimentoStatusKey(a.status)
       return key !== 'cancelado' && key !== 'falta' && key !== 'reagendado'
     })
     .sort((a, b) => new Date(a.data_agendamento).getTime() - new Date(b.data_agendamento).getTime())
-
-  const filaJanela = filaCompleta.filter(a => {
-    const t = new Date(a.data_agendamento).getTime()
-    return t >= janela.inicio.getTime() && t <= janela.fim.getTime()
-  })
-
-  const fila = modo === 'janela' ? filaJanela : filaCompleta
 
   // Último paciente chamado no dia (sem limite de tempo — para o histórico da Option A)
   const chamadosOrdenados = [...atendimentos]
@@ -406,9 +396,9 @@ export function PainelTV({ atendimentosIniciais }: { atendimentosIniciais: Atend
       {/* BODY */}
       <div className="flex flex-1 min-h-0">
 
-        {/* HERO */}
-        <section className="relative flex flex-col justify-center overflow-hidden"
-          style={{ flex:'1.45', padding:'0 4.4vw', background:'linear-gradient(140deg,#1AAF9A 0%,#0A8A77 100%)' }}>
+        {/* HERO — largura total */}
+        <section className="relative flex flex-col justify-center overflow-hidden w-full"
+          style={{ padding:'0 8vw', background:'linear-gradient(140deg,#1AAF9A 0%,#0A8A77 100%)' }}>
           <div className="absolute rounded-full pointer-events-none" style={{ top:'-7vw', right:'-7vw', width:'24vw', height:'24vw', background:'rgba(255,255,255,.08)' }} />
           <div className="absolute rounded-full pointer-events-none" style={{ bottom:'-5vw', left:'-4vw', width:'16vw', height:'16vw', background:'rgba(255,255,255,.06)' }} />
 
@@ -468,57 +458,6 @@ export function PainelTV({ atendimentosIniciais }: { atendimentosIniciais: Atend
             </div>
           )}
         </section>
-
-        {/* FILA */}
-        <aside className="bg-surface flex flex-col min-w-0" style={{ flex:1, padding:'3.6vh 2.4vw' }}>
-          <div className="flex items-center justify-between shrink-0" style={{ marginBottom:'2vh' }}>
-            <span className="font-bold text-text-secondary uppercase" style={{ fontSize:'max(1.55vw,13px)', letterSpacing:'3px' }}>PRÓXIMOS</span>
-            <span className="font-bold" style={{ background:'#E8F8F5', color:'#0A8A77', fontSize:'max(1.45vw,13px)', padding:'0.5vh 1vw', borderRadius:999 }}>
-              {fila.length}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1 p-1 bg-page rounded-lg border border-border shrink-0" style={{ marginBottom:'2.2vh' }}>
-            <button onClick={() => setModo('todos')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold transition-all ${modo==='todos' ? 'bg-primary-600 text-white' : 'text-text-secondary hover:text-text-primary'}`}>
-              <List size={11} /> Todos
-            </button>
-            <button onClick={() => setModo('janela')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold transition-all ${modo==='janela' ? 'bg-primary-600 text-white' : 'text-text-secondary hover:text-text-primary'}`}>
-              <Clock size={11} /> {janela.label}
-            </button>
-          </div>
-
-          <ul className="flex flex-col list-none overflow-y-auto flex-1 min-h-0 m-0 p-0" style={{ gap:'0.9vh' }}>
-            {fila.length === 0 ? (
-              <li className="flex items-center justify-center h-full">
-                <span className="text-text-tertiary text-center" style={{ fontSize:'max(1.4vw,14px)' }}>
-                  {modo==='janela' ? `Nenhum agendamento entre ${janela.label}` : 'Nenhum paciente na fila'}
-                </span>
-              </li>
-            ) : (
-              fila.map(a => {
-                const key = getAtendimentoStatusKey(a.status)
-                const isActive   = key === 'aguardando_consulta' || key === 'em_atendimento'
-                const isConcluido = key === 'concluido'
-                return (
-                  <li key={a.id}
-                    className={`flex items-center rounded-xl border ${isActive ? 'border-[#C3EDE6]' : 'border-transparent'} ${isConcluido ? 'opacity-35' : ''}`}
-                    style={{ gap:'1.4vw', padding:'1.7vh 1.2vw', background: isActive ? '#E8F8F5' : 'transparent' }}>
-                    <span className="tabular-nums font-bold shrink-0"
-                      style={{ minWidth:'5.4vw', fontSize:'max(1.7vw,15px)', color: isActive ? '#0A8A77' : '#9BB0AD' }}>
-                      {format(new Date(a.data_agendamento), 'HH:mm')}
-                    </span>
-                    <span className="font-semibold truncate"
-                      style={{ fontSize:'max(1.65vw,14px)', letterSpacing:'.2px', color: isActive ? '#1A2E2B' : '#637370' }}>
-                      {a.pacientes?.nome ?? '—'}
-                    </span>
-                  </li>
-                )
-              })
-            )}
-          </ul>
-        </aside>
       </div>
 
       {botaoAudio}
