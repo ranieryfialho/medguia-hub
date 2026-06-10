@@ -57,14 +57,17 @@ type Sessao = {
   profissional?: { full_name?: string | null } | null
 }
 
-function TempoEsperaBadge({ atendimentoId, aguardandoDesde, emAtendimentoDesde, onExternalUpdate }: {
+function TempoEsperaBadge({ atendimentoId, aguardandoDesde, emAtendimentoDesde, status, onExternalUpdate }: {
   atendimentoId: string
   aguardandoDesde: string | null | undefined
   emAtendimentoDesde: string | null | undefined
+  status?: string
   onExternalUpdate?: () => void
 }) {
   const resultado = useTempoEspera(atendimentoId, aguardandoDesde, emAtendimentoDesde, onExternalUpdate)
   if (!resultado) return null
+  const statusKey = status ? getAtendimentoStatusKey(status) : null
+  if (resultado.tipo === 'aguardando' && statusKey !== 'aguardando_consulta') return null
   if (resultado.tipo === 'aguardando') return (
     <span className="rounded-full border border-teal-200 bg-teal-50 px-2 py-0.5 text-[10px] font-bold text-teal-700 flex items-center gap-0.5 whitespace-nowrap">
       <Timer size={9} />
@@ -219,6 +222,7 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
                   atendimentoId={sessaoComTempo.id}
                   aguardandoDesde={sessaoComTempo.aguardando_desde}
                   emAtendimentoDesde={sessaoComTempo.em_atendimento_desde}
+                  status={sessaoComTempo.status}
                   onExternalUpdate={() => router.refresh()}
                 />
               )}
@@ -343,6 +347,7 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
                             atendimentoId={sessao.id}
                             aguardandoDesde={sessao.aguardando_desde}
                             emAtendimentoDesde={sessao.em_atendimento_desde}
+                            status={sessao.status}
                             onExternalUpdate={() => router.refresh()}
                           />
                         )}

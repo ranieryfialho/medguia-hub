@@ -9,6 +9,32 @@ export type AtendimentoStatusKey =
   | 'reagendado'
   | 'desconhecido'
 
+// Transições válidas por status atual
+export const TRANSICOES_VALIDAS: Record<Exclude<AtendimentoStatusKey, 'desconhecido'>, AtendimentoStatusKey[]> = {
+  aguardando:          ['confirmado', 'aguardando_consulta', 'cancelado', 'falta', 'reagendado'],
+  confirmado:          ['aguardando', 'aguardando_consulta', 'cancelado', 'falta', 'reagendado'],
+  aguardando_consulta: ['em_atendimento', 'cancelado', 'falta'],
+  em_atendimento:      ['concluido'],
+  concluido:           [],
+  cancelado:           [],
+  falta:               ['reagendado'],
+  reagendado:          [],
+}
+
+// Retorna o status que precisa vir antes de `para`, dado o status atual
+export function getPreRequisitoTransicao(
+  de: AtendimentoStatusKey,
+  para: AtendimentoStatusKey,
+): string | null {
+  const validas = de === 'desconhecido' ? [] : TRANSICOES_VALIDAS[de]
+  if (validas.includes(para)) return null
+  if (para === 'concluido' && de === 'aguardando_consulta') return 'Em Atendimento'
+  if (para === 'concluido' && (de === 'aguardando' || de === 'confirmado')) return 'Aguardando Consulta → Em Atendimento'
+  if ((para === 'cancelado' || para === 'falta') && de === 'em_atendimento') return null // bloqueado sem pré-requisito
+  if (para === 'em_atendimento' && (de === 'aguardando' || de === 'confirmado')) return 'Aguardando Consulta'
+  return null
+}
+
 export const STATUS_PENDENTE_KEYS = [
   'confirmado',
   'aguardando',

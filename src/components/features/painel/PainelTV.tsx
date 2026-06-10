@@ -173,7 +173,7 @@ export function PainelTV({ atendimentosIniciais }: { atendimentosIniciais: Atend
         router.refresh()
         if (!audioAtivadoRef.current) return
         const { profissional, paciente } = payload as { profissional: string; paciente: string }
-        falarComChime(`Atenção! ${profissional}. Seu paciente ${paciente} está aguardando na recepção.`)
+        falarComChime(`Atenção! ${profissional}. Seu paciente ${paciente} aguarda atendimento.`)
       })
       .subscribe()
     return () => { supabase.removeChannel(channel) }

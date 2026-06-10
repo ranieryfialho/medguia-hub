@@ -21,7 +21,7 @@ import {
 import { adicionarSessaoReposicao, criarAtendimentoReagendado, obterProximaData, registrarContato } from '@/actions/confirmacoes'
 import { format } from 'date-fns'
 import { formatAppDateLabel, formatAppTime } from '@/lib/datetime'
-import { getAtendimentoStatusKey } from '@/lib/atendimento-status'
+import { getAtendimentoStatusKey, TRANSICOES_VALIDAS, getPreRequisitoTransicao } from '@/lib/atendimento-status'
 import { ProntuarioEvolucao } from '../prontuarios'
 import { ModalSessaoReposicao } from '../shared'
 import { ConfirmacaoFaltaModal } from './AgendamentoItem'
@@ -566,17 +566,39 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, podeVerComerc
           }}
           className="overflow-hidden rounded-xl border border-[#bcc9c4] bg-white shadow-lg"
         >
-          {OPCOES_STATUS.map(({ valor, label, Icon, cor }) => (
-            <button
-              key={valor}
-              type="button"
-              onClick={() => void handleStatusChange(valor)}
-              className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm font-medium text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
-            >
-              <Icon size={14} className={cor} />
-              {label}
-            </button>
-          ))}
+          {OPCOES_STATUS.map(({ valor, label, Icon, cor }) => {
+            const statusAtualKey = getAtendimentoStatusKey(status)
+            const opcaoKey       = getAtendimentoStatusKey(valor)
+            const isAtivo        = valor !== '__reagendar__' && status.toLowerCase() === valor.toLowerCase()
+            const validas        = statusAtualKey !== 'desconhecido' ? TRANSICOES_VALIDAS[statusAtualKey] : null
+            const isBloqueado    = !isAtivo && valor !== '__reagendar__' && validas !== null && !validas.includes(opcaoKey)
+            const prereq         = isBloqueado ? getPreRequisitoTransicao(statusAtualKey, opcaoKey) : null
+
+            return (
+              <button
+                key={valor}
+                type="button"
+                onClick={() => { if (!isBloqueado) void handleStatusChange(valor) }}
+                disabled={isAtivo || isBloqueado}
+                title={prereq ? `Passe primeiro por: ${prereq}` : undefined}
+                className={`flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm font-medium transition-colors ${
+                  isAtivo
+                    ? 'bg-[#f0f5f4] text-[#171d1c] cursor-default'
+                    : isBloqueado
+                    ? 'text-[#bcc9c4] cursor-not-allowed'
+                    : 'text-[#3d4945] hover:bg-[#f0f5f4]'
+                }`}
+              >
+                <Icon size={14} className={isBloqueado ? 'opacity-30' : cor} />
+                <span className="flex-1">{label}</span>
+                {isBloqueado && prereq && (
+                  <span className="text-[10px] font-semibold text-[#bcc9c4] whitespace-nowrap">
+                    após {prereq.split(' → ')[0]}
+                  </span>
+                )}
+              </button>
+            )
+          })}
         </div>,
         document.body
       )}

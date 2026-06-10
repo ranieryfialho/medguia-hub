@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { MoreVertical, CheckCircle, Hourglass, Stethoscope, CheckCheck, XCircle, UserX, RefreshCw, Timer } from 'lucide-react'
 import { mudarStatusAgendamento } from '@/actions/agenda'
 import { obterProximaData, registrarContato, criarAtendimentoReagendado, adicionarSessaoReposicao } from '@/actions/confirmacoes'
-import { normalizeAtendimentoStatus } from '@/lib/atendimento-status'
+import { normalizeAtendimentoStatus, getAtendimentoStatusKey, TRANSICOES_VALIDAS, getPreRequisitoTransicao } from '@/lib/atendimento-status'
 import { ModalSessaoReposicao } from '../shared'
 import { ConfirmacaoFaltaModal } from './AgendamentoItem'
 import { format } from 'date-fns'
@@ -191,6 +191,17 @@ export function MenuAcoesAgendamento({ id, statusAtual, onOpenChange, atendiment
 
             {OPCOES_STATUS.map((opcao) => {
               const isAtivo = opcao.valor !== '__reagendar__' && statusAtual.toLowerCase() === opcao.valor.toLowerCase()
+              const statusAtualKey = getAtendimentoStatusKey(statusAtual)
+              const opcaoKey = getAtendimentoStatusKey(opcao.valor)
+
+              // Verifica se a transição é válida pelo fluxo
+              const validas = statusAtualKey !== 'desconhecido' ? TRANSICOES_VALIDAS[statusAtualKey] : null
+              const isBloqueado = !isAtivo
+                && opcao.valor !== '__reagendar__'
+                && validas !== null
+                && !validas.includes(opcaoKey)
+              const prereq = isBloqueado ? getPreRequisitoTransicao(statusAtualKey, opcaoKey) : null
+
               const Icone = opcao.Icon
 
               return (
@@ -200,15 +211,23 @@ export function MenuAcoesAgendamento({ id, statusAtual, onOpenChange, atendiment
                     e.preventDefault()
                     handleMudarStatus(opcao.valor)
                   }}
-                  disabled={isAtivo}
+                  disabled={isAtivo || isBloqueado}
+                  title={prereq ? `Passe primeiro por: ${prereq}` : undefined}
                   className={`w-full px-3 py-2 flex items-center gap-2 text-xs font-bold transition-colors ${
                     isAtivo
                       ? 'bg-[#f0f5f4] text-[#171d1c] cursor-default'
+                      : isBloqueado
+                      ? 'text-[#bcc9c4] cursor-not-allowed'
                       : `text-[#3d4945] hover:bg-[#f0f5f4] hover:${opcao.cor}`
                   }`}
                 >
-                  <Icone size={14} className={isAtivo ? opcao.cor : 'opacity-70'} />
-                  {opcao.label}
+                  <Icone size={14} className={isAtivo ? opcao.cor : isBloqueado ? 'opacity-30' : 'opacity-70'} />
+                  <span className="flex-1 text-left">{opcao.label}</span>
+                  {isBloqueado && prereq && (
+                    <span className="text-[9px] font-semibold text-[#bcc9c4] whitespace-nowrap">
+                      após {prereq.split(' → ')[0]}
+                    </span>
+                  )}
                 </button>
               )
             })}

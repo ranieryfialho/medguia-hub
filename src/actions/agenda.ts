@@ -22,6 +22,8 @@ import {
   STATUS_NAO_BLOQUEIAM_RAW_VALUES,
   isStatusNaoEfetivo,
   normalizeAtendimentoStatus,
+  TRANSICOES_VALIDAS,
+  getPreRequisitoTransicao,
 } from '@/lib/atendimento-status'
 import { isGestorSistema } from '@/lib/permissoes'
 import { criarPastasAtendimentosLote } from '@/actions/google-drive'
@@ -1214,15 +1216,27 @@ export async function mudarStatusAgendamento(id: string, novoStatus: string) {
 
   const statusCanonico = normalizeAtendimentoStatus(novoStatus)
 
-  if (!podeGerirAgendaEquipe) {
-    const { data: atendimentoAlvo } = await supabaseAdmin
-      .from('atendimentos')
-      .select('profissional_id')
-      .eq('id', id)
-      .maybeSingle()
+  // Busca status atual para validar transição (e checar permissão de profissional)
+  const { data: atendimentoAlvo } = await supabaseAdmin
+    .from('atendimentos')
+    .select('profissional_id, status')
+    .eq('id', id)
+    .maybeSingle()
 
-    if (atendimentoAlvo?.profissional_id !== userId) {
-      return { error: 'Você só pode alterar o status dos seus próprios agendamentos.' }
+  if (!podeGerirAgendaEquipe && atendimentoAlvo?.profissional_id !== userId) {
+    return { error: 'Você só pode alterar o status dos seus próprios agendamentos.' }
+  }
+
+  // Valida transição de fluxo
+  const statusAtualKey = getAtendimentoStatusKey(atendimentoAlvo?.status)
+  if (statusAtualKey !== 'desconhecido') {
+    const validas = TRANSICOES_VALIDAS[statusAtualKey]
+    if (!validas.includes(statusKey)) {
+      const prereq = getPreRequisitoTransicao(statusAtualKey, statusKey)
+      if (prereq) {
+        return { error: `Para marcar "${statusCanonico}", passe primeiro por: ${prereq}.` }
+      }
+      return { error: `Não é possível alterar de "${normalizeAtendimentoStatus(atendimentoAlvo?.status)}" para "${statusCanonico}".` }
     }
   }
 
