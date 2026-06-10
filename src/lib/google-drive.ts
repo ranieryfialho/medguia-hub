@@ -99,17 +99,26 @@ export async function getClienteAutenticado() {
   }
 
   client.setCredentials({ refresh_token: refreshToken })
-  const { credentials } = await client.refreshAccessToken()
 
-  if (credentials.access_token) {
-    await salvarConfig('google_drive_access_token', credentials.access_token)
-  }
-  if (credentials.expiry_date) {
-    await salvarConfig('google_drive_token_expiry', credentials.expiry_date.toString())
-  }
+  try {
+    const { credentials } = await client.refreshAccessToken()
 
-  client.setCredentials(credentials)
-  return client
+    if (credentials.access_token) {
+      await salvarConfig('google_drive_access_token', credentials.access_token)
+    }
+    if (credentials.expiry_date) {
+      await salvarConfig('google_drive_token_expiry', credentials.expiry_date.toString())
+    }
+
+    client.setCredentials(credentials)
+    return client
+  } catch (err) {
+    console.error('[Drive] Falha ao renovar token de acesso:', err)
+    // Limpa o access token expirado para evitar reuso futuro
+    await salvarConfig('google_drive_access_token', '')
+    await salvarConfig('google_drive_token_expiry', '0')
+    throw new Error('Google Drive: sessão expirada ou revogada. Reconecte a conta em Configurações → Google Drive.')
+  }
 }
 
 async function buscarOuCriarPastaRaiz(): Promise<string> {
@@ -203,11 +212,30 @@ export async function criarPastaAtendimentoNoDrive(
   return { folderId: folder.id, folderUrl: folder.webViewLink }
 }
 
-export async function getStatusConexao(): Promise<{ conectado: boolean; email?: string }> {
+export async function getStatusConexao(): Promise<{ conectado: boolean; email?: string; tokenInvalido?: boolean }> {
   const refreshToken = await lerConfig('google_drive_refresh_token')
   if (!refreshToken) return { conectado: false }
 
   const email = await lerConfig('google_drive_email')
+
+  // Verifica se o access token salvo ainda é válido (sem chamada de rede)
+  const [accessToken, expiryStr] = await Promise.all([
+    lerConfig('google_drive_access_token'),
+    lerConfig('google_drive_token_expiry'),
+  ])
+  const expiry = expiryStr ? parseInt(expiryStr, 10) : 0
+  const accessValido = accessToken && expiry > Date.now() + 60_000
+
+  // Se o access token está expirado/ausente, tenta renovar para confirmar validade
+  if (!accessValido) {
+    try {
+      await getClienteAutenticado()
+    } catch {
+      // Refresh token inválido — conexão precisa ser refeita
+      return { conectado: false, tokenInvalido: true, email: email ?? undefined }
+    }
+  }
+
   return { conectado: true, email: email ?? undefined }
 }
 

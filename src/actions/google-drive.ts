@@ -175,8 +175,8 @@ export async function criarPastasAtendimentosLote(
         atendimento.data_agendamento,
         atendimento.tipo,
       )
-    } catch {
-      // falha silenciosa por sessão — não bloqueia as demais
+    } catch (err) {
+      console.error(`[Drive] Falha ao criar pasta do atendimento ${atendimento.id}:`, err)
     }
   }
 }

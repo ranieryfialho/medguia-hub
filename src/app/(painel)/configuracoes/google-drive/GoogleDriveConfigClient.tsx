@@ -12,7 +12,7 @@ import {
   pausarMigracao,
 } from '@/actions/google-drive'
 
-type StatusConexao = { conectado: boolean; email?: string }
+type StatusConexao = { conectado: boolean; email?: string; tokenInvalido?: boolean }
 type Stats = { total: number; processados: number; restantes: number; error?: string }
 type MigrationStatus = 'idle' | 'running' | 'paused' | 'completed'
 
@@ -37,6 +37,19 @@ export function GoogleDriveConfigClient({
   const migrando = statusMigracao === 'running'
   const progresso = stats.total > 0 ? Math.round((stats.processados / stats.total) * 100) : 0
   const concluido = statusMigracao === 'completed' || (stats.restantes === 0 && stats.total > 0)
+
+  // Auto-inicia migração quando Drive está conectado, há pendentes e nunca foi iniciada
+  useEffect(() => {
+    if (
+      statusInicial.conectado &&
+      !statusInicial.tokenInvalido &&
+      statsInicial.restantes > 0 &&
+      statusMigracaoInicial.status === 'idle'
+    ) {
+      handleIniciarMigracao()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Poll DB every 3 s while migration is running — works even for users who weren't on the page when it started
   useEffect(() => {
@@ -123,6 +136,13 @@ export function GoogleDriveConfigClient({
                 <CheckCircle size={14} className="text-green-600 shrink-0" />
                 <p className="text-sm text-[#3d4945]">
                   Conectado{status.email ? ` como ${status.email}` : ''}
+                </p>
+              </div>
+            ) : status.tokenInvalido ? (
+              <div className="mt-1 flex items-center gap-2">
+                <AlertCircle size={14} className="text-amber-500 shrink-0" />
+                <p className="text-sm text-amber-700">
+                  Sessão expirada{status.email ? ` (${status.email})` : ''} — reconecte para reativar.
                 </p>
               </div>
             ) : (
