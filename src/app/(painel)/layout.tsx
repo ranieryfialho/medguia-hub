@@ -14,6 +14,7 @@ import { listarProtocolosAtendimentoAtivos } from '@/actions/protocolos-atendime
 import { listarTiposConsultaAtivos } from '@/actions/tipos-consulta'
 import { listarPlanosSaudeAtivos } from '@/actions/planos-saude'
 import { contarFollowUpsPendentes } from '@/actions/follow-ups'
+import { contarProntuariosPendentes } from '@/actions/prontuarios'
 
 function buildAvatarFallbackDataUrl(nomeUsuario: string) {
   const iniciais = nomeUsuario
@@ -78,8 +79,10 @@ export default async function DashboardLayout({
   const modulosLiberados: string[] = profile?.modulos_liberados ?? []
   const avatarUrl = profile?.avatar_url || buildAvatarFallbackDataUrl(nomeUsuario)
 
-  const prontuariosPendentes = 0
-  const followUpsPendentes = await contarFollowUpsPendentes()
+  const [prontuariosPendentes, followUpsPendentes] = await Promise.all([
+    contarProntuariosPendentes(),
+    contarFollowUpsPendentes(),
+  ])
 
   const hoje = new Date()
   const hojeKey = formatAppDateKey(hoje)

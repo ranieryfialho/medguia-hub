@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { temAcesso } from '@/lib/modulos'
 import { normalizeAtendimentoStatus, STATUS_CONCLUIDO_RAW_VALUES } from '@/lib/atendimento-status'
+import { PRONTUARIOS_PENDENTES_RECENT_LIMIT } from '@/lib/prontuarios'
 
 export type ProntuarioData = {
   id: string
@@ -139,27 +140,29 @@ export async function contarProntuariosPendentes(): Promise<number> {
   if (role === 'medico') return 0
 
   const isFisio = role !== 'gestor' && role !== 'master'
+  const { data: atendimentosConcluidosRaw } = await (() => {
+    const q = supabase
+      .from('atendimentos')
+      .select('id')
+      .in('status', STATUS_CONCLUIDO_RAW_VALUES)
+      .order('data_agendamento', { ascending: false })
+      .limit(PRONTUARIOS_PENDENTES_RECENT_LIMIT)
+    return isFisio ? q.eq('profissional_id', user.id) : q
+  })()
 
-  let query = supabase
-    .from('atendimentos')
-    .select('id')
-    .in('status', STATUS_CONCLUIDO_RAW_VALUES)
+  const atendimentosConcluidos = atendimentosConcluidosRaw ?? []
+  const atendimentoIds = atendimentosConcluidos.map((atendimento) => atendimento.id)
 
-  if (isFisio) {
-    query = query.eq('profissional_id', user.id)
-  } else {
-    const { data: medicos } = await supabase.from('profiles').select('id').eq('role', 'medico')
-    const medicoIds = (medicos ?? []).map(m => m.id)
-    if (medicoIds.length > 0) {
-      query = query.not('profissional_id', 'in', `(${medicoIds.join(',')})`)
-    }
+  let idsComProntuario = new Set<string>()
+
+  if (atendimentoIds.length > 0) {
+    const { data: comProntuario } = await supabase
+      .from('prontuarios')
+      .select('atendimento_id')
+      .in('atendimento_id', atendimentoIds)
+
+    idsComProntuario = new Set(comProntuario?.map((prontuario) => prontuario.atendimento_id) ?? [])
   }
 
-  const [{ data: comProntuario }, { data: concluidos }] = await Promise.all([
-    supabase.from('prontuarios').select('atendimento_id'),
-    query,
-  ])
-
-  const idsComProntuario = new Set((comProntuario ?? []).map(p => p.atendimento_id))
-  return (concluidos ?? []).filter(a => !idsComProntuario.has(a.id)).length
+  return atendimentosConcluidos.filter((atendimento) => !idsComProntuario.has(atendimento.id)).length
 }

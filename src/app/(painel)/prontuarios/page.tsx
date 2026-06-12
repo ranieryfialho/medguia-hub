@@ -5,6 +5,7 @@ import { ptBR } from 'date-fns/locale'
 import { ClipboardList, CheckCheck, ChevronRight, CalendarDays, History, Search } from 'lucide-react'
 import { requireModulo } from '@/lib/guard'
 import { STATUS_CONCLUIDO_RAW_VALUES } from '@/lib/atendimento-status'
+import { PRONTUARIOS_PENDENTES_RECENT_LIMIT } from '@/lib/prontuarios'
 
 function iniciais(nome: string) {
   return nome.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()
@@ -55,15 +56,14 @@ export default async function ProntuariosPage({
           `)
           .in('status', STATUS_CONCLUIDO_RAW_VALUES)
           .order('data_agendamento', { ascending: false })
-          .limit(300)
+          .limit(PRONTUARIOS_PENDENTES_RECENT_LIMIT)
         return isFisio ? q.eq('profissional_id', user.id) : q
       })(),
       supabase.from('profiles').select('id, full_name, role'),
     ])
 
     profissionaisMap = new Map((profissionaisRaw ?? []).map(p => [p.id, p.full_name]))
-    const medicoIds = new Set((profissionaisRaw ?? []).filter(p => p.role === 'medico').map(p => p.id))
-    const atendimentosConcluidos = (atendimentosRes.data ?? []).filter(a => !medicoIds.has(a.profissional_id))
+    const atendimentosConcluidos = atendimentosRes.data ?? []
     const atendimentoIds = atendimentosConcluidos.map((atendimento) => atendimento.id)
 
     let idsComProntuario = new Set<string>()

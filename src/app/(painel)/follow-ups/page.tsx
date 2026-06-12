@@ -16,13 +16,13 @@ export default async function FollowUpsPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
-  await requireModulo('follow_ups')
+  const { user } = await requireModulo('follow_ups')
   const supabase = await createClient()
   const params = await searchParams
 
   const busca = ((params.busca as string) || '').trim()
   const tipoFiltro = (params.tipo_id as string) || ''
-  const responsavelFiltro = (params.responsavel_id as string) || ''
+  const responsavelFiltro = (params.responsavel_id as string) || user.id
   const pagina = Math.max(1, parseInt((params.pagina as string) || '1'))
   const offset = (pagina - 1) * LIMITE
 
