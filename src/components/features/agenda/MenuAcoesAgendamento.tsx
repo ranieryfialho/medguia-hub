@@ -34,9 +34,10 @@ interface MenuAcoesAgendamentoProps {
   agendamentoId?: string
   pacienteNome?: string
   dataAgendamento?: string
+  onConcluido?: () => void
 }
 
-export function MenuAcoesAgendamento({ id, statusAtual, onOpenChange, atendimentoId, agendamentoId, pacienteNome, dataAgendamento }: MenuAcoesAgendamentoProps) {
+export function MenuAcoesAgendamento({ id, statusAtual, onOpenChange, atendimentoId, agendamentoId, pacienteNome, dataAgendamento, onConcluido }: MenuAcoesAgendamentoProps) {
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
@@ -124,7 +125,12 @@ export function MenuAcoesAgendamento({ id, statusAtual, onOpenChange, atendiment
       return
     }
     toast.success(`${pacienteNome || 'Paciente'} — status alterado para ${normalizeAtendimentoStatus(novoStatus)}`)
-    router.refresh()
+
+    if (getAtendimentoStatusKey(novoStatus) === 'concluido') {
+      onConcluido?.()
+    } else {
+      router.refresh()
+    }
   }
 
   async function handleConfirmarFalta(reagendar: boolean) {
@@ -258,6 +264,7 @@ export function MenuAcoesAgendamento({ id, statusAtual, onOpenChange, atendiment
         />,
         document.body
       )}
+
     </>
   )
 }

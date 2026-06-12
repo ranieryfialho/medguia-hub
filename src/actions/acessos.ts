@@ -75,9 +75,7 @@ export async function atualizarConfiguracaoAcessoUsuario(
     }
   }
 
-  const modulosBase = isMasterSistema(nivelAcesso)
-    ? obterModulosPadraoParaUsuario(cargo, nivelAcesso)
-    : payload.modulos
+  const modulosBase = payload.modulos
 
   const modulosSanitizados = Array.from(
     new Set(modulosBase.filter((item): item is ModuloChave => TODOS_MODULOS.includes(item as ModuloChave))),

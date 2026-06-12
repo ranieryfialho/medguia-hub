@@ -28,6 +28,7 @@ import { ConfirmacaoFaltaModal } from './AgendamentoItem'
 import { TabMidia } from './TabMidia'
 import { TabHistorico } from './TabHistorico'
 import { ModalSelecaoExclusao } from './ModalSelecaoExclusao'
+import { TabFollowUp } from '../follow-ups/TabFollowUp'
 import {
   CONFIG_DEFAULT, OPCOES_STATUS, STATUS_CONFIG,
   deveExibirContagemTipoSeparada, firstRelation, formatarTipoComContagem,
@@ -39,13 +40,16 @@ type AgendamentoModalProps = {
   agendamento: AgendamentoDetalhe
   onClose: () => void
   onEditar: () => void
+  onConcluido?: (pacienteId: string, atendimentoId: string) => void
+  profissionais?: { id: string; full_name: string }[]
+  initialTab?: 'detalhes' | 'evolucao' | 'historico' | 'midia' | 'followup'
   podeVerComercial?: boolean
 }
 
-export function AgendamentoModal({ agendamento, onClose, onEditar, podeVerComercial = false }: AgendamentoModalProps) {
+export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, profissionais = [], initialTab = 'detalhes', podeVerComercial = false }: AgendamentoModalProps) {
   const router = useRouter()
   const [status, setStatus] = useState(agendamento.status)
-  const [activeTab, setActiveTab] = useState<'detalhes' | 'evolucao' | 'historico' | 'midia'>('detalhes')
+  const [activeTab, setActiveTab] = useState<'detalhes' | 'evolucao' | 'historico' | 'midia' | 'followup'>(initialTab)
   const [showStatusMenu, setShowStatusMenu] = useState(false)
   const [showOpcoes, setShowOpcoes] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -180,7 +184,12 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, podeVerComerc
     setLoading(false)
     if (resultado?.error) { toast.error(resultado.error); return }
     setStatus(novoStatus)
-    router.refresh()
+
+    if (getAtendimentoStatusKey(novoStatus) === 'concluido') {
+      setActiveTab('followup')
+    } else {
+      router.refresh()
+    }
   }
 
   async function handleConfirmarFalta(reagendar: boolean) {
@@ -400,6 +409,7 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, podeVerComerc
               { key: 'evolucao', label: 'Evolucao', icon: <ClipboardList size={13} /> },
               { key: 'historico', label: 'Histórico', icon: <Clock size={13} /> },
               { key: 'midia', label: 'Mídia', icon: <FolderOpen size={13} /> },
+              { key: 'followup', label: 'Follow-up', icon: null },
             ].map(({ key, label, icon }) => (
               <button
                 key={key}
@@ -439,6 +449,14 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, podeVerComerc
               podeVerComercial={podeVerComercial}
               isActive={activeTab === 'historico'}
               onVerJornada={() => { router.push(`/pacientes/${agendamento.paciente_id}`); onClose() }}
+            />
+
+            <TabFollowUp
+              pacienteId={agendamento.paciente_id}
+              atendimentoId={agendamento.id}
+              profissionais={profissionais}
+              isActive={activeTab === 'followup'}
+              onSuccess={() => { onConcluido?.(agendamento.paciente_id, agendamento.id); router.refresh() }}
             />
 
             {activeTab === 'detalhes' && (
@@ -617,7 +635,7 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, podeVerComerc
         />,
         document.body
       )}
-      {modalReagendamento && createPortal(
+{modalReagendamento && createPortal(
         <ModalSessaoReposicao
           pacienteNome={nomePaciente}
           defaultData={reagendamentoData}

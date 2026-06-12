@@ -22,8 +22,10 @@ export async function getUsuarioComPermissoes() {
 export async function requireModulo(chave: ModuloChave) {
   const ctx = await getUsuarioComPermissoes()
 
-  // Empty modulos_liberados = full access (backward compatibility during migration)
-  if (ctx.modulos.length > 0 && !ctx.modulos.includes(chave)) redirect('/dashboard')
+  // Empty modulos_liberados = full access (backward compatibility durante migração)
+  if (ctx.modulos.length > 0 && !ctx.modulos.includes(chave)) {
+    redirect(`/sem-acesso?modulo=${encodeURIComponent(chave)}`)
+  }
 
   return ctx
 }

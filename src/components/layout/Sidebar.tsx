@@ -33,6 +33,8 @@ import {
   Lock,
 } from 'lucide-react'
 import { ProntuariosBadge } from './ProntuariosBadge'
+import { FollowUpsBadge } from './FollowUpsBadge'
+import { GrupoProntuariosBadge } from './GrupoProntuariosBadge'
 import { temAcesso, temAcessoGrupo } from '@/lib/modulos'
 import type { ModuloChave } from '@/lib/modulos'
 
@@ -43,12 +45,14 @@ export function Sidebar({
   onOpenNovoAgendamento,
   modulosLiberados: modulosLiberadosProp,
   prontuariosPendentes: prontuariosPendentesProp,
+  followUpsPendentes: followUpsPendentesProp,
   userEmail,
 }: {
   onMobileClose?: () => void
   onOpenNovoAgendamento?: () => void
   modulosLiberados?: string[]
   prontuariosPendentes?: number
+  followUpsPendentes?: number
   userEmail?: string
 }) {
   const pathname = usePathname()
@@ -60,8 +64,10 @@ export function Sidebar({
   const [equipeOpen, setEquipeOpen] = useState(() => (pathname?.startsWith('/equipe') || pathname?.startsWith('/relatorios/tempo-fabril') || pathname?.startsWith('/configuracoes/jornada') || pathname?.startsWith('/configuracoes/disponibilidade')) ?? false)
   const [comercialOpen, setComercialOpen] = useState(() => (pathname?.startsWith('/vendas') || pathname?.startsWith('/produtos') || pathname?.startsWith('/relatorios/vendas') || pathname?.startsWith('/vendas/protocolos')) ?? false)
   const [pacientesOpen, setPacientesOpen] = useState(() => pathname?.startsWith('/pacientes') ?? false)
+  const [prontuariosOpen, setProntuariosOpen] = useState(() => (pathname?.startsWith('/prontuarios') || pathname?.startsWith('/follow-ups')) ?? false)
   const modulos = modulosLiberadosProp ?? []
   const prontuariosPendentes = prontuariosPendentesProp ?? 0
+  const followUpsPendentes = followUpsPendentesProp ?? 0
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -221,12 +227,47 @@ export function Sidebar({
           </div>
         )}
 
-        {pv('prontuarios') && (
-          <Link href="/prontuarios" onClick={handleNavClick} className={linkCls(!!isActive('/prontuarios'))}>
-            <FileText size={20} />
-            <span className="flex-1">Prontuários</span>
-            <ProntuariosBadge initialCount={prontuariosPendentes} />
-          </Link>
+        {pvGrupo('prontuarios') && (
+          <div>
+            <button onClick={() => setProntuariosOpen(v => !v)} className={groupCls(!!isActive('/prontuarios') || !!isActive('/follow-ups'))}>
+              <FileText size={20} />
+              <span className="flex-1 text-left">Prontuários e Follow-ups</span>
+              {!prontuariosOpen && (
+                <GrupoProntuariosBadge initialProntuarios={prontuariosPendentes} initialFollowUps={followUpsPendentes} />
+              )}
+              <ChevronDown size={16} className={`transition-transform duration-200 ${prontuariosOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {prontuariosOpen && (
+              <div className="mt-1 ml-4 space-y-0.5 border-l-2 border-[#bcc9c4]/40 pl-3">
+                {pv('prontuarios') && (
+                  <Link href="/prontuarios" onClick={handleNavClick} className={subLinkCls(!!isActive('/prontuarios'))}>
+                    <FileText size={14} />
+                    <span className="flex-1">Prontuários</span>
+                    <ProntuariosBadge initialCount={prontuariosPendentes} />
+                  </Link>
+                )}
+                {pv('follow_ups') && (
+                  <Link href="/follow-ups" onClick={handleNavClick} className={subLinkCls(!!isActive('/follow-ups') && !isActive('/follow-ups/tipos') && !isActive('/follow-ups/templates'))}>
+                    <ClipboardList size={14} />
+                    <span className="flex-1">Follow-ups</span>
+                    <FollowUpsBadge initialCount={followUpsPendentes} />
+                  </Link>
+                )}
+                {pv('follow_ups:tipos') && (
+                  <Link href="/follow-ups/tipos" onClick={handleNavClick} className={subLinkCls(!!isActive('/follow-ups/tipos'))}>
+                    <Layers size={14} />
+                    Tipos
+                  </Link>
+                )}
+                {pv('follow_ups:templates') && (
+                  <Link href="/follow-ups/templates" onClick={handleNavClick} className={subLinkCls(!!isActive('/follow-ups/templates'))}>
+                    <ClipboardList size={14} />
+                    Templates
+                  </Link>
+                )}
+              </div>
+            )}
+          </div>
         )}
 
         {pvGrupo('comercial') && (

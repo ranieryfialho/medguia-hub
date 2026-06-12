@@ -10,6 +10,8 @@ import { requireModulo } from '@/lib/guard'
 import { Suspense } from 'react'
 import { format } from 'date-fns'
 import { buscarProntuariosPorPaciente } from '@/actions/prontuarios'
+import { listarFollowUpsPaciente, listarTipos } from '@/actions/follow-ups'
+import { SecaoFollowUpsPaciente } from '@/components/features/follow-ups/SecaoFollowUpsPaciente'
 import { extrairMetadataInativacao } from '@/lib/paciente-inativacao'
 import { buildSessaoEfetivaMap } from '@/lib/sessoes'
 import {
@@ -109,7 +111,7 @@ export default async function PacienteDetailsPage({
     agendamento?: { tipo?: string | null; is_recorrente?: boolean | null; plano_saude?: string | null } | null
   }
 
-  const [{ data: atendimentos }, prontuariosRaw, { data: vendasRaw }] = await Promise.all([
+  const [{ data: atendimentos }, prontuariosRaw, { data: vendasRaw }, followUps, followUpTipos, { data: profissionaisRaw }] = await Promise.all([
     supabase
       .from('atendimentos')
       .select(`*, agendamento:agendamentos(tipo, is_recorrente, plano_saude), profissional:profiles!profissional_id(full_name)`)
@@ -131,6 +133,9 @@ export default async function PacienteDetailsPage({
       `)
       .eq('paciente_id', pacienteId)
       .order('data_venda', { ascending: false }),
+    listarFollowUpsPaciente(pacienteId),
+    listarTipos(),
+    supabase.from('profiles').select('id, full_name').order('full_name'),
   ])
 
   const prontuarios = prontuariosRaw.map((p) => ({
@@ -172,6 +177,7 @@ export default async function PacienteDetailsPage({
   }
 
   const vendas = (vendasRaw ?? []) as unknown as VendaTimeline[]
+  const profissionais = (profissionaisRaw ?? []).filter(p => p.full_name) as { id: string; full_name: string }[]
   const metadataInativacao = extrairMetadataInativacao(paciente.observacoes_gerais)
   const observacoesGeraisLimpa = metadataInativacao.observacoesLimpa
 
@@ -464,6 +470,13 @@ export default async function PacienteDetailsPage({
               })()}
             </ul>
           </div>
+
+          <SecaoFollowUpsPaciente
+            pacienteId={paciente.id}
+            followUps={followUps}
+            tipos={followUpTipos}
+            profissionais={profissionais}
+          />
         </div>
 
         <div className="col-span-1 lg:col-span-9">

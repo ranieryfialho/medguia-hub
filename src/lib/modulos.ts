@@ -9,6 +9,9 @@ export type ModuloChave =
   | 'contatos:relatorio'
   | 'pacientes'
   | 'prontuarios'
+  | 'follow_ups'
+  | 'follow_ups:tipos'
+  | 'follow_ups:templates'
   | 'comercial:vendas'
   | 'comercial:produtos'
   | 'comercial:relatorio_vendas'
@@ -42,7 +45,16 @@ export const GRUPOS_MODULOS: GrupoModulos[] = [
       { chave: 'dashboard', label: 'Dashboard', rota: '/dashboard' },
       { chave: 'agenda', label: 'Agenda', rota: '/agenda' },
       { chave: 'pacientes', label: 'Pacientes', rota: '/pacientes' },
+    ],
+  },
+  {
+    label: 'Prontuários',
+    chave_grupo: 'prontuarios',
+    modulos: [
       { chave: 'prontuarios', label: 'Prontuários', rota: '/prontuarios' },
+      { chave: 'follow_ups', label: 'Follow-ups', rota: '/follow-ups' },
+      { chave: 'follow_ups:tipos', label: 'Tipos de Follow-up', rota: '/follow-ups/tipos' },
+      { chave: 'follow_ups:templates', label: 'Templates de Follow-up', rota: '/follow-ups/templates' },
     ],
   },
   {
@@ -108,7 +120,7 @@ export const TEMPLATES_PERFIL: Record<TemplatePerfilChave, { label: string; modu
     modulos: [
       'dashboard', 'agenda',
       'confirmacoes:cards', 'confirmacoes:semana',
-      'pacientes', 'prontuarios',
+      'pacientes', 'prontuarios', 'follow_ups',
       'configuracoes:disponibilidade',
     ],
   },
@@ -122,6 +134,7 @@ export const TEMPLATES_PERFIL: Record<TemplatePerfilChave, { label: string; modu
       'confirmacoes:mensagens',
       'contatos:base',
       'pacientes',
+      'follow_ups',
     ],
   },
   medico: {
@@ -134,7 +147,7 @@ export const TEMPLATES_PERFIL: Record<TemplatePerfilChave, { label: string; modu
       'dashboard', 'agenda',
       'confirmacoes:cards', 'confirmacoes:semana', 'confirmacoes:mensagens', 'confirmacoes:testar',
       'contatos:base', 'contatos:relatorio',
-      'pacientes', 'prontuarios',
+      'pacientes', 'prontuarios', 'follow_ups', 'follow_ups:tipos', 'follow_ups:templates',
       'comercial:vendas', 'comercial:produtos', 'comercial:relatorio_vendas',
       'equipe:membros', 'equipe:tempo_fabril',
       'configuracoes:jornada', 'configuracoes:disponibilidade', 'configuracoes:google_drive',

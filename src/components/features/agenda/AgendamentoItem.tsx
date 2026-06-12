@@ -90,6 +90,7 @@ export function AgendamentoItemDia({
   podeVerComercial?: boolean
 }) {
   const [modalAberto, setModalAberto] = useState(false)
+  const [modalInicialTab, setModalInicialTab] = useState<'detalhes' | 'followup'>('detalhes')
   const [slideEditarAberto, setSlideEditarAberto] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [statusLoading, setStatusLoading] = useState<string | null>(null)
@@ -311,6 +312,7 @@ export function AgendamentoItemDia({
                     agendamentoId={agendamento.agendamento_id || undefined}
                     pacienteNome={nomePaciente}
                     dataAgendamento={agendamento.data_agendamento}
+                    onConcluido={() => { setModalInicialTab('followup'); setModalAberto(true) }}
                   />
                 </div>
               </div>
@@ -372,8 +374,10 @@ export function AgendamentoItemDia({
         <AgendamentoModal
           agendamento={agendamento}
           podeVerComercial={podeVerComercial}
-          onClose={() => setModalAberto(false)}
-          onEditar={() => { setModalAberto(false); setSlideEditarAberto(true) }}
+          profissionais={profissionais.map(p => ({ id: p.id, full_name: p.nome }))}
+          initialTab={modalInicialTab}
+          onClose={() => { setModalAberto(false); setModalInicialTab('detalhes') }}
+          onEditar={() => { setModalAberto(false); setModalInicialTab('detalhes'); setSlideEditarAberto(true) }}
         />
       )}
 
@@ -404,8 +408,10 @@ export function AgendamentoItemSemana({
 }) {
   const [modalAberto, setModalAberto] = useState(false)
   const [slideEditarAberto, setSlideEditarAberto] = useState(false)
+  const router = useRouter()
   const config = getConfig(agendamento.status)
   const primeiroNome = (agendamento.pacientes?.nome || 'Paciente').split(' ')[0]
+
   const descricaoTipoComContagem = formatarTipoComContagem(agendamento)
   const exibirContagemTipoSeparada = deveExibirContagemTipoSeparada(agendamento)
 
@@ -437,6 +443,7 @@ export function AgendamentoItemSemana({
         <AgendamentoModal
           agendamento={agendamento}
           podeVerComercial={podeVerComercial}
+          profissionais={profissionais.map(p => ({ id: p.id, full_name: p.nome }))}
           onClose={() => setModalAberto(false)}
           onEditar={() => { setModalAberto(false); setSlideEditarAberto(true) }}
         />

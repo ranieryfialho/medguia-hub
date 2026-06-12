@@ -13,6 +13,7 @@ import { listarStatusDisponibilidade } from '@/actions/status-disponibilidade'
 import { listarProtocolosAtendimentoAtivos } from '@/actions/protocolos-atendimento'
 import { listarTiposConsultaAtivos } from '@/actions/tipos-consulta'
 import { listarPlanosSaudeAtivos } from '@/actions/planos-saude'
+import { contarFollowUpsPendentes } from '@/actions/follow-ups'
 
 function buildAvatarFallbackDataUrl(nomeUsuario: string) {
   const iniciais = nomeUsuario
@@ -78,6 +79,7 @@ export default async function DashboardLayout({
   const avatarUrl = profile?.avatar_url || buildAvatarFallbackDataUrl(nomeUsuario)
 
   const prontuariosPendentes = 0
+  const followUpsPendentes = await contarFollowUpsPendentes()
 
   const hoje = new Date()
   const hojeKey = formatAppDateKey(hoje)
@@ -177,7 +179,7 @@ export default async function DashboardLayout({
       tiposConsulta={tiposConsulta}
       protocolosAtendimento={protocolosAtendimento}
       planosSaude={planosSaude}
-      headerData={{ nomeUsuario, cargoUsuario, avatarUrl, userRole, userNivelAcesso, modulosLiberados, prontuariosPendentes, userEmail: user?.email ?? '', userId: user?.id ?? '' }}
+      headerData={{ nomeUsuario, cargoUsuario, avatarUrl, userRole, userNivelAcesso, modulosLiberados, prontuariosPendentes, followUpsPendentes, userEmail: user?.email ?? '', userId: user?.id ?? '' }}
     >
       <Header nomeUsuario={nomeUsuario} cargoUsuario={cargoUsuario} avatarUrl={avatarUrl} modulosLiberados={modulosLiberados} userId={user?.id ?? ''} />
       <main

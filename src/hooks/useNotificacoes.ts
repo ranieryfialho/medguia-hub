@@ -57,7 +57,7 @@ export function useNotificacoes(userId: string) {
 
   const limpar = useCallback(async (notificacoesAtuais: Notificacao[]) => {
     const pendingIds = notificacoesAtuais
-      .filter((n) => n.id.startsWith('pending-'))
+      .filter((n) => n.id.startsWith('pending-') || n.id.startsWith('followup-'))
       .map((n) => n.id)
     await limparAction(pendingIds)
     setNotificacoes([])

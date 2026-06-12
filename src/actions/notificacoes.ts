@@ -36,9 +36,12 @@ export async function buscarNotificacoes(): Promise<Notificacao[]> {
 
   const role = profile?.role ?? ''
   const descartados = new Set<string>(profile?.pendentes_descartados ?? [])
-  const pendentes = await buscarProntuariosPendentes(supabase, user.id, role, descartados)
+  const [pendentes, followUpsPendentes] = await Promise.all([
+    buscarProntuariosPendentes(supabase, user.id, role, descartados),
+    buscarFollowUpsPendentesNotif(supabase, user.id, descartados),
+  ])
 
-  return [...pendentes, ...(notifs ?? [])] as Notificacao[]
+  return [...followUpsPendentes, ...pendentes, ...(notifs ?? [])] as Notificacao[]
 }
 
 async function buscarProntuariosPendentes(
@@ -84,8 +87,35 @@ async function buscarProntuariosPendentes(
     }))
 }
 
+async function buscarFollowUpsPendentesNotif(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  userId: string,
+  descartados: Set<string>,
+): Promise<Notificacao[]> {
+  const { data: followUps } = await supabase
+    .from('follow_ups')
+    .select('id, paciente_id, created_at, pacientes(nome), tipo:follow_up_tipos(nome)')
+    .eq('responsavel_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(20)
+
+  return (followUps ?? [])
+    .filter((f: { id: string }) => !descartados.has(`followup-${f.id}`))
+    .map((f: { id: string; paciente_id: string; created_at: string; pacientes?: { nome: string }; tipo?: { nome: string } }) => ({
+      id: `followup-${f.id}`,
+      tipo: 'follow_up_atribuido',
+      titulo: 'Follow-up pendente',
+      mensagem: `${f.pacientes?.nome ?? 'Paciente'} — ${f.tipo?.nome ?? 'follow-up'} aguarda seu atendimento`,
+      lida: false,
+      link: '/follow-ups',
+      metadados: { follow_up_id: f.id, paciente_id: f.paciente_id },
+      criado_em: f.created_at,
+    }))
+}
+
 export async function marcarComoLida(id: string): Promise<void> {
-  if (id.startsWith('pending-')) return
+  if (id.startsWith('pending-') || id.startsWith('followup-')) return
   const supabase = await createClient()
   await supabase.from('notificacoes').update({ lida: true }).eq('id', id)
 }
