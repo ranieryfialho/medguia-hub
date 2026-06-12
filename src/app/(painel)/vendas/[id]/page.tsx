@@ -24,6 +24,7 @@ const SELECT_VENDA_BASE = `
   data_venda,
   observacoes,
   status,
+  motivo_recusa,
   criado_em,
   atualizado_em
 `
@@ -216,6 +217,16 @@ export default async function VendaDetalhePage({
           </div>
         </div>
       </div>
+
+      {/* Motivo de recusa */}
+      {statusAtual === 'orcamento_recusado' && (
+        <div className="bg-red-50 rounded-lg border border-red-200 p-4">
+          <p className="text-xs text-red-700 uppercase font-semibold mb-1">Motivo da recusa</p>
+          <p className="text-sm text-red-900">
+            {(v.motivo_recusa as string | null) || <span className="italic text-red-400">Não informado</span>}
+          </p>
+        </div>
+      )}
 
       {/* Ações de status */}
       <div className="bg-surface rounded-lg border border-border p-4">

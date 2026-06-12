@@ -524,16 +524,22 @@ export async function listarVendas(filtros: FiltrosVendas = {}) {
   return { vendas, total: count || 0, error: null }
 }
 
-export async function atualizarStatusVenda(id: string, novoStatus: string) {
+export async function atualizarStatusVenda(id: string, novoStatus: string, motivoRecusa?: string) {
   if (!statusValido(novoStatus)) {
     return { error: 'Status inválido.' }
   }
 
   const supabase = await createClient()
 
+  const campos: Record<string, unknown> = {
+    status: novoStatus,
+    atualizado_em: new Date().toISOString(),
+    motivo_recusa: novoStatus === 'orcamento_recusado' ? (motivoRecusa?.trim() || null) : null,
+  }
+
   const { error } = await supabase
     .from('vendas')
-    .update({ status: novoStatus, atualizado_em: new Date().toISOString() })
+    .update(campos)
     .eq('id', id)
 
   if (error) {

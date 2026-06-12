@@ -16,6 +16,7 @@ export type VendaDetalhe = {
   profissional_nome: string
   nome?: string | null
   status: string
+  motivo_recusa?: string | null
   itens: ItemDetalheVenda[]
   total: number
 }
@@ -440,7 +441,12 @@ function desenharPaginaVendasDetalhadas(doc: jsPDF, vendas: VendaDetalhe[]) {
 
     const linhasItens = doc.splitTextToSize(itensTexto, widths[2] - 4)
     const temNome = !!venda.nome
-    const rowH = Math.max(temNome ? 12 : 8, linhasItens.length * 4 + 4)
+    const temMotivo = !!venda.motivo_recusa
+    const linhasMotivo = temMotivo ? doc.splitTextToSize(venda.motivo_recusa!, widths[4] - 4) : []
+    const rowH = Math.max(
+      (temNome ? 12 : 8) + (temMotivo ? linhasMotivo.length * 3.5 : 0),
+      linhasItens.length * 4 + 4,
+    )
 
     if (y + rowH > PAGE_HEIGHT - 22) {
       doc.addPage()
@@ -475,6 +481,14 @@ function desenharPaginaVendasDetalhadas(doc: jsPDF, vendas: VendaDetalhe[]) {
         doc.setFontSize(6)
         doc.setTextColor(...MUTED)
         doc.text(venda.nome!, x + 2, y + 9, { maxWidth: widths[idx] - 4 })
+      }
+
+      // Motivo de recusa abaixo do status
+      if (idx === 4 && temMotivo) {
+        doc.setFont('helvetica', 'italic')
+        doc.setFontSize(6)
+        doc.setTextColor(...MUTED)
+        doc.text(linhasMotivo, x + 2, y + 9, { maxWidth: widths[idx] - 4 })
       }
 
       x += widths[idx]

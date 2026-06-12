@@ -256,13 +256,13 @@ export function Sidebar({
                 {pv('follow_ups:tipos') && (
                   <Link href="/follow-ups/tipos" onClick={handleNavClick} className={subLinkCls(!!isActive('/follow-ups/tipos'))}>
                     <Layers size={14} />
-                    Tipos
+                    Tipos de Follow-up
                   </Link>
                 )}
                 {pv('follow_ups:templates') && (
                   <Link href="/follow-ups/templates" onClick={handleNavClick} className={subLinkCls(!!isActive('/follow-ups/templates'))}>
                     <ClipboardList size={14} />
-                    Templates
+                    Templates de Follow-up
                   </Link>
                 )}
               </div>

@@ -48,6 +48,7 @@ type VendaRow = {
   medico_referenciador_nome: string | null
   status: string | null
   nome: string | null
+  motivo_recusa: string | null
   pacientes: PacienteVenda | PacienteVenda[] | null
   profiles: PerfilVenda | PerfilVenda[] | null
   itens_venda: ItemVendaRow[] | null
@@ -78,6 +79,7 @@ export default async function RelatorioVendasPage({
   const forma_pagamento = (resolvedParams.forma_pagamento as string) || ''
   const profissional_id = (resolvedParams.profissional_id as string) || ''
   const nome_protocolo = (resolvedParams.nome_protocolo as string) || ''
+  const status_filter = (resolvedParams.status as string) || ''
   const produtoIds = Array.isArray(resolvedParams.produto_id)
     ? resolvedParams.produto_id.filter((value): value is string => typeof value === 'string' && value.length > 0)
     : typeof resolvedParams.produto_id === 'string' && resolvedParams.produto_id
@@ -95,6 +97,7 @@ export default async function RelatorioVendasPage({
     if (forma_pagamento) sp.set('forma_pagamento', forma_pagamento)
     if (profissional_id) sp.set('profissional_id', profissional_id)
     if (nome_protocolo) sp.set('nome_protocolo', nome_protocolo)
+    if (status_filter) sp.set('status', status_filter)
     produtoIds.forEach(id => sp.append('produto_id', id))
     if (p > 1) sp.set('pagina_vendas', String(p))
     const qs = sp.toString()
@@ -105,7 +108,7 @@ export default async function RelatorioVendasPage({
   let query = supabase
     .from('vendas')
     .select(`
-      id, origem, forma_pagamento, data_venda, profissional_id, paciente_id, medico_referenciador_nome, status, nome,
+      id, origem, forma_pagamento, data_venda, profissional_id, paciente_id, medico_referenciador_nome, status, nome, motivo_recusa,
       pacientes:paciente_id ( nome ),
       profiles:profissional_id ( full_name, role ),
       itens_venda ( quantidade, preco_unitario, produtos:produto_id ( id, nome, categoria ) )
@@ -121,6 +124,7 @@ export default async function RelatorioVendasPage({
   } else if (nome_protocolo) {
     query = query.eq('nome', nome_protocolo)
   }
+  if (status_filter) query = query.eq('status', status_filter)
 
   // Buscar vendas e dados auxiliares em paralelo
   const [
@@ -197,6 +201,7 @@ export default async function RelatorioVendasPage({
       profissional_nome: perfil?.full_name || 'Desconhecido',
       nome: venda.nome || null,
       status: statusVenda,
+      motivo_recusa: venda.motivo_recusa || null,
       itens: itens.map((item): ItemDetalheVenda => ({
         produto_nome: item.produtos?.nome || 'Produto removido',
         categoria: item.produtos?.categoria || null,
@@ -291,7 +296,7 @@ export default async function RelatorioVendasPage({
             <BarChart3 size={28} className="text-primary-500" />
             Relatório de Vendas
           </h1>
-          {totalVendas > 0 && (
+          {vendasDetalhadas.length > 0 && (
             <BtnGerarPdfVendas
               periodoLabel={
                 data_inicio && data_fim
@@ -377,6 +382,19 @@ export default async function RelatorioVendasPage({
               ))}
             </select>
           </div>
+          <div>
+            <label className="block text-xs text-text-secondary uppercase mb-1">Status</label>
+            <select
+              name="status"
+              defaultValue={status_filter}
+              className="px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
+            >
+              <option value="">Todos os status</option>
+              <option value="venda_confirmada">Venda Confirmada</option>
+              <option value="orcamento_pendente">Orçamento Pendente</option>
+              <option value="orcamento_recusado">Orçamento Recusado</option>
+            </select>
+          </div>
           {protocolosFiltro.length > 0 && (
             <div>
               <label className="block text-xs text-text-secondary uppercase mb-1">Protocolo</label>
@@ -408,7 +426,7 @@ export default async function RelatorioVendasPage({
           >
             Filtrar
           </button>
-          {(data_inicio || data_fim || origem || forma_pagamento || profissional_id || nome_protocolo || produtoIds.length > 0) && (
+          {(data_inicio || data_fim || origem || forma_pagamento || profissional_id || nome_protocolo || status_filter || produtoIds.length > 0) && (
             <Link
               href="/relatorios/vendas"
               className="px-4 py-2 bg-page hover:bg-page/80 border border-border text-text-secondary rounded-md text-sm transition-colors"
@@ -815,6 +833,9 @@ export default async function RelatorioVendasPage({
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${sc.cls}`}>
                             {sc.label}
                           </span>
+                          {venda.motivo_recusa && (
+                            <p className="text-xs text-text-secondary mt-1 italic">{venda.motivo_recusa}</p>
+                          )}
                         </td>
                       </tr>
                     )
