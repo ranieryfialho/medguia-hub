@@ -2,13 +2,12 @@ import {
   addDays,
   endOfMonth,
   endOfWeek,
-  format,
   parseISO,
   startOfMonth,
   startOfWeek,
   subMonths,
 } from 'date-fns'
-import { formatAppDateKey } from '@/lib/datetime'
+import { formatAppDateKey, APP_TIME_ZONE } from '@/lib/datetime'
 import { calcularMinutosJornada } from '@/lib/jornada'
 import {
   buildMapaMensalPorProfissional,
@@ -112,8 +111,8 @@ export function agruparPorSemana(
     const inicioEfetivo = cursor < dataInicio ? dataInicio : cursor
     const fimEfetivo = fimSemana > dataFim ? dataFim : fimSemana
 
-    const inicioEfetivoStr = format(inicioEfetivo, 'yyyy-MM-dd')
-    const fimEfetivoStr = format(fimEfetivo, 'yyyy-MM-dd')
+    const inicioEfetivoStr = formatAppDateKey(inicioEfetivo)
+    const fimEfetivoStr = formatAppDateKey(fimEfetivo)
 
     const atsSemana = atendimentos.filter((a) => {
       const dataKeyAtt = formatAppDateKey(new Date(a.data_agendamento))
@@ -133,8 +132,11 @@ export function agruparPorSemana(
 
     const pct = jornadaMin > 0 ? Math.round((fabrilMin / jornadaMin) * 100) : 0
 
+    const fmtDia = (d: Date) =>
+      new Intl.DateTimeFormat('pt-BR', { timeZone: APP_TIME_ZONE, day: '2-digit', month: '2-digit' }).format(d)
+
     semanas.push({
-      label: `${format(inicioEfetivo, 'dd/MM')}–${format(fimEfetivo, 'dd/MM')}`,
+      label: `${fmtDia(inicioEfetivo)}–${fmtDia(fimEfetivo)}`,
       fabrilMin,
       jornadaMin,
       pct,
@@ -201,9 +203,9 @@ export function calcularKPIs(
       const jornDia = resolverJornadaDoDia(cursor, jornadaSemanalMap, jornadaMensalMap)
 
       if (jornDia) {
+        const dataKeyCursor = formatAppDateKey(cursor)
         const atsDoDia = atsProfissional.filter((a) => {
           const dataKeyAtt = formatAppDateKey(new Date(a.data_agendamento))
-          const dataKeyCursor = format(cursor, 'yyyy-MM-dd')
           return dataKeyAtt === dataKeyCursor
         })
 

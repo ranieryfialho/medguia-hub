@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
-import {
-  format,
-} from 'date-fns'
+import { format } from 'date-fns'
+import { formatAppDateKey } from '@/lib/datetime'
 import { ptBR } from 'date-fns/locale'
 import { BtnImprimirRelatorio } from '@/components/features/shared'
 import { FiltrosRelatorio } from '@/components/features/relatorios'
@@ -69,8 +68,8 @@ export default async function TempoFabrilPage({
   const { dataInicio, dataFim } = resolverPeriodo(params)
 
   // Buscar profissionais elegíveis
-  const dataInicioStr = format(dataInicio, 'yyyy-MM-dd')
-  const dataFimStr = format(dataFim, 'yyyy-MM-dd')
+  const dataInicioStr = formatAppDateKey(dataInicio)
+  const dataFimStr = formatAppDateKey(dataFim)
   const utcInicio = new Date(`${dataInicioStr}T00:00:00-03:00`).toISOString()
   const utcFim = new Date(`${dataFimStr}T23:59:59.999-03:00`).toISOString()
 

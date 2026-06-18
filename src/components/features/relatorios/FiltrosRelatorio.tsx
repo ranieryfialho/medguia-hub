@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { format } from 'date-fns'
-import { Calendar, Users } from 'lucide-react'
+import { formatAppDateKey } from '@/lib/datetime'
+import { Search, Loader2 } from 'lucide-react'
 
 type FiltrosRelatorioProps = {
   profissionais: { id: string; nome: string }[]
@@ -13,138 +13,140 @@ type FiltrosRelatorioProps = {
 
 const PERIODOS = [
   { valor: 'esta-semana', label: 'Esta semana' },
-  { valor: 'este-mes', label: 'Este mês' },
+  { valor: 'este-mes',    label: 'Este mês' },
   { valor: 'mes-passado', label: 'Mês passado' },
   { valor: 'personalizado', label: 'Personalizado' },
 ]
 
-export function FiltrosRelatorio({
-  profissionais,
-  isGestor,
-  paramsAtuais,
-}: FiltrosRelatorioProps) {
+const INPUT = 'px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#006b5a]/30 focus:border-[#006b5a] transition-colors'
+
+export function FiltrosRelatorio({ profissionais, isGestor, paramsAtuais }: FiltrosRelatorioProps) {
   const router = useRouter()
+  const [isPending, startTransition] = useTransition()
+  const hoje = formatAppDateKey(new Date())
 
-  const periodoProp = typeof paramsAtuais.periodo === 'string' ? paramsAtuais.periodo : 'este-mes'
-  const profissionalProp = typeof paramsAtuais.profissional === 'string' ? paramsAtuais.profissional : 'todos'
-  const deProp = typeof paramsAtuais.de === 'string' ? paramsAtuais.de : format(new Date(), 'yyyy-MM-dd')
-  const ateProp = typeof paramsAtuais.ate === 'string' ? paramsAtuais.ate : format(new Date(), 'yyyy-MM-dd')
+  const [periodo,      setPeriodo]      = useState(typeof paramsAtuais.periodo      === 'string' ? paramsAtuais.periodo      : 'este-mes')
+  const [profissional, setProfissional] = useState(typeof paramsAtuais.profissional === 'string' ? paramsAtuais.profissional : 'todos')
+  const [de,           setDe]           = useState(typeof paramsAtuais.de           === 'string' ? paramsAtuais.de           : hoje)
+  const [ate,          setAte]          = useState(typeof paramsAtuais.ate          === 'string' ? paramsAtuais.ate          : hoje)
 
-  const [periodo, setPeriodo] = useState(periodoProp)
-  const [profissional, setProfissional] = useState(profissionalProp)
-  const [de, setDe] = useState(deProp)
-  const [ate, setAte] = useState(ateProp)
+  function navegar(opts: { periodo?: string; profissional?: string; de?: string; ate?: string }) {
+    const p   = opts.periodo      ?? periodo
+    const prf = opts.profissional ?? profissional
+    const d   = opts.de           ?? de
+    const a   = opts.ate          ?? ate
 
-  const updateFilters = (newPeriodo?: string, newProfissional?: string, newDe?: string, newAte?: string) => {
     const params = new URLSearchParams()
-    const p = newPeriodo ?? periodo
     params.set('periodo', p)
     if (p === 'personalizado') {
-      params.set('de', newDe ?? de)
-      params.set('ate', newAte ?? ate)
+      params.set('de', d)
+      params.set('ate', a)
     }
-    if (isGestor) {
-      params.set('profissional', newProfissional ?? profissional)
-    }
-    router.push(`/relatorios/tempo-fabril?${params.toString()}`)
+    if (isGestor) params.set('profissional', prf)
+
+    startTransition(() => {
+      router.push(`/relatorios/tempo-fabril?${params.toString()}`)
+    })
   }
 
-  const handlePeriodoChange = (novoPeriodo: string) => {
-    setPeriodo(novoPeriodo)
-    updateFilters(novoPeriodo, undefined, de, ate)
+  function handlePeriodo(valor: string) {
+    setPeriodo(valor)
+    if (valor !== 'personalizado') navegar({ periodo: valor })
   }
 
-  const handleProfissionalChange = (novoProf: string) => {
-    setProfissional(novoProf)
-    updateFilters(undefined, novoProf, de, ate)
+  function handleProfissional(valor: string) {
+    setProfissional(valor)
+    navegar({ profissional: valor })
   }
 
-  const handleDeChange = (novaData: string) => {
-    setDe(novaData)
-    updateFilters(undefined, undefined, novaData, ate)
-  }
-
-  const handleAteChange = (novaData: string) => {
-    setAte(novaData)
-    updateFilters(undefined, undefined, de, novaData)
+  function handleAplicar() {
+    navegar({ periodo: 'personalizado', de, ate })
   }
 
   return (
-    <div className="bg-gradient-to-r from-[#f0f5f4] to-white rounded-2xl border border-[#bcc9c4]/30 p-4 md:p-6 print:hidden shadow-sm">
-      {/* Grid responsivo */}
-      <div className="space-y-5">
-        {/* Período */}
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <Calendar size={18} className="text-[#006b5a]" />
-            <label className="text-sm font-semibold text-[#171d1c]">Período</label>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {PERIODOS.map(p => (
-              <button
-                key={p.valor}
-                onClick={() => handlePeriodoChange(p.valor)}
-                className={`px-3 py-2.5 rounded-lg text-xs md:text-sm font-medium transition-all duration-200 ${
-                  periodo === p.valor
-                    ? 'bg-[#006b5a] text-white shadow-md'
-                    : 'bg-white text-[#3d4945] border border-[#bcc9c4]/50 hover:border-[#006b5a]/50 hover:bg-[#f9faf8]'
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
+    <div className={`bg-white rounded-xl border shadow-sm p-4 print:hidden space-y-4 transition-opacity ${isPending ? 'opacity-60 pointer-events-none border-[#006b5a]/40' : 'border-slate-100'}`}>
+
+      {/* Linha 1: período + profissional + spinner */}
+      <div className="flex flex-wrap items-center gap-3">
+
+        {/* Chips de período */}
+        <div className="flex flex-wrap gap-1.5">
+          {PERIODOS.map(p => (
+            <button
+              key={p.valor}
+              onClick={() => handlePeriodo(p.valor)}
+              disabled={isPending}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:cursor-not-allowed ${
+                periodo === p.valor
+                  ? 'bg-[#006b5a] text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
         </div>
 
-        {/* Date pickers - condicionais */}
-        {periodo === 'personalizado' && (
-          <div className="bg-white rounded-lg p-4 border border-[#bcc9c4]/30">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-[#3d4945] mb-2">Data inicial</label>
-                <input
-                  type="date"
-                  value={de}
-                  onChange={e => handleDeChange(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-[#bcc9c4] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#006b5a] focus:border-transparent transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-[#3d4945] mb-2">Data final</label>
-                <input
-                  type="date"
-                  value={ate}
-                  onChange={e => handleAteChange(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-[#bcc9c4] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#006b5a] focus:border-transparent transition-all"
-                />
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Separador visual */}
+        {isGestor && <div className="hidden sm:block h-6 w-px bg-slate-200" />}
 
-        {/* Profissional - só para gestor */}
+        {/* Profissional */}
         {isGestor && (
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <Users size={18} className="text-[#006b5a]" />
-              <label className="text-sm font-semibold text-[#171d1c]">Profissional</label>
-            </div>
-            <select
-              value={profissional}
-              onChange={e => handleProfissionalChange(e.target.value)}
-              className="w-full px-3 py-2.5 border border-[#bcc9c4] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#006b5a] focus:border-transparent bg-white text-[#171d1c] transition-all appearance-none cursor-pointer bg-[url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23006b5a%22 stroke-width=%222%22%3e%3cpolyline points=%226 9 12 15 18 9%3e%3c/polyline%3e%3c/svg%3e')] bg-no-repeat bg-right bg-[length:20px] pr-8"
-            >
-              <option value="todos">Todos os profissionais</option>
-              {profissionais.map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.nome}
-                </option>
-              ))}
-            </select>
-          </div>
+          <select
+            value={profissional}
+            onChange={e => handleProfissional(e.target.value)}
+            disabled={isPending}
+            className={`${INPUT} disabled:cursor-not-allowed`}
+          >
+            <option value="todos">Todos os profissionais</option>
+            {profissionais.map(p => (
+              <option key={p.id} value={p.id}>{p.nome}</option>
+            ))}
+          </select>
         )}
 
+        {/* Spinner de carregamento */}
+        {isPending && (
+          <div className="flex items-center gap-1.5 text-[#006b5a] text-xs font-medium ml-auto">
+            <Loader2 size={14} className="animate-spin" />
+            Carregando...
+          </div>
+        )}
       </div>
+
+      {/* Linha 2: datas personalizadas — só aparece quando selecionado */}
+      {periodo === 'personalizado' && (
+        <div className="flex flex-wrap items-end gap-3 pt-3 border-t border-slate-100">
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 mb-1">De</label>
+            <input
+              type="date"
+              value={de}
+              max={ate}
+              onChange={e => setDe(e.target.value)}
+              className={INPUT}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 mb-1">Até</label>
+            <input
+              type="date"
+              value={ate}
+              min={de}
+              onChange={e => setAte(e.target.value)}
+              className={INPUT}
+            />
+          </div>
+          <button
+            onClick={handleAplicar}
+            disabled={isPending}
+            className="flex items-center gap-2 px-4 py-2 bg-[#006b5a] hover:bg-[#005548] text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isPending ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+            Aplicar
+          </button>
+        </div>
+      )}
     </div>
   )
 }
