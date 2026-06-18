@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import twilio from 'twilio'
+import { registrarAuditoria } from '@/actions/confirmacoes-auditoria'
 
 function getAppUrl(request: Request): string {
   if (process.env.NEXT_PUBLIC_APP_URL) {
@@ -88,6 +89,19 @@ export async function POST(request: Request) {
       if (updateError) {
         console.error('[sms] Erro ao salvar metadata do envio:', updateError.message)
       }
+    }
+
+    if (atendimento_id) {
+      const { data: profile } = await supabase
+        .from('profiles').select('full_name').eq('id', user.id).single()
+      await registrarAuditoria(
+        atendimento_id,
+        'sms_enviado',
+        'SMS enviado',
+        user.id,
+        profile?.full_name,
+        { preview: mensagem.slice(0, 80) },
+      ).catch(() => {})
     }
 
     return Response.json({

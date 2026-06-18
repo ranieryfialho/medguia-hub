@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { registrarAuditoria } from '@/actions/confirmacoes-auditoria'
 import { buildAppDateTimeISO } from '@/lib/datetime'
 import { calcularHoraFim, validarConflitosProfissional } from '@/lib/agendamento-conflitos'
 import {
@@ -97,6 +98,11 @@ export async function registrarContato(
 ) {
   const supabase = await createClient()
 
+  const { data: { user } } = await supabase.auth.getUser()
+  const { data: profile } = user
+    ? await supabase.from('profiles').select('full_name').eq('id', user.id).single()
+    : { data: null }
+
   let novoStatus: string | null = null
   if (resultado === 'confirmou') {
     novoStatus = 'Confirmado'
@@ -120,6 +126,21 @@ export async function registrarContato(
     console.error('Erro ao registrar contato:', error.message)
     return { error: 'Não foi possível registrar o contato.' }
   }
+
+  const labels: Record<string, string> = {
+    confirmou: 'Confirmou presença',
+    vai_faltar: 'Vai faltar',
+    nao_atendeu: 'Não atendeu',
+    reagendou: 'Reagendou',
+  }
+  await registrarAuditoria(
+    atendimentoId,
+    'status_alterado',
+    labels[resultado] ?? resultado,
+    user?.id,
+    profile?.full_name,
+    { resultado_contato: resultado, status_novo: novoStatus },
+  ).catch(() => {})
 
   revalidatePath('/confirmacoes')
   revalidatePath('/agenda')
@@ -251,13 +272,26 @@ export async function registrarEnvioWhatsApp(
   try {
     const supabase = await createClient()
 
-    await supabase
-      .from('atendimentos')
-      .update({
+    const [, { data: { user } }] = await Promise.all([
+      supabase.from('atendimentos').update({
         ultimo_template_enviado: templateId,
-        data_ultimo_envio_whatsapp: new Date().toISOString()
-      })
-      .eq('id', atendimentoId)
+        data_ultimo_envio_whatsapp: new Date().toISOString(),
+      }).eq('id', atendimentoId),
+      supabase.auth.getUser(),
+    ])
+
+    const { data: profile } = user
+      ? await supabase.from('profiles').select('full_name').eq('id', user.id).single()
+      : { data: null }
+
+    await registrarAuditoria(
+      atendimentoId,
+      'whatsapp_enviado',
+      'WhatsApp enviado',
+      user?.id,
+      profile?.full_name,
+      { template_id: templateId },
+    ).catch(() => {})
 
     revalidatePath('/confirmacoes')
     return { success: true }

@@ -150,6 +150,11 @@ export function Sidebar({
                     Mensagens
                   </Link>
                 )}
+                {pv('confirmacoes:cards') && (
+                  <Link href="/confirmacoes/historico" onClick={handleNavClick} className={subLinkCls(!!isActive('/confirmacoes/historico'))}>
+                    Histórico
+                  </Link>
+                )}
                 {userEmail === DEV_EMAIL && (
                   <Link href="/confirmacoes/testar" onClick={handleNavClick} className={subLinkCls(!!isActive('/confirmacoes/testar'))}>
                     Testar Envios

@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { Resend } from 'resend'
+import { registrarAuditoria } from '@/actions/confirmacoes-auditoria'
 import { render } from '@react-email/render'
 import { ConfirmacaoConsulta } from '@/lib/email-templates/ConfirmacaoConsulta'
 import { LOGO_FOT_URL } from '@/lib/email-logo'
@@ -73,6 +74,19 @@ export async function POST(request: Request) {
       subject: assunto,
       html,
     })
+
+    if (atendimento_id) {
+      const { data: profile } = await supabase
+        .from('profiles').select('full_name').eq('id', user.id).single()
+      await registrarAuditoria(
+        atendimento_id,
+        'email_enviado',
+        `Email enviado — ${assunto}`,
+        user.id,
+        profile?.full_name,
+        { assunto },
+      ).catch(() => {})
+    }
 
     return Response.json({ success: true })
   } catch (error) {

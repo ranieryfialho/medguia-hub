@@ -12,6 +12,7 @@ import { format } from 'date-fns'
 import { buscarProntuariosPorPaciente } from '@/actions/prontuarios'
 import { listarFollowUpsPaciente, listarTipos } from '@/actions/follow-ups'
 import { SecaoFollowUpsPaciente } from '@/components/features/follow-ups/SecaoFollowUpsPaciente'
+import { SecaoAuditoriaPaciente } from '@/components/features/confirmacoes/SecaoAuditoriaPaciente'
 import { extrairMetadataInativacao } from '@/lib/paciente-inativacao'
 import { buildSessaoEfetivaMap } from '@/lib/sessoes'
 import {
@@ -477,6 +478,8 @@ export default async function PacienteDetailsPage({
             tipos={followUpTipos}
             profissionais={profissionais}
           />
+
+          <SecaoAuditoriaPaciente pacienteId={paciente.id} />
         </div>
 
         <div className="col-span-1 lg:col-span-9">

@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { buscarHistoricoPacienteResumo } from '@/actions/agenda'
 import type { HistoricoPacienteResumo } from '@/actions/agenda'
+import { buscarAuditoriaAtendimento } from '@/actions/confirmacoes-auditoria'
+import { AuditoriaTimelineAsync } from '@/components/features/confirmacoes/AuditoriaTimeline'
 import { normalizeAtendimentoStatus } from '@/lib/atendimento-status'
 import {
   formatarEscalaDor, formatarMoeda, formatarStatusComercial, getResumoStatusBadgeClass,
@@ -194,6 +196,17 @@ export function TabHistorico({ pacienteId, agendamentoId, podeVerComercial, isAc
                 Nenhuma evolução encontrada em atendimentos concluídos.
               </div>
             )}
+          </div>
+
+          <div className="space-y-2">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-[#6d7a75]">Ações de confirmação</h4>
+            <div className="rounded-xl border border-[#bcc9c4]/30 bg-[#fcfdfd] px-3 py-3">
+              <AuditoriaTimelineAsync
+                atendimentoId={agendamentoId}
+                buscar={buscarAuditoriaAtendimento}
+                compact
+              />
+            </div>
           </div>
 
           {podeVerComercial && (
