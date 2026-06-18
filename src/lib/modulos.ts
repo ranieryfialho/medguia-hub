@@ -25,6 +25,7 @@ export type ModuloChave =
   | 'configuracoes:disponibilidade'
   | 'configuracoes:status_disponibilidade'
   | 'configuracoes:google_drive'
+  | 'configuracoes:clinica'
 
 export type NivelAcesso = 'basico' | 'gestor' | 'master'
 export type CargoColaborador = 'fisioterapeuta' | 'recepcionista' | 'medico' | 'gestor'
@@ -107,6 +108,7 @@ export const GRUPOS_MODULOS: GrupoModulos[] = [
     label: 'Configurações',
     chave_grupo: 'configuracoes',
     modulos: [
+      { chave: 'configuracoes:clinica', label: 'Dados da Clínica', rota: '/configuracoes/clinica' },
       { chave: 'configuracoes:google_drive', label: 'Google Drive', rota: '/configuracoes/google-drive' },
     ],
   },
@@ -159,7 +161,7 @@ export const TEMPLATES_PERFIL: Record<TemplatePerfilChave, { label: string; modu
       'pacientes', 'prontuarios', 'follow_ups', 'follow_ups:tipos', 'follow_ups:templates',
       'comercial:vendas', 'comercial:produtos', 'comercial:objecoes', 'comercial:relatorio_vendas',
       'equipe:membros', 'equipe:tempo_fabril', 'equipe:conferencia',
-      'configuracoes:jornada', 'configuracoes:disponibilidade', 'configuracoes:status_disponibilidade', 'configuracoes:google_drive',
+      'configuracoes:jornada', 'configuracoes:disponibilidade', 'configuracoes:status_disponibilidade', 'configuracoes:google_drive', 'configuracoes:clinica',
     ],
   },
   comercial: {

@@ -39,6 +39,7 @@ import {
   MessageCircleWarning,
   Stethoscope,
   Tag,
+  Building2,
 } from 'lucide-react'
 import { ProntuariosBadge } from './ProntuariosBadge'
 import { FollowUpsBadge } from './FollowUpsBadge'
@@ -445,6 +446,12 @@ export function Sidebar({
                   <Link href="/configuracoes/mensagens" onClick={handleNavClick} className={subLinkCls(!!isActive('/configuracoes/mensagens'))}>
                     <MessageSquare size={14} />
                     Mensagens
+                  </Link>
+                )}
+                {pv('configuracoes:clinica') && (
+                  <Link href="/configuracoes/clinica" onClick={handleNavClick} className={subLinkCls(!!isActive('/configuracoes/clinica'))}>
+                    <Building2 size={14} />
+                    Dados da Clínica
                   </Link>
                 )}
                 {pv('configuracoes:google_drive') && (

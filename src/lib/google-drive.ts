@@ -212,6 +212,31 @@ export async function criarPastaAtendimentoNoDrive(
   return { folderId: folder.id, folderUrl: folder.webViewLink }
 }
 
+export async function buscarOuCriarSubpasta(
+  parentFolderId: string,
+  nome: string,
+): Promise<{ folderId: string; folderUrl: string }> {
+  const auth = await getClienteAutenticado()
+  const drive = google.drive({ version: 'v3', auth })
+
+  const nomeSanitizado = sanitizarNomePasta(nome)
+  const q = `name = '${nomeSanitizado.replace(/'/g, "\\'")}' and '${parentFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`
+
+  const { data: resultado } = await drive.files.list({ q, fields: 'files(id, webViewLink)', spaces: 'drive' })
+
+  if (resultado.files?.length && resultado.files[0].id && resultado.files[0].webViewLink) {
+    return { folderId: resultado.files[0].id, folderUrl: resultado.files[0].webViewLink }
+  }
+
+  const { data: folder } = await drive.files.create({
+    requestBody: { name: nomeSanitizado, mimeType: 'application/vnd.google-apps.folder', parents: [parentFolderId] },
+    fields: 'id, webViewLink',
+  })
+
+  if (!folder.id || !folder.webViewLink) throw new Error('Falha ao criar subpasta no Drive')
+  return { folderId: folder.id, folderUrl: folder.webViewLink }
+}
+
 export async function getStatusConexao(): Promise<{ conectado: boolean; email?: string; tokenInvalido?: boolean }> {
   const refreshToken = await lerConfig('google_drive_refresh_token')
   if (!refreshToken) return { conectado: false }
