@@ -147,7 +147,7 @@ export function Sidebar({
                     Mensagens
                   </Link>
                 )}
-                {pv('confirmacoes:cards') && (
+                {pv('confirmacoes:historico') && (
                   <Link href="/confirmacoes/historico" onClick={handleNavClick} className={subLinkCls(!!isActive('/confirmacoes/historico'))}>
                     Histórico
                   </Link>

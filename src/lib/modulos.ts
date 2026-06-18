@@ -4,6 +4,7 @@ export type ModuloChave =
   | 'confirmacoes:cards'
   | 'confirmacoes:semana'
   | 'confirmacoes:mensagens'
+  | 'confirmacoes:historico'
   | 'contatos:base'
   | 'contatos:relatorio'
   | 'pacientes'
@@ -63,6 +64,7 @@ export const GRUPOS_MODULOS: GrupoModulos[] = [
       { chave: 'confirmacoes:cards', label: 'Cards', rota: '/confirmacoes/cards' },
       { chave: 'confirmacoes:semana', label: 'Semana', rota: '/confirmacoes/semana' },
       { chave: 'confirmacoes:mensagens', label: 'Mensagens', rota: '/confirmacoes/mensagens' },
+      { chave: 'confirmacoes:historico', label: 'Histórico', rota: '/confirmacoes/historico' },
     ],
   },
   {
@@ -143,7 +145,7 @@ export const TEMPLATES_PERFIL: Record<TemplatePerfilChave, { label: string; modu
     label: 'Gestor',
     modulos: [
       'dashboard', 'agenda',
-      'confirmacoes:cards', 'confirmacoes:semana', 'confirmacoes:mensagens',
+      'confirmacoes:cards', 'confirmacoes:semana', 'confirmacoes:mensagens', 'confirmacoes:historico',
       'contatos:base', 'contatos:relatorio',
       'pacientes', 'prontuarios', 'follow_ups', 'follow_ups:tipos', 'follow_ups:templates',
       'comercial:vendas', 'comercial:produtos', 'comercial:relatorio_vendas',

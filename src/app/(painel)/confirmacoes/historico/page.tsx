@@ -3,7 +3,7 @@ import { buscarAuditoriaGeral } from '@/actions/confirmacoes-auditoria'
 import { HistoricoConfirmacoesClient } from './HistoricoConfirmacoesClient'
 
 export default async function HistoricoConfirmacoesPage() {
-  await requireModulo('confirmacoes:cards')
+  await requireModulo('confirmacoes:historico')
 
   const hoje = new Date()
   hoje.setHours(0, 0, 0, 0)
