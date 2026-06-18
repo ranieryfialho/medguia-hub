@@ -81,7 +81,6 @@ export function AppShell({
             modulosLiberados={headerData.modulosLiberados}
             prontuariosPendentes={headerData.prontuariosPendentes}
             followUpsPendentes={headerData.followUpsPendentes}
-            userEmail={headerData.userEmail}
           />
         </div>
 

@@ -38,7 +38,6 @@ import { GrupoProntuariosBadge } from './GrupoProntuariosBadge'
 import { temAcesso, temAcessoGrupo } from '@/lib/modulos'
 import type { ModuloChave } from '@/lib/modulos'
 
-const DEV_EMAIL = 'ranieryfialho@gmail.com'
 
 export function Sidebar({
   onMobileClose,
@@ -46,14 +45,12 @@ export function Sidebar({
   modulosLiberados: modulosLiberadosProp,
   prontuariosPendentes: prontuariosPendentesProp,
   followUpsPendentes: followUpsPendentesProp,
-  userEmail,
 }: {
   onMobileClose?: () => void
   onOpenNovoAgendamento?: () => void
   modulosLiberados?: string[]
   prontuariosPendentes?: number
   followUpsPendentes?: number
-  userEmail?: string
 }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -153,11 +150,6 @@ export function Sidebar({
                 {pv('confirmacoes:cards') && (
                   <Link href="/confirmacoes/historico" onClick={handleNavClick} className={subLinkCls(!!isActive('/confirmacoes/historico'))}>
                     Histórico
-                  </Link>
-                )}
-                {userEmail === DEV_EMAIL && (
-                  <Link href="/confirmacoes/testar" onClick={handleNavClick} className={subLinkCls(!!isActive('/confirmacoes/testar'))}>
-                    Testar Envios
                   </Link>
                 )}
               </div>
