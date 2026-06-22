@@ -140,29 +140,11 @@ export async function contarProntuariosPendentes(): Promise<number> {
   if (role === 'medico') return 0
 
   const isFisio = role !== 'gestor' && role !== 'master'
-  const { data: atendimentosConcluidosRaw } = await (() => {
-    const q = supabase
-      .from('atendimentos')
-      .select('id')
-      .in('status', STATUS_CONCLUIDO_RAW_VALUES)
-      .order('data_agendamento', { ascending: false })
-      .limit(PRONTUARIOS_PENDENTES_RECENT_LIMIT)
-    return isFisio ? q.eq('profissional_id', user.id) : q
-  })()
 
-  const atendimentosConcluidos = atendimentosConcluidosRaw ?? []
-  const atendimentoIds = atendimentosConcluidos.map((atendimento) => atendimento.id)
+  const { data } = await supabase.rpc('contar_prontuarios_pendentes', {
+    limit_count: PRONTUARIOS_PENDENTES_RECENT_LIMIT,
+    fisio_id: isFisio ? user.id : null,
+  })
 
-  let idsComProntuario = new Set<string>()
-
-  if (atendimentoIds.length > 0) {
-    const { data: comProntuario } = await supabase
-      .from('prontuarios')
-      .select('atendimento_id')
-      .in('atendimento_id', atendimentoIds)
-
-    idsComProntuario = new Set(comProntuario?.map((prontuario) => prontuario.atendimento_id) ?? [])
-  }
-
-  return atendimentosConcluidos.filter((atendimento) => !idsComProntuario.has(atendimento.id)).length
+  return data ?? 0
 }
