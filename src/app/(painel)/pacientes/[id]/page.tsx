@@ -42,24 +42,14 @@ const PENDENTE_KEYS = new Set(['em_atendimento', 'aguardando_consulta', 'aguarda
 function formatarOrigemPaciente(origem: string | null | undefined) {
   if (!origem) return 'Não informada'
 
-  const [origemBase = '', segundoNivel = '', ...resto] = origem.split('::')
+  const [origemBase = '', segundoNivel = ''] = origem.split('::')
   const baseNormalizada = origemBase.trim().toLowerCase()
 
-  if (baseNormalizada === 'facebook') {
-    return ['Facebook', segundoNivel].filter(Boolean).join(' > ')
+  if (baseNormalizada === 'facebook' || baseNormalizada === 'meta') {
+    return [origemBase.trim(), segundoNivel].filter(Boolean).join(' > ')
   }
 
-  if (baseNormalizada !== 'meta') return origem
-
-  const canal = segundoNivel.trim()
-  if (canal.toLowerCase() === 'facebook') {
-    return ['Facebook', resto.join('::')].filter(Boolean).join(' > ')
-  }
-  if (canal.toLowerCase() === 'instagram') {
-    return 'Instagram'
-  }
-
-  return ['Meta', canal, resto.join('::')].filter(Boolean).join(' > ')
+  return origem
 }
 
 export default async function PacienteDetailsPage({ 

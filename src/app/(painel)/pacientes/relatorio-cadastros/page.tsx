@@ -41,12 +41,7 @@ function parsearOrigem(origem: string | null | undefined): string {
   if (!base) return 'Não informada'
   const baseNorm = base.charAt(0).toUpperCase() + base.slice(1).toLowerCase()
   if (baseNorm === 'Facebook') return 'Facebook'
-  if (baseNorm === 'Meta' && partes[1]?.trim()) {
-    const canal = partes[1].trim()
-    if (canal.toLowerCase() === 'facebook') return 'Facebook'
-    if (canal.toLowerCase() === 'instagram') return 'Instagram'
-    return canal
-  }
+  if (baseNorm === 'Meta') return 'Meta'
   return baseNorm
 }
 
@@ -55,16 +50,11 @@ function parsearAnuncioMeta(origem: string | null | undefined): string | null {
   const partes = origem.split('::')
   const base = partes[0].trim().toLowerCase()
 
-  if (base === 'facebook') {
+  if (base === 'facebook' || base === 'meta') {
     return partes[1]?.trim() || null
   }
 
-  if (base !== 'meta') return null
-
-  const canal = partes[1]?.trim() || ''
-  const anuncio = partes[2]?.trim() || ''
-  if (canal.toLowerCase() !== 'facebook') return null
-  return anuncio || null
+  return null
 }
 
 function formatarDataHora(iso: string | null | undefined): string {

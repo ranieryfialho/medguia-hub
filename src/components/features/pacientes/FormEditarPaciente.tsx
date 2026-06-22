@@ -11,34 +11,35 @@ import { formatarCPF, formatarRG, formatarTelefone, mascararCPFInput, mascararRG
 import { extrairMetadataInativacao } from '@/lib/paciente-inativacao'
 
 function parseOrigem(origem: string) {
-  const [origemBase = '', segundoNivel = '', ...resto] = origem.split('::')
+  const [origemBase = '', segundoNivel = ''] = origem.split('::')
   const baseNormalizada = origemBase.trim().toLowerCase()
-  const detalhe = resto.join('::')
 
-  if (baseNormalizada === 'meta') {
-    const canal = segundoNivel.trim()
+  if (baseNormalizada === 'meta' || baseNormalizada === 'facebook') {
     return {
-      origemBase: canal || origemBase,
-      metaCanal: canal,
-      metaAnuncio: detalhe,
+      origemBase,
+      metaCanal: '',
+      metaAnuncio: segundoNivel,
     }
   }
 
   return {
     origemBase,
     metaCanal: '',
-    metaAnuncio: baseNormalizada === 'facebook' ? segundoNivel : '',
+    metaAnuncio: '',
   }
 }
 
 function montarOrigem(origemBase: string, metaCanal: string, metaAnuncio: string) {
-  if (origemBase !== 'Facebook') return origemBase
-  return ['Facebook', metaAnuncio.trim()].filter(Boolean).join('::')
+  const base = origemBase.trim().toLowerCase()
+  if (base === 'facebook' || base === 'meta') {
+    return [origemBase, metaAnuncio.trim()].filter(Boolean).join('::')
+  }
+  return origemBase
 }
 
 function tipoOrigem(nome: string) {
   const n = nome.toLowerCase()
-  if (n.includes('facebook')) return 'facebook'
+  if (n.includes('facebook') || n.includes('meta')) return 'facebook'
   if (n.includes('médico') || n.includes('medico')) return 'medico'
   if (n.includes('indicaç') || n.includes('indicac')) return 'indicacao'
   return 'outro'
