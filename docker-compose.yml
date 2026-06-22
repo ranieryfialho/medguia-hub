@@ -12,6 +12,10 @@ services:
     env_file:
       - .env
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 900m
     networks:
       - wp-network
 
