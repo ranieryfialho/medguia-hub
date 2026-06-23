@@ -4,7 +4,6 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { ClipboardList, CheckCheck, ChevronRight, CalendarDays, History, Search } from 'lucide-react'
 import { requireModulo } from '@/lib/guard'
-import { STATUS_CONCLUIDO_RAW_VALUES } from '@/lib/atendimento-status'
 import { PRONTUARIOS_PENDENTES_RECENT_LIMIT } from '@/lib/prontuarios'
 
 function iniciais(nome: string) {
@@ -41,43 +40,16 @@ export default async function ProntuariosPage({
     if (role === 'medico') {
       pendentes = []
     } else {
-    const [atendimentosRes, { data: profissionaisRaw }] = await Promise.all([
-      (() => {
-        const q = supabase
-          .from('atendimentos')
-          .select(`
-            id,
-            data_agendamento,
-            tipo,
-            paciente_id,
-            profissional_id,
-            pacientes(id, nome),
-            agendamento:agendamentos(tipo)
-          `)
-          .in('status', STATUS_CONCLUIDO_RAW_VALUES)
-          .order('data_agendamento', { ascending: false })
-          .limit(PRONTUARIOS_PENDENTES_RECENT_LIMIT)
-        return isFisio ? q.eq('profissional_id', user.id) : q
-      })(),
+    const [{ data: pendentesRpc }, { data: profissionaisRaw }] = await Promise.all([
+      supabase.rpc('listar_atendimentos_sem_prontuario', {
+        limit_count: PRONTUARIOS_PENDENTES_RECENT_LIMIT,
+        fisio_id: isFisio ? user.id : null,
+      }),
       supabase.from('profiles').select('id, full_name, role'),
     ])
 
     profissionaisMap = new Map((profissionaisRaw ?? []).map(p => [p.id, p.full_name]))
-    const atendimentosConcluidos = atendimentosRes.data ?? []
-    const atendimentoIds = atendimentosConcluidos.map((atendimento) => atendimento.id)
-
-    let idsComProntuario = new Set<string>()
-
-    if (atendimentoIds.length > 0) {
-      const { data: comProntuario } = await supabase
-        .from('prontuarios')
-        .select('atendimento_id')
-        .in('atendimento_id', atendimentoIds)
-
-      idsComProntuario = new Set(comProntuario?.map((prontuario) => prontuario.atendimento_id) ?? [])
-    }
-
-    pendentes = atendimentosConcluidos.filter((atendimento) => !idsComProntuario.has(atendimento.id))
+    pendentes = pendentesRpc ?? []
   }
   }
 
@@ -238,10 +210,8 @@ export default async function ProntuariosPage({
         ) : (
           <div className="space-y-3">
             {pendentes.map((atendimento: any) => {
-              const paciente = atendimento.pacientes as { id: string; nome: string } | null
-              const tipo = (atendimento.agendamento as { tipo?: string } | null)?.tipo
-                ?? atendimento.tipo ?? 'Sessão'
-              const nome = paciente?.nome ?? 'Paciente'
+              const nome = (atendimento.paciente_nome as string | null) ?? 'Paciente'
+              const tipo = (atendimento.agendamento_tipo as string | null) ?? (atendimento.tipo as string | null) ?? 'Sessão'
               const profissionalNome = profissionaisMap.get(atendimento.profissional_id) ?? 'Sem responsável'
               const data = new Date(atendimento.data_agendamento)
 

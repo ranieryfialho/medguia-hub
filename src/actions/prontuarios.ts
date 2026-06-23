@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { temAcesso } from '@/lib/modulos'
-import { normalizeAtendimentoStatus, STATUS_CONCLUIDO_RAW_VALUES } from '@/lib/atendimento-status'
+import { normalizeAtendimentoStatus } from '@/lib/atendimento-status'
 import { PRONTUARIOS_PENDENTES_RECENT_LIMIT } from '@/lib/prontuarios'
 
 export type ProntuarioData = {
