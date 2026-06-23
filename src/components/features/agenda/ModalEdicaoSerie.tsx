@@ -25,6 +25,7 @@ type SessaoEditavel = {
   profissional_id: string
   numero_sessao: number | null
   total_sessoes: number | null
+  status: string
   concluido: boolean
 }
 
@@ -51,7 +52,8 @@ function parseSessao(s: SessaoRaw): SessaoEditavel {
     profissional_id: s.profissional_id ?? '',
     numero_sessao: s.numero_sessao,
     total_sessoes: s.total_sessoes,
-    concluido: getAtendimentoStatusKey(s.status) === 'concluido',
+    status: s.status,
+    concluido: ['concluido', 'reagendado', 'falta', 'cancelado'].includes(getAtendimentoStatusKey(s.status)),
   }
 }
 
@@ -141,7 +143,7 @@ export function ModalEdicaoSerie({ agendamentoPaiId, profissionais, onClose, onS
                 </span>
                 {s.concluido && (
                   <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                    Concluída
+                    {s.status}
                   </span>
                 )}
               </div>
