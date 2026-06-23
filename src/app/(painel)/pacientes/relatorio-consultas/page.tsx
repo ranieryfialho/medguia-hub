@@ -45,7 +45,7 @@ type AtendimentoResumo = {
   data_agendamento: string
   marcou_retorno?: boolean | null
   profissional?: { full_name: string | null } | Array<{ full_name: string | null }> | null
-  pacientes?: { nome: string | null; telefone: string | null; email: string | null } | Array<{ nome: string | null; telefone: string | null; email: string | null }> | null
+  pacientes?: { nome: string | null; telefone: string | null; email: string | null; origem: string | null } | Array<{ nome: string | null; telefone: string | null; email: string | null; origem: string | null }> | null
 }
 
 type MetricaTipo = {
@@ -113,18 +113,21 @@ function buildRelatorioConsultasUrl({
   data_fim,
   tipos_filtro,
   status_filtro,
+  origem_filtro,
 }: {
   visao: 'fisioterapia' | 'medicos'
   data_inicio: string
   data_fim: string
   tipos_filtro: string[]
   status_filtro: string
+  origem_filtro: string
 }) {
   const query = new URLSearchParams()
   query.set('visao', visao)
   query.set('data_inicio', data_inicio)
   query.set('data_fim', data_fim)
   if (status_filtro) query.set('status', status_filtro)
+  if (origem_filtro) query.set('origem', origem_filtro)
   for (const tipo of tipos_filtro) query.append('tipo', tipo)
   return `/pacientes/relatorio-consultas?${query.toString()}`
 }
@@ -186,6 +189,7 @@ export default async function RelatorioConsultasPage({
   const medico_id = (params.medico_id as string) || ''
   const tipos_filtro = Array.isArray(params.tipo) ? params.tipo : params.tipo ? [params.tipo] : []
   const status_filtro = (params.status as string) || ''
+  const origem_filtro = (params.origem as string) || ''
   const detalheLimiteRaw = Number(params.detalhe_limite)
   const detalheLimite = [10, 25, 50, 100].includes(detalheLimiteRaw) ? detalheLimiteRaw : 10
   const detalhePaginaRaw = Number(params.detalhe_pagina)
@@ -197,7 +201,7 @@ export default async function RelatorioConsultasPage({
   const dataInicioIso = getAppDayRangeUTC(data_inicio).start
   const dataFimIso = getAppDayRangeUTC(data_fim).end
 
-  const [{ data: perfisProfissionaisRaw }, { data: disponibilidadeRaw }] = await Promise.all([
+  const [{ data: perfisProfissionaisRaw }, { data: disponibilidadeRaw }, { data: origensRaw }] = await Promise.all([
     supabase
       .from('profiles')
       .select('id, full_name, role')
@@ -208,6 +212,11 @@ export default async function RelatorioConsultasPage({
       .from('disponibilidade_profissional')
       .select('profissional_id')
       .eq('ativo', true),
+    supabase
+      .from('origens_paciente')
+      .select('nome')
+      .eq('ativo', true)
+      .order('ordem'),
   ])
 
   const profissionaisComJornada = new Set(
@@ -272,7 +281,7 @@ export default async function RelatorioConsultasPage({
       data_agendamento,
       marcou_retorno,
       profissional:profiles!profissional_id(full_name),
-      pacientes(nome, telefone, email)
+      pacientes(nome, telefone, email, origem)
     `)
     .gte('data_agendamento', dataInicioIso)
     .lte('data_agendamento', dataFimIso)
@@ -298,7 +307,13 @@ export default async function RelatorioConsultasPage({
       .order('ordem'),
   ])
 
-  const atendimentos = (atendimentosRaw ?? []) as AtendimentoResumo[]
+  const atendimentosTodos = (atendimentosRaw ?? []) as AtendimentoResumo[]
+  const atendimentos = origem_filtro
+    ? atendimentosTodos.filter((a) => {
+        const origem = firstRelation(a.pacientes)?.origem ?? ''
+        return origem === origem_filtro || origem.startsWith(origem_filtro + '::')
+      })
+    : atendimentosTodos
   const agendamentoIds = [...new Set(
     atendimentos
       .map((atendimento) => atendimento.agendamento_id)
@@ -522,6 +537,8 @@ export default async function RelatorioConsultasPage({
     .map((item: { nome: string }) => item.nome)
     .sort((a, b) => a.localeCompare(b))
 
+  const opcoesOrigens = (origensRaw ?? []).map((item: { nome: string }) => item.nome)
+
   const opcoesStatus = ['Confirmado', 'Aguardando', 'Em Atendimento', 'Concluído', 'Cancelado', 'Falta']
   const periodoLabel = data_inicio === data_fim
     ? data_inicio
@@ -659,6 +676,7 @@ export default async function RelatorioConsultasPage({
               data_fim,
               tipos_filtro,
               status_filtro,
+              origem_filtro,
             })}
             className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
               visao === 'fisioterapia'
@@ -675,6 +693,7 @@ export default async function RelatorioConsultasPage({
               data_fim,
               tipos_filtro,
               status_filtro,
+              origem_filtro,
             })}
             className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
               visao === 'medicos'
@@ -696,9 +715,11 @@ export default async function RelatorioConsultasPage({
         responsavelId={responsavelSelecionadoId}
         tiposFiltro={tipos_filtro}
         statusFiltro={status_filtro}
+        origemFiltro={origem_filtro}
         profissionais={opcoesResponsaveis}
         opcoesTipos={opcoesTipos}
         opcoesStatus={opcoesStatus}
+        opcoesOrigens={opcoesOrigens}
         isGestorOuMaster={isGestorOuMaster}
       />
 

@@ -2,7 +2,7 @@ name: Deploy Medguia Hub para VPS
 
 on:
   push:
-    branches: [ "main", "master" ] # Altere se a sua branch principal tiver outro nome
+    branches: [ "main", "master" ]
 
 jobs:
   deploy:
@@ -12,7 +12,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Copiar arquivos para a VPS
-        uses: appleboy/scp-action@master
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
@@ -23,13 +23,16 @@ jobs:
           command_timeout: 10m
 
       - name: Construir e Ligar o Docker
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          command_timeout: 30m
           script: |
+            set -e
             cd ~/medguia-hub
             docker compose build --no-cache
-            docker compose up -d
+            docker compose up -d --remove-orphans
             docker image prune -f
+            docker compose ps --filter "status=running" | grep medguia-hub

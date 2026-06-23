@@ -5,6 +5,11 @@ import { PageTransitionLoader } from '@/components/layout/PageTransitionLoader'
 export const metadata: Metadata = {
   title: 'MedGuia Hub',
   description: 'Gestão inteligente para sua clínica',
+  icons: {
+    icon: '/logo.png',
+    shortcut: '/logo.png',
+    apple: '/logo.png',
+  },
 }
 
 export const viewport: Viewport = {
