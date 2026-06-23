@@ -1271,6 +1271,54 @@ export async function mudarStatusAgendamento(id: string, novoStatus: string) {
   return { success: true }
 }
 
+export async function buscarSessoesRecorrencia(agendamentoPaiId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado.' }
+
+  const { data, error } = await supabase
+    .from('atendimentos')
+    .select('id, data_agendamento, numero_sessao, total_sessoes, profissional_id, duracao_minutos, status')
+    .eq('agendamento_id', agendamentoPaiId)
+    .order('data_agendamento', { ascending: true })
+
+  if (error) return { error: 'Não foi possível buscar as sessões.' }
+  return { data: data ?? [] }
+}
+
+export async function editarSessoesDaSerie(
+  updates: { id: string; data: string; hora_inicio: string; hora_fim: string; profissional_id: string }[]
+) {
+  const ctx = await requirePermissaoAgendaAdmin()
+  if ('error' in ctx) return { error: ctx.error }
+  const { supabaseAdmin } = ctx
+
+  const resultados = await Promise.all(
+    updates.map(({ id, data, hora_inicio, hora_fim, profissional_id }) => {
+      const start = new Date(`1970-01-01T${hora_inicio}:00`)
+      const end = new Date(`1970-01-01T${hora_fim}:00`)
+      let duracao = (end.getTime() - start.getTime()) / 60000
+      if (duracao <= 0) duracao = 30
+
+      return supabaseAdmin
+        .from('atendimentos')
+        .update({
+          profissional_id: profissional_id || null,
+          data_agendamento: buildAppDateTimeISO(data, hora_inicio),
+          duracao_minutos: duracao,
+        })
+        .eq('id', id)
+        .then(({ error }) => error)
+    })
+  )
+
+  const erros = resultados.filter(Boolean).length
+  if (erros > 0) return { error: `Não foi possível salvar ${erros} sessão(ões).` }
+
+  revalidatePath('/agenda')
+  return { success: true }
+}
+
 export async function chamarPaciente(id: string) {
   const ctx = await requirePermissaoAgendaAdmin()
   if ('error' in ctx) return { error: ctx.error }

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Calendar, ChevronDown, ClipboardList, Clock, FolderOpen,
-  Mail, MessageCircle, Pencil, Phone, Timer, Trash2, User,
+  Layers, Mail, MessageCircle, Pencil, Phone, Timer, Trash2, User,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import {
@@ -28,6 +28,7 @@ import { ConfirmacaoFaltaModal } from './AgendamentoItem'
 import { TabMidia } from './TabMidia'
 import { TabHistorico } from './TabHistorico'
 import { ModalSelecaoExclusao } from './ModalSelecaoExclusao'
+import { ModalEdicaoSerie } from './ModalEdicaoSerie'
 import { TabFollowUp } from '../follow-ups/TabFollowUp'
 import {
   CONFIG_DEFAULT, OPCOES_STATUS, STATUS_CONFIG,
@@ -56,6 +57,7 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false)
   const [confirmacaoFalta, setConfirmacaoFalta] = useState(false)
   const [modalSelecao, setModalSelecao] = useState(false)
+  const [modalEdicaoSerie, setModalEdicaoSerie] = useState(false)
   const [modalReagendamento, setModalReagendamento] = useState(false)
   const [reagendamentoData, setReagendamentoData] = useState<string | undefined>()
   const [reagendamentoHora, setReagendamentoHora] = useState<string | undefined>()
@@ -340,6 +342,16 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
                       <Pencil size={15} className="text-[#3d4945]" />
                       Editar
                     </button>
+                    {isRecorrente && agendamento.agendamento_id && (
+                      <button
+                        type="button"
+                        onClick={() => { setShowOpcoes(false); setModalEdicaoSerie(true) }}
+                        className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-[#171d1c] hover:bg-[#f0f5f4] transition-colors"
+                      >
+                        <Layers size={15} className="text-[#3d4945]" />
+                        Editar série
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => { router.push(`/pacientes/${agendamento.paciente_id}`); setShowOpcoes(false) }}
@@ -566,6 +578,14 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
               agendamentoPaiId={agendamento.agendamento_id}
               onClose={() => setModalSelecao(false)}
               onExcluido={onClose}
+            />
+          )}
+          {modalEdicaoSerie && agendamento.agendamento_id && (
+            <ModalEdicaoSerie
+              agendamentoPaiId={agendamento.agendamento_id}
+              profissionais={profissionais}
+              onClose={() => setModalEdicaoSerie(false)}
+              onSalvo={() => { setModalEdicaoSerie(false); onClose() }}
             />
           )}
         </div>

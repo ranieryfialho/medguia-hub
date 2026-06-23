@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { User, Pencil, Timer, Stethoscope, Loader2, Megaphone, CheckCheck } from 'lucide-react'
+import { User, Pencil, Layers, Timer, Stethoscope, Loader2, Megaphone, CheckCheck } from 'lucide-react'
 import type { PlanoSaude } from '@/actions/planos-saude'
 import { formatAppTime } from '@/lib/datetime'
 import { mudarStatusAgendamento, chamarPaciente } from '@/actions/agenda'
@@ -13,6 +14,7 @@ import { useTempoEspera } from '@/hooks/useTempoEspera'
 import { MenuAcoesAgendamento } from './MenuAcoesAgendamento'
 import { SlideNovoAgendamento } from './SlideNovoAgendamento'
 import { AgendamentoModal } from './AgendamentoModal'
+import { ModalEdicaoSerie } from './ModalEdicaoSerie'
 import {
   getConfig,
   deveExibirContagemTipoSeparada,
@@ -107,7 +109,12 @@ export function AgendamentoItemDia({
   const mostrarChamar                     = statusKey === 'aguardando_consulta'
   const [chamarLoading, setChamarLoading] = useState(false)
   const [chamadoAs, setChamadoAs]         = useState<string | null>(null)
+  const [showEditMenu, setShowEditMenu]   = useState(false)
+  const [editMenuPos, setEditMenuPos]     = useState<{ top: number; left: number } | null>(null)
+  const [modalEdicaoSerie, setModalEdicaoSerie] = useState(false)
+  const editBtnRef = useRef<HTMLButtonElement>(null)
   const tempoEspera = useTempoEspera(agendamento.id, agendamento.aguardando_desde, agendamento.em_atendimento_desde, () => router.refresh())
+  const isRecorrente = !!(agendamento.agendamento_id && (agendamento.total_sessoes ?? 0) > 1)
 
   async function handleMudarStatus(novoStatus: string) {
     setStatusLoading(novoStatus)
@@ -238,14 +245,26 @@ export function AgendamentoItemDia({
                 >
                   <User size={15} />
                 </Link>
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); setSlideEditarAberto(true) }}
-                  title="Editar agendamento"
-                  className="hidden sm:flex w-7 h-7 items-center justify-center rounded-lg text-[#3d4945]/50 hover:text-[#006b5a] hover:bg-[#dee3e3] transition-colors"
-                >
-                  <Pencil size={14} />
-                </button>
+                <div className="hidden sm:block">
+                  <button
+                    ref={editBtnRef}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (isRecorrente) {
+                        const rect = editBtnRef.current?.getBoundingClientRect()
+                        if (rect) setEditMenuPos({ top: rect.bottom + 4, left: rect.right - 192 })
+                        setShowEditMenu(v => !v)
+                      } else {
+                        setSlideEditarAberto(true)
+                      }
+                    }}
+                    title="Editar agendamento"
+                    className="flex w-7 h-7 items-center justify-center rounded-lg text-[#3d4945]/50 hover:text-[#006b5a] hover:bg-[#dee3e3] transition-colors"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                </div>
                 {(mostrarChegou || mostrarEmAtendimento) && (
                   <div className="hidden sm:flex items-center gap-2">
                     <span className="text-[#bcc9c4] select-none">|</span>
@@ -389,6 +408,45 @@ export function AgendamentoItemDia({
         onControlledClose={() => setSlideEditarAberto(false)}
         atendimentoParaEditar={slideEditarAberto ? agendamento : undefined}
       />
+
+      {modalEdicaoSerie && agendamento.agendamento_id && (
+        <ModalEdicaoSerie
+          standalone
+          agendamentoPaiId={agendamento.agendamento_id}
+          profissionais={profissionais.map(p => ({ id: p.id, full_name: p.nome }))}
+          onClose={() => setModalEdicaoSerie(false)}
+          onSalvo={() => setModalEdicaoSerie(false)}
+        />
+      )}
+
+      {showEditMenu && isRecorrente && editMenuPos && typeof document !== 'undefined' && createPortal(
+        <>
+          <div className="fixed inset-0 z-[9998]" onClick={() => setShowEditMenu(false)} />
+          <div
+            style={{ position: 'fixed', top: editMenuPos.top, left: editMenuPos.left, width: 192, zIndex: 9999 }}
+            className="overflow-hidden rounded-xl border border-[#bcc9c4]/40 bg-white py-1.5 shadow-lg"
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => { setShowEditMenu(false); setSlideEditarAberto(true) }}
+              className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-[#171d1c] hover:bg-[#f0f5f4] transition-colors"
+            >
+              <Pencil size={14} className="text-[#3d4945]" />
+              Editar este
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowEditMenu(false); setModalEdicaoSerie(true) }}
+              className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-[#171d1c] hover:bg-[#f0f5f4] transition-colors"
+            >
+              <Layers size={14} className="text-[#3d4945]" />
+              Editar série
+            </button>
+          </div>
+        </>,
+        document.body
+      )}
     </>
   )
 }
