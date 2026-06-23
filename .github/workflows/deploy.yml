@@ -30,5 +30,6 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             cd ~/medguia-hub
-            docker compose up -d --build
+            docker compose build --no-cache
+            docker compose up -d
             docker image prune -f
