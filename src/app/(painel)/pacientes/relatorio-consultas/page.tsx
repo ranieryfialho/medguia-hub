@@ -611,6 +611,7 @@ export default async function RelatorioConsultasPage({
             <BtnGerarPdfConsultas
               visao={visao}
               periodoLabel={periodoLabel}
+              origemFiltro={origem_filtro || undefined}
               totalAgendamentos={totalAgendamentos}
               totalAtendimentos={totalAtendimentos}
               totalConcluidos={totalConcluidos}

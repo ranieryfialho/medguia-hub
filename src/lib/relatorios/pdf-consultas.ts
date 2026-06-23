@@ -45,6 +45,7 @@ export type PdfRetornoConsulta = {
 export type GerarPdfConsultasInput = {
   visao: 'fisioterapia' | 'medicos'
   periodoLabel: string
+  origemFiltro?: string
   totalAgendamentos: number
   totalAtendimentos: number
   totalConcluidos: number
@@ -100,7 +101,7 @@ export async function gerarPdfConsultas(input: GerarPdfConsultasInput) {
     desenharPaginaDetalhamento(doc, input.detalhamentoConsultas)
   }
 
-  aplicarRodape(doc, input.periodoLabel)
+  aplicarRodape(doc, input.periodoLabel, input.origemFiltro)
   doc.save('relatorio-consultas.pdf')
 }
 
@@ -117,6 +118,10 @@ function desenharPaginaResumo(doc: jsPDF, input: GerarPdfConsultasInput, tiposOr
   doc.setFontSize(10)
   doc.text('Resumo executivo do período', MARGIN_X, 30)
   doc.text(input.periodoLabel, MARGIN_X, 38)
+  if (input.origemFiltro) {
+    doc.setFontSize(9)
+    doc.text(`Origem: ${input.origemFiltro}`, MARGIN_X, 45)
+  }
 
   let y = 58
   y = desenharGradeCards(doc, y, [
@@ -439,8 +444,11 @@ function desenharLinhaTabela(
   return y + height
 }
 
-function aplicarRodape(doc: jsPDF, periodoLabel: string) {
+function aplicarRodape(doc: jsPDF, periodoLabel: string, origemFiltro?: string) {
   const total = doc.getNumberOfPages()
+  const rodapeEsquerdo = origemFiltro
+    ? `${periodoLabel}  |  Origem: ${origemFiltro}`
+    : periodoLabel
 
   for (let page = 1; page <= total; page++) {
     doc.setPage(page)
@@ -450,7 +458,7 @@ function aplicarRodape(doc: jsPDF, periodoLabel: string) {
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(8)
     doc.setTextColor(...MUTED)
-    doc.text(periodoLabel, MARGIN_X, PAGE_HEIGHT - 7)
+    doc.text(rodapeEsquerdo, MARGIN_X, PAGE_HEIGHT - 7)
     doc.text(`Página ${page}/${total}`, PAGE_WIDTH - MARGIN_X, PAGE_HEIGHT - 7, { align: 'right' })
   }
 }
