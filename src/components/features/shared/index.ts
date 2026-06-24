@@ -32,3 +32,5 @@ export { BtnGerarPdfAniversariantes } from './BtnGerarPdfAniversariantes';
 export { FiltroAniversariantes } from './FiltroAniversariantes';
 export { AcoesAniversariante } from './AcoesAniversariante';
 export { SeletorTemplateAniversario } from './SeletorTemplateAniversario';
+export { BtnExportarXlsxAniversariantes } from './BtnExportarXlsxAniversariantes';
+export type { ExportarXlsxAniversariantesInput } from './BtnExportarXlsxAniversariantes';

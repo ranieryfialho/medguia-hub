@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { requireModulo } from '@/lib/guard'
 import { APP_TIME_ZONE } from '@/lib/datetime'
 import { Users, CalendarDays, Cake, MessageSquare } from 'lucide-react'
-import { BtnGerarPdfAniversariantes, FiltroAniversariantes, AcoesAniversariante } from '@/components/features/shared'
+import { BtnGerarPdfAniversariantes, FiltroAniversariantes, AcoesAniversariante, BtnExportarXlsxAniversariantes } from '@/components/features/shared'
 import type { GerarPdfAniversariantesInput } from '@/lib/relatorios/pdf-aniversariantes'
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>
@@ -160,6 +160,21 @@ export default async function RelatorioAniversariantesPage({
     })),
   }
 
+  const xlsxInput = {
+    periodoLabel,
+    pacientes: ordenados.map(p => ({
+      nome: p.nome,
+      diaMes: p.diaMes,
+      idade: p.idade,
+      diaSemana: p.diaSemana,
+      telefone: p.telefone,
+      email: p.email,
+      convenio: p.convenio,
+      isHoje: p.isHoje,
+      isProximos7: p.isProximos7,
+    })),
+  }
+
   function buildUrl(overrides: { pagina?: number; limite?: number; ordem?: string } = {}) {
     const q = new URLSearchParams()
     if (mesSelecionado !== mesAtual) q.set('mes', String(mesSelecionado))
@@ -200,6 +215,7 @@ export default async function RelatorioAniversariantesPage({
               <MessageSquare size={15} />
               Templates
             </Link>
+            <BtnExportarXlsxAniversariantes {...xlsxInput} />
             <BtnGerarPdfAniversariantes {...pdfInput} />
           </div>
         </div>
