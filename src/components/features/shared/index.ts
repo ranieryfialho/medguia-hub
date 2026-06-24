@@ -28,3 +28,7 @@ export { SeletorTemplateWhatsApp } from './SeletorTemplateWhatsApp';
 export { SeletorTemplateCanal } from './SeletorTemplateCanal';
 export { BtnSMS } from './BtnSMS';
 export { BtnEmail } from './BtnEmail';
+export { BtnGerarPdfAniversariantes } from './BtnGerarPdfAniversariantes';
+export { FiltroAniversariantes } from './FiltroAniversariantes';
+export { AcoesAniversariante } from './AcoesAniversariante';
+export { SeletorTemplateAniversario } from './SeletorTemplateAniversario';

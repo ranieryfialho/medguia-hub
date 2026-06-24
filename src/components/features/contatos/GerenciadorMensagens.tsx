@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { salvarTemplate, atualizarTemplate, deletarTemplate, type CategoriaTemplate } from '@/actions/templates'
-import { Plus, Trash2, Check, X, MessageSquare, Mail, Link } from 'lucide-react'
+import { Plus, Trash2, Check, X, MessageSquare, Mail, Link, Cake } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface Template {
@@ -39,6 +39,12 @@ const CATEGORIAS: { id: CategoriaTemplate; label: string; descricao: string; ico
     descricao: 'Emails de confirmação — o campo "Nome" é usado como assunto do email. Use {{link_confirmacao}} para gerar o botão de confirmação',
     icone: <Mail size={14} />,
   },
+  {
+    id: 'aniversario',
+    label: 'Aniversário',
+    descricao: 'Mensagens de felicitação enviadas a pacientes no dia do aniversário',
+    icone: <Cake size={14} />,
+  },
 ]
 
 // Shortcodes por categoria
@@ -57,6 +63,12 @@ const SHORTCODES_REATIVACAO = [
   { label: '{{ultimo_tipo}}', value: '{{ultimo_tipo}}', descricao: 'Tipo do último atendimento' },
 ]
 
+const SHORTCODES_ANIVERSARIO = [
+  { label: '{{nome}}', value: '{{nome}}', descricao: 'Nome do paciente' },
+  { label: '{{idade}}', value: '{{idade}}', descricao: 'Idade que o paciente completa neste aniversário' },
+  { label: '{{dia_semana}}', value: '{{dia_semana}}', descricao: 'Dia da semana do aniversário (ex: segunda-feira)' },
+]
+
 const SHORTCODE_LINK = {
   label: '{{link_confirmacao}}',
   value: '{{link_confirmacao}}',
@@ -68,12 +80,19 @@ function getShortcodes(categoria: CategoriaTemplate) {
   if (categoria === 'confirmacao_sms' || categoria === 'confirmacao_email') {
     return [...SHORTCODES_AGENDAMENTO, SHORTCODE_LINK]
   }
+  if (categoria === 'aniversario') return SHORTCODES_ANIVERSARIO
   return SHORTCODES_AGENDAMENTO
 }
 
-export function GerenciadorMensagens({ templates: initialTemplates }: { templates: Template[] }) {
+export function GerenciadorMensagens({
+  templates: initialTemplates,
+  abaInicial = 'confirmacao',
+}: {
+  templates: Template[]
+  abaInicial?: CategoriaTemplate
+}) {
   const [templates, setTemplates] = useState(initialTemplates)
-  const [activeTab, setActiveTab] = useState<CategoriaTemplate>('confirmacao')
+  const [activeTab, setActiveTab] = useState<CategoriaTemplate>(abaInicial)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [isEditingNew, setIsEditingNew] = useState(false)
   const [nome, setNome] = useState('')
@@ -206,6 +225,8 @@ export function GerenciadorMensagens({ templates: initialTemplates }: { template
       dias: '45',
       data_ultimo: '21/02/2026',
       ultimo_tipo: 'FOT Fisioterapia',
+      idade: '35',
+      dia_semana: 'segunda-feira',
     }
 
     return text
@@ -218,6 +239,8 @@ export function GerenciadorMensagens({ templates: initialTemplates }: { template
       .replace(/{{dias}}/g, `<span class="bg-[#b45309]/20 px-1 rounded">${example.dias}</span>`)
       .replace(/{{data_ultimo}}/g, `<span class="bg-[#b45309]/20 px-1 rounded">${example.data_ultimo}</span>`)
       .replace(/{{ultimo_tipo}}/g, `<span class="bg-[#b45309]/20 px-1 rounded">${example.ultimo_tipo}</span>`)
+      .replace(/{{idade}}/g, `<span class="bg-pink-100 text-pink-700 px-1 rounded">${example.idade}</span>`)
+      .replace(/{{dia_semana}}/g, `<span class="bg-pink-100 text-pink-700 px-1 rounded">${example.dia_semana}</span>`)
       .replace(
         /{{link_confirmacao}}/g,
         `<span class="inline-flex items-center gap-1 bg-[#006b5a] text-white text-xs font-semibold px-2 py-0.5 rounded">🔗 link de confirmação</span>`

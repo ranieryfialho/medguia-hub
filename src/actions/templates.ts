@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
-export type CategoriaTemplate = 'confirmacao' | 'reativacao' | 'confirmacao_sms' | 'confirmacao_email'
+export type CategoriaTemplate = 'confirmacao' | 'reativacao' | 'confirmacao_sms' | 'confirmacao_email' | 'aniversario'
 
 export async function listarTemplates(categoria?: CategoriaTemplate) {
   const supabase = await createClient()
@@ -50,6 +50,7 @@ export async function salvarTemplate(nome: string, conteudo: string, categoria: 
   }
 
   revalidatePath('/confirmacoes/mensagens')
+  revalidatePath('/configuracoes/mensagens')
   return { success: true, id: data?.id }
 }
 
@@ -72,6 +73,7 @@ export async function atualizarTemplate(id: string, nome: string, conteudo: stri
   }
 
   revalidatePath('/confirmacoes/mensagens')
+  revalidatePath('/configuracoes/mensagens')
   return { success: true }
 }
 
@@ -94,5 +96,6 @@ export async function deletarTemplate(id: string) {
   }
 
   revalidatePath('/confirmacoes/mensagens')
+  revalidatePath('/configuracoes/mensagens')
   return { success: true }
 }

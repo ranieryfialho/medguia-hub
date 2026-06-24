@@ -218,7 +218,7 @@ export function SeletorTemplateCanal({
                 <p className="text-sm text-slate-500 text-center">
                   Nenhum template de {canal === 'sms' ? 'SMS' : 'email'} cadastrado.
                 </p>
-                <a href="/confirmacoes/mensagens" className="text-xs font-semibold text-[#006b5a] hover:underline">
+                <a href="/configuracoes/mensagens" className="text-xs font-semibold text-[#006b5a] hover:underline">
                   Criar template →
                 </a>
               </div>

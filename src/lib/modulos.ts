@@ -63,7 +63,7 @@ export const GRUPOS_MODULOS: GrupoModulos[] = [
     modulos: [
       { chave: 'confirmacoes:cards', label: 'Cards', rota: '/confirmacoes/cards' },
       { chave: 'confirmacoes:semana', label: 'Semana', rota: '/confirmacoes/semana' },
-      { chave: 'confirmacoes:mensagens', label: 'Mensagens', rota: '/confirmacoes/mensagens' },
+      { chave: 'confirmacoes:mensagens', label: 'Mensagens', rota: '/configuracoes/mensagens' },
       { chave: 'confirmacoes:historico', label: 'Histórico', rota: '/confirmacoes/historico' },
     ],
   },
