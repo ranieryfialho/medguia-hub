@@ -17,6 +17,7 @@ export type ModuloChave =
   | 'comercial:relatorio_vendas'
   | 'equipe:membros'
   | 'equipe:tempo_fabril'
+  | 'equipe:conferencia'
   | 'equipe:acessos'
   | 'configuracoes:jornada'
   | 'configuracoes:disponibilidade'
@@ -90,6 +91,7 @@ export const GRUPOS_MODULOS: GrupoModulos[] = [
     modulos: [
       { chave: 'equipe:membros', label: 'Membros da Equipe', rota: '/equipe' },
       { chave: 'equipe:tempo_fabril', label: 'Tempo Fábril', rota: '/relatorios/tempo-fabril' },
+      { chave: 'equipe:conferencia', label: 'Conferência de Agendamentos', rota: '/relatorios/conferencia-agendamentos' },
       { chave: 'equipe:acessos', label: 'Gestão de Acessos', rota: '/equipe/acessos' },
       { chave: 'configuracoes:jornada', label: 'Jornada de Trabalho', rota: '/configuracoes/jornada' },
       { chave: 'configuracoes:disponibilidade', label: 'Disponibilidade', rota: '/configuracoes/disponibilidade' },
@@ -149,7 +151,7 @@ export const TEMPLATES_PERFIL: Record<TemplatePerfilChave, { label: string; modu
       'contatos:base', 'contatos:relatorio',
       'pacientes', 'prontuarios', 'follow_ups', 'follow_ups:tipos', 'follow_ups:templates',
       'comercial:vendas', 'comercial:produtos', 'comercial:relatorio_vendas',
-      'equipe:membros', 'equipe:tempo_fabril',
+      'equipe:membros', 'equipe:tempo_fabril', 'equipe:conferencia',
       'configuracoes:jornada', 'configuracoes:disponibilidade', 'configuracoes:google_drive',
     ],
   },

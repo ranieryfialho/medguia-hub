@@ -60,7 +60,7 @@ export function Sidebar({
   const [confirmacoesOpen, setConfirmacoesOpen] = useState(() => pathname?.startsWith('/confirmacoes') ?? false)
   const [contatosOpen, setContatosOpen] = useState(() => pathname?.startsWith('/contatos') ?? false)
   const [configOpen, setConfigOpen] = useState(() => pathname?.startsWith('/configuracoes') ?? false)
-  const [equipeOpen, setEquipeOpen] = useState(() => (pathname?.startsWith('/equipe') || pathname?.startsWith('/relatorios/tempo-fabril') || pathname?.startsWith('/configuracoes/jornada') || pathname?.startsWith('/configuracoes/disponibilidade')) ?? false)
+  const [equipeOpen, setEquipeOpen] = useState(() => (pathname?.startsWith('/equipe') || pathname?.startsWith('/relatorios/tempo-fabril') || pathname?.startsWith('/relatorios/conferencia-agendamentos') || pathname?.startsWith('/configuracoes/jornada') || pathname?.startsWith('/configuracoes/disponibilidade')) ?? false)
   const [comercialOpen, setComercialOpen] = useState(() => (pathname?.startsWith('/vendas') || pathname?.startsWith('/produtos') || pathname?.startsWith('/relatorios/vendas') || pathname?.startsWith('/vendas/protocolos')) ?? false)
   const [pacientesOpen, setPacientesOpen] = useState(() => pathname?.startsWith('/pacientes') ?? false)
   const [prontuariosOpen, setProntuariosOpen] = useState(() => (pathname?.startsWith('/prontuarios') || pathname?.startsWith('/follow-ups')) ?? false)
@@ -313,7 +313,7 @@ export function Sidebar({
           {pvGrupo('equipe') ? (
             <button
               onClick={() => setEquipeOpen(v => !v)}
-              className={groupCls(!!isActive('/equipe') || !!isActive('/relatorios/tempo-fabril'))}
+              className={groupCls(!!isActive('/equipe') || !!isActive('/relatorios/tempo-fabril') || !!isActive('/relatorios/conferencia-agendamentos'))}
             >
               <Briefcase size={20} />
               <span className="flex-1 text-left">Equipe</span>
@@ -341,6 +341,12 @@ export function Sidebar({
                 <Link href="/relatorios/tempo-fabril" onClick={handleNavClick} className={subLinkCls(!!isActive('/relatorios/tempo-fabril'))}>
                   <BarChart3 size={14} />
                   Tempo Fabril
+                </Link>
+              )}
+              {pv('equipe:conferencia') && (
+                <Link href="/relatorios/conferencia-agendamentos" onClick={handleNavClick} className={subLinkCls(!!isActive('/relatorios/conferencia-agendamentos'))}>
+                  <ClipboardList size={14} />
+                  Conferência
                 </Link>
               )}
               {pv('equipe:acessos') && (

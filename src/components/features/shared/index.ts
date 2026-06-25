@@ -34,3 +34,5 @@ export { AcoesAniversariante } from './AcoesAniversariante';
 export { SeletorTemplateAniversario } from './SeletorTemplateAniversario';
 export { BtnExportarXlsxAniversariantes } from './BtnExportarXlsxAniversariantes';
 export type { ExportarXlsxAniversariantesInput } from './BtnExportarXlsxAniversariantes';
+export { BtnGerarPdfConferencia } from './BtnGerarPdfConferencia';
+export { BtnExportarXlsxConferencia } from './BtnExportarXlsxConferencia';
