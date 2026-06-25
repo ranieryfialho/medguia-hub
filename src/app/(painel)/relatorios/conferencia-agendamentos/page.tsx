@@ -44,7 +44,7 @@ export default async function ConferenciaAgendamentosPage({
   const { data: perfisProfissionaisRaw } = await supabase
     .from('profiles')
     .select('id, full_name, role')
-    .in('role', ['fisioterapeuta', 'gestor'])
+    .eq('role', 'fisioterapeuta')
     .eq('ativo', true)
     .order('full_name')
 
