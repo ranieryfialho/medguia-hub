@@ -1,9 +1,10 @@
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { ClipboardList, Search, User, ChevronRight, CalendarDays } from 'lucide-react'
+import { ClipboardList, Search, User, ChevronRight, CalendarDays, CheckCheck, History } from 'lucide-react'
 import { requireModulo } from '@/lib/guard'
 import { createClient } from '@/lib/supabase/server'
+import { BotaoConcluirFollowUp } from '@/components/features/follow-ups/BotaoConcluirFollowUp'
 
 function iniciais(nome: string) {
   return nome.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()
@@ -20,6 +21,7 @@ export default async function FollowUpsPage({
   const supabase = await createClient()
   const params = await searchParams
 
+  const aba = (params.aba as string) || 'pendentes'
   const busca = ((params.busca as string) || '').trim()
   const tipoFiltro = (params.tipo_id as string) || ''
   const responsavelFiltro = (params.responsavel_id as string) || user.id
@@ -49,12 +51,13 @@ export default async function FollowUpsPage({
   let query = supabase
     .from('follow_ups')
     .select(`
-      id, paciente_id, atendimento_id, tipo_id, descricao, responsavel_id, criado_por, created_at,
+      id, paciente_id, atendimento_id, tipo_id, descricao, responsavel_id, criado_por, created_at, status,
       tipo:follow_up_tipos(id, nome, cor),
       paciente:pacientes(id, nome),
       responsavel:profiles!responsavel_id(id, full_name),
       autor:profiles!criado_por(id, full_name)
     `, { count: 'exact' })
+    .eq('status', aba === 'historico' ? 'concluido' : 'pendente')
     .order('created_at', { ascending: false })
     .range(offset, offset + LIMITE - 1)
 
@@ -70,14 +73,14 @@ export default async function FollowUpsPage({
   const total = count ?? 0
   const totalPaginas = Math.ceil(total / LIMITE)
 
-  function buildUrl(p: number) {
+  function buildUrl(p: number, abaAlvo?: string) {
     const sp = new URLSearchParams()
+    sp.set('aba', abaAlvo ?? aba)
     if (busca) sp.set('busca', busca)
     if (tipoFiltro) sp.set('tipo_id', tipoFiltro)
-    if (responsavelFiltro) sp.set('responsavel_id', responsavelFiltro)
+    if (responsavelFiltro && responsavelFiltro !== user.id) sp.set('responsavel_id', responsavelFiltro)
     if (p > 1) sp.set('pagina', String(p))
-    const qs = sp.toString()
-    return `/follow-ups${qs ? `?${qs}` : ''}`
+    return `/follow-ups?${sp.toString()}`
   }
 
   const paginas: Array<number | '...'> = []
@@ -102,16 +105,48 @@ export default async function FollowUpsPage({
           </div>
           <div>
             <h2 className="text-xl font-bold text-[#006b5a]">Follow-ups</h2>
-            <p className="text-xs text-slate-500">Registro de acompanhamento por paciente</p>
+            <p className="text-xs text-slate-500">
+              {aba === 'pendentes' ? 'Acompanhamentos aguardando conclusão' : 'Histórico de follow-ups concluídos'}
+            </p>
           </div>
         </div>
-        <span className="bg-[#006b5a]/10 text-[#006b5a] text-sm font-semibold px-3 py-1.5 rounded-full shrink-0">
-          {total} registro{total !== 1 ? 's' : ''}
-        </span>
+        {aba === 'pendentes' && total > 0 && (
+          <span className="bg-red-100 text-red-700 text-sm font-bold px-3 py-1.5 rounded-full shrink-0">
+            {total} pendente{total !== 1 ? 's' : ''}
+          </span>
+        )}
+        {aba === 'historico' && (
+          <span className="bg-[#006b5a]/10 text-[#006b5a] text-sm font-semibold px-3 py-1.5 rounded-full shrink-0">
+            {total} registro{total !== 1 ? 's' : ''}
+          </span>
+        )}
+      </div>
+
+      {/* Abas */}
+      <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
+        <Link
+          href={buildUrl(1, 'pendentes')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            aba === 'pendentes' ? 'bg-white text-[#006b5a] shadow-sm' : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <ClipboardList size={15} />
+          Pendentes
+        </Link>
+        <Link
+          href={buildUrl(1, 'historico')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            aba === 'historico' ? 'bg-white text-[#006b5a] shadow-sm' : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <History size={15} />
+          Histórico
+        </Link>
       </div>
 
       {/* Filtros */}
       <form method="get" action="/follow-ups" className="flex flex-wrap items-end gap-3">
+        <input type="hidden" name="aba" value={aba} />
         <div className="relative flex-1 min-w-[200px]">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
@@ -141,8 +176,8 @@ export default async function FollowUpsPage({
         <button type="submit" className="px-4 py-2 bg-[#006b5a] hover:bg-[#005a4b] text-white rounded-lg text-sm font-medium transition-colors">
           Filtrar
         </button>
-        {(busca || tipoFiltro || responsavelFiltro) && (
-          <Link href="/follow-ups" className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-sm transition-colors">
+        {(busca || tipoFiltro || (responsavelFiltro && responsavelFiltro !== user.id)) && (
+          <Link href={`/follow-ups?aba=${aba}`} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-sm transition-colors">
             Limpar
           </Link>
         )}
@@ -150,12 +185,26 @@ export default async function FollowUpsPage({
 
       {/* Lista */}
       {followUps.length === 0 ? (
-        <div className="bg-white rounded-xl p-12 shadow-sm border border-slate-100 flex flex-col items-center gap-3 text-center">
-          <ClipboardList size={32} className="text-slate-300" />
-          <p className="font-bold text-slate-700">Nenhum follow-up encontrado</p>
-          <p className="text-slate-400 text-sm">
-            {busca ? `Sem resultados para "${busca}".` : 'Nenhum follow-up registrado ainda.'}
-          </p>
+        <div className="bg-white rounded-xl p-12 shadow-sm border border-slate-100 flex flex-col items-center gap-4 text-center">
+          {aba === 'pendentes' ? (
+            <>
+              <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center">
+                <CheckCheck size={32} className="text-[#006b5a]" />
+              </div>
+              <div>
+                <p className="font-bold text-slate-800 text-lg">Tudo em dia!</p>
+                <p className="text-slate-500 text-sm mt-1">Nenhum follow-up pendente.</p>
+              </div>
+            </>
+          ) : (
+            <>
+              <ClipboardList size={32} className="text-slate-300" />
+              <p className="font-bold text-slate-700">Nenhum follow-up encontrado</p>
+              <p className="text-slate-400 text-sm">
+                {busca ? `Sem resultados para "${busca}".` : 'Nenhum follow-up concluído ainda.'}
+              </p>
+            </>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
@@ -167,17 +216,22 @@ export default async function FollowUpsPage({
             const nome = paciente?.nome ?? 'Paciente'
 
             return (
-              <Link
+              <div
                 key={fu.id}
-                href={`/pacientes/${fu.paciente_id}?aba=follow-ups`}
-                className="flex items-center gap-4 bg-white rounded-xl p-4 shadow-sm border border-slate-100 hover:border-[#006b5a]/30 hover:shadow-md active:scale-[0.99] transition-all group"
+                className="flex items-center gap-4 bg-white rounded-xl p-4 shadow-sm border border-slate-100 hover:border-[#006b5a]/20 transition-all"
               >
-                <div className="w-11 h-11 rounded-2xl bg-[#006b5a] flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm">
+                <Link
+                  href={`/pacientes/${fu.paciente_id}?aba=follow-ups`}
+                  className="w-11 h-11 rounded-2xl bg-[#006b5a] flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm"
+                >
                   {iniciais(nome)}
-                </div>
-                <div className="flex-1 min-w-0">
+                </Link>
+                <Link
+                  href={`/pacientes/${fu.paciente_id}?aba=follow-ups`}
+                  className="flex-1 min-w-0 group"
+                >
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-bold text-slate-900 leading-tight">{nome}</p>
+                    <p className="font-bold text-slate-900 leading-tight group-hover:text-[#006b5a] transition-colors">{nome}</p>
                     {tipo && (
                       <span
                         className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
@@ -208,9 +262,14 @@ export default async function FollowUpsPage({
                       <span className="text-xs text-slate-300">por {autor.full_name}</span>
                     )}
                   </div>
-                </div>
-                <ChevronRight size={18} className="text-slate-300 group-hover:text-[#006b5a] group-hover:translate-x-0.5 transition-all shrink-0" />
-              </Link>
+                </Link>
+                {aba === 'pendentes' && (
+                  <BotaoConcluirFollowUp id={fu.id} />
+                )}
+                {aba === 'historico' && (
+                  <ChevronRight size={18} className="text-slate-300 shrink-0" />
+                )}
+              </div>
             )
           })}
         </div>

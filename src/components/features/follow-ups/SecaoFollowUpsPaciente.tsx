@@ -3,8 +3,9 @@
 import { useState } from 'react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { ClipboardList, User, ChevronDown, ChevronUp } from 'lucide-react'
+import { ClipboardList, User, ChevronDown, ChevronUp, CheckCircle2 } from 'lucide-react'
 import { ModalFollowUp } from './ModalFollowUp'
+import { BotaoConcluirFollowUp } from './BotaoConcluirFollowUp'
 import type { FollowUp, FollowUpTipo } from '@/actions/follow-ups'
 
 type Profissional = { id: string; full_name: string }
@@ -19,11 +20,16 @@ type Props = {
 const PREVIEW_COUNT = 3
 
 export function SecaoFollowUpsPaciente({ pacienteId, followUps: inicial, tipos, profissionais }: Props) {
-  const [followUps, setFollowUps] = useState(inicial)
+  const [followUps] = useState(inicial)
   const [expandido, setExpandido] = useState(false)
 
+  const pendentes = followUps.filter(fu => fu.status === 'pendente')
   const visiveis = expandido ? followUps : followUps.slice(0, PREVIEW_COUNT)
   const temMais = followUps.length > PREVIEW_COUNT
+
+  function handleConcluido() {
+    window.location.reload()
+  }
 
   return (
     <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
@@ -31,9 +37,14 @@ export function SecaoFollowUpsPaciente({ pacienteId, followUps: inicial, tipos, 
         <h4 className="font-bold text-sm text-slate-900 flex items-center gap-2">
           <ClipboardList size={16} className="text-[#006b5a]" />
           Follow-ups
-          {followUps.length > 0 && (
-            <span className="text-[10px] font-bold bg-[#006b5a]/10 text-[#006b5a] px-1.5 py-0.5 rounded-full">
-              {followUps.length}
+          {pendentes.length > 0 && (
+            <span className="text-[10px] font-bold bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">
+              {pendentes.length} pendente{pendentes.length !== 1 ? 's' : ''}
+            </span>
+          )}
+          {followUps.length > 0 && pendentes.length === 0 && (
+            <span className="text-[10px] font-bold bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-full">
+              {followUps.length} concluído{followUps.length !== 1 ? 's' : ''}
             </span>
           )}
         </h4>
@@ -41,10 +52,7 @@ export function SecaoFollowUpsPaciente({ pacienteId, followUps: inicial, tipos, 
           pacienteId={pacienteId}
           tipos={tipos}
           profissionais={profissionais}
-          onSuccess={() => {
-            // Recarrega a página para mostrar o novo follow-up
-            window.location.reload()
-          }}
+          onSuccess={() => window.location.reload()}
         />
       </div>
 
@@ -55,9 +63,10 @@ export function SecaoFollowUpsPaciente({ pacienteId, followUps: inicial, tipos, 
           {visiveis.map(fu => {
             const tipo = fu.tipo as { id: string; nome: string; cor: string | null } | null
             const responsavel = fu.responsavel as { id: string; full_name: string } | null
+            const isPendente = fu.status === 'pendente'
 
             return (
-              <li key={fu.id} className="bg-slate-50 rounded-lg p-3 border border-slate-100">
+              <li key={fu.id} className={`rounded-lg p-3 border transition-colors ${isPendente ? 'bg-slate-50 border-slate-100' : 'bg-emerald-50/40 border-emerald-100/60'}`}>
                 <div className="flex items-start gap-2">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -70,6 +79,12 @@ export function SecaoFollowUpsPaciente({ pacienteId, followUps: inicial, tipos, 
                           }
                         >
                           {tipo.nome}
+                        </span>
+                      )}
+                      {!isPendente && (
+                        <span className="flex items-center gap-0.5 text-[10px] font-bold text-emerald-600">
+                          <CheckCircle2 size={10} />
+                          Concluído
                         </span>
                       )}
                       <span className="text-[10px] text-slate-400">
@@ -86,6 +101,9 @@ export function SecaoFollowUpsPaciente({ pacienteId, followUps: inicial, tipos, 
                       </p>
                     )}
                   </div>
+                  {isPendente && (
+                    <BotaoConcluirFollowUp id={fu.id} onSuccess={handleConcluido} />
+                  )}
                 </div>
               </li>
             )

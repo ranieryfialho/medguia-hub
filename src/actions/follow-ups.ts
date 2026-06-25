@@ -33,6 +33,7 @@ export type FollowUp = {
   descricao: string | null
   responsavel_id: string | null
   criado_por: string | null
+  status: 'pendente' | 'concluido'
   created_at: string
   updated_at: string
   tipo: Pick<FollowUpTipo, 'id' | 'nome' | 'cor'>
@@ -259,6 +260,18 @@ export async function deletarFollowUp(id: string): Promise<{ error?: string }> {
   return {}
 }
 
+export async function concluirFollowUp(id: string): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('follow_ups')
+    .update({ status: 'concluido', updated_at: new Date().toISOString() })
+    .eq('id', id)
+  if (error) return { error: error.message }
+  revalidatePath('/', 'layout')
+  revalidatePath('/follow-ups')
+  return {}
+}
+
 export async function contarFollowUpsPendentes(): Promise<number> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -267,5 +280,6 @@ export async function contarFollowUpsPendentes(): Promise<number> {
     .from('follow_ups')
     .select('id', { count: 'exact', head: true })
     .eq('responsavel_id', user.id)
+    .eq('status', 'pendente')
   return count ?? 0
 }
