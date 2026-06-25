@@ -71,6 +71,34 @@ export function BtnExportarXlsxConferencia({ grupos, periodoLabel, totalGeralSes
         XLSX.utils.book_append_sheet(wb, ws, nomeAba)
       }
 
+      // Aba de pendentes passados
+      const linhasPendentes: Record<string, string>[] = []
+      for (const grupo of grupos) {
+        for (const p of grupo.pendentesPassados ?? []) {
+          linhasPendentes.push({
+            'Fisioterapeuta': grupo.profissionalNome,
+            'Data': p.dataLabel,
+            'Hora': p.hora,
+            'Paciente': p.pacienteNome,
+            'Tipo': p.tipo,
+            'Status': p.status,
+          })
+        }
+      }
+
+      if (linhasPendentes.length > 0) {
+        const wsPendentes = XLSX.utils.json_to_sheet(linhasPendentes)
+        wsPendentes['!cols'] = [
+          { wch: 28 }, // Fisioterapeuta
+          { wch: 14 }, // Data
+          { wch: 8 },  // Hora
+          { wch: 34 }, // Paciente
+          { wch: 24 }, // Tipo
+          { wch: 16 }, // Status
+        ]
+        XLSX.utils.book_append_sheet(wb, wsPendentes, 'Pendentes')
+      }
+
       const nomeArquivo = `conferencia-agendamentos-${periodoLabel.toLowerCase().replace(/[\s\/]/g, '-')}.xlsx`
       XLSX.writeFile(wb, nomeArquivo)
     } finally {

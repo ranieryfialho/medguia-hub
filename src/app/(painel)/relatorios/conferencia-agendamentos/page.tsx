@@ -10,6 +10,7 @@ import { TabelaConferencia } from './TabelaConferencia'
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>
 
 const STATUS_CONCLUIDO = ['Concluído', 'Concluido', 'concluído', 'concluido']
+const STATUS_CANCELADO = ['Cancelado', 'cancelado', 'Cancelada', 'cancelada']
 
 function formatarMinutos(minutos: number): string {
   if (minutos <= 0) return '—'
@@ -81,6 +82,36 @@ export default async function ConferenciaAgendamentosPage({
   const { data: atendimentosRaw } = await query
   const atendimentos = (atendimentosRaw ?? []) as any[]
 
+  // Agendamentos passados não concluídos (excluindo cancelados)
+  const agora = new Date().toISOString()
+  let queryPendentes = supabase
+    .from('atendimentos')
+    .select(`
+      id,
+      data_agendamento,
+      tipo,
+      status,
+      profissional_id,
+      pacientes(nome),
+      profissional:profiles!profissional_id(full_name)
+    `)
+    .not('status', 'in', `(${[...STATUS_CONCLUIDO, ...STATUS_CANCELADO].map(s => `"${s}"`).join(',')})`)
+    .gte('data_agendamento', dataInicioIso)
+    .lt('data_agendamento', agora)
+    .order('data_agendamento', { ascending: true })
+
+  if (profissionalId) {
+    queryPendentes = queryPendentes.eq('profissional_id', profissionalId)
+  } else {
+    const idsFisios = profissionais.map(p => p.id)
+    if (idsFisios.length > 0) {
+      queryPendentes = queryPendentes.in('profissional_id', idsFisios)
+    }
+  }
+
+  const { data: pendentesRaw } = await queryPendentes
+  const atendimentosPendentes = (pendentesRaw ?? []) as any[]
+
   const agendamentoIds = [...new Set(
     atendimentos.map((a: any) => a.agendamento_id).filter(Boolean) as string[],
   )]
@@ -138,6 +169,38 @@ export default async function ConferenciaAgendamentosPage({
     dia.totalMinutos += duracaoMinutos
     grupo.totalSessoes++
     grupo.totalMinutos += duracaoMinutos
+  }
+
+  // Agrupar pendentes passados por profissional
+  for (const a of atendimentosPendentes) {
+    const profId = a.profissional_id as string | null
+    if (!profId) continue
+
+    const profNome =
+      (Array.isArray(a.profissional) ? a.profissional[0]?.full_name : a.profissional?.full_name)
+      ?? profissionaisMap.get(profId)
+      ?? 'Sem responsável'
+    const pacienteNome =
+      (Array.isArray(a.pacientes) ? a.pacientes[0]?.nome : a.pacientes?.nome) ?? 'Paciente'
+
+    if (!gruposMap.has(profId)) {
+      gruposMap.set(profId, {
+        profissionalNome: profNome,
+        dias: [],
+        totalSessoes: 0,
+        totalMinutos: 0,
+      })
+    }
+
+    const grupo = gruposMap.get(profId)!
+    if (!grupo.pendentesPassados) grupo.pendentesPassados = []
+    grupo.pendentesPassados.push({
+      pacienteNome,
+      hora: formatAppTime(a.data_agendamento),
+      dataLabel: formatAppDate(a.data_agendamento),
+      tipo: (a.tipo as string | null) || 'Sem tipo',
+      status: (a.status as string) || 'Pendente',
+    })
   }
 
   for (const grupo of gruposMap.values()) {

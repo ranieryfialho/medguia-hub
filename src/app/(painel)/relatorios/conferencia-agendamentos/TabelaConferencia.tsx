@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { CalendarDays } from 'lucide-react'
+import { CalendarDays, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
 import type { GrupoProfissionalConferencia } from '@/lib/relatorios/pdf-conferencia-agendamentos'
 
 function formatarMinutos(minutos: number): string {
@@ -14,6 +14,7 @@ function formatarMinutos(minutos: number): string {
 
 export function TabelaConferencia({ grupos }: { grupos: GrupoProfissionalConferencia[] }) {
   const [abaAtiva, setAbaAtiva] = useState(0)
+  const [pendentesAberto, setPendentesAberto] = useState(false)
 
   if (grupos.length === 0) return null
 
@@ -27,7 +28,7 @@ export function TabelaConferencia({ grupos }: { grupos: GrupoProfissionalConfere
         {grupos.map((g, index) => (
           <button
             key={g.profissionalNome}
-            onClick={() => setAbaAtiva(index)}
+            onClick={() => { setAbaAtiva(index); setPendentesAberto(false) }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               abaAtiva === index
                 ? 'bg-white text-[#006b5a] shadow-sm'
@@ -42,6 +43,11 @@ export function TabelaConferencia({ grupos }: { grupos: GrupoProfissionalConfere
             }`}>
               {g.totalSessoes}
             </span>
+            {g.pendentesPassados && g.pendentesPassados.length > 0 && (
+              <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-600 border border-amber-200">
+                {g.pendentesPassados.length} ⚠
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -108,6 +114,67 @@ export function TabelaConferencia({ grupos }: { grupos: GrupoProfissionalConfere
             </div>
           </div>
         ))}
+
+        {/* Seção de pendentes passados */}
+        {grupo.pendentesPassados && grupo.pendentesPassados.length > 0 && (
+          <div className="border-t-2 border-amber-200">
+            <button
+              onClick={() => setPendentesAberto(v => !v)}
+              className="w-full flex items-center justify-between px-5 py-3 bg-amber-50 hover:bg-amber-100 transition-colors text-left"
+            >
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={15} className="text-amber-500 shrink-0" />
+                <span className="text-sm font-semibold text-amber-700">
+                  Agendamentos não concluídos
+                </span>
+                <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-amber-200 text-amber-800">
+                  {grupo.pendentesPassados.length}
+                </span>
+              </div>
+              {pendentesAberto
+                ? <ChevronDown size={15} className="text-amber-500" />
+                : <ChevronRight size={15} className="text-amber-500" />
+              }
+            </button>
+
+            {pendentesAberto && (
+              <div className="overflow-x-auto border-t border-amber-100">
+                <table className="w-full text-sm table-fixed">
+                  <colgroup>
+                    <col className="w-36" />
+                    <col className="w-[30%]" />
+                    <col />
+                    <col className="w-28" />
+                  </colgroup>
+                  <thead className="bg-amber-50 text-amber-700 uppercase text-[11px]">
+                    <tr>
+                      <th className="text-left px-4 py-2">Data / Hora</th>
+                      <th className="text-left px-4 py-2">Paciente</th>
+                      <th className="text-left px-4 py-2">Tipo</th>
+                      <th className="text-left px-4 py-2">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-amber-50">
+                    {grupo.pendentesPassados.map((p, i) => (
+                      <tr key={i} className={i % 2 === 1 ? 'bg-amber-50/40' : 'bg-white'}>
+                        <td className="px-4 py-2 text-xs text-amber-700 whitespace-nowrap font-mono">
+                          {p.dataLabel} · {p.hora}
+                        </td>
+                        <td className="px-4 py-2 font-medium text-slate-800 truncate">{p.pacienteNome}</td>
+                        <td className="px-4 py-2 text-slate-600 truncate">{p.tipo}</td>
+                        <td className="px-4 py-2">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-100 text-amber-700 border border-amber-200">
+                            {p.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Rodapé totalizador */}
         <div className="flex items-center justify-between px-5 py-3 bg-emerald-50 border-t border-emerald-100">

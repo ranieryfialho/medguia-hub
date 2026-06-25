@@ -15,11 +15,20 @@ export type DiaConferencia = {
   totalMinutos: number
 }
 
+export type SessaoPendente = {
+  pacienteNome: string
+  hora: string
+  dataLabel: string
+  tipo: string
+  status: string
+}
+
 export type GrupoProfissionalConferencia = {
   profissionalNome: string
   dias: DiaConferencia[]
   totalSessoes: number
   totalMinutos: number
+  pendentesPassados?: SessaoPendente[]
 }
 
 export type GerarPdfConferenciaInput = {
@@ -294,7 +303,69 @@ export async function gerarPdfConferenciaAgendamentos(input: GerarPdfConferencia
       y + 5.5,
       { align: 'right' },
     )
-    y += 12
+    y += 8
+
+    // Agendamentos não concluídos (se houver)
+    if (grupo.pendentesPassados && grupo.pendentesPassados.length > 0) {
+      y = novasPaginas(doc, y, 16, input.periodoLabel)
+
+      // Header âmbar
+      doc.setFillColor(254, 243, 199)
+      doc.setDrawColor(253, 230, 138)
+      doc.rect(MARGIN_X, y, CONTENT_WIDTH, 8, 'FD')
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(7.5)
+      doc.setTextColor(180, 83, 9)
+      doc.text(
+        `⚠  Agendamentos não concluídos — ${grupo.pendentesPassados.length} registro(s)`,
+        MARGIN_X + 3,
+        y + 5.5,
+      )
+      y += 8
+
+      // Cabeçalho da tabela pendentes — 4 colunas
+      const PEND_WIDTHS = [38, 52, 48, 44] as const
+      const PEND_HEADERS = ['Data / Hora', 'Paciente', 'Tipo', 'Status']
+
+      y = novasPaginas(doc, y, 10, input.periodoLabel)
+      let px = MARGIN_X
+      PEND_HEADERS.forEach((h, i) => {
+        doc.setFillColor(253, 230, 138)
+        doc.setDrawColor(253, 230, 138)
+        doc.rect(px, y, PEND_WIDTHS[i], 7, 'FD')
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(7)
+        doc.setTextColor(180, 83, 9)
+        doc.text(h, px + 2, y + 5)
+        px += PEND_WIDTHS[i]
+      })
+      y += 7
+
+      grupo.pendentesPassados.forEach((p, index) => {
+        y = novasPaginas(doc, y, 8, input.periodoLabel)
+        const bg: RGB = index % 2 === 1 ? [255, 251, 235] : [255, 255, 255]
+        let cx = MARGIN_X
+        const vals = [
+          `${p.dataLabel} ${p.hora}`,
+          truncar(p.pacienteNome, 28),
+          truncar(p.tipo, 26),
+          truncar(p.status, 22),
+        ]
+        vals.forEach((v, i) => {
+          doc.setFillColor(...bg)
+          doc.setDrawColor(253, 230, 138)
+          doc.rect(cx, y, PEND_WIDTHS[i], 7, 'FD')
+          doc.setFont('helvetica', 'normal')
+          doc.setFontSize(7)
+          doc.setTextColor(120, 53, 15)
+          doc.text(v, cx + 2, y + 5)
+          cx += PEND_WIDTHS[i]
+        })
+        y += 7
+      })
+    }
+
+    y += 6
   }
 
   // ── Total geral final ─────────────────────────────────────────────
