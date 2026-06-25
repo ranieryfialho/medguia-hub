@@ -62,6 +62,16 @@ async function buscarProntuariosPendentes(
 
   if (isFisio) {
     query = query.eq('profissional_id', userId)
+  } else {
+    // Exclui atendimentos cujo profissional é médico (mesma regra do RPC listar_atendimentos_sem_prontuario)
+    const { data: naoMedicos } = await supabase
+      .from('profiles')
+      .select('id')
+      .neq('role', 'medico')
+    const idsNaoMedico = (naoMedicos ?? []).map((p: { id: string }) => p.id)
+    if (idsNaoMedico.length > 0) {
+      query = query.in('profissional_id', idsNaoMedico)
+    }
   }
 
   const [{ data: atendimentos }, { data: comProntuario }] = await Promise.all([
@@ -97,6 +107,7 @@ async function buscarFollowUpsPendentesNotif(
     .from('follow_ups')
     .select('id, paciente_id, created_at, pacientes(nome), tipo:follow_up_tipos(nome)')
     .eq('responsavel_id', userId)
+    .eq('status', 'pendente')
     .order('created_at', { ascending: false })
     .limit(20)
 
