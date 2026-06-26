@@ -12,7 +12,7 @@ type FiltrosConsultasProps = {
   responsavelId: string
   tiposFiltro: string[]
   statusFiltro: string
-  origemFiltro: string
+  origemFiltro: string[]
   profissionais: Array<{ id: string; nome: string }>
   opcoesTipos: string[]
   opcoesStatus: string[]
@@ -99,18 +99,13 @@ export function FiltrosConsultas({
           </select>
         </div>
         {opcoesOrigens.length > 0 && (
-          <div>
-            <label className="block text-xs text-text-secondary uppercase mb-1">Origem</label>
-            <select
+          <div className="w-48">
+            <SelectCheckbox
               name="origem"
-              defaultValue={origemFiltro}
-              className="px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
-            >
-              <option value="">Todas</option>
-              {opcoesOrigens.map((origem) => (
-                <option key={origem} value={origem}>{origem}</option>
-              ))}
-            </select>
+              label="Origem"
+              options={opcoesOrigens}
+              selectedValues={origemFiltro}
+            />
           </div>
         )}
         <button
@@ -119,7 +114,7 @@ export function FiltrosConsultas({
         >
           Filtrar
         </button>
-        {(dataInicio !== dataInicioPadrao || dataFim !== dataFimPadrao || responsavelId || tiposFiltro.length > 0 || statusFiltro || origemFiltro) && (
+        {(dataInicio !== dataInicioPadrao || dataFim !== dataFimPadrao || responsavelId || tiposFiltro.length > 0 || statusFiltro || origemFiltro.length > 0) && (
           <Link
             href={`/pacientes/relatorio-consultas?visao=${visao}`}
             className="px-4 py-2 bg-page hover:bg-page/80 border border-border text-text-secondary rounded-md text-sm transition-colors"

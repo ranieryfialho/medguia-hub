@@ -113,21 +113,21 @@ function buildRelatorioConsultasUrl({
   data_fim,
   tipos_filtro,
   status_filtro,
-  origem_filtro,
+  origens_filtro,
 }: {
   visao: 'fisioterapia' | 'medicos'
   data_inicio: string
   data_fim: string
   tipos_filtro: string[]
   status_filtro: string
-  origem_filtro: string
+  origens_filtro: string[]
 }) {
   const query = new URLSearchParams()
   query.set('visao', visao)
   query.set('data_inicio', data_inicio)
   query.set('data_fim', data_fim)
   if (status_filtro) query.set('status', status_filtro)
-  if (origem_filtro) query.set('origem', origem_filtro)
+  for (const origem of origens_filtro) query.append('origem', origem)
   for (const tipo of tipos_filtro) query.append('tipo', tipo)
   return `/pacientes/relatorio-consultas?${query.toString()}`
 }
@@ -189,7 +189,7 @@ export default async function RelatorioConsultasPage({
   const medico_id = (params.medico_id as string) || ''
   const tipos_filtro = Array.isArray(params.tipo) ? params.tipo : params.tipo ? [params.tipo] : []
   const status_filtro = (params.status as string) || ''
-  const origem_filtro = (params.origem as string) || ''
+  const origens_filtro = Array.isArray(params.origem) ? params.origem : params.origem ? [params.origem] : []
   const detalheLimiteRaw = Number(params.detalhe_limite)
   const detalheLimite = [10, 25, 50, 100].includes(detalheLimiteRaw) ? detalheLimiteRaw : 10
   const detalhePaginaRaw = Number(params.detalhe_pagina)
@@ -308,10 +308,20 @@ export default async function RelatorioConsultasPage({
   ])
 
   const atendimentosTodos = (atendimentosRaw ?? []) as AtendimentoResumo[]
-  const atendimentos = origem_filtro
+  const SEM_ORIGEM = 'Sem origem'
+  const origemNomesAtivos = new Set((origensRaw ?? []).map((o: { nome: string }) => o.nome))
+  const opcoesOrigensComputadas = [
+    ...(origensRaw ?? []).map((item: { nome: string }) => item.nome),
+    SEM_ORIGEM,
+  ]
+  const totalOrigensDisponiveis = opcoesOrigensComputadas.length
+  const atendimentos = origens_filtro.length > 0 && origens_filtro.length < totalOrigensDisponiveis
     ? atendimentosTodos.filter((a) => {
         const origem = firstRelation(a.pacientes)?.origem ?? ''
-        return origem === origem_filtro || origem.startsWith(origem_filtro + '::')
+        const origemBase = origem.split('::')[0]
+        const origemConhecida = !!origem && origemNomesAtivos.has(origemBase)
+        if (!origemConhecida) return origens_filtro.includes(SEM_ORIGEM)
+        return origens_filtro.some((o) => o !== SEM_ORIGEM && (origem === o || origem.startsWith(o + '::')))
       })
     : atendimentosTodos
   const agendamentoIds = [...new Set(
@@ -421,6 +431,7 @@ export default async function RelatorioConsultasPage({
         || 'Sem responsável',
       dataAvaliacao: atendimento.data_agendamento,
       contato,
+      origem: paciente?.origem?.trim() || 'Sem origem',
       marcouRetorno: isRetorno(atendimento),
     }
   })
@@ -537,7 +548,7 @@ export default async function RelatorioConsultasPage({
     .map((item: { nome: string }) => item.nome)
     .sort((a, b) => a.localeCompare(b))
 
-  const opcoesOrigens = (origensRaw ?? []).map((item: { nome: string }) => item.nome)
+  const opcoesOrigens = opcoesOrigensComputadas
 
   const opcoesStatus = ['Confirmado', 'Aguardando', 'Em Atendimento', 'Concluído', 'Cancelado', 'Falta']
   const periodoLabel = data_inicio === data_fim
@@ -611,7 +622,7 @@ export default async function RelatorioConsultasPage({
             <BtnGerarPdfConsultas
               visao={visao}
               periodoLabel={periodoLabel}
-              origemFiltro={origem_filtro || undefined}
+              origemFiltro={origens_filtro.length > 0 ? origens_filtro.join(', ') : undefined}
               totalAgendamentos={totalAgendamentos}
               totalAtendimentos={totalAtendimentos}
               totalConcluidos={totalConcluidos}
@@ -677,7 +688,7 @@ export default async function RelatorioConsultasPage({
               data_fim,
               tipos_filtro,
               status_filtro,
-              origem_filtro,
+              origens_filtro,
             })}
             className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
               visao === 'fisioterapia'
@@ -694,7 +705,7 @@ export default async function RelatorioConsultasPage({
               data_fim,
               tipos_filtro,
               status_filtro,
-              origem_filtro,
+              origens_filtro,
             })}
             className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
               visao === 'medicos'
@@ -716,7 +727,7 @@ export default async function RelatorioConsultasPage({
         responsavelId={responsavelSelecionadoId}
         tiposFiltro={tipos_filtro}
         statusFiltro={status_filtro}
-        origemFiltro={origem_filtro}
+        origemFiltro={origens_filtro}
         profissionais={opcoesResponsaveis}
         opcoesTipos={opcoesTipos}
         opcoesStatus={opcoesStatus}
@@ -1061,12 +1072,13 @@ export default async function RelatorioConsultasPage({
                 <th className="text-left px-4 py-3">{renderOrdenacaoColuna('responsavel', 'Responsável')}</th>
                 <th className="text-left px-4 py-3">{renderOrdenacaoColuna('data', 'Data da avaliação')}</th>
                 <th className="text-left px-4 py-3">{renderOrdenacaoColuna('contato', 'Contato')}</th>
+                <th className="text-left px-4 py-3 text-slate-500 uppercase text-xs font-semibold">Origem</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {detalhamentoConsultas.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
                     Nenhuma consulta encontrada no período.
                   </td>
                 </tr>
@@ -1089,6 +1101,7 @@ export default async function RelatorioConsultasPage({
                     {`${formatAppDate(consulta.dataAvaliacao)} ${formatAppTime(consulta.dataAvaliacao)}`}
                   </td>
                   <td className="px-4 py-3 text-slate-700">{consulta.contato}</td>
+                  <td className="px-4 py-3 text-slate-700">{consulta.origem}</td>
                 </tr>
               ))}
             </tbody>
