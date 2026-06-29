@@ -62,6 +62,7 @@ export default async function ConferenciaAgendamentosPage({
       tipo,
       profissional_id,
       agendamento_id,
+      duracao_minutos,
       pacientes(nome),
       profissional:profiles!profissional_id(full_name)
     `)
@@ -144,7 +145,7 @@ export default async function ConferenciaAgendamentosPage({
     const hora = formatAppTime(a.data_agendamento)
     const tipo = (a.tipo as string | null) || 'Sem tipo'
     const ag = a.agendamento_id ? agendamentosMap.get(a.agendamento_id) : null
-    const duracaoMinutos = ag?.duracao_minutos ?? 0
+    const duracaoMinutos = (a.duracao_minutos as number | null) ?? ag?.duracao_minutos ?? 0
     const planoSaude = ag?.plano_saude?.trim() || 'Não informado'
     const dataLabel = formatAppDate(a.data_agendamento)
 
