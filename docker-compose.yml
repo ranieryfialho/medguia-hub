@@ -15,7 +15,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 900m
+          memory: 1500m
     networks:
       - wp-network
 
