@@ -64,7 +64,8 @@ export default async function ConferenciaAgendamentosPage({
       agendamento_id,
       duracao_minutos,
       pacientes(nome),
-      profissional:profiles!profissional_id(full_name)
+      profissional:profiles!profissional_id(full_name),
+      agendamento:agendamentos!agendamento_id(plano_saude)
     `)
     .in('status', STATUS_CONCLUIDO)
     .gte('data_agendamento', dataInicioIso)
@@ -113,21 +114,6 @@ export default async function ConferenciaAgendamentosPage({
   const { data: pendentesRaw } = await queryPendentes
   const atendimentosPendentes = (pendentesRaw ?? []) as any[]
 
-  const agendamentoIds = [...new Set(
-    atendimentos.map((a: any) => a.agendamento_id).filter(Boolean) as string[],
-  )]
-
-  const { data: agendamentosRaw } = agendamentoIds.length > 0
-    ? await supabase
-        .from('agendamentos')
-        .select('id, duracao_minutos, plano_saude')
-        .in('id', agendamentoIds)
-    : { data: [] as Array<{ id: string; duracao_minutos: number | null; plano_saude: string | null }> }
-
-  const agendamentosMap = new Map(
-    (agendamentosRaw ?? []).map(ag => [ag.id, ag] as const),
-  )
-
   const profissionaisMap = new Map(profissionais.map(p => [p.id, p.full_name || 'Sem nome']))
 
   const gruposMap = new Map<string, GrupoProfissionalConferencia>()
@@ -144,9 +130,9 @@ export default async function ConferenciaAgendamentosPage({
       (Array.isArray(a.pacientes) ? a.pacientes[0]?.nome : a.pacientes?.nome) ?? 'Paciente'
     const hora = formatAppTime(a.data_agendamento)
     const tipo = (a.tipo as string | null) || 'Sem tipo'
-    const ag = a.agendamento_id ? agendamentosMap.get(a.agendamento_id) : null
-    const duracaoMinutos = (a.duracao_minutos as number | null) ?? ag?.duracao_minutos ?? 0
-    const planoSaude = ag?.plano_saude?.trim() || 'Não informado'
+    const agJoin = (Array.isArray(a.agendamento) ? a.agendamento[0] : a.agendamento) as { plano_saude?: string | null } | null
+    const duracaoMinutos = (a.duracao_minutos as number | null) ?? 0
+    const planoSaude = agJoin?.plano_saude?.trim() || 'Não informado'
     const dataLabel = formatAppDate(a.data_agendamento)
 
     if (!gruposMap.has(profId)) {
