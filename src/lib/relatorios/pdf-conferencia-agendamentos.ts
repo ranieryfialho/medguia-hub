@@ -5,7 +5,7 @@ export type SessaoConferencia = {
   hora: string
   tipo: string
   duracaoMinutos: number
-  planoSaude: string
+  numeroSessao: string
 }
 
 export type DiaConferencia = {
@@ -53,9 +53,9 @@ const LINE: RGB = [220, 226, 223]
 const SOFT: RGB = [246, 248, 247]
 const BRAND_LIGHT: RGB = [232, 245, 242]
 
-// Colunas detalhe: Hora | Paciente | Tipo | Duração | Plano de Saúde
-const COL_WIDTHS = [18, 54, 40, 22, 48] as const
-const COL_HEADERS = ['Hora', 'Paciente', 'Tipo', 'Duração', 'Plano de Saúde']
+// Colunas detalhe: Hora | Paciente | Tipo | Duração | Sessão
+const COL_WIDTHS = [18, 62, 48, 24, 30] as const
+const COL_HEADERS = ['Hora', 'Paciente', 'Tipo', 'Duração', 'Sessão']
 
 // Colunas resumo: Profissional | Sessões | Horas
 const RES_WIDTHS = [100, 30, 52] as const
@@ -274,10 +274,10 @@ export async function gerarPdfConferenciaAgendamentos(input: GerarPdfConferencia
           y,
           [
             sessao.hora,
-            truncar(sessao.pacienteNome, 30),
-            truncar(sessao.tipo, 22),
+            truncar(sessao.pacienteNome, 34),
+            truncar(sessao.tipo, 26),
             sessao.duracaoMinutos > 0 ? `${sessao.duracaoMinutos} min` : '—',
-            truncar(sessao.planoSaude, 26),
+            sessao.numeroSessao,
           ],
           COL_WIDTHS,
           false,

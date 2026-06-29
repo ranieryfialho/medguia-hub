@@ -48,7 +48,7 @@ export function BtnExportarXlsxConferencia({ grupos, periodoLabel, totalGeralSes
               'Paciente': sessao.pacienteNome,
               'Tipo': sessao.tipo,
               'Duração (min)': sessao.duracaoMinutos > 0 ? sessao.duracaoMinutos : '',
-              'Plano de Saúde': sessao.planoSaude,
+              'Sessão': sessao.numeroSessao,
             })
           }
         }
@@ -60,7 +60,7 @@ export function BtnExportarXlsxConferencia({ grupos, periodoLabel, totalGeralSes
           { wch: 34 }, // Paciente
           { wch: 24 }, // Tipo
           { wch: 14 }, // Duração
-          { wch: 28 }, // Plano
+          { wch: 12 }, // Sessão
         ]
 
         // Excel limita nomes de aba a 31 caracteres e não aceita alguns caracteres

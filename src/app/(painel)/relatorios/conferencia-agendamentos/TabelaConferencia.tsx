@@ -82,19 +82,19 @@ export function TabelaConferencia({ grupos }: { grupos: GrupoProfissionalConfere
             <div className="overflow-x-auto">
               <table className="w-full text-sm table-fixed">
                 <colgroup>
-                  <col className="w-16" />
-                  <col className="w-[30%]" />
-                  <col className="w-[22%]" />
-                  <col className="w-20" />
-                  <col />
+                  <col className="w-[10%]" />
+                  <col className="w-[34%]" />
+                  <col className="w-[28%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[14%]" />
                 </colgroup>
                 <thead className="bg-slate-50 text-slate-500 uppercase text-[11px]">
                   <tr>
                     <th className="text-left px-4 py-2.5">Hora</th>
                     <th className="text-left px-4 py-2.5">Paciente</th>
                     <th className="text-left px-4 py-2.5">Tipo</th>
-                    <th className="text-right px-4 py-2.5">Duração</th>
-                    <th className="text-left px-4 py-2.5">Plano de Saúde</th>
+                    <th className="text-center px-4 py-2.5">Duração</th>
+                    <th className="text-center px-4 py-2.5">Sessão</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -103,10 +103,10 @@ export function TabelaConferencia({ grupos }: { grupos: GrupoProfissionalConfere
                       <td className="px-4 py-2.5 font-mono text-xs text-slate-500 whitespace-nowrap">{sessao.hora}</td>
                       <td className="px-4 py-2.5 font-medium text-slate-900 truncate">{sessao.pacienteNome}</td>
                       <td className="px-4 py-2.5 text-slate-600 truncate">{sessao.tipo}</td>
-                      <td className="px-4 py-2.5 text-right text-slate-600 whitespace-nowrap">
+                      <td className="px-4 py-2.5 text-center text-slate-600 whitespace-nowrap">
                         {sessao.duracaoMinutos > 0 ? formatarMinutos(sessao.duracaoMinutos) : '—'}
                       </td>
-                      <td className="px-4 py-2.5 text-slate-500 truncate">{sessao.planoSaude}</td>
+                      <td className="px-4 py-2.5 text-center text-slate-500 whitespace-nowrap">{sessao.numeroSessao}</td>
                     </tr>
                   ))}
                 </tbody>

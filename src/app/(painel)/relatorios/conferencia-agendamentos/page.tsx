@@ -63,9 +63,10 @@ export default async function ConferenciaAgendamentosPage({
       profissional_id,
       agendamento_id,
       duracao_minutos,
+      numero_sessao,
+      total_sessoes,
       pacientes(nome),
-      profissional:profiles!profissional_id(full_name),
-      agendamento:agendamentos!agendamento_id(plano_saude)
+      profissional:profiles!profissional_id(full_name)
     `)
     .in('status', STATUS_CONCLUIDO)
     .gte('data_agendamento', dataInicioIso)
@@ -130,9 +131,12 @@ export default async function ConferenciaAgendamentosPage({
       (Array.isArray(a.pacientes) ? a.pacientes[0]?.nome : a.pacientes?.nome) ?? 'Paciente'
     const hora = formatAppTime(a.data_agendamento)
     const tipo = (a.tipo as string | null) || 'Sem tipo'
-    const agJoin = (Array.isArray(a.agendamento) ? a.agendamento[0] : a.agendamento) as { plano_saude?: string | null } | null
     const duracaoMinutos = (a.duracao_minutos as number | null) ?? 0
-    const planoSaude = agJoin?.plano_saude?.trim() || 'Não informado'
+    const numSessao = a.numero_sessao as number | null
+    const totSessoes = a.total_sessoes as number | null
+    const numeroSessao = numSessao != null
+      ? totSessoes != null ? `${numSessao}/${totSessoes}` : `Sessão ${numSessao}`
+      : '—'
     const dataLabel = formatAppDate(a.data_agendamento)
 
     if (!gruposMap.has(profId)) {
@@ -151,7 +155,7 @@ export default async function ConferenciaAgendamentosPage({
       grupo.dias.push(dia)
     }
 
-    dia.sessoes.push({ pacienteNome, hora, tipo, duracaoMinutos, planoSaude })
+    dia.sessoes.push({ pacienteNome, hora, tipo, duracaoMinutos, numeroSessao })
     dia.totalSessoes++
     dia.totalMinutos += duracaoMinutos
     grupo.totalSessoes++
