@@ -855,7 +855,7 @@ export async function deletarAgendamento(id: string): Promise<ResultadoExclusao>
     .select('id')
 
   if (error) {
-    console.error('Erro ao deletar:', error.message)
+    console.error(`[deletarAgendamento] erro ao deletar atendimento ${id}: [${error.code}] ${error.message}`, error.details ?? '')
     return { error: 'Não foi possível excluir o agendamento.' }
   }
 
@@ -931,7 +931,10 @@ export async function deletarAtendimentoPontualDaRecorrencia(id: string): Promis
       .delete()
       .eq('id', id)
       .select('id')
-    if (error) return { error: 'Não foi possível excluir o agendamento.' }
+    if (error) {
+      console.error(`[deletarAtendimentoPontual] erro ao deletar ${id}: [${error.code}] ${error.message}`, error.details ?? '')
+      return { error: 'Não foi possível excluir o agendamento.' }
+    }
     if (!deletedRows || deletedRows.length === 0) {
       return { error: 'O agendamento não foi removido. Verifique as permissões ou tente atualizar a agenda.' }
     }
@@ -950,7 +953,10 @@ export async function deletarAtendimentoPontualDaRecorrencia(id: string): Promis
     .delete()
     .eq('id', id)
     .select('id')
-  if (deleteError) return { error: 'Não foi possível excluir o agendamento.' }
+  if (deleteError) {
+    console.error(`[deletarAtendimentoPontual] erro ao deletar recorrente ${id}: [${deleteError.code}] ${deleteError.message}`, deleteError.details ?? '')
+    return { error: 'Não foi possível excluir o agendamento.' }
+  }
   if (!deletedRows || deletedRows.length === 0) {
     return { error: 'O agendamento não foi removido. Verifique as permissões ou tente atualizar a agenda.' }
   }
@@ -1020,7 +1026,10 @@ export async function deletarTodasRecorrencias(agendamentoId: string): Promise<R
     .delete()
     .eq('agendamento_id', agendamentoId)
 
-  if (error) return { error: 'Não foi possível excluir os agendamentos.' }
+  if (error) {
+    console.error(`[deletarTodasRecorrencias] erro ao deletar agendamento ${agendamentoId}: [${error.code}] ${error.message}`, error.details ?? '')
+    return { error: 'Não foi possível excluir os agendamentos.' }
+  }
 
   await supabaseAdmin.from('agendamentos').delete().eq('id', agendamentoId)
 
@@ -1051,7 +1060,10 @@ export async function deletarAtendimentosSelecionados(ids: string[], agendamento
     .delete()
     .in('id', ids)
     .select('id')
-  if (error) return { error: 'Não foi possível excluir os agendamentos.' }
+  if (error) {
+    console.error(`[deletarAtendimentosSelecionados] erro ao deletar ${ids.join(', ')}: [${error.code}] ${error.message}`, error.details ?? '')
+    return { error: 'Não foi possível excluir os agendamentos.' }
+  }
   if (!deletedRows || deletedRows.length === 0) {
     return { error: 'Nenhum atendimento foi removido. Verifique as permissões ou tente atualizar a agenda.' }
   }
