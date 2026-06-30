@@ -30,6 +30,7 @@ export type GerarPdfVendasInput = {
   porProfissional: AgregacaoNome[]
   porProduto: AgregacaoNome[]
   porReferenciador?: AgregacaoNome[]
+  vendasPorReferenciador?: Record<string, VendaDetalhe[]>
   porCategoria?: Record<string, { quantidade: number; faturamento: number }>
   vendasDetalhadas?: VendaDetalhe[]
 }
@@ -73,6 +74,11 @@ export async function gerarPdfVendas(input: GerarPdfVendasInput) {
   if (input.porReferenciador && input.porReferenciador.length > 0) {
     doc.addPage()
     desenharPaginaReferenciadores(doc, input.porReferenciador, input.totalFaturado)
+  }
+
+  if (input.vendasPorReferenciador && Object.keys(input.vendasPorReferenciador).length > 0) {
+    doc.addPage()
+    desenharPaginaDetalheReferenciadores(doc, input.vendasPorReferenciador)
   }
 
   if (input.porCategoria && Object.keys(input.porCategoria).some(k => k !== 'sem_categoria')) {
@@ -495,6 +501,109 @@ function desenharPaginaVendasDetalhadas(doc: jsPDF, vendas: VendaDetalhe[]) {
     })
 
     y += rowH
+  }
+}
+
+function desenharPaginaDetalheReferenciadores(doc: jsPDF, vendasPorRef: Record<string, VendaDetalhe[]>) {
+  const headers = ['Data', 'Paciente', 'Itens', 'Total', 'Status']
+  const widths = [20, 42, 68, 26, 22]
+
+  const medicos = Object.entries(vendasPorRef).sort(
+    ([, a], [, b]) =>
+      b.reduce((s, v) => s + v.total, 0) - a.reduce((s, v) => s + v.total, 0),
+  )
+
+  let y = desenharCabecalhoInterno(doc, 'Detalhamento por Médico Referenciador', 'Vendas individuais por médico')
+  let primeiroMedico = true
+
+  for (const [medico, vendas] of medicos) {
+    const totalMedico = vendas.reduce((s, v) => s + v.total, 0)
+
+    if (!primeiroMedico && y > PAGE_HEIGHT - 40) {
+      doc.addPage()
+      y = desenharCabecalhoInterno(doc, 'Detalhamento por Médico Referenciador', 'Continuação')
+    }
+    primeiroMedico = false
+
+    // Cabeçalho do médico
+    y += 4
+    doc.setFillColor(...SOFT)
+    doc.setDrawColor(...LINE)
+    doc.roundedRect(MARGIN_X, y, CONTENT_WIDTH, 10, 2, 2, 'FD')
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(9)
+    doc.setTextColor(...TEXT)
+    doc.text(medico, MARGIN_X + 3, y + 6.5)
+
+    const larguraNome = doc.getTextWidth(medico)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(7)
+    doc.setTextColor(...MUTED)
+    doc.text(`${vendas.length} venda${vendas.length !== 1 ? 's' : ''}`, MARGIN_X + 3 + larguraNome + 3, y + 6.5)
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(9)
+    doc.setTextColor(...BRAND)
+    doc.text(fmt(totalMedico), PAGE_WIDTH - MARGIN_X - 2, y + 6.5, { align: 'right' })
+
+    y += 12
+    y = desenharLinhaTabela(doc, y, headers, widths, true)
+
+    for (const venda of [...vendas].sort((a, b) => a.data_venda.localeCompare(b.data_venda))) {
+      const itensTexto = venda.itens
+        .map(i => `${i.quantidade > 1 ? `${i.quantidade}x ` : ''}${i.produto_nome}`)
+        .join(', ')
+
+      const linhasItens = doc.splitTextToSize(itensTexto, widths[2] - 4)
+      const temNome = !!venda.nome
+      const rowH = Math.max(temNome ? 12 : 8, linhasItens.length * 4 + 4)
+
+      if (y + rowH > PAGE_HEIGHT - 22) {
+        doc.addPage()
+        y = desenharCabecalhoInterno(
+          doc,
+          'Detalhamento por Médico Referenciador',
+          `Continuação — ${medico}`,
+        )
+        y = desenharLinhaTabela(doc, y + 4, headers, widths, true)
+      }
+
+      const data = new Date(venda.data_venda).toLocaleDateString('pt-BR')
+      const status = STATUS_LABEL[venda.status] || venda.status
+      const cols = [data, venda.paciente_nome, itensTexto, fmt(venda.total), status]
+
+      let x = MARGIN_X
+      cols.forEach((val, idx) => {
+        doc.setDrawColor(...LINE)
+        doc.setFillColor(255, 255, 255)
+        doc.rect(x, y, widths[idx], rowH, 'FD')
+
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(7)
+        doc.setTextColor(...TEXT)
+
+        const alignRight = idx === 3
+        const linhas = doc.splitTextToSize(val, widths[idx] - 4)
+        doc.text(linhas, alignRight ? x + widths[idx] - 2 : x + 2, y + 4.5, {
+          align: alignRight ? 'right' : 'left',
+          maxWidth: widths[idx] - 4,
+        })
+
+        if (idx === 1 && temNome) {
+          doc.setFont('helvetica', 'italic')
+          doc.setFontSize(6)
+          doc.setTextColor(...MUTED)
+          doc.text(venda.nome!, x + 2, y + 9, { maxWidth: widths[idx] - 4 })
+        }
+
+        x += widths[idx]
+      })
+
+      y += rowH
+    }
+
+    y += 6
   }
 }
 

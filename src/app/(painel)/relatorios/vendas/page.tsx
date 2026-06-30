@@ -347,6 +347,7 @@ export default async function RelatorioVendasPage({
               porProfissional={profissionaisResumo}
               porProduto={produtosResumo}
               porReferenciador={Object.values(porReferenciador)}
+              vendasPorReferenciador={vendasPorReferenciador}
               porCategoria={porCategoria}
               vendasDetalhadas={vendasDetalhadas}
             />
