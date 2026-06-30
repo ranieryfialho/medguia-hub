@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { BarChart3, TrendingUp, Users, Package, Stethoscope, FileText, CheckCircle, XCircle, Clock, Tag, List } from 'lucide-react'
-import { RelatorioVendasClient } from '@/components/features/relatorios'
+import { RelatorioVendasClient, FiltroOrigemMedico } from '@/components/features/relatorios'
 import { BtnGerarPdfVendas } from '@/components/features/shared'
 import { FiltroProdutosMultiSelect } from '@/components/features/produtos'
 import { requireModulo } from '@/lib/guard'
@@ -86,6 +86,12 @@ export default async function RelatorioVendasPage({
       ? [resolvedParams.produto_id]
       : []
 
+  const medicoNomes = Array.isArray(resolvedParams.medico_nome)
+    ? resolvedParams.medico_nome.filter((v): v is string => typeof v === 'string' && v.length > 0)
+    : typeof resolvedParams.medico_nome === 'string' && resolvedParams.medico_nome
+      ? [resolvedParams.medico_nome]
+      : []
+
   const LIMITE_DETALHE = 10
   const paginaVendas = Math.max(1, parseInt((resolvedParams.pagina_vendas as string) || '1'))
 
@@ -99,6 +105,7 @@ export default async function RelatorioVendasPage({
     if (nome_protocolo) sp.set('nome_protocolo', nome_protocolo)
     if (status_filter) sp.set('status', status_filter)
     produtoIds.forEach(id => sp.append('produto_id', id))
+    medicoNomes.forEach(nome => sp.append('medico_nome', nome))
     if (p > 1) sp.set('pagina_vendas', String(p))
     const qs = sp.toString()
     return qs ? `/relatorios/vendas?${qs}` : '/relatorios/vendas'
@@ -125,6 +132,7 @@ export default async function RelatorioVendasPage({
     query = query.eq('nome', nome_protocolo)
   }
   if (status_filter) query = query.eq('status', status_filter)
+  if (origem === 'medico' && medicoNomes.length > 0) query = query.in('medico_referenciador_nome', medicoNomes)
 
   // Buscar vendas e dados auxiliares em paralelo
   const [
@@ -132,11 +140,13 @@ export default async function RelatorioVendasPage({
     { data: profissionaisRaw },
     { data: produtosRaw },
     { data: protocolosRaw },
+    { data: medicosRaw },
   ] = await Promise.all([
     query,
     supabase.from('profiles').select('id, full_name, role').in('role', ['fisioterapeuta', 'gestor']).order('full_name'),
     supabase.from('produtos').select('id, nome').eq('ativo', true).order('nome'),
     supabase.from('protocolos').select('nome').eq('ativo', true).order('nome'),
+    supabase.from('profiles').select('id, full_name').eq('role', 'medico').eq('ativo', true).order('full_name'),
   ])
   const vendas = (vendasRaw ?? []) as unknown as VendaRow[]
 
@@ -150,6 +160,10 @@ export default async function RelatorioVendasPage({
     nome: produto.nome,
   }))
   const protocolosFiltro = (protocolosRaw || []).map((p: { nome: string }) => p.nome)
+  const medicosFiltro = (medicosRaw || []).map((m: { id: string; full_name: string | null }) => ({
+    id: m.id,
+    full_name: m.full_name || '',
+  })).filter((m) => m.full_name)
 
   // ── Agregações ──────────────────────────────────────────────
 
@@ -160,6 +174,7 @@ export default async function RelatorioVendasPage({
   const porProfissional: Record<string, AgregacaoNome> = {}
   const porProduto: Record<string, AgregacaoNome> = {}
   const porReferenciador: Record<string, AgregacaoNome> = {}
+  const vendasPorReferenciador: Record<string, VendaDetalhe[]> = {}
   const porPeriodo: Record<string, number> = {}
   const porCategoria: Record<string, { quantidade: number; faturamento: number }> = {}
   const vendasDetalhadas: VendaDetalhe[] = []
@@ -249,6 +264,24 @@ export default async function RelatorioVendasPage({
       if (!porReferenciador[refNome]) porReferenciador[refNome] = { nome: refNome, quantidade: 0, faturamento: 0 }
       porReferenciador[refNome].quantidade += 1
       porReferenciador[refNome].faturamento += totalVenda
+
+      if (!vendasPorReferenciador[refNome]) vendasPorReferenciador[refNome] = []
+      vendasPorReferenciador[refNome].push({
+        id: venda.id,
+        data_venda: venda.data_venda,
+        paciente_nome: firstRelation(venda.pacientes)?.nome || '—',
+        profissional_nome: perfil?.full_name || 'Desconhecido',
+        nome: venda.nome || null,
+        status: statusVenda,
+        motivo_recusa: venda.motivo_recusa || null,
+        itens: itens.map((item): ItemDetalheVenda => ({
+          produto_nome: item.produtos?.nome || 'Produto removido',
+          categoria: item.produtos?.categoria || null,
+          quantidade: item.quantidade,
+          subtotal: item.quantidade * item.preco_unitario,
+        })),
+        total: totalVenda,
+      })
     }
 
     // Por produto e por categoria
@@ -343,19 +376,11 @@ export default async function RelatorioVendasPage({
               className="px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
             />
           </div>
-          <div>
-            <label className="block text-xs text-text-secondary uppercase mb-1">Origem</label>
-            <select
-              name="origem"
-              defaultValue={origem}
-              className="px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
-            >
-              <option value="">Todas as origens</option>
-              {ORIGENS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </div>
+          <FiltroOrigemMedico
+            defaultOrigem={origem}
+            defaultMedicoNomes={medicoNomes}
+            medicos={medicosFiltro}
+          />
           <div>
             <label className="block text-xs text-text-secondary uppercase mb-1">Pagamento</label>
             <select
@@ -426,7 +451,7 @@ export default async function RelatorioVendasPage({
           >
             Filtrar
           </button>
-          {(data_inicio || data_fim || origem || forma_pagamento || profissional_id || nome_protocolo || status_filter || produtoIds.length > 0) && (
+          {(data_inicio || data_fim || origem || forma_pagamento || profissional_id || nome_protocolo || status_filter || produtoIds.length > 0 || medicoNomes.length > 0) && (
             <Link
               href="/relatorios/vendas"
               className="px-4 py-2 bg-page hover:bg-page/80 border border-border text-text-secondary rounded-md text-sm transition-colors"
@@ -674,6 +699,114 @@ export default async function RelatorioVendasPage({
           </div>
         </div>
       )}
+
+      {/* Detalhamento de Vendas por Médico Referenciador */}
+      {Object.keys(vendasPorReferenciador).length > 0 && (() => {
+        const statusConfig: Record<string, { label: string; cls: string }> = {
+          venda_confirmada: { label: 'Confirmada', cls: 'bg-emerald-100 text-emerald-800' },
+          orcamento_pendente: { label: 'Orçamento', cls: 'bg-amber-100 text-amber-800' },
+          orcamento_recusado: { label: 'Recusado', cls: 'bg-red-100 text-red-800' },
+        }
+        return (
+          <div className="bg-surface rounded-lg border border-border p-6">
+            <h2 className="text-lg font-semibold text-text-primary flex items-center gap-2 mb-6">
+              <Stethoscope size={20} className="text-primary-500" />
+              Detalhamento por Médico Referenciador
+            </h2>
+            <div className="space-y-8">
+              {Object.entries(vendasPorReferenciador)
+                .sort(([, a], [, b]) =>
+                  b.reduce((s, v) => s + v.total, 0) - a.reduce((s, v) => s + v.total, 0)
+                )
+                .map(([medico, vendasMedico]) => {
+                  const totalMedico = vendasMedico.reduce((s, v) => s + v.total, 0)
+                  return (
+                    <div key={medico} className="rounded-lg border border-border overflow-hidden">
+                      {/* cabeçalho do médico */}
+                      <div className="flex items-center justify-between px-4 py-3 bg-page border-b border-border">
+                        <div className="flex items-center gap-2.5">
+                          <Stethoscope size={16} className="text-primary-500 shrink-0" />
+                          <span className="font-semibold text-text-primary">{medico}</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-border text-text-secondary">
+                            {vendasMedico.length} venda{vendasMedico.length !== 1 ? 's' : ''}
+                          </span>
+                        </div>
+                        <span className="font-bold text-text-primary">
+                          R$ {totalMedico.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+
+                      {/* tabela de vendas */}
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left" style={{ minWidth: 640 }}>
+                          <colgroup>
+                            <col style={{ width: '110px' }} />
+                            <col style={{ width: '25%' }} />
+                            <col />
+                            <col style={{ width: '130px' }} />
+                            <col style={{ width: '110px' }} />
+                          </colgroup>
+                          <thead>
+                            <tr className="border-b border-border bg-page/50">
+                              <th className="px-4 py-2 text-xs font-semibold text-text-secondary uppercase">Data</th>
+                              <th className="px-4 py-2 text-xs font-semibold text-text-secondary uppercase">Paciente</th>
+                              <th className="px-4 py-2 text-xs font-semibold text-text-secondary uppercase">Itens</th>
+                              <th className="px-4 py-2 text-xs font-semibold text-text-secondary uppercase text-right">Total</th>
+                              <th className="px-4 py-2 text-xs font-semibold text-text-secondary uppercase">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border">
+                            {vendasMedico
+                              .sort((a, b) => a.data_venda.localeCompare(b.data_venda))
+                              .map((venda) => {
+                                const sc = statusConfig[venda.status] ?? { label: venda.status, cls: 'bg-gray-100 text-gray-800' }
+                                return (
+                                  <tr key={venda.id} className="hover:bg-page/50">
+                                    <td className="px-4 py-3 text-sm text-text-secondary whitespace-nowrap">
+                                      {new Date(venda.data_venda).toLocaleDateString('pt-BR')}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      <p className="text-sm font-medium text-text-primary">{venda.paciente_nome}</p>
+                                      {venda.nome && (
+                                        <p className="text-xs text-primary-500 mt-0.5">{venda.nome}</p>
+                                      )}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {venda.itens.map((item, idx) => (
+                                          <span
+                                            key={idx}
+                                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-page border border-border text-xs text-text-secondary"
+                                          >
+                                            {item.quantidade > 1 && (
+                                              <span className="font-semibold text-text-primary">{item.quantidade}×</span>
+                                            )}
+                                            {item.produto_nome}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-3 text-sm font-medium text-text-primary text-right whitespace-nowrap">
+                                      R$ {venda.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${sc.cls}`}>
+                                        {sc.label}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                )
+                              })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )
+                })}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Tabela por Origem */}
       {Object.keys(porOrigem).length > 0 && (
