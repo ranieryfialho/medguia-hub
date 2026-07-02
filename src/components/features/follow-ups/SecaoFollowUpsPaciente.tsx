@@ -22,6 +22,16 @@ const PREVIEW_COUNT = 3
 export function SecaoFollowUpsPaciente({ pacienteId, followUps: inicial, tipos, profissionais }: Props) {
   const [followUps] = useState(inicial)
   const [expandido, setExpandido] = useState(false)
+  const [descExpandidas, setDescExpandidas] = useState<Set<string>>(new Set())
+
+  function toggleDesc(id: string) {
+    setDescExpandidas(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   const pendentes = followUps.filter(fu => fu.status === 'pendente')
   const visiveis = expandido ? followUps : followUps.slice(0, PREVIEW_COUNT)
@@ -91,9 +101,25 @@ export function SecaoFollowUpsPaciente({ pacienteId, followUps: inicial, tipos, 
                         {format(new Date(fu.created_at), "dd/MM/yy · HH:mm", { locale: ptBR })}
                       </span>
                     </div>
-                    {fu.descricao && (
-                      <p className="text-xs text-slate-600 mt-1 line-clamp-2 leading-relaxed">{fu.descricao}</p>
-                    )}
+                    {fu.descricao && (() => {
+                      const longo = fu.descricao.length > 120
+                      const aberto = descExpandidas.has(fu.id)
+                      return (
+                        <div>
+                          <p className={`text-xs text-slate-600 mt-1 leading-relaxed ${longo && !aberto ? 'line-clamp-2' : ''}`}>
+                            {fu.descricao}
+                          </p>
+                          {longo && (
+                            <button
+                              onClick={() => toggleDesc(fu.id)}
+                              className="text-[10px] text-[#006b5a] hover:underline mt-0.5"
+                            >
+                              {aberto ? 'Ver menos' : 'Ver mais'}
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })()}
                     {responsavel && (
                       <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
                         <User size={9} />
