@@ -164,8 +164,12 @@ export default async function EditarVendaPage({
           Voltar
         </Link>
 
-        <h1 className="text-2xl font-semibold text-text-primary">Editar Venda</h1>
-        <p className="text-sm text-text-secondary mt-1">Modifique os dados da venda</p>
+        <h1 className="text-2xl font-semibold text-text-primary">
+          {vendaNormalizada.status === 'venda_confirmada' ? 'Editar Venda' : 'Editar Orçamento'}
+        </h1>
+        <p className="text-sm text-text-secondary mt-1">
+          {vendaNormalizada.status === 'venda_confirmada' ? 'Modifique os dados da venda' : 'Modifique os dados do orçamento'}
+        </p>
       </div>
 
       {/* Formulário */}

@@ -43,6 +43,7 @@ export function CartaoVenda({ venda }: { venda: VendaTimeline }) {
   const origemCfg = ORIGEM_CONFIG[venda.origem] ?? { label: venda.origem, cor: 'text-slate-600', bg: 'bg-slate-100' }
   const statusKey = venda.status ?? 'venda_confirmada'
   const statusCfg = STATUS_CONFIG[statusKey] ?? STATUS_CONFIG.venda_confirmada
+  const isOrcamento = statusKey !== 'venda_confirmada'
   const total = venda.itens_venda.reduce((sum, item) => sum + item.quantidade * item.preco_unitario, 0)
   const formatarValor = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -126,7 +127,7 @@ export function CartaoVenda({ venda }: { venda: VendaTimeline }) {
                 className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-800 mt-3"
               >
                 <ExternalLink size={12} />
-                Ver venda completa
+                {isOrcamento ? 'Ver orçamento completo' : 'Ver venda completa'}
               </Link>
             </div>
           )}

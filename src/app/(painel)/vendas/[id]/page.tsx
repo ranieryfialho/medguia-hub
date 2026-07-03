@@ -115,7 +115,8 @@ export default async function VendaDetalhePage({
 
   const statusAtual = (v.status ?? 'venda_confirmada') as string
   const statusCfg = STATUS_BADGE[statusAtual] ?? STATUS_BADGE.venda_confirmada
-  const tituloPage = statusAtual === 'venda_confirmada' ? 'Detalhes da Venda' : 'Detalhes do Orçamento'
+  const isOrcamento = statusAtual !== 'venda_confirmada'
+  const tituloPage = isOrcamento ? 'Detalhes do Orçamento' : 'Detalhes da Venda'
   const protocoloNome = (venda as { protocolo_nome?: string | null }).protocolo_nome ?? null
 
   return (
@@ -182,7 +183,7 @@ export default async function VendaDetalhePage({
 
         {/* Profissional e Origem */}
         <div className="bg-surface rounded-lg border border-border p-6">
-          <h2 className="text-sm font-semibold text-text-secondary uppercase mb-4">Informações da Venda</h2>
+          <h2 className="text-sm font-semibold text-text-secondary uppercase mb-4">{isOrcamento ? 'Informações do Orçamento' : 'Informações da Venda'}</h2>
           <div className="space-y-3">
             <div>
               <p className="text-xs text-text-secondary uppercase">Profissional</p>
@@ -211,7 +212,7 @@ export default async function VendaDetalhePage({
               </div>
             )}
             <div>
-              <p className="text-xs text-text-secondary uppercase">Data da Venda</p>
+              <p className="text-xs text-text-secondary uppercase">{isOrcamento ? 'Data do Orçamento' : 'Data da Venda'}</p>
               <p className="text-text-primary">{dataFormatada}</p>
             </div>
           </div>

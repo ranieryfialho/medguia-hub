@@ -197,6 +197,7 @@ export function FormEditarVenda({
   }
 
   const erroSenhaConfirmacao = senhaError || (!ocultarErroSenhaAction && !isConfirmandoSenha ? state?.error : '')
+  const isOrcamento = statusVenda !== 'venda_confirmada'
 
   return (
     <>
@@ -252,7 +253,7 @@ export function FormEditarVenda({
 
       {/* Origem */}
       <div>
-        <label className="block text-sm font-medium text-text-primary mb-3">Origem da Venda</label>
+        <label className="block text-sm font-medium text-text-primary mb-3">{isOrcamento ? 'Origem do Orçamento' : 'Origem da Venda'}</label>
         <div className="space-y-2">
           {OPCOES_ORIGEM.map((opt) => (
             <label key={opt.value} className="flex items-center gap-3 cursor-pointer">
@@ -334,7 +335,7 @@ export function FormEditarVenda({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-text-primary mb-2">Data da Venda</label>
+          <label className="block text-sm font-medium text-text-primary mb-2">{isOrcamento ? 'Data do Orçamento' : 'Data da Venda'}</label>
           <input
             type="date"
             value={dataVenda}
@@ -349,7 +350,7 @@ export function FormEditarVenda({
         <textarea
           value={observacoes}
           onChange={(e) => setObservacoes(e.target.value)}
-          placeholder="Adicione observações sobre esta venda..."
+          placeholder={isOrcamento ? 'Adicione observações sobre este orçamento...' : 'Adicione observações sobre esta venda...'}
           rows={3}
           className="w-full px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
         />
@@ -444,7 +445,7 @@ export function FormEditarVenda({
 
         {itens.length > 0 && (
           <div>
-            <h4 className="text-sm font-medium text-text-primary mb-3">Produtos na Venda</h4>
+            <h4 className="text-sm font-medium text-text-primary mb-3">{isOrcamento ? 'Produtos no Orçamento' : 'Produtos na Venda'}</h4>
             <div className="space-y-2">
               {itens.map((item, idx) => {
                 const prod = produtos.find((p) => p.id === item.produto_id)
@@ -460,7 +461,7 @@ export function FormEditarVenda({
                       <p className="text-xs text-text-secondary">
                         {item.quantidade}x R$ {item.preco_unitario.toFixed(2)} = R$ {subtotal.toFixed(2)}
                       </p>
-                      {atendimentosLabel && <p className="text-xs text-text-secondary mt-1">{atendimentosLabel} nesta venda</p>}
+                      {atendimentosLabel && <p className="text-xs text-text-secondary mt-1">{atendimentosLabel} {isOrcamento ? 'neste orçamento' : 'nesta venda'}</p>}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
                         <div>
                           <label className="block text-[11px] font-medium text-text-secondary mb-1">
@@ -553,9 +554,11 @@ export function FormEditarVenda({
     {showModalConfirmacao && (
       <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
-          <h3 className="text-lg font-semibold text-text-primary">Confirmar Venda com Valor Zero</h3>
+          <h3 className="text-lg font-semibold text-text-primary">
+            {isOrcamento ? 'Confirmar Orçamento com Valor Zero' : 'Confirmar Venda com Valor Zero'}
+          </h3>
           <p className="text-sm text-text-secondary">
-            A venda está com valor total de R$ 0,00. Isso pode ser intencional (brinde, cortesia, etc)?
+            {isOrcamento ? 'O orçamento está' : 'A venda está'} com valor total de R$ 0,00. Isso pode ser intencional (brinde, cortesia, etc)?
           </p>
           <p className="text-sm text-text-secondary">
             Digite sua senha para confirmar a alteração com este valor.
