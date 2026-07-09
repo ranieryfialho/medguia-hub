@@ -40,7 +40,7 @@ export default async function ProntuariosPage({
   // ── Profissionais e tipos (usados nos dois painéis de filtro) ──
   const [{ data: profissionaisRaw }, { data: tiposConsultaRaw }] = await Promise.all([
     !isFisio
-      ? supabase.from('profiles').select('id, full_name').in('role', ['fisioterapeuta', 'gestor']).eq('ativo', true).order('full_name')
+      ? supabase.from('profiles').select('id, full_name').eq('role', 'fisioterapeuta').eq('ativo', true).order('full_name')
       : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
     supabase.from('tipos_consulta').select('nome').eq('ativo', true).order('nome'),
   ])
