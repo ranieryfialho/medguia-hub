@@ -2,7 +2,6 @@
 
 import { useRealtimeDisponibilidade, type StatusRow } from '@/hooks/useRealtimeDisponibilidade'
 import type { StatusDisponibilidade } from '@/actions/status-disponibilidade'
-import { estaDentroDaJornadaAgora, getDiaSemanaAtualNaTimezone, type DisponibilidadeDia } from '@/lib/disponibilidade'
 import { useEffect, useState, useMemo } from 'react'
 
 type Profissional = { id: string; nome: string }
@@ -10,8 +9,8 @@ type Profissional = { id: string; nome: string }
 type Props = {
   profissionais: Profissional[]
   initialStatuses: StatusRow[]
-  disponibilidades?: Record<string, Record<number, DisponibilidadeDia>>
-  disponibilidadesHoje?: Record<string, DisponibilidadeDia | null>
+  disponibilidades?: Record<string, Record<number, unknown>>
+  disponibilidadesHoje?: Record<string, unknown>
 }
 
 const STATUS_CONFIG: Record<StatusDisponibilidade, { label: string; dot: string; bg: string; text: string; border: string }> = {
@@ -32,7 +31,7 @@ function buildNomesExibicao(profissionais: Profissional[]): Map<string, string> 
   const partes = new Map(profissionais.map(p => [p.id, p.nome.trim().split(/\s+/)]))
   const numWords = new Map(profissionais.map(p => {
     const n = p.nome.trim().split(/\s+/).length
-    return [p.id, n >= 3 ? 3 : n] // nome + sobrenome composto: pega até a 3ª palavra
+    return [p.id, n >= 3 ? 3 : n]
   }))
 
   let changed = true
@@ -62,28 +61,22 @@ function buildNomesExibicao(profissionais: Profissional[]): Map<string, string> 
   ]))
 }
 
-export function StatusEquipeRealtime({ profissionais, initialStatuses, disponibilidades, disponibilidadesHoje }: Props) {
+export function StatusEquipeRealtime({ profissionais, initialStatuses }: Props) {
   const profissionalIds = useMemo(() => profissionais.map(p => p.id), [profissionais])
   const statuses = useRealtimeDisponibilidade(initialStatuses, profissionalIds)
   const [, setTick] = useState(0)
   const nomesExibicao = buildNomesExibicao(profissionais)
 
+  // Re-renderiza a cada 30s para atualizar o tempo desde a última mudança de status
   useEffect(() => {
     const id = setInterval(() => setTick((value) => value + 1), 30_000)
     return () => clearInterval(id)
   }, [])
 
-  const diaSemanaAtual = getDiaSemanaAtualNaTimezone()
-
+  // Status já computado pelo servidor (ausente/disponivel/ocupado/reuniao)
   const comStatus = profissionais.map(p => {
     const st = statuses.find(s => s.profissional_id === p.id)
-    const disponibilidadeHoje = disponibilidadesHoje?.[p.id] ?? disponibilidades?.[p.id]?.[diaSemanaAtual] ?? null
-    const dentroDaJornada = estaDentroDaJornadaAgora(disponibilidadeHoje)
-    const statusEfetivo = dentroDaJornada
-      ? ((st?.status ?? 'ausente') as StatusDisponibilidade)
-      : 'ausente'
-
-    return { ...p, status: statusEfetivo as StatusDisponibilidade, atualizado_em: st?.atualizado_em }
+    return { ...p, status: (st?.status ?? 'ausente') as StatusDisponibilidade, atualizado_em: st?.atualizado_em }
   })
 
   const livres   = comStatus.filter(p => p.status === 'disponivel')
@@ -124,13 +117,13 @@ export function StatusEquipeRealtime({ profissionais, initialStatuses, disponibi
               className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold ${cfg.bg} ${cfg.text} ${cfg.border}`}
             >
               <span className="relative flex h-2 w-2 shrink-0">
-                {p.status !== 'ocupado' && (
+                {p.status !== 'ocupado' && p.status !== 'ausente' && (
                   <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${cfg.dot} opacity-60`} />
                 )}
                 <span className={`relative inline-flex rounded-full h-2 w-2 ${cfg.dot}`} />
               </span>
               <span>{nomesExibicao.get(p.id) ?? p.nome.split(' ')[0]}</span>
-              {p.status !== 'ocupado' && p.status !== 'ausente' && p.atualizado_em && (
+              {p.status === 'reuniao' && p.atualizado_em && (
                 <span className="opacity-60 font-normal">{tempoDesde(p.atualizado_em)}</span>
               )}
             </div>

@@ -28,7 +28,9 @@ export function useRealtimeDisponibilidade(initial: StatusRow[], profissionalIds
     const ids = idsRef.current
     if (ids.length === 0) return
     const fresh = await listarStatusDisponibilidade(ids)
-    setStatuses(fresh)
+    // Só atualiza se o servidor retornou dados — previne sobrescrever estado válido
+    // com array vazio em caso de erro silencioso no RPC
+    if (fresh.length > 0) setStatuses(fresh)
   }, [])
 
   useEffect(() => {

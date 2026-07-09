@@ -6,7 +6,6 @@ import { useRealtimeDisponibilidade, type StatusRow } from '@/hooks/useRealtimeD
 import { setStatusDisponibilidade, type StatusDisponibilidade } from '@/actions/status-disponibilidade'
 import { usePathname } from 'next/navigation'
 import toast from 'react-hot-toast'
-import { estaDentroDaJornadaAgora, getDiaSemanaAtualNaTimezone, type DisponibilidadeDia } from '@/lib/disponibilidade'
 import { useSlideNovoAgendamentoAberto } from '@/components/layout/SlideNovoAgendamentoContext'
 
 type Profissional = { id: string; nome: string; cargo: string }
@@ -15,8 +14,8 @@ type Props = {
   profissionais: Profissional[]
   initialStatuses: StatusRow[]
   currentUserId: string
-  disponibilidades?: Record<string, Record<number, DisponibilidadeDia>>
-  disponibilidadesHoje?: Record<string, DisponibilidadeDia | null>
+  disponibilidades?: Record<string, Record<number, unknown>>
+  disponibilidadesHoje?: Record<string, unknown>
 }
 
 const STATUS_CONFIG: Record<StatusDisponibilidade, { label: string; labelCurto: string; dot: string; bg: string; text: string }> = {
@@ -40,20 +39,14 @@ function Dot({ status, ping = false }: { status: StatusDisponibilidade; ping?: b
   )
 }
 
-export function WidgetDisponibilidade({ profissionais, initialStatuses, currentUserId, disponibilidades, disponibilidadesHoje }: Props) {
+export function WidgetDisponibilidade({ profissionais, initialStatuses, currentUserId }: Props) {
   const pathname = usePathname()
   const profissionalIds = useMemo(() => profissionais.map(p => p.id), [profissionais])
   const statuses = useRealtimeDisponibilidade(initialStatuses, profissionalIds)
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
-  const [, setTick] = useState(0)
   const slideNovoAgendamentoAberto = useSlideNovoAgendamentoAberto()
   const [isMobile, setIsMobile] = useState(false)
-
-  useEffect(() => {
-    const id = setInterval(() => setTick(t => t + 1), 30_000)
-    return () => clearInterval(id)
-  }, [])
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(max-width: 1023px)')
@@ -71,19 +64,11 @@ export function WidgetDisponibilidade({ profissionais, initialStatuses, currentU
   // No mobile, ocultamos apenas durante o fluxo de agendamento aberto.
   if (isMobile && slideNovoAgendamentoAberto) return null
 
-  const diaSemanaAtual = getDiaSemanaAtualNaTimezone()
-  const statusesEfetivos = statuses.map((status) => {
-    const disponibilidadeHoje = disponibilidadesHoje?.[status.profissional_id] ?? disponibilidades?.[status.profissional_id]?.[diaSemanaAtual] ?? null
-    const dentroDaJornada = estaDentroDaJornadaAgora(disponibilidadeHoje)
-    return {
-      ...status,
-      status: (dentroDaJornada ? status.status : 'ausente') as StatusDisponibilidade,
-    }
-  })
-
-  const myStatus = (statusesEfetivos.find(s => s.profissional_id === currentUserId)?.status ?? 'ausente') as StatusDisponibilidade
+  // Status já computado pelo servidor: ausente/disponivel/ocupado/reuniao
+  // com base na jornada e nos atendimentos ativos.
+  const myStatus = (statuses.find(s => s.profissional_id === currentUserId)?.status ?? 'ausente') as StatusDisponibilidade
   const podeToggle = profissionais.some(p => p.id === currentUserId)
-  const livres = statusesEfetivos.filter(s => s.status === 'disponivel').length
+  const livres = statuses.filter(s => s.status === 'disponivel').length
   const total = profissionais.length
 
   function handleSet(novoStatus: StatusDisponibilidade) {
@@ -101,7 +86,7 @@ export function WidgetDisponibilidade({ profissionais, initialStatuses, currentU
   const fabCfg = livres > 0 ? STATUS_CONFIG.disponivel : STATUS_CONFIG.ocupado
 
   return (
-    <div 
+    <div
       className="fixed bottom-5 right-5 z-[300] flex flex-col items-end gap-2"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
@@ -128,7 +113,7 @@ export function WidgetDisponibilidade({ profissionais, initialStatuses, currentU
               <p className="text-xs text-slate-400 px-4 py-3 text-center">Nenhum profissional</p>
             ) : (
               profissionais.map(p => {
-                const st = statusesEfetivos.find(s => s.profissional_id === p.id)
+                const st = statuses.find(s => s.profissional_id === p.id)
                 const status = (st?.status ?? 'ausente') as StatusDisponibilidade
                 const cfg = STATUS_CONFIG[status]
                 const isMe = p.id === currentUserId
