@@ -3,7 +3,7 @@
 import { useRealtimeDisponibilidade, type StatusRow } from '@/hooks/useRealtimeDisponibilidade'
 import type { StatusDisponibilidade } from '@/actions/status-disponibilidade'
 import { estaDentroDaJornadaAgora, getDiaSemanaAtualNaTimezone, type DisponibilidadeDia } from '@/lib/disponibilidade'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 
 type Profissional = { id: string; nome: string }
 
@@ -63,7 +63,8 @@ function buildNomesExibicao(profissionais: Profissional[]): Map<string, string> 
 }
 
 export function StatusEquipeRealtime({ profissionais, initialStatuses, disponibilidades, disponibilidadesHoje }: Props) {
-  const statuses = useRealtimeDisponibilidade(initialStatuses)
+  const profissionalIds = useMemo(() => profissionais.map(p => p.id), [profissionais])
+  const statuses = useRealtimeDisponibilidade(initialStatuses, profissionalIds)
   const [, setTick] = useState(0)
   const nomesExibicao = buildNomesExibicao(profissionais)
 

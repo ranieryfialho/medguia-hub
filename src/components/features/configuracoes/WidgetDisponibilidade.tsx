@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useTransition } from 'react'
+import { useState, useEffect, useTransition, useMemo } from 'react'
 import { Users, ChevronDown, ChevronUp, CircleDot } from 'lucide-react'
 import { useRealtimeDisponibilidade, type StatusRow } from '@/hooks/useRealtimeDisponibilidade'
 import { setStatusDisponibilidade, type StatusDisponibilidade } from '@/actions/status-disponibilidade'
@@ -28,13 +28,6 @@ const STATUS_CONFIG: Record<StatusDisponibilidade, { label: string; labelCurto: 
 
 const OPCOES: StatusDisponibilidade[] = ['disponivel', 'reuniao', 'ocupado']
 
-function tempoDesde(atualizado_em: string): string {
-  const diff = Math.floor((Date.now() - new Date(atualizado_em).getTime()) / 1000)
-  if (diff < 60) return 'agora'
-  if (diff < 3600) return `${Math.floor(diff / 60)}min`
-  return `${Math.floor(diff / 3600)}h`
-}
-
 function Dot({ status, ping = false }: { status: StatusDisponibilidade; ping?: boolean }) {
   const cfg = STATUS_CONFIG[status]
   return (
@@ -49,7 +42,8 @@ function Dot({ status, ping = false }: { status: StatusDisponibilidade; ping?: b
 
 export function WidgetDisponibilidade({ profissionais, initialStatuses, currentUserId, disponibilidades, disponibilidadesHoje }: Props) {
   const pathname = usePathname()
-  const statuses = useRealtimeDisponibilidade(initialStatuses)
+  const profissionalIds = useMemo(() => profissionais.map(p => p.id), [profissionais])
+  const statuses = useRealtimeDisponibilidade(initialStatuses, profissionalIds)
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [, setTick] = useState(0)
@@ -146,13 +140,7 @@ export function WidgetDisponibilidade({ profissionais, initialStatuses, currentU
                         {p.nome}{isMe && <span className="text-slate-400 font-normal"> (você)</span>}
                       </p>
                       <p className={`text-[10px] font-medium ${cfg.text}`}>
-                        {status === 'disponivel'
-                          ? `livre há ${tempoDesde(st!.atualizado_em)}`
-                          : status === 'reuniao'
-                          ? `em reunião há ${tempoDesde(st!.atualizado_em)}`
-                          : status === 'ausente'
-                          ? 'ausente hoje'
-                          : 'ocupado'}
+                        {cfg.labelCurto}
                       </p>
                     </div>
                   </div>
