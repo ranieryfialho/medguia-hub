@@ -240,7 +240,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
       .order('data_agendamento', { ascending: true })
 
     if (profissionalIdFiltro) {
-      agendamentosMesLevesQuery.eq('profissional_id', profissionalIdFiltro)
+      agendamentosMesLevesQuery.or(`profissional_id.eq.${profissionalIdFiltro},fisioterapeuta_id.eq.${profissionalIdFiltro}`)
     }
     if (shouldFilterByStatus) {
       agendamentosMesLevesQuery.in('status', statusRawValues)
@@ -271,6 +271,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 id,
                 paciente_id,
                 profissional_id,
+                fisioterapeuta_id,
                 agendamento_id,
                 data_agendamento,
                 status,
@@ -283,11 +284,12 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 em_atendimento_desde,
                 agendamento_pai:agendamentos(plano_saude, tipo),
                 pacientes (nome),
-                profissional:profiles!profissional_id(full_name)
+                profissional:profiles!profissional_id(full_name),
+                fisioterapeuta_executor:profiles!fisioterapeuta_id(full_name)
               `)
               .gte('data_agendamento', fetchInicio)
               .lte('data_agendamento', fetchFim)
-              .eq('profissional_id', profissionalIdFiltro)
+              .or(`profissional_id.eq.${profissionalIdFiltro},fisioterapeuta_id.eq.${profissionalIdFiltro}`)
               .order('data_agendamento', { ascending: true })
           : supabase
               .from('atendimentos')
@@ -295,6 +297,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 id,
                 paciente_id,
                 profissional_id,
+                fisioterapeuta_id,
                 agendamento_id,
                 data_agendamento,
                 status,
@@ -307,7 +310,8 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 em_atendimento_desde,
                 agendamento_pai:agendamentos(plano_saude, tipo),
                 pacientes (nome),
-                profissional:profiles!profissional_id(full_name)
+                profissional:profiles!profissional_id(full_name),
+                fisioterapeuta_executor:profiles!fisioterapeuta_id(full_name)
               `)
               .gte('data_agendamento', fetchInicio)
               .lte('data_agendamento', fetchFim)
@@ -321,6 +325,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 id,
                 paciente_id,
                 profissional_id,
+                fisioterapeuta_id,
                 agendamento_id,
                 data_agendamento,
                 status,
@@ -334,11 +339,12 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 em_atendimento_desde,
                 agendamento_pai:agendamentos(plano_saude, tipo),
                 pacientes (nome, telefone, email),
-                profissional:profiles!profissional_id(full_name, role)
+                profissional:profiles!profissional_id(full_name, role),
+                fisioterapeuta_executor:profiles!fisioterapeuta_id(full_name)
               `)
               .gte('data_agendamento', fetchInicio)
               .lte('data_agendamento', fetchFim)
-              .eq('profissional_id', profissionalIdFiltro)
+              .or(`profissional_id.eq.${profissionalIdFiltro},fisioterapeuta_id.eq.${profissionalIdFiltro}`)
               .order('data_agendamento', { ascending: true })
           : supabase
               .from('atendimentos')
@@ -346,6 +352,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 id,
                 paciente_id,
                 profissional_id,
+                fisioterapeuta_id,
                 agendamento_id,
                 data_agendamento,
                 status,
@@ -359,7 +366,8 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 em_atendimento_desde,
                 agendamento_pai:agendamentos(plano_saude, tipo),
                 pacientes (nome, telefone, email),
-                profissional:profiles!profissional_id(full_name, role)
+                profissional:profiles!profissional_id(full_name, role),
+                fisioterapeuta_executor:profiles!fisioterapeuta_id(full_name)
               `)
               .gte('data_agendamento', fetchInicio)
               .lte('data_agendamento', fetchFim)
@@ -398,6 +406,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
         pacientes: firstRelation(a.pacientes as RelacaoPaciente),
         profissional: firstRelation(a.profissional as RelacaoProfissional) ?? undefined,
         agendamento_pai: firstRelation(a.agendamento_pai as RelacaoAgendamentoPai) ?? undefined,
+        fisioterapeuta_executor: firstRelation(a.fisioterapeuta_executor as { full_name?: string | null } | { full_name?: string | null }[]) ?? undefined,
         numero_sessao: efetivo?.sessao_efetiva ?? a.numero_sessao,
         total_sessoes: efetivo?.total_efetivo ?? a.total_sessoes,
         numero_sessao_tipo: efetivo?.sessao_tipo_efetiva ?? null,
@@ -416,7 +425,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
     .gte('data_agendamento', getAppDayRangeUTC(formatAppDateKey(inicioDoMes)).start)
     .lte('data_agendamento', getAppDayRangeUTC(formatAppDateKey(fimDoMes)).end)
 
-  if (profissionalIdFiltro) agendamentosMesQuery.eq('profissional_id', profissionalIdFiltro)
+  if (profissionalIdFiltro) agendamentosMesQuery.or(`profissional_id.eq.${profissionalIdFiltro},fisioterapeuta_id.eq.${profissionalIdFiltro}`)
   if (shouldFilterByStatus) agendamentosMesQuery.in('status', statusRawValues)
 
   const { data: agendamentosMes } = await agendamentosMesQuery

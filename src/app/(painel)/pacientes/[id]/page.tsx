@@ -98,14 +98,16 @@ export default async function PacienteDetailsPage({
     total_sessoes_tipo?: number | null
     tipo?: string | null
     observacoes?: string | null
+    fisioterapeuta_id?: string | null
     profissional?: { full_name?: string | null } | null
+    fisioterapeuta_executor?: { full_name?: string | null } | null
     agendamento?: { tipo?: string | null; is_recorrente?: boolean | null; plano_saude?: string | null } | null
   }
 
   const [{ data: atendimentos }, prontuariosRaw, { data: vendasRaw }, followUps, followUpTipos, { data: profissionaisRaw }] = await Promise.all([
     supabase
       .from('atendimentos')
-      .select(`*, agendamento:agendamentos(tipo, is_recorrente, plano_saude), profissional:profiles!profissional_id(full_name)`)
+      .select(`*, agendamento:agendamentos(tipo, is_recorrente, plano_saude), profissional:profiles!profissional_id(full_name), fisioterapeuta_executor:profiles!fisioterapeuta_id(full_name)`)
       .eq('paciente_id', pacienteId)
       .order('data_agendamento', { ascending: false })
       .order('created_at', { ascending: false }),

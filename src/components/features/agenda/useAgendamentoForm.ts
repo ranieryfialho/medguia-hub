@@ -14,6 +14,7 @@ import type { ProtocoloAtendimento } from '@/actions/protocolos-atendimento'
 import type { PlanoSaude } from '@/actions/planos-saude'
 import {
   somarUmaHora,
+  somarMinutos,
   normalizarQuantidadeSessao,
   normalizarQuantidadeItemProtocolo,
   normalizarSessoesSelecionadas,
@@ -345,9 +346,20 @@ export function useAgendamentoForm({
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
+  function getDuracaoTipo(tipoNome: string): number {
+    return tiposAtivos.find((t) => t.nome === tipoNome)?.duracao_padrao_minutos ?? 60
+  }
+
   function handleHoraInicioChange(v: string) {
     setHoraInicioValue(v)
-    setHoraFimValue(somarUmaHora(v))
+    setHoraFimValue(somarMinutos(v, getDuracaoTipo(selectedTipo)))
+  }
+
+  function handleTipoChange(tipo: string) {
+    setSelectedTipo(tipo)
+    if (horaInicioValue) {
+      setHoraFimValue(somarMinutos(horaInicioValue, getDuracaoTipo(tipo)))
+    }
   }
 
   function selecionarPaciente(p: Paciente) {
@@ -403,7 +415,7 @@ export function useAgendamentoForm({
   function handleUpdateSlot(id: string, field: keyof Omit<SlotLivre, 'id'>, value: string) {
     setSlotsLivres((prev) => prev.map((s) => {
       if (s.id !== id) return s
-      if (field === 'hora_inicio') return { ...s, hora_inicio: value, hora_fim: somarUmaHora(value) }
+      if (field === 'hora_inicio') return { ...s, hora_inicio: value, hora_fim: somarMinutos(value, getDuracaoTipo(selectedTipo)) }
       return { ...s, [field]: value }
     }))
   }
@@ -643,6 +655,7 @@ export function useAgendamentoForm({
     setModoAtendimento,
     selectedTipo,
     setSelectedTipo,
+    handleTipoChange,
     opcoesTipoConsulta,
     tiposAtivos,
     // Protocolo

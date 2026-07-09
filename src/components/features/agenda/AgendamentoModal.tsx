@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Calendar, ChevronDown, ClipboardList, Clock, FolderOpen,
-  Layers, Mail, MessageCircle, Pencil, Phone, Timer, Trash2, User,
+  Layers, Loader2, Mail, MessageCircle, Pencil, Phone, Timer, Trash2, User, UserCheck, UserPlus, X,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import {
@@ -17,6 +17,8 @@ import {
   deletarAtendimentoPontualDaRecorrencia,
   deletarTodasRecorrencias,
   mudarStatusAgendamento,
+  listarFisioterapeutas,
+  atribuirFisioterapeutaAtendimento,
 } from '@/actions/agenda'
 import { adicionarSessaoReposicao, criarAtendimentoReagendado, obterProximaData, registrarContato } from '@/actions/confirmacoes'
 import { format } from 'date-fns'
@@ -59,6 +61,17 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
   const [modalSelecao, setModalSelecao] = useState(false)
   const [modalEdicaoSerie, setModalEdicaoSerie] = useState(false)
   const [modalReagendamento, setModalReagendamento] = useState(false)
+  const [fisioExecutor, setFisioExecutor] = useState<{ id: string | null; nome: string | null }>({
+    id: agendamento.fisioterapeuta_id ?? null,
+    nome: agendamento.fisioterapeuta_executor?.full_name ?? null,
+  })
+  const [fisiosList, setFisiosList] = useState<{ id: string; nome: string }[] | null>(null)
+  const [fisiosCarregando, setFisiosCarregando] = useState(false)
+  const [seletorFisioAberto, setSeletorFisioAberto] = useState(false)
+  const [seletorFisioPos, setSeletorFisioPos] = useState<{ top: number; left: number } | null>(null)
+  const [atribuindoFisio, setAtribuindoFisio] = useState(false)
+  const fisioTriggerRef = useRef<HTMLButtonElement>(null)
+  const seletorFisioRef = useRef<HTMLDivElement>(null)
   const [reagendamentoData, setReagendamentoData] = useState<string | undefined>()
   const [reagendamentoHora, setReagendamentoHora] = useState<string | undefined>()
   const [contagem, setContagem] = useState<{ total: number; cancelados: number } | null>(null)
@@ -149,6 +162,12 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
       ) {
         setShowStatusMenu(false)
       }
+      if (
+        seletorFisioRef.current && !seletorFisioRef.current.contains(e.target as Node) &&
+        fisioTriggerRef.current && !fisioTriggerRef.current.contains(e.target as Node)
+      ) {
+        setSeletorFisioAberto(false)
+      }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
@@ -227,6 +246,31 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
     if (resultado?.error) { toast.error(resultado.error); setConfirmandoExclusao(false); return }
     router.refresh()
     onClose()
+  }
+
+  async function handleAbrirSeletorFisio() {
+    if (fisiosList === null) {
+      setFisiosCarregando(true)
+      const lista = await listarFisioterapeutas()
+      setFisiosList(lista)
+      setFisiosCarregando(false)
+    }
+    if (fisioTriggerRef.current) {
+      const rect = fisioTriggerRef.current.getBoundingClientRect()
+      setSeletorFisioPos({ top: rect.bottom + 4, left: rect.left })
+    }
+    setSeletorFisioAberto(true)
+  }
+
+  async function handleAtribuirFisio(fisioId: string | null) {
+    setAtribuindoFisio(true)
+    const result = await atribuirFisioterapeutaAtendimento(agendamento.id, fisioId)
+    if (!result.error) {
+      const fisio = fisioId ? (fisiosList ?? []).find(f => f.id === fisioId) : null
+      setFisioExecutor({ id: fisioId, nome: fisio?.nome ?? null })
+      setSeletorFisioAberto(false)
+    }
+    setAtribuindoFisio(false)
   }
 
   function handleAbrirSelecao() {
@@ -517,6 +561,47 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
                     </span>
                   </div>
                 )}
+
+                {/* Fisioterapeuta executor */}
+                <div className="flex items-start gap-3">
+                  <UserCheck size={16} className="shrink-0 text-teal-600 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    {fisioExecutor.nome ? (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium text-teal-700">{fisioExecutor.nome}</span>
+                        <span className="text-xs text-[#6d7a75]">· executor</span>
+                        <button
+                          ref={fisioTriggerRef}
+                          type="button"
+                          onClick={handleAbrirSeletorFisio}
+                          className="text-xs text-slate-400 hover:text-teal-600 transition-colors underline underline-offset-2"
+                        >
+                          alterar
+                        </button>
+                        <button
+                          type="button"
+                          disabled={atribuindoFisio}
+                          onClick={() => handleAtribuirFisio(null)}
+                          className="text-slate-400 hover:text-red-500 transition-colors"
+                          title="Remover executor"
+                        >
+                          {atribuindoFisio ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        ref={fisioTriggerRef}
+                        type="button"
+                        onClick={handleAbrirSeletorFisio}
+                        className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-teal-600 transition-colors"
+                      >
+                        <UserPlus size={14} />
+                        Atribuir fisioterapeuta executor
+                      </button>
+                    )}
+                  </div>
+                </div>
+
                 {planoSaude && (
                   <div className="flex items-center gap-3">
                     <ClipboardList size={16} className="shrink-0 text-[#006b5a]" />
@@ -590,6 +675,42 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
           )}
         </div>
       </div>
+
+      {typeof document !== 'undefined' && seletorFisioAberto && seletorFisioPos && createPortal(
+        <div
+          ref={seletorFisioRef}
+          style={{ position: 'fixed', top: seletorFisioPos.top, left: seletorFisioPos.left, width: 224, zIndex: 9999 }}
+          className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
+        >
+          {fisiosCarregando ? (
+            <div className="flex items-center gap-2 px-4 py-3 text-sm text-slate-400">
+              <Loader2 size={13} className="animate-spin" /> Carregando...
+            </div>
+          ) : (fisiosList ?? []).length === 0 ? (
+            <p className="px-4 py-3 text-sm text-slate-400">Nenhum fisioterapeuta ativo.</p>
+          ) : (
+            <ul className="py-1.5 max-h-60 overflow-y-auto">
+              {(fisiosList ?? []).map(f => (
+                <li key={f.id}>
+                  <button
+                    type="button"
+                    disabled={atribuindoFisio}
+                    onClick={() => handleAtribuirFisio(f.id)}
+                    className={`w-full text-left px-4 py-2 text-sm font-medium hover:bg-teal-50 hover:text-teal-700 transition-colors flex items-center gap-2 ${fisioExecutor.id === f.id ? 'text-teal-700 bg-teal-50' : 'text-[#3d4945]'}`}
+                  >
+                    {atribuindoFisio
+                      ? <Loader2 size={12} className="animate-spin shrink-0" />
+                      : <UserCheck size={12} className={`shrink-0 ${fisioExecutor.id === f.id ? 'opacity-100' : 'opacity-0'}`} />
+                    }
+                    {f.nome}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>,
+        document.body
+      )}
 
       {typeof document !== 'undefined' && showStatusMenu && statusMenuPos && createPortal(
         <div

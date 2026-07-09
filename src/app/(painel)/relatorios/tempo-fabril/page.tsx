@@ -113,11 +113,17 @@ export default async function TempoFabrilPage({
     : [profFiltro]
 
   // Queries paralelas
-  const [{ data: atendimentos }, { data: jornadas }, { data: jornadasPlanejadas }, { data: reunioes }] = await Promise.all([
+  const [{ data: atendimentosResp }, { data: atendimentosExec }, { data: jornadas }, { data: jornadasPlanejadas }, { data: reunioes }] = await Promise.all([
     supabase
       .from('atendimentos')
-      .select('id, profissional_id, data_agendamento, duracao_minutos, status, tipo, numero_sessao, paciente_id')
+      .select('id, profissional_id, fisioterapeuta_id, data_agendamento, duracao_minutos, status, tipo, numero_sessao, paciente_id')
       .in('profissional_id', profIds)
+      .gte('data_agendamento', utcInicio)
+      .lte('data_agendamento', utcFim),
+    supabase
+      .from('atendimentos')
+      .select('id, profissional_id, fisioterapeuta_id, data_agendamento, duracao_minutos, status, tipo, numero_sessao, paciente_id')
+      .in('fisioterapeuta_id', profIds)
       .gte('data_agendamento', utcInicio)
       .lte('data_agendamento', utcFim),
     supabase
@@ -140,10 +146,17 @@ export default async function TempoFabrilPage({
       .not('fim', 'is', null),
   ])
 
+  // Unir responsáveis + executores sem duplicar (mesmo atendimento pode aparecer nos dois)
+  const atendimentosMap = new Map<string, Atendimento>()
+  for (const a of [...(atendimentosResp ?? []), ...(atendimentosExec ?? [])]) {
+    if (!atendimentosMap.has(a.id)) atendimentosMap.set(a.id, a as Atendimento)
+  }
+  const atendimentos = Array.from(atendimentosMap.values())
+
   // Calcular KPIs
   const kpisEquipe = calcularKPIs(
     profissionais,
-    (atendimentos ?? []) as Atendimento[],
+    atendimentos,
     (jornadas ?? []) as Jornada[],
     (jornadasPlanejadas ?? []) as JornadaPlanejada[],
     dataInicio,

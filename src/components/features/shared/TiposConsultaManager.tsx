@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Plus, Pencil, Trash2, Check, X, ToggleLeft, ToggleRight, GripVertical } from 'lucide-react'
+import { Plus, Pencil, Trash2, Check, X, ToggleLeft, ToggleRight, GripVertical, Clock } from 'lucide-react'
 import toast from 'react-hot-toast'
 import {
   criarTipoConsulta,
@@ -14,8 +14,10 @@ import {
 export function TiposConsultaManager({ tipos: inicial }: { tipos: TipoConsulta[] }) {
   const [tipos, setTipos] = useState(inicial)
   const [novoNome, setNovoNome] = useState('')
+  const [novaDuracao, setNovaDuracao] = useState<number>(30)
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [editandoNome, setEditandoNome] = useState('')
+  const [editandoDuracao, setEditandoDuracao] = useState<number>(30)
   const [excluindoId, setExcluindoId] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
@@ -24,7 +26,7 @@ export function TiposConsultaManager({ tipos: inicial }: { tipos: TipoConsulta[]
     if (!novoNome.trim()) return
 
     startTransition(async () => {
-      const result = await criarTipoConsulta(novoNome)
+      const result = await criarTipoConsulta(novoNome, novaDuracao)
       if (result.error) {
         toast.error(result.error)
         return
@@ -32,6 +34,7 @@ export function TiposConsultaManager({ tipos: inicial }: { tipos: TipoConsulta[]
 
       toast.success('Tipo de consulta criado')
       setNovoNome('')
+      setNovaDuracao(30)
       window.location.reload()
     })
   }
@@ -39,19 +42,21 @@ export function TiposConsultaManager({ tipos: inicial }: { tipos: TipoConsulta[]
   function iniciarEdicao(tipo: TipoConsulta) {
     setEditandoId(tipo.id)
     setEditandoNome(tipo.nome)
+    setEditandoDuracao(tipo.duracao_padrao_minutos)
     setExcluindoId(null)
   }
 
   function cancelarEdicao() {
     setEditandoId(null)
     setEditandoNome('')
+    setEditandoDuracao(30)
   }
 
   function handleSalvarEdicao(id: string) {
     if (!editandoNome.trim()) return
 
     startTransition(async () => {
-      const result = await atualizarTipoConsulta(id, editandoNome)
+      const result = await atualizarTipoConsulta(id, editandoNome, editandoDuracao)
       if (result.error) {
         toast.error(result.error)
         return
@@ -60,7 +65,7 @@ export function TiposConsultaManager({ tipos: inicial }: { tipos: TipoConsulta[]
       toast.success('Tipo de consulta atualizado')
       setTipos((prev) => prev.map((tipo) => (
         tipo.id === id
-          ? { ...tipo, nome: editandoNome.trim() }
+          ? { ...tipo, nome: editandoNome.trim(), duracao_padrao_minutos: editandoDuracao }
           : tipo
       )))
       setEditandoId(null)
@@ -108,6 +113,20 @@ export function TiposConsultaManager({ tipos: inicial }: { tipos: TipoConsulta[]
           className="flex-1 bg-input border border-border-input rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-primary-500"
           disabled={isPending}
         />
+        <div className="flex items-center gap-1.5 shrink-0">
+          <Clock size={13} className="text-text-secondary" />
+          <input
+            type="number"
+            value={novaDuracao}
+            onChange={(e) => setNovaDuracao(Math.max(5, parseInt(e.target.value) || 30))}
+            min={5}
+            step={5}
+            className="w-20 bg-input border border-border-input rounded-sm px-2 py-2 text-sm focus:outline-none focus:border-primary-500 text-center"
+            title="Duração padrão em minutos"
+            disabled={isPending}
+          />
+          <span className="text-xs text-text-secondary">min</span>
+        </div>
         <button
           type="submit"
           disabled={isPending || !novoNome.trim()}
@@ -143,6 +162,20 @@ export function TiposConsultaManager({ tipos: inicial }: { tipos: TipoConsulta[]
                     className="flex-1 bg-input border border-primary-500 rounded-sm px-2 py-1 text-sm focus:outline-none"
                     disabled={isPending}
                   />
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Clock size={12} className="text-text-secondary" />
+                    <input
+                      type="number"
+                      value={editandoDuracao}
+                      onChange={(e) => setEditandoDuracao(Math.max(5, parseInt(e.target.value) || 30))}
+                      min={5}
+                      step={5}
+                      className="w-16 bg-input border border-primary-500 rounded-sm px-2 py-1 text-sm focus:outline-none text-center"
+                      title="Duração padrão em minutos"
+                      disabled={isPending}
+                    />
+                    <span className="text-xs text-text-secondary">min</span>
+                  </div>
                   <button
                     onClick={() => handleSalvarEdicao(tipo.id)}
                     disabled={isPending}
@@ -181,6 +214,10 @@ export function TiposConsultaManager({ tipos: inicial }: { tipos: TipoConsulta[]
               ) : (
                 <>
                   <span className="flex-1 text-sm text-text-primary">{tipo.nome}</span>
+                  <span className="flex items-center gap-1 text-xs text-text-secondary shrink-0">
+                    <Clock size={11} />
+                    {tipo.duracao_padrao_minutos}min
+                  </span>
                   {!tipo.ativo && (
                     <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">
                       inativo

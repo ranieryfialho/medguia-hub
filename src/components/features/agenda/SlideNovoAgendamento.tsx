@@ -47,6 +47,7 @@ export function SlideNovoAgendamento(props: SlideProps) {
     setModoAtendimento,
     selectedTipo,
     setSelectedTipo,
+    handleTipoChange,
     opcoesTipoConsulta,
     tiposAtivos,
     // Protocolo
@@ -249,7 +250,7 @@ export function SlideNovoAgendamento(props: SlideProps) {
                 )}
                 {(modoEdicao || modoAtendimento !== 'protocolo') && (
                   <>
-                    <select name="tipo" required value={selectedTipo} onChange={(e) => setSelectedTipo(e.target.value)}
+                    <select name="tipo" required value={selectedTipo} onChange={(e) => handleTipoChange(e.target.value)}
                       className="w-full bg-white border border-[#bcc9c4] rounded-lg px-4 py-3 text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/50 transition-all font-medium appearance-none shadow-sm">
                       <option value="">Selecione uma opção</option>
                       {opcoesTipoConsulta.map((t) => <option key={t.id} value={t.nome}>{t.nome}</option>)}

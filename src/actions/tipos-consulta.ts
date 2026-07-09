@@ -8,13 +8,14 @@ export type TipoConsulta = {
   nome: string
   ativo: boolean
   ordem: number
+  duracao_padrao_minutos: number
 }
 
 export async function listarTiposConsulta(): Promise<TipoConsulta[]> {
   const supabase = await createClient()
   const { data } = await supabase
     .from('tipos_consulta')
-    .select('id, nome, ativo, ordem')
+    .select('id, nome, ativo, ordem, duracao_padrao_minutos')
     .order('ordem', { ascending: true })
     .order('nome', { ascending: true })
 
@@ -25,7 +26,7 @@ export async function listarTiposConsultaAtivos(): Promise<TipoConsulta[]> {
   const supabase = await createClient()
   const { data } = await supabase
     .from('tipos_consulta')
-    .select('id, nome, ativo, ordem')
+    .select('id, nome, ativo, ordem, duracao_padrao_minutos')
     .eq('ativo', true)
     .order('ordem', { ascending: true })
     .order('nome', { ascending: true })
@@ -42,7 +43,7 @@ function revalidarRotasRelacionadas() {
   revalidatePath('/confirmacoes')
 }
 
-export async function criarTipoConsulta(nome: string): Promise<{ error?: string }> {
+export async function criarTipoConsulta(nome: string, duracaoMinutos?: number): Promise<{ error?: string }> {
   const nomeNormalizado = nome.trim()
   if (!nomeNormalizado) return { error: 'Nome é obrigatório' }
 
@@ -63,6 +64,7 @@ export async function criarTipoConsulta(nome: string): Promise<{ error?: string 
       nome: nomeNormalizado,
       ativo: true,
       ordem: proximaOrdem,
+      duracao_padrao_minutos: duracaoMinutos ?? 30,
     })
 
   if (error) return { error: error.message }
@@ -71,7 +73,7 @@ export async function criarTipoConsulta(nome: string): Promise<{ error?: string 
   return {}
 }
 
-export async function atualizarTipoConsulta(id: string, nome: string): Promise<{ error?: string }> {
+export async function atualizarTipoConsulta(id: string, nome: string, duracaoMinutos?: number): Promise<{ error?: string }> {
   const nomeNormalizado = nome.trim()
   if (!nomeNormalizado) return { error: 'Nome é obrigatório' }
 
@@ -80,6 +82,7 @@ export async function atualizarTipoConsulta(id: string, nome: string): Promise<{
     .from('tipos_consulta')
     .update({
       nome: nomeNormalizado,
+      ...(duracaoMinutos !== undefined && { duracao_padrao_minutos: duracaoMinutos }),
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)

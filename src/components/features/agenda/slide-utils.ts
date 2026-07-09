@@ -32,6 +32,16 @@ export function somarUmaHora(horario: string): string {
   return `${String((hora + 1) % 24).padStart(2, '0')}:${String(minuto).padStart(2, '0')}`
 }
 
+export function somarMinutos(horario: string, minutos: number): string {
+  if (!horario || !horario.includes(':')) return ''
+  const [horaStr, minutoStr] = horario.split(':')
+  const hora = Number(horaStr)
+  const minuto = Number(minutoStr)
+  if (Number.isNaN(hora) || Number.isNaN(minuto)) return ''
+  const total = hora * 60 + minuto + minutos
+  return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
+}
+
 export function normalizarQuantidadeSessao(valor: string | number | undefined): number {
   const quantidade = typeof valor === 'number' ? valor : parseInt(String(valor ?? ''), 10)
   return Math.max(1, Math.min(365, Number.isNaN(quantidade) ? 1 : quantidade))

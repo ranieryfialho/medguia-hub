@@ -22,6 +22,7 @@ import { isStatusFabril } from '@/lib/atendimento-status'
 export type Atendimento = {
   id: string
   profissional_id: string
+  fisioterapeuta_id?: string | null
   data_agendamento: string
   duracao_minutos: number | null
   status: string
@@ -165,7 +166,16 @@ export function calcularKPIs(
     const jornadaSemanalMap = jornadasSemanaisPorProfissional.get(prof.id) ?? new Map()
     const jornadaMensalMap = jornadasMensaisPorProfissional.get(prof.id)
 
-    const atsProfissional = atendimentos.filter((a) => a.profissional_id === prof.id)
+    // Inclui atendimentos onde o profissional é responsável OU executor atribuído
+    // Usa Set para evitar duplicatas quando profissional_id === fisioterapeuta_id
+    const atsIds = new Set<string>()
+    const atsProfissional: Atendimento[] = []
+    for (const a of atendimentos) {
+      if ((a.profissional_id === prof.id || a.fisioterapeuta_id === prof.id) && !atsIds.has(a.id)) {
+        atsIds.add(a.id)
+        atsProfissional.push(a)
+      }
+    }
 
     const tempoReuniaoMin = reunioes
       .filter(r => r.profissional_id === prof.id && r.duracao_minutos !== null)

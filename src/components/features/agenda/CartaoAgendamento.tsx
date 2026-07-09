@@ -9,7 +9,7 @@ import Link from 'next/link'
 import {
   CalendarDays, ChevronDown, ChevronUp, RefreshCw, Calendar,
   CheckCircle, Hourglass, Stethoscope, CheckCheck, XCircle, User, UserX, CalendarClock, ClipboardList, Layers, StickyNote, Timer, FolderOpen,
-  VideoIcon, FileIcon, FileText, Loader2, X, ExternalLink, Images
+  VideoIcon, FileIcon, FileText, Loader2, X, ExternalLink, Images, UserPlus, UserCheck
 } from 'lucide-react'
 import { useTempoEspera } from '@/hooks/useTempoEspera'
 import {
@@ -18,6 +18,7 @@ import {
   normalizeAtendimentoStatus,
 } from '@/lib/atendimento-status'
 import { listarMidiasAtendimento } from '@/actions/google-drive'
+import { listarFisioterapeutas, atribuirFisioterapeutaAtendimento } from '@/actions/agenda'
 
 type MidiaItem = {
   id: string
@@ -55,6 +56,8 @@ type Sessao = {
   em_atendimento_desde?: string | null
   prontuario?: ProntuarioResumo | null
   profissional?: { full_name?: string | null } | null
+  fisioterapeuta_id?: string | null
+  fisioterapeuta_executor?: { full_name?: string | null } | null
 }
 
 function TempoEsperaBadge({ atendimentoId, aguardandoDesde, emAtendimentoDesde, status, onExternalUpdate }: {
@@ -143,6 +146,36 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
   const [pdfCarregando, setPdfCarregando] = useState(false)
   const [videoErro, setVideoErro] = useState(false)
 
+  // Estado local das sessões para refletir atribuições sem reload
+  const [sessoesState, setSessoesState] = useState<Sessao[]>(grupo.sessoes)
+  const [fisiosList, setFisiosList] = useState<{ id: string; nome: string }[] | null>(null)
+  const [fisiosCarregando, setFisiosCarregando] = useState(false)
+  const [seletorAberto, setSeletorAberto] = useState<string | null>(null)
+  const [atribuindoId, setAtribuindoId] = useState<string | null>(null)
+
+  async function carregarFisios() {
+    if (fisiosList !== null) return
+    setFisiosCarregando(true)
+    const lista = await listarFisioterapeutas()
+    setFisiosList(lista)
+    setFisiosCarregando(false)
+  }
+
+  async function handleAtribuirFisio(sessaoId: string, fisioId: string | null) {
+    setAtribuindoId(sessaoId)
+    const result = await atribuirFisioterapeutaAtendimento(sessaoId, fisioId)
+    if (!result.error) {
+      const fisio = fisioId ? (fisiosList ?? []).find(f => f.id === fisioId) : null
+      setSessoesState(prev => prev.map(s =>
+        s.id === sessaoId
+          ? { ...s, fisioterapeuta_id: fisioId, fisioterapeuta_executor: fisio ? { full_name: fisio.nome } : null }
+          : s
+      ))
+      setSeletorAberto(null)
+    }
+    setAtribuindoId(null)
+  }
+
   async function carregarMidias(sessaoId: string) {
     if (midiasMap[sessaoId] !== undefined) return
     setMidiasCarregando(prev => ({ ...prev, [sessaoId]: true }))
@@ -154,7 +187,8 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
     setMidiasCarregando(prev => ({ ...prev, [sessaoId]: false }))
   }
 
-  const { sessoes, tipo, plano_saude, is_recorrente } = grupo
+  const { tipo, plano_saude, is_recorrente } = grupo
+  const sessoes = sessoesState
   const statusGeral = calcularStatusGeral(sessoes)
   const config = getStatusConfig(statusGeral)
 
@@ -361,6 +395,78 @@ export function CartaoAgendamento({ grupo }: { grupo: AgendamentoComSessoes }) {
                           {sessao.profissional.full_name}
                         </p>
                       )}
+                      {/* Fisioterapeuta executor */}
+                      <div className="mt-1">
+                        {sessao.fisioterapeuta_executor?.full_name ? (
+                          <div className="flex items-center gap-1 flex-wrap">
+                            <span className="flex items-center gap-1 text-[11px] font-semibold text-teal-700 bg-teal-50 border border-teal-200 px-1.5 py-0.5 rounded-full">
+                              <UserCheck size={10} className="shrink-0" />
+                              {sessao.fisioterapeuta_executor.full_name}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                await carregarFisios()
+                                setSeletorAberto(seletorAberto === sessao.id ? null : sessao.id)
+                              }}
+                              className="text-[10px] text-slate-400 hover:text-teal-600 transition-colors underline underline-offset-2"
+                            >
+                              alterar
+                            </button>
+                            <button
+                              type="button"
+                              disabled={atribuindoId === sessao.id}
+                              onClick={() => handleAtribuirFisio(sessao.id, null)}
+                              className="text-[10px] text-slate-400 hover:text-red-500 transition-colors"
+                              title="Remover fisioterapeuta"
+                            >
+                              {atribuindoId === sessao.id ? <Loader2 size={10} className="animate-spin" /> : <X size={10} />}
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              await carregarFisios()
+                              setSeletorAberto(seletorAberto === sessao.id ? null : sessao.id)
+                            }}
+                            className="flex items-center gap-1 text-[10px] font-semibold text-slate-400 hover:text-teal-600 transition-colors"
+                          >
+                            <UserPlus size={10} />
+                            Atribuir fisioterapeuta executor
+                          </button>
+                        )}
+                        {seletorAberto === sessao.id && (
+                          <div className="mt-1.5 bg-white border border-slate-200 rounded-lg shadow-md overflow-hidden w-52 z-10">
+                            {fisiosCarregando ? (
+                              <div className="flex items-center gap-2 px-3 py-2 text-[11px] text-slate-400">
+                                <Loader2 size={11} className="animate-spin" /> Carregando...
+                              </div>
+                            ) : (fisiosList ?? []).length === 0 ? (
+                              <p className="px-3 py-2 text-[11px] text-slate-400">Nenhum fisioterapeuta ativo.</p>
+                            ) : (
+                              <ul className="py-1">
+                                {(fisiosList ?? []).map(f => (
+                                  <li key={f.id}>
+                                    <button
+                                      type="button"
+                                      disabled={atribuindoId === sessao.id}
+                                      onClick={() => handleAtribuirFisio(sessao.id, f.id)}
+                                      className={`w-full text-left px-3 py-1.5 text-[11px] font-medium hover:bg-teal-50 hover:text-teal-700 transition-colors flex items-center gap-1.5 ${sessao.fisioterapeuta_id === f.id ? 'text-teal-700 bg-teal-50' : 'text-slate-700'}`}
+                                    >
+                                      {atribuindoId === sessao.id
+                                        ? <Loader2 size={10} className="animate-spin shrink-0" />
+                                        : <UserCheck size={10} className="shrink-0 opacity-0 group-hover:opacity-100" />
+                                      }
+                                      {f.nome}
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       {temProntuario && (

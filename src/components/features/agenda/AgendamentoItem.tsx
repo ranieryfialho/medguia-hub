@@ -200,9 +200,12 @@ export function AgendamentoItemDia({
                   <p className={`text-[11px] ${config.subText} mt-1 font-medium italic`}>
                     {agendamento.agendamento_pai?.tipo?.trim() || agendamento.tipo}
                   </p>
-                  {agendamento.agendamento_pai?.tipo?.trim() && (
+                  {agendamento.agendamento_pai?.tipo?.trim() &&
+                    (agendamento.tipo?.trim() !== agendamento.agendamento_pai.tipo.trim() || exibirContagemTipoSeparada) && (
                     <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                      <p className={`text-[11px] ${config.subText} font-medium`}>{descricaoTipoComContagem}</p>
+                      {agendamento.tipo?.trim() !== agendamento.agendamento_pai.tipo.trim() && (
+                        <p className={`text-[11px] ${config.subText} font-medium`}>{descricaoTipoComContagem}</p>
+                      )}
                       {exibirContagemTipoSeparada && (
                         <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-white/60 text-[#5a6a65] rounded-full border border-[#bcc9c4] whitespace-nowrap">
                           {agendamento.numero_sessao_tipo ?? 0}/{agendamento.total_sessoes_tipo}
@@ -214,6 +217,12 @@ export function AgendamentoItemDia({
                     <p className={`text-[11px] ${config.subText} mt-0.5 font-medium flex items-center gap-1`}>
                       <User size={10} className="shrink-0" />
                       {agendamento.profissional.full_name}
+                    </p>
+                  )}
+                  {agendamento.fisioterapeuta_executor?.full_name && (
+                    <p className={`text-[11px] ${config.subText} mt-0.5 font-medium flex items-center gap-1`}>
+                      <Stethoscope size={10} className="shrink-0" />
+                      {agendamento.fisioterapeuta_executor.full_name}
                     </p>
                   )}
                   {agendamento.observacoes && (

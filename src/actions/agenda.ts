@@ -483,7 +483,8 @@ export async function buscarDetalhesAgendamento(atendimentoId: string) {
       numero_sessao,
       total_sessoes,
       pacientes (nome, telefone, email),
-      profissional:profiles!profissional_id(full_name, role)
+      profissional:profiles!profissional_id(full_name, role),
+      fisioterapeuta_executor:profiles!fisioterapeuta_id(full_name)
     `)
     .eq('id', atendimentoId)
     .maybeSingle()
@@ -1231,11 +1232,13 @@ export async function mudarStatusAgendamento(id: string, novoStatus: string) {
   // Busca status atual para validar transição (e checar permissão de profissional)
   const { data: atendimentoAlvo } = await supabaseAdmin
     .from('atendimentos')
-    .select('profissional_id, status')
+    .select('profissional_id, fisioterapeuta_id, status')
     .eq('id', id)
     .maybeSingle()
 
-  if (!podeGerirAgendaEquipe && atendimentoAlvo?.profissional_id !== userId) {
+  const isResponsavel = atendimentoAlvo?.profissional_id === userId
+  const isExecutor = atendimentoAlvo?.fisioterapeuta_id === userId
+  if (!podeGerirAgendaEquipe && !isResponsavel && !isExecutor) {
     return { error: 'Você só pode alterar o status dos seus próprios agendamentos.' }
   }
 
@@ -1344,4 +1347,36 @@ export async function chamarPaciente(id: string) {
   if (error) return { error: error.message }
   revalidatePath('/painel')
   return { success: true }
+}
+
+export async function listarFisioterapeutas(): Promise<{ id: string; nome: string }[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('profiles')
+    .select('id, full_name')
+    .eq('role', 'fisioterapeuta')
+    .eq('ativo', true)
+    .order('full_name', { ascending: true })
+
+  return (data ?? []).map(p => ({ id: p.id, nome: p.full_name ?? '' }))
+}
+
+export async function atribuirFisioterapeutaAtendimento(
+  atendimentoId: string,
+  fisioterapeutaId: string | null,
+): Promise<{ error?: string }> {
+  const ctx = await requirePermissaoAgendaAdmin()
+  if ('error' in ctx) return { error: ctx.error }
+  const { supabaseAdmin } = ctx
+
+  const { error } = await supabaseAdmin
+    .from('atendimentos')
+    .update({ fisioterapeuta_id: fisioterapeutaId })
+    .eq('id', atendimentoId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/agenda')
+  revalidatePath('/pacientes')
+  return {}
 }

@@ -36,6 +36,8 @@ export type AgendamentoDetalhe = {
   em_atendimento_desde?: string | null
   pacientes: { nome: string; telefone?: string | null; email?: string | null } | null
   profissional?: { full_name?: string | null; role?: string | null } | null
+  fisioterapeuta_id?: string | null
+  fisioterapeuta_executor?: { full_name?: string | null } | null
   criador?: { full_name?: string | null } | null
 }
 
