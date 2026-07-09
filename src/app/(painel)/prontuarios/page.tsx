@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { ClipboardList, CheckCheck, ChevronRight, CalendarDays, History, Search } from 'lucide-react'
+import { ClipboardList, CheckCheck, ChevronRight, CalendarDays, History, Search, SlidersHorizontal, X } from 'lucide-react'
 import { requireModulo } from '@/lib/guard'
 import { PRONTUARIOS_PENDENTES_RECENT_LIMIT } from '@/lib/prontuarios'
 
@@ -25,13 +25,29 @@ export default async function ProntuariosPage({
   const aba = (resolvedParams.aba as string) || 'pendentes'
   const busca = ((resolvedParams.busca as string) || '').trim()
   const filtroProf = (resolvedParams.profissional_id as string) || ''
+  const filtroTipo = (resolvedParams.tipo as string) || ''
+  const filtroDataInicio = (resolvedParams.data_inicio as string) || ''
+  const filtroDataFim = (resolvedParams.data_fim as string) || ''
   const pagina = Math.max(1, parseInt((resolvedParams.pagina as string) || '1'))
   const offsetHistorico = (pagina - 1) * LIMITE
 
   const role = profile?.role ?? ''
   const isFisio = role !== 'gestor' && role !== 'master'
 
-  let profissionaisMap = new Map<string, string>()
+  const hasFiltroPendentes = !!(filtroProf || filtroTipo || filtroDataInicio || filtroDataFim)
+  const hasFiltroHistorico = !!(busca || filtroProf || filtroTipo || filtroDataInicio || filtroDataFim)
+
+  // ── Profissionais e tipos (usados nos dois painéis de filtro) ──
+  const [{ data: profissionaisRaw }, { data: tiposConsultaRaw }] = await Promise.all([
+    !isFisio
+      ? supabase.from('profiles').select('id, full_name').in('role', ['fisioterapeuta', 'gestor']).eq('ativo', true).order('full_name')
+      : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
+    supabase.from('tipos_consulta').select('nome').eq('ativo', true).order('nome'),
+  ])
+
+  const profissionaisFiltro = (profissionaisRaw ?? []).map(p => ({ id: p.id, nome: p.full_name ?? 'Sem nome' }))
+  const tiposConsulta = (tiposConsultaRaw ?? []).map(t => t.nome).filter((n): n is string => !!n)
+  const profissionaisMap = new Map((profissionaisRaw ?? []).map(p => [p.id, p.full_name ?? '']))
 
   // ── ABA PENDENTES ─────────────────────────────────────────────
   let pendentes: any[] = []
@@ -40,38 +56,61 @@ export default async function ProntuariosPage({
     if (role === 'medico') {
       pendentes = []
     } else {
-    const [{ data: pendentesRpc }, { data: profissionaisRaw }] = await Promise.all([
-      supabase.rpc('listar_atendimentos_sem_prontuario', {
+      const { data: pendentesRpc } = await supabase.rpc('listar_atendimentos_sem_prontuario', {
         limit_count: PRONTUARIOS_PENDENTES_RECENT_LIMIT,
         fisio_id: isFisio ? user.id : null,
-      }),
-      supabase.from('profiles').select('id, full_name, role'),
-    ])
+      })
 
-    profissionaisMap = new Map((profissionaisRaw ?? []).map(p => [p.id, p.full_name]))
-    pendentes = pendentesRpc ?? []
-  }
+      pendentes = pendentesRpc ?? []
+
+      // Filtros JS (dataset pequeno, max 300)
+      if (!isFisio && filtroProf) {
+        pendentes = pendentes.filter((a: any) => a.profissional_id === filtroProf)
+      }
+      if (filtroTipo) {
+        pendentes = pendentes.filter((a: any) =>
+          (a.agendamento_tipo || a.tipo) === filtroTipo
+        )
+      }
+      if (filtroDataInicio) {
+        pendentes = pendentes.filter((a: any) => a.data_agendamento >= filtroDataInicio)
+      }
+      if (filtroDataFim) {
+        pendentes = pendentes.filter((a: any) =>
+          a.data_agendamento <= `${filtroDataFim}T23:59:59.999Z`
+        )
+      }
+    }
   }
 
   // ── ABA HISTÓRICO ──────────────────────────────────────────────
   let historicoPaginado: any[] = []
   let historicoTotal = 0
-  let profissionaisFiltro: { id: string; nome: string }[] = []
 
   if (aba === 'historico') {
-    let pacienteIdsBusca: string[] = []
+    // Pré-query: atendimento IDs para filtro de tipo e/ou data
+    let atendimentoIdsFiltro: string[] | null = null
+    if (filtroTipo || filtroDataInicio || filtroDataFim) {
+      let atQuery = supabase.from('atendimentos').select('id')
+      if (filtroTipo) atQuery = atQuery.eq('tipo', filtroTipo)
+      if (filtroDataInicio) atQuery = atQuery.gte('data_agendamento', `${filtroDataInicio}T00:00:00-03:00`)
+      if (filtroDataFim) atQuery = atQuery.lte('data_agendamento', `${filtroDataFim}T23:59:59-03:00`)
+      const { data: atsData } = await atQuery.limit(2000)
+      atendimentoIdsFiltro = (atsData ?? []).map((a: any) => a.id)
+    }
 
+    let pacienteIdsBusca: string[] = []
     if (busca) {
       const { data: pacientesBusca } = await supabase
         .from('pacientes')
         .select('id')
         .ilike('nome', `%${busca}%`)
         .limit(200)
-
-      pacienteIdsBusca = (pacientesBusca ?? []).map((paciente) => paciente.id)
+      pacienteIdsBusca = (pacientesBusca ?? []).map((p: any) => p.id)
     }
 
-    const semResultadosParaBusca = busca.length > 0 && pacienteIdsBusca.length === 0
+    const semResultadosBusca = busca.length > 0 && pacienteIdsBusca.length === 0
+    const semResultadosFiltro = atendimentoIdsFiltro !== null && atendimentoIdsFiltro.length === 0
 
     let query = supabase
       .from('prontuarios')
@@ -93,21 +132,13 @@ export default async function ProntuariosPage({
     if (isFisio) query = query.eq('profissional_id', user.id)
     else if (filtroProf) query = query.eq('profissional_id', filtroProf)
     if (pacienteIdsBusca.length > 0) query = query.in('paciente_id', pacienteIdsBusca)
+    if (atendimentoIdsFiltro && atendimentoIdsFiltro.length > 0) {
+      query = query.in('atendimento_id', atendimentoIdsFiltro)
+    }
 
-    const [{ data: historicoRaw, count }, { data: profissionaisRaw }] = await Promise.all([
-      semResultadosParaBusca
-        ? Promise.resolve({ data: [] as any[], count: 0 })
-        : query,
-      !isFisio
-        ? supabase.from('profiles').select('id, full_name').in('role', ['fisioterapeuta', 'gestor']).order('full_name')
-        : Promise.resolve({ data: [] as Array<{ id: string; full_name: string | null }> }),
-    ])
-
-    profissionaisMap = new Map((profissionaisRaw ?? []).map(p => [p.id, p.full_name ?? '']))
-    profissionaisFiltro = (profissionaisRaw ?? []).map(p => ({
-      id: p.id,
-      nome: p.full_name ?? 'Sem nome',
-    }))
+    const { data: historicoRaw, count } = semResultadosBusca || semResultadosFiltro
+      ? { data: [] as any[], count: 0 }
+      : await query
 
     historicoPaginado = historicoRaw ?? []
     historicoTotal = count ?? 0
@@ -115,11 +146,27 @@ export default async function ProntuariosPage({
 
   const totalPaginasHistorico = Math.ceil(historicoTotal / LIMITE)
 
+  function buildUrl(overrides: Record<string, string>) {
+    const sp = new URLSearchParams()
+    sp.set('aba', overrides.aba ?? aba)
+    if ((overrides.busca ?? busca)) sp.set('busca', overrides.busca ?? busca)
+    if ((overrides.profissional_id ?? filtroProf)) sp.set('profissional_id', overrides.profissional_id ?? filtroProf)
+    if ((overrides.tipo ?? filtroTipo)) sp.set('tipo', overrides.tipo ?? filtroTipo)
+    if ((overrides.data_inicio ?? filtroDataInicio)) sp.set('data_inicio', overrides.data_inicio ?? filtroDataInicio)
+    if ((overrides.data_fim ?? filtroDataFim)) sp.set('data_fim', overrides.data_fim ?? filtroDataFim)
+    const p = overrides.pagina ?? (overrides.aba && overrides.aba !== aba ? '1' : String(pagina))
+    if (parseInt(p) > 1) sp.set('pagina', p)
+    return `/prontuarios?${sp.toString()}`
+  }
+
   function buildHistoricoUrl(p: number) {
     const sp = new URLSearchParams()
     sp.set('aba', 'historico')
     if (busca) sp.set('busca', busca)
     if (filtroProf) sp.set('profissional_id', filtroProf)
+    if (filtroTipo) sp.set('tipo', filtroTipo)
+    if (filtroDataInicio) sp.set('data_inicio', filtroDataInicio)
+    if (filtroDataFim) sp.set('data_fim', filtroDataFim)
     if (p > 1) sp.set('pagina', String(p))
     return `/prontuarios?${sp.toString()}`
   }
@@ -135,6 +182,115 @@ export default async function ProntuariosPage({
     }
     if (pagina < totalPaginasHistorico - 3) paginasHistorico.push('...')
     paginasHistorico.push(totalPaginasHistorico)
+  }
+
+  // Componente de filtros inline (reutilizado nas duas abas)
+  function PainelFiltros({ abaAtual, hasActive }: { abaAtual: string; hasActive: boolean }) {
+    const limparUrl = abaAtual === 'pendentes' ? '/prontuarios' : '/prontuarios?aba=historico'
+    return (
+      <details open={hasActive} className="group bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+        <summary className="flex items-center justify-between px-4 py-3 cursor-pointer list-none select-none hover:bg-slate-50 transition-colors">
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+            <SlidersHorizontal size={15} className="text-[#006b5a]" />
+            Filtros
+            {hasActive && (
+              <span className="bg-[#006b5a] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+                ativos
+              </span>
+            )}
+          </div>
+          <ChevronRight size={15} className="text-slate-400 group-open:rotate-90 transition-transform" />
+        </summary>
+
+        <div className="border-t border-slate-100 px-4 py-4">
+          <form method="get" action="/prontuarios" className="flex flex-col gap-3">
+            <input type="hidden" name="aba" value={abaAtual} />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* Busca por paciente — só no histórico */}
+              {abaAtual === 'historico' && (
+                <div className="relative">
+                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    name="busca"
+                    defaultValue={busca}
+                    placeholder="Paciente..."
+                    className="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#006b5a]/50 shadow-sm"
+                  />
+                </div>
+              )}
+
+              {/* Profissional (gestor) */}
+              {!isFisio && (
+                <select
+                  name="profissional_id"
+                  defaultValue={filtroProf}
+                  className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#006b5a]/50 shadow-sm text-slate-700"
+                >
+                  <option value="">Todos os profissionais</option>
+                  {profissionaisFiltro.map(p => (
+                    <option key={p.id} value={p.id}>{p.nome}</option>
+                  ))}
+                </select>
+              )}
+
+              {/* Tipo de consulta */}
+              <select
+                name="tipo"
+                defaultValue={filtroTipo}
+                className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#006b5a]/50 shadow-sm text-slate-700"
+              >
+                <option value="">Todos os tipos</option>
+                {tiposConsulta.map(t => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+
+              {/* Data início */}
+              <div className="relative">
+                <label className="absolute -top-2 left-3 bg-white px-1 text-[10px] font-semibold text-slate-400">De</label>
+                <input
+                  type="date"
+                  name="data_inicio"
+                  defaultValue={filtroDataInicio}
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#006b5a]/50 shadow-sm text-slate-700"
+                />
+              </div>
+
+              {/* Data fim */}
+              <div className="relative">
+                <label className="absolute -top-2 left-3 bg-white px-1 text-[10px] font-semibold text-slate-400">Até</label>
+                <input
+                  type="date"
+                  name="data_fim"
+                  defaultValue={filtroDataFim}
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#006b5a]/50 shadow-sm text-slate-700"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 justify-end pt-1">
+              {hasActive && (
+                <Link
+                  href={limparUrl}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-sm transition-colors"
+                >
+                  <X size={13} />
+                  Limpar
+                </Link>
+              )}
+              <button
+                type="submit"
+                className="px-5 py-2 bg-[#006b5a] hover:bg-[#005a4b] text-white rounded-lg text-sm font-semibold transition-colors"
+              >
+                Filtrar
+              </button>
+            </div>
+          </form>
+        </div>
+      </details>
+    )
   }
 
   return (
@@ -194,113 +350,82 @@ export default async function ProntuariosPage({
       </div>
 
       {/* ── PENDENTES ─────────────────────────────────────────── */}
-      {aba === 'pendentes' && (
-        pendentes.length === 0 ? (
-          <div className="bg-white rounded-xl p-12 shadow-sm border border-slate-100 flex flex-col items-center gap-4 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center">
-              <CheckCheck size={32} className="text-[#006b5a]" />
-            </div>
-            <div>
-              <p className="font-bold text-slate-800 text-lg">Tudo em dia!</p>
-              <p className="text-slate-500 text-sm mt-1">
-                Nenhuma sessão aguardando registro de evolução.
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {pendentes.map((atendimento: any) => {
-              const nome = (atendimento.paciente_nome as string | null) ?? 'Paciente'
-              const tipo = (atendimento.agendamento_tipo as string | null) ?? (atendimento.tipo as string | null) ?? 'Sessão'
-              const profissionalNome = profissionaisMap.get(atendimento.profissional_id) ?? 'Sem responsável'
-              const data = new Date(atendimento.data_agendamento)
+      {aba === 'pendentes' && role !== 'medico' && (
+        <>
+          <PainelFiltros abaAtual="pendentes" hasActive={hasFiltroPendentes} />
 
-              return (
-                <Link
-                  key={atendimento.id}
-                  href={`/prontuarios/${atendimento.id}`}
-                  className="flex items-center gap-4 bg-white rounded-xl p-4 shadow-sm border border-slate-100 hover:border-[#006b5a]/30 hover:shadow-md active:scale-[0.99] transition-all group"
-                >
-                  <div className="w-11 h-11 rounded-2xl bg-[#006b5a] flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm">
-                    {iniciais(nome)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-slate-900 truncate leading-tight">{nome}</p>
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      <span className="flex items-center gap-1 text-xs text-slate-500">
-                        <CalendarDays size={11} />
-                        {format(data, "dd MMM yyyy · HH:mm", { locale: ptBR })}
-                      </span>
-                      <span className="text-[11px] font-semibold text-[#006b5a] bg-[#006b5a]/10 px-2 py-0.5 rounded-full">
-                        {tipo}
-                      </span>
+          {pendentes.length === 0 ? (
+            <div className="bg-white rounded-xl p-12 shadow-sm border border-slate-100 flex flex-col items-center gap-4 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center">
+                <CheckCheck size={32} className="text-[#006b5a]" />
+              </div>
+              <div>
+                <p className="font-bold text-slate-800 text-lg">
+                  {hasFiltroPendentes ? 'Nenhum resultado para os filtros aplicados.' : 'Tudo em dia!'}
+                </p>
+                <p className="text-slate-500 text-sm mt-1">
+                  {hasFiltroPendentes
+                    ? 'Tente ajustar os filtros.'
+                    : 'Nenhuma sessão aguardando registro de evolução.'}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {pendentes.map((atendimento: any) => {
+                const nome = (atendimento.paciente_nome as string | null) ?? 'Paciente'
+                const tipo = (atendimento.agendamento_tipo as string | null) ?? (atendimento.tipo as string | null) ?? 'Sessão'
+                const profissionalNome = profissionaisMap.get(atendimento.profissional_id) ?? 'Sem responsável'
+                const data = new Date(atendimento.data_agendamento)
+
+                return (
+                  <Link
+                    key={atendimento.id}
+                    href={`/prontuarios/${atendimento.id}`}
+                    className="flex items-center gap-4 bg-white rounded-xl p-4 shadow-sm border border-slate-100 hover:border-[#006b5a]/30 hover:shadow-md active:scale-[0.99] transition-all group"
+                  >
+                    <div className="w-11 h-11 rounded-2xl bg-[#006b5a] flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm">
+                      {iniciais(nome)}
                     </div>
-                    <p className="text-xs text-slate-400 mt-1.5">{profissionalNome}</p>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="hidden sm:block text-xs font-semibold text-[#006b5a]">Preencher</span>
-                    <ChevronRight size={18} className="text-slate-300 group-hover:text-[#006b5a] group-hover:translate-x-0.5 transition-all" />
-                  </div>
-                </Link>
-              )
-            })}
-          </div>
-        )
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-slate-900 truncate leading-tight">{nome}</p>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <span className="flex items-center gap-1 text-xs text-slate-500">
+                          <CalendarDays size={11} />
+                          {format(data, "dd MMM yyyy · HH:mm", { locale: ptBR })}
+                        </span>
+                        <span className="text-[11px] font-semibold text-[#006b5a] bg-[#006b5a]/10 px-2 py-0.5 rounded-full">
+                          {tipo}
+                        </span>
+                      </div>
+                      {!isFisio && (
+                        <p className="text-xs text-slate-400 mt-1.5">{profissionalNome}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="hidden sm:block text-xs font-semibold text-[#006b5a]">Preencher</span>
+                      <ChevronRight size={18} className="text-slate-300 group-hover:text-[#006b5a] group-hover:translate-x-0.5 transition-all" />
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+          )}
+        </>
       )}
 
       {/* ── HISTÓRICO ─────────────────────────────────────────── */}
       {aba === 'historico' && (
         <div className="space-y-4">
+          <PainelFiltros abaAtual="historico" hasActive={hasFiltroHistorico} />
 
-          {/* Filtros */}
-          <form method="get" action="/prontuarios" className="flex flex-wrap items-end gap-3">
-            <input type="hidden" name="aba" value="historico" />
-            <div className="relative flex-1 min-w-[200px]">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                name="busca"
-                defaultValue={busca}
-                placeholder="Buscar por paciente..."
-                className="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#006b5a]/50 shadow-sm"
-              />
-            </div>
-            {!isFisio && profissionaisFiltro.length > 0 && (
-              <select
-                name="profissional_id"
-                defaultValue={filtroProf}
-                className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#006b5a]/50 shadow-sm"
-              >
-                <option value="">Todos os profissionais</option>
-                {profissionaisFiltro.map(p => (
-                  <option key={p.id} value={p.id}>{p.nome}</option>
-                ))}
-              </select>
-            )}
-            <button
-              type="submit"
-              className="px-4 py-2 bg-[#006b5a] hover:bg-[#005a4b] text-white rounded-lg text-sm font-medium transition-colors"
-            >
-              Filtrar
-            </button>
-            {(busca || filtroProf) && (
-              <Link
-                href="/prontuarios?aba=historico"
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-sm transition-colors"
-              >
-                Limpar
-              </Link>
-            )}
-          </form>
-
-          {/* Lista */}
           {historicoPaginado.length === 0 ? (
             <div className="bg-white rounded-xl p-12 shadow-sm border border-slate-100 flex flex-col items-center gap-3 text-center">
               <ClipboardList size={32} className="text-slate-300" />
               <p className="font-bold text-slate-700">Nenhum prontuário encontrado</p>
               <p className="text-slate-400 text-sm">
-                {busca
-                  ? `Sem resultados para "${busca}".`
+                {hasFiltroHistorico
+                  ? 'Tente ajustar os filtros.'
                   : 'Nenhum prontuário preenchido ainda.'}
               </p>
             </div>
@@ -373,12 +498,7 @@ export default async function ProntuariosPage({
                 </Link>
                 {paginasHistorico.map((p, index) =>
                   p === '...' ? (
-                    <span
-                      key={`ellipsis-${index}`}
-                      className="px-2 py-1.5 text-sm text-slate-400"
-                    >
-                      ...
-                    </span>
+                    <span key={`ellipsis-${index}`} className="px-2 py-1.5 text-sm text-slate-400">...</span>
                   ) : (
                     <Link
                       key={p}
@@ -406,7 +526,6 @@ export default async function ProntuariosPage({
               </div>
             </div>
           )}
-
         </div>
       )}
     </div>
