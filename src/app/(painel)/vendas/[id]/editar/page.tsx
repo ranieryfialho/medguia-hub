@@ -13,7 +13,7 @@ interface ProfileRow {
 interface VendaRow {
   id: string
   paciente_id: string
-  profissional_id: string
+  profissional_id: string | null
   origem: string
   forma_pagamento: string
   protocolo_id?: string | null

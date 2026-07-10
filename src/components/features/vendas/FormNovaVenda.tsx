@@ -62,6 +62,7 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
   const [pacienteId, setPacienteId] = useState('')
   const [pacienteNome, setPacienteNome] = useState('')
   const [profissionalId, setProfissionalId] = useState('')
+  const [semProfissional, setSemProfissional] = useState(false)
   const [buscaProfissional, setBuscaProfissional] = useState('')
 
   // Aba 1
@@ -120,7 +121,7 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
     }
   }
 
-  const podeAvancar0 = !!pacienteId && !!profissionalId
+  const podeAvancar0 = !!pacienteId && (!!profissionalId || semProfissional)
   const podeAvancar1 = !!origem && !!formaPagamento && (origem !== 'medico' || !!medicoReferenciadorId)
 
   const medicosFiltrados = buscaMedico.trim()
@@ -303,13 +304,29 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
             <input
               type="text"
               value={buscaProfissional}
-              onChange={(e) => setBuscaProfissional(e.target.value)}
+              onChange={(e) => { setBuscaProfissional(e.target.value); if (semProfissional) setSemProfissional(false) }}
               placeholder="Buscar por nome..."
               className="w-full px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
             />
 
             <div className="border border-border rounded-md overflow-hidden">
               <div className="max-h-72 overflow-y-auto">
+                {/* Opção: paciente ainda não avaliado */}
+                <button
+                  type="button"
+                  onClick={() => { setSemProfissional(true); setProfissionalId(''); setBuscaProfissional(''); setStatusVenda('orcamento_pendente') }}
+                  className={`w-full px-4 py-3 text-left text-sm border-b border-border transition-colors ${
+                    semProfissional
+                      ? 'bg-amber-500 text-white'
+                      : 'hover:bg-page text-text-secondary'
+                  }`}
+                >
+                  <span className="font-medium">Ainda não avaliado</span>
+                  <span className={`ml-2 text-xs ${semProfissional ? 'opacity-80' : 'text-text-secondary'}`}>
+                    Somente orçamento
+                  </span>
+                </button>
+
                 {profissionaisFiltrados.length === 0 ? (
                   <p className="px-4 py-3 text-sm text-text-secondary">Nenhum profissional encontrado.</p>
                 ) : (
@@ -317,15 +334,15 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
                     <button
                       key={p.id}
                       type="button"
-                      onClick={() => { setProfissionalId(p.id); setBuscaProfissional('') }}
+                      onClick={() => { setProfissionalId(p.id); setSemProfissional(false); setBuscaProfissional('') }}
                       className={`w-full px-4 py-3 text-left text-sm border-b border-border last:border-0 transition-colors ${
-                        profissionalId === p.id
+                        profissionalId === p.id && !semProfissional
                           ? 'bg-primary-500 text-white'
                           : 'hover:bg-page text-text-primary'
                       }`}
                     >
                       <span className="font-medium">{p.nome}</span>
-                      <span className={`ml-2 text-xs ${profissionalId === p.id ? 'opacity-75' : 'text-text-secondary'}`}>
+                      <span className={`ml-2 text-xs ${profissionalId === p.id && !semProfissional ? 'opacity-75' : 'text-text-secondary'}`}>
                         {ROLE_LABEL[p.role] || p.role}
                       </span>
                     </button>
@@ -334,7 +351,12 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
               </div>
             </div>
 
-            {profissionalSelecionado && (
+            {semProfissional && (
+              <div className="p-3 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+                ✓ Paciente ainda não avaliado — orçamento sem profissional definido
+              </div>
+            )}
+            {profissionalSelecionado && !semProfissional && (
               <div className="p-3 rounded-md bg-green-50 border border-green-200 text-green-800 text-sm">
                 ✓ <span className="font-medium">{profissionalSelecionado.nome}</span> selecionado
               </div>

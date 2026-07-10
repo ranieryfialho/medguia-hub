@@ -187,7 +187,7 @@ export default async function VendaDetalhePage({
           <div className="space-y-3">
             <div>
               <p className="text-xs text-text-secondary uppercase">Profissional</p>
-              <p className="text-text-primary">{v.profiles?.full_name}</p>
+              <p className="text-text-primary">{v.profiles?.full_name || 'Ainda não avaliado'}</p>
             </div>
             <div>
               <p className="text-xs text-text-secondary uppercase">Origem</p>

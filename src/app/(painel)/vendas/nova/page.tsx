@@ -40,7 +40,8 @@ export default async function NovaVendaPage() {
     supabase
       .from('profiles')
       .select('id, full_name, role')
-      .eq('role', 'fisioterapeuta'),
+      .eq('role', 'fisioterapeuta')
+      .eq('ativo', true),
     supabase
       .from('profiles')
       .select('id, full_name, role')
@@ -57,6 +58,7 @@ export default async function NovaVendaPage() {
     .from('profiles')
     .select('id, full_name, role')
     .eq('role', 'gestor')
+    .eq('ativo', true)
     .in('id', idsComJornada.length > 0 ? idsComJornada : [''])
 
   const profissionais = [

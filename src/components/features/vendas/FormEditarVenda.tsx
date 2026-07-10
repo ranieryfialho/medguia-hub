@@ -32,7 +32,7 @@ interface ItemVenda {
 interface VendaInicial {
   id: string
   paciente_id: string
-  profissional_id: string
+  profissional_id: string | null
   origem: string
   forma_pagamento: string
   protocolo_id?: string | null
@@ -234,19 +234,25 @@ export function FormEditarVenda({
 
         <div>
           <label className="block text-sm font-medium text-text-primary mb-2">Profissional</label>
-          <select
-            value={profissionalId}
-            disabled
-            className="w-full px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500 opacity-50"
-          >
-            {profissionais
-              .filter((p) => p.id === profissionalId)
-              .map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nome}
-                </option>
-              ))}
-          </select>
+          {profissionalId ? (
+            <select
+              value={profissionalId}
+              disabled
+              className="w-full px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500 opacity-50"
+            >
+              {profissionais
+                .filter((p) => p.id === profissionalId)
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nome}
+                  </option>
+                ))}
+            </select>
+          ) : (
+            <div className="px-3 py-2 bg-input border border-border-input rounded-md text-sm text-amber-700 opacity-75">
+              Ainda não avaliado
+            </div>
+          )}
           <p className="text-xs text-text-secondary mt-1">Profissional não pode ser alterado</p>
         </div>
       </div>
@@ -521,7 +527,7 @@ export function FormEditarVenda({
       <input type="hidden" name="id" value={vendaId} />
       <input type="hidden" name="protocolo_id" value={vendaInicial.protocolo_id ?? ''} />
       <input type="hidden" name="protocolo_nome" value={vendaInicial.protocolo_nome ?? ''} />
-      <input type="hidden" name="profissional_id" value={profissionalId} />
+      <input type="hidden" name="profissional_id" value={profissionalId ?? ''} />
       <input type="hidden" name="origem" value={origem} />
       <input type="hidden" name="forma_pagamento" value={formaPagamento} />
       <input type="hidden" name="medico_referenciador_id" value={medicoReferenciadorId} />

@@ -122,8 +122,8 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
   const statusRaw = (formData.get('status') as string) || 'venda_confirmada'
   const status = statusValido(statusRaw) ? statusRaw : 'venda_confirmada'
 
-  if (!paciente_id || !profissional_id || !origem || !forma_pagamento) {
-    return { error: 'Paciente, profissional, origem e forma de pagamento são obrigatórios.' }
+  if (!paciente_id || !origem || !forma_pagamento) {
+    return { error: 'Paciente, origem e forma de pagamento são obrigatórios.' }
   }
 
   if (!formaPagamentoValida(forma_pagamento)) {
@@ -188,7 +188,7 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
 
   const dadosVenda = {
     paciente_id,
-    profissional_id,
+    profissional_id: profissional_id || null,
     origem,
     forma_pagamento,
     medico_referenciador_nome,
