@@ -32,7 +32,7 @@ jobs:
           script: |
             set -e
             cd ~/medguia-hub
-            docker compose build --no-cache
+            docker compose build
             docker compose up -d --remove-orphans
             docker image prune -f
             docker compose ps --filter "status=running" | grep medguia-hub
