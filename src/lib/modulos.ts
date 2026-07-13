@@ -21,6 +21,7 @@ export type ModuloChave =
   | 'equipe:acessos'
   | 'configuracoes:jornada'
   | 'configuracoes:disponibilidade'
+  | 'configuracoes:status_disponibilidade'
   | 'configuracoes:google_drive'
 
 export type NivelAcesso = 'basico' | 'gestor' | 'master'
@@ -95,6 +96,7 @@ export const GRUPOS_MODULOS: GrupoModulos[] = [
       { chave: 'equipe:acessos', label: 'Gestão de Acessos', rota: '/equipe/acessos' },
       { chave: 'configuracoes:jornada', label: 'Jornada de Trabalho', rota: '/configuracoes/jornada' },
       { chave: 'configuracoes:disponibilidade', label: 'Disponibilidade', rota: '/configuracoes/disponibilidade' },
+      { chave: 'configuracoes:status_disponibilidade', label: 'Status de Disponibilidade', rota: '/configuracoes/status-disponibilidade' },
     ],
   },
   {
@@ -152,7 +154,7 @@ export const TEMPLATES_PERFIL: Record<TemplatePerfilChave, { label: string; modu
       'pacientes', 'prontuarios', 'follow_ups', 'follow_ups:tipos', 'follow_ups:templates',
       'comercial:vendas', 'comercial:produtos', 'comercial:relatorio_vendas',
       'equipe:membros', 'equipe:tempo_fabril', 'equipe:conferencia',
-      'configuracoes:jornada', 'configuracoes:disponibilidade', 'configuracoes:google_drive',
+      'configuracoes:jornada', 'configuracoes:disponibilidade', 'configuracoes:status_disponibilidade', 'configuracoes:google_drive',
     ],
   },
   comercial: {

@@ -6,13 +6,13 @@ export type StatusDisponibilidade = 'disponivel' | 'reuniao' | 'ocupado' | 'ause
 
 export type StatusRow = {
   profissional_id: string
-  status: StatusDisponibilidade
+  status: string
   atualizado_em: string
 }
 
 export async function setStatusDisponibilidade(
-  novoStatus: StatusDisponibilidade,
-): Promise<{ status: StatusDisponibilidade } | { error: string }> {
+  novoStatus: string,
+): Promise<{ status: string } | { error: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'NÃ£o autenticado' }

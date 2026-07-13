@@ -1,8 +1,8 @@
 'use client'
 
 import { useRealtimeDisponibilidade, type StatusRow } from '@/hooks/useRealtimeDisponibilidade'
-import type { StatusDisponibilidade } from '@/actions/status-disponibilidade'
 import { useEffect, useState, useMemo } from 'react'
+import { getCorConfig, DEFAULT_OPCOES, type OpcaoStatus } from '@/lib/status-disponibilidade-cores'
 
 type Profissional = { id: string; nome: string }
 
@@ -11,13 +11,7 @@ type Props = {
   initialStatuses: StatusRow[]
   disponibilidades?: Record<string, Record<number, unknown>>
   disponibilidadesHoje?: Record<string, unknown>
-}
-
-const STATUS_CONFIG: Record<StatusDisponibilidade, { label: string; dot: string; bg: string; text: string; border: string }> = {
-  disponivel: { label: 'Disponível',  dot: 'bg-emerald-500', bg: 'bg-emerald-50',  text: 'text-emerald-700', border: 'border-emerald-200' },
-  reuniao:    { label: 'Em reunião',  dot: 'bg-amber-400',   bg: 'bg-amber-50',    text: 'text-amber-700',   border: 'border-amber-200'   },
-  ocupado:    { label: 'Ocupado',     dot: 'bg-slate-300',   bg: 'bg-slate-50',    text: 'text-slate-500',   border: 'border-slate-200'   },
-  ausente:    { label: 'Ausente',     dot: 'bg-slate-200',   bg: 'bg-slate-50',    text: 'text-slate-400',   border: 'border-slate-100'   },
+  opcoes?: OpcaoStatus[]
 }
 
 function tempoDesde(atualizado_em: string): string {
@@ -61,43 +55,48 @@ function buildNomesExibicao(profissionais: Profissional[]): Map<string, string> 
   ]))
 }
 
-export function StatusEquipeRealtime({ profissionais, initialStatuses }: Props) {
+export function StatusEquipeRealtime({ profissionais, initialStatuses, opcoes: opcoesProp }: Props) {
+  const opcoes = opcoesProp ?? DEFAULT_OPCOES
   const profissionalIds = useMemo(() => profissionais.map(p => p.id), [profissionais])
   const statuses = useRealtimeDisponibilidade(initialStatuses, profissionalIds)
   const [, setTick] = useState(0)
   const nomesExibicao = buildNomesExibicao(profissionais)
 
-  // Re-renderiza a cada 30s para atualizar o tempo desde a última mudança de status
   useEffect(() => {
     const id = setInterval(() => setTick((value) => value + 1), 30_000)
     return () => clearInterval(id)
   }, [])
 
-  // Status já computado pelo servidor (ausente/disponivel/ocupado/reuniao)
+  const cfgPorSlug = Object.fromEntries(
+    opcoes.map(o => [o.slug, { ...getCorConfig(o.cor), label: o.label, isManual: !o.sistema && o.slug !== 'ocupado' }])
+  )
+
   const comStatus = profissionais.map(p => {
     const st = statuses.find(s => s.profissional_id === p.id)
-    return { ...p, status: (st?.status ?? 'ausente') as StatusDisponibilidade, atualizado_em: st?.atualizado_em }
+    return { ...p, status: st?.status ?? 'ausente', atualizado_em: st?.atualizado_em }
   })
 
   const livres   = comStatus.filter(p => p.status === 'disponivel')
-  const reuniao  = comStatus.filter(p => p.status === 'reuniao')
-  const ocupados = comStatus.filter(p => p.status === 'ocupado')
   const ausentes = comStatus.filter(p => p.status === 'ausente')
-  const ordenados = [...livres, ...reuniao, ...ocupados, ...ausentes]
+  // Todos os outros status (ocupado + manuais + customizados), ordenados por ordem da opcao
+  const outros = comStatus
+    .filter(p => p.status !== 'disponivel' && p.status !== 'ausente')
+    .sort((a, b) => {
+      const oa = opcoes.find(o => o.slug === a.status)?.ordem ?? 50
+      const ob = opcoes.find(o => o.slug === b.status)?.ordem ?? 50
+      return oa - ob
+    })
+
+  const ordenados = [...livres, ...outros, ...ausentes]
 
   return (
     <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
       <div className="flex items-center justify-between mb-3">
         <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Status agora</p>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {livres.length > 0 && (
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
               {livres.length} livre{livres.length > 1 ? 's' : ''}
-            </span>
-          )}
-          {reuniao.length > 0 && (
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
-              {reuniao.length} em reunião
             </span>
           )}
           {ausentes.length > 0 && (
@@ -110,20 +109,22 @@ export function StatusEquipeRealtime({ profissionais, initialStatuses }: Props) 
 
       <div className="flex flex-wrap gap-2">
         {ordenados.map(p => {
-          const cfg = STATUS_CONFIG[p.status]
+          const opcao = opcoes.find(o => o.slug === p.status)
+          const cfg = cfgPorSlug[p.status] ?? { ...getCorConfig('slate'), label: p.status, isManual: false }
+          const isManual = cfg.isManual
           return (
             <div
               key={p.id}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold ${cfg.bg} ${cfg.text} ${cfg.border}`}
             >
               <span className="relative flex h-2 w-2 shrink-0">
-                {p.status !== 'ocupado' && p.status !== 'ausente' && (
-                  <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${cfg.dot} opacity-60`} />
+                {isManual && (
+                  <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${getCorConfig(opcao?.cor ?? 'slate').dot} opacity-60`} />
                 )}
-                <span className={`relative inline-flex rounded-full h-2 w-2 ${cfg.dot}`} />
+                <span className={`relative inline-flex rounded-full h-2 w-2 ${getCorConfig(opcao?.cor ?? 'slate').dot}`} />
               </span>
               <span>{nomesExibicao.get(p.id) ?? p.nome.split(' ')[0]}</span>
-              {p.status === 'reuniao' && p.atualizado_em && (
+              {isManual && p.atualizado_em && (
                 <span className="opacity-60 font-normal">{tempoDesde(p.atualizado_em)}</span>
               )}
             </div>

@@ -13,8 +13,10 @@ import {
   type Jornada,
   type JornadaPlanejada,
   type Reuniao,
+  type HistoricoStatus,
   type KPIsProfissional,
 } from '@/lib/relatorios/kpis-tempo-fabril'
+import { listarStatusOpcoes } from '@/actions/status-disponibilidade-config'
 import { podeEntrarNaAgendaOuRelatorio } from '@/lib/profissionais'
 import { requireModulo } from '@/lib/guard'
 import { isGestorSistema } from '@/lib/permissoes'
@@ -113,7 +115,7 @@ export default async function TempoFabrilPage({
     : [profFiltro]
 
   // Queries paralelas
-  const [{ data: atendimentosResp }, { data: atendimentosExec }, { data: jornadas }, { data: jornadasPlanejadas }, { data: reunioes }] = await Promise.all([
+  const [{ data: atendimentosResp }, { data: atendimentosExec }, { data: jornadas }, { data: jornadasPlanejadas }, { data: reunioes }, { data: historicoResp }, statusOpcoes] = await Promise.all([
     supabase
       .from('atendimentos')
       .select('id, profissional_id, fisioterapeuta_id, data_agendamento, duracao_minutos, status, tipo, numero_sessao, paciente_id')
@@ -144,6 +146,14 @@ export default async function TempoFabrilPage({
       .gte('inicio', utcInicio)
       .lte('inicio', utcFim)
       .not('fim', 'is', null),
+    supabase
+      .from('historico_status_disponibilidade')
+      .select('profissional_id, status, inicio, fim, duracao_minutos')
+      .in('profissional_id', profIds)
+      .gte('inicio', utcInicio)
+      .lte('inicio', utcFim)
+      .not('fim', 'is', null),
+    listarStatusOpcoes(),
   ])
 
   // Unir responsáveis + executores sem duplicar (mesmo atendimento pode aparecer nos dois)
@@ -162,6 +172,7 @@ export default async function TempoFabrilPage({
     dataInicio,
     dataFim,
     (reunioes ?? []) as Reuniao[],
+    (historicoResp ?? []) as HistoricoStatus[],
   )
 
   const profissionaisFiltrados = profFiltro === 'todos'
@@ -205,6 +216,7 @@ export default async function TempoFabrilPage({
         kpis={kpis}
         kpisEquipe={kpisEquipe}
         profFiltro={profFiltro}
+        statusOpcoes={statusOpcoes}
       />
     </div>
   )

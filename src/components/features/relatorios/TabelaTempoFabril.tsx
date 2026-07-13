@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronUp, ChevronDown, Eye } from 'lucide-react'
 import { Tooltip } from '../shared'
+import { getCorConfig, type OpcaoStatus } from '@/lib/status-disponibilidade-cores'
 
 type KPIsProfissional = {
   profissionalId: string
@@ -11,6 +12,7 @@ type KPIsProfissional = {
   jornadaContratadaMin: number
   tempoFabrilMin: number
   tempoReuniaoMin: number
+  tempoStatusMin: Record<string, number>
   taxaOcupacao: number
   qtdAtendimentos: number
   tempoMedioMin: number
@@ -19,6 +21,7 @@ type KPIsProfissional = {
 
 type TabelaTempoFabrilProps = {
   kpis: KPIsProfissional[]
+  statusOpcoes: OpcaoStatus[]
 }
 
 type OrderBy = 'nome' | 'taxa' | 'fabril' | 'contratada' | 'qtd' | 'media'
@@ -53,7 +56,11 @@ function SortIcon({
   return orderDir === 'asc' ? <ChevronUp size={16} /> : <ChevronDown size={16} />
 }
 
-export function TabelaTempoFabril({ kpis }: TabelaTempoFabrilProps) {
+export function TabelaTempoFabril({ kpis, statusOpcoes }: TabelaTempoFabrilProps) {
+  // Status não-sistema que têm tempo > 0 em qualquer profissional no período
+  const statusComTempo = statusOpcoes
+    .filter(op => !op.sistema && kpis.some(k => (k.tempoStatusMin[op.slug] ?? 0) > 0))
+    .sort((a, b) => a.ordem - b.ordem)
   const router = useRouter()
   const [orderBy, setOrderBy] = useState<OrderBy>('nome')
   const [orderDir, setOrderDir] = useState<OrderDir>('asc')
@@ -147,12 +154,18 @@ export function TabelaTempoFabril({ kpis }: TabelaTempoFabrilProps) {
                   <Tooltip texto="Horas reais em atendimento (Concluído ou Em atendimento)" />
                 </div>
               </th>
-              <th className="px-4 py-4 text-left font-semibold text-[#171d1c]">
-                <div className="flex items-center gap-2">
-                  <span>Em Reunião</span>
-                  <Tooltip texto="Tempo total em reunião no período" />
-                </div>
-              </th>
+              {statusComTempo.map(op => {
+                const cfg = getCorConfig(op.cor)
+                return (
+                  <th key={op.slug} className="px-4 py-4 text-left font-semibold text-[#171d1c]">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
+                      <span>{op.label}</span>
+                      <Tooltip texto={`Tempo total com status "${op.label}" no período`} />
+                    </div>
+                  </th>
+                )
+              })}
               <th className="px-4 py-4 text-left font-semibold text-[#171d1c]">
                 <div className="flex items-center gap-2">
                   <button
@@ -204,9 +217,15 @@ export function TabelaTempoFabril({ kpis }: TabelaTempoFabrilProps) {
                 <td className="px-4 py-3 font-semibold text-[#171d1c]">{kpi.nome}</td>
                 <td className="px-4 py-3 text-[#3d4945]">{formatarMinutos(kpi.jornadaContratadaMin)}</td>
                 <td className="px-4 py-3 text-[#3d4945]">{formatarMinutos(kpi.tempoFabrilMin)}</td>
-                <td className="px-4 py-3 text-amber-700 font-medium">
-                  {kpi.tempoReuniaoMin > 0 ? formatarMinutos(kpi.tempoReuniaoMin) : <span className="text-slate-300">—</span>}
-                </td>
+                {statusComTempo.map(op => {
+                  const min = kpi.tempoStatusMin[op.slug] ?? 0
+                  const cfg = getCorConfig(op.cor)
+                  return (
+                    <td key={op.slug} className={`px-4 py-3 font-medium ${cfg.text}`}>
+                      {min > 0 ? formatarMinutos(min) : <span className="text-slate-300">—</span>}
+                    </td>
+                  )
+                })}
                 <td className="px-4 py-3">
                   <span
                     className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${getBadgeColor(kpi.taxaOcupacao)}`}
@@ -258,10 +277,16 @@ export function TabelaTempoFabril({ kpis }: TabelaTempoFabrilProps) {
                 <p className="text-xs font-semibold text-[#6d7a75] mb-1">Tempo Fábril</p>
                 <p className="font-medium text-[#171d1c]">{formatarMinutos(kpi.tempoFabrilMin)}</p>
               </div>
-              <div>
-                <p className="text-xs font-semibold text-[#6d7a75] mb-1">Em Reunião</p>
-                <p className="font-medium text-amber-700">{kpi.tempoReuniaoMin > 0 ? formatarMinutos(kpi.tempoReuniaoMin) : '—'}</p>
-              </div>
+              {statusComTempo.map(op => {
+                const min = kpi.tempoStatusMin[op.slug] ?? 0
+                const cfg = getCorConfig(op.cor)
+                return (
+                  <div key={op.slug}>
+                    <p className="text-xs font-semibold text-[#6d7a75] mb-1">{op.label}</p>
+                    <p className={`font-medium ${cfg.text}`}>{min > 0 ? formatarMinutos(min) : '—'}</p>
+                  </div>
+                )
+              })}
               <div>
                 <p className="text-xs font-semibold text-[#6d7a75] mb-1">Atendimentos</p>
                 <p className="font-medium text-[#171d1c]">{kpi.qtdAtendimentos}</p>

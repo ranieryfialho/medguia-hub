@@ -33,6 +33,7 @@ import {
   Lock,
   Cake,
   MessageSquare,
+  CircleDot,
 } from 'lucide-react'
 import { ProntuariosBadge } from './ProntuariosBadge'
 import { FollowUpsBadge } from './FollowUpsBadge'
@@ -60,7 +61,7 @@ export function Sidebar({
   const [confirmacoesOpen, setConfirmacoesOpen] = useState(() => pathname?.startsWith('/confirmacoes') ?? false)
   const [contatosOpen, setContatosOpen] = useState(() => pathname?.startsWith('/contatos') ?? false)
   const [configOpen, setConfigOpen] = useState(() => pathname?.startsWith('/configuracoes') ?? false)
-  const [equipeOpen, setEquipeOpen] = useState(() => (pathname?.startsWith('/equipe') || pathname?.startsWith('/relatorios/tempo-fabril') || pathname?.startsWith('/relatorios/conferencia-agendamentos') || pathname?.startsWith('/configuracoes/jornada') || pathname?.startsWith('/configuracoes/disponibilidade')) ?? false)
+  const [equipeOpen, setEquipeOpen] = useState(() => (pathname?.startsWith('/equipe') || pathname?.startsWith('/relatorios/tempo-fabril') || pathname?.startsWith('/relatorios/conferencia-agendamentos') || pathname?.startsWith('/configuracoes/jornada') || pathname?.startsWith('/configuracoes/disponibilidade') || pathname?.startsWith('/configuracoes/status-disponibilidade')) ?? false)
   const [comercialOpen, setComercialOpen] = useState(() => (pathname?.startsWith('/vendas') || pathname?.startsWith('/produtos') || pathname?.startsWith('/relatorios/vendas') || pathname?.startsWith('/vendas/protocolos')) ?? false)
   const [pacientesOpen, setPacientesOpen] = useState(() => pathname?.startsWith('/pacientes') ?? false)
   const [prontuariosOpen, setProntuariosOpen] = useState(() => (pathname?.startsWith('/prontuarios') || pathname?.startsWith('/follow-ups')) ?? false)
@@ -365,6 +366,12 @@ export function Sidebar({
                 <Link href="/configuracoes/disponibilidade" onClick={handleNavClick} className={subLinkCls(!!isActive('/configuracoes/disponibilidade'))}>
                   <Calendar size={14} />
                   Disponibilidade
+                </Link>
+              )}
+              {pv('configuracoes:status_disponibilidade') && (
+                <Link href="/configuracoes/status-disponibilidade" onClick={handleNavClick} className={subLinkCls(!!isActive('/configuracoes/status-disponibilidade'))}>
+                  <CircleDot size={14} />
+                  Status de Disponibilidade
                 </Link>
               )}
             </div>

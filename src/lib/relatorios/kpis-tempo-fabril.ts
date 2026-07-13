@@ -7,8 +7,8 @@ import {
   startOfWeek,
   subMonths,
 } from 'date-fns'
-import { formatAppDateKey, APP_TIME_ZONE } from '@/lib/datetime'
-import { calcularMinutosJornada } from '@/lib/jornada'
+import { formatAppDateKey, parseAppDate, APP_TIME_ZONE } from '@/lib/datetime'
+import { calcularMinutosJornada, obterIntervalosJornada, toHora } from '@/lib/jornada'
 import {
   buildMapaMensalPorProfissional,
   buildMapaSemanalPorProfissional,
@@ -48,12 +48,21 @@ export type Reuniao = {
   duracao_minutos: number | null
 }
 
+export type HistoricoStatus = {
+  profissional_id: string
+  status: string
+  inicio: string
+  fim: string
+  duracao_minutos: number
+}
+
 export type KPIsProfissional = {
   profissionalId: string
   nome: string
   jornadaContratadaMin: number
   tempoFabrilMin: number
-  tempoReuniaoMin: number
+  tempoReuniaoMin: number       // alias para tempoStatusMin['reuniao'] ?? 0
+  tempoStatusMin: Record<string, number>  // slug → minutos
   taxaOcupacao: number
   qtdAtendimentos: number
   tempoMedioMin: number
@@ -73,6 +82,44 @@ export function formatarMinutos(min: number): string {
   const m = min % 60
 
   return m > 0 ? `${h}h${m}min` : `${h}h`
+}
+
+// Calcula quantos minutos de [inicio, fim] caem dentro das horas de trabalho do profissional.
+// Usa os intervalos reais da jornada (já excluindo almoço) dia a dia.
+// Garante que um status aberto por engano nunca inflacione o relatório além da jornada.
+function calcularMinutosStatusNaJornada(
+  inicio: Date,
+  fim: Date,
+  jornadaSemanalMap: Map<number, JornadaSemanal>,
+  jornadaMensalMap: Map<string, JornadaMensalDiaPlanejado> | undefined,
+): number {
+  let total = 0
+  let cursorKey = formatAppDateKey(inicio)
+  const fimKey = formatAppDateKey(fim)
+
+  while (cursorKey <= fimKey) {
+    const cursorDate = parseAppDate(cursorKey)
+    const jornada = resolverJornadaDoDia(cursorDate, jornadaSemanalMap, jornadaMensalMap)
+
+    if (jornada) {
+      for (const intervalo of obterIntervalosJornada(jornada)) {
+        // São Paulo é sempre UTC-3 (sem horário de verão desde 2020)
+        const intervaloInicioMs = new Date(`${cursorKey}T${toHora(intervalo.inicio)}:00-03:00`).getTime()
+        const intervaloFimMs   = new Date(`${cursorKey}T${toHora(intervalo.fim)}:00-03:00`).getTime()
+
+        const overlapStart = Math.max(inicio.getTime(), intervaloInicioMs)
+        const overlapEnd   = Math.min(fim.getTime(),   intervaloFimMs)
+
+        if (overlapEnd > overlapStart) {
+          total += Math.round((overlapEnd - overlapStart) / 60_000)
+        }
+      }
+    }
+
+    cursorKey = formatAppDateKey(addDays(parseAppDate(cursorKey), 1))
+  }
+
+  return Math.max(0, total)
 }
 
 export function calcularJornadaContratadaMinutos(
@@ -157,6 +204,7 @@ export function calcularKPIs(
   dataInicio: Date,
   dataFim: Date,
   reunioes: Reuniao[] = [],
+  historico: HistoricoStatus[] = [],
 ): KPIsProfissional[] {
   const kpis: KPIsProfissional[] = []
   const jornadasSemanaisPorProfissional = buildMapaSemanalPorProfissional(jornadas)
@@ -177,13 +225,44 @@ export function calcularKPIs(
       }
     }
 
-    const tempoReuniaoMin = reunioes
+    // Agrega tempo por status a partir do histórico automático,
+    // capando cada registro pela interseção real com a jornada do profissional.
+    const tempoStatusMin: Record<string, number> = {}
+    for (const h of historico) {
+      if (h.profissional_id !== prof.id) continue
+      const ini = new Date(h.inicio)
+      const fim = new Date(h.fim)
+      if (ini > dataFim || fim < dataInicio) continue
+
+      // Limita o período ao intervalo do relatório
+      const inicioEfetivo = ini < dataInicio ? dataInicio : ini
+      const fimEfetivo    = fim > dataFim    ? dataFim    : fim
+
+      const minNaJornada = calcularMinutosStatusNaJornada(
+        inicioEfetivo,
+        fimEfetivo,
+        jornadaSemanalMap,
+        jornadaMensalMap,
+      )
+      if (minNaJornada > 0) {
+        tempoStatusMin[h.status] = (tempoStatusMin[h.status] ?? 0) + minNaJornada
+      }
+    }
+
+    // Merge legado: historico_reunioes alimenta o slug 'reuniao' (dados anteriores ao trigger)
+    const legadoReuniaoMin = reunioes
       .filter(r => r.profissional_id === prof.id && r.duracao_minutos !== null)
       .filter(r => {
         const ini = new Date(r.inicio)
         return ini >= dataInicio && ini <= dataFim
       })
       .reduce((acc, r) => acc + (r.duracao_minutos ?? 0), 0)
+
+    if (legadoReuniaoMin > 0) {
+      tempoStatusMin['reuniao'] = (tempoStatusMin['reuniao'] ?? 0) + legadoReuniaoMin
+    }
+
+    const tempoReuniaoMin = tempoStatusMin['reuniao'] ?? 0
 
     const jornadaContratadaMin = calcularJornadaContratadaMinutos(
       jornadaSemanalMap,
@@ -248,6 +327,7 @@ export function calcularKPIs(
       jornadaContratadaMin,
       tempoFabrilMin,
       tempoReuniaoMin,
+      tempoStatusMin,
       taxaOcupacao,
       qtdAtendimentos,
       tempoMedioMin,

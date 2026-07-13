@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useEffect, useTransition, useMemo } from 'react'
-import { Users, ChevronDown, ChevronUp, CircleDot } from 'lucide-react'
+import { Users, ChevronDown, ChevronUp } from 'lucide-react'
 import { useRealtimeDisponibilidade, type StatusRow } from '@/hooks/useRealtimeDisponibilidade'
-import { setStatusDisponibilidade, type StatusDisponibilidade } from '@/actions/status-disponibilidade'
+import { setStatusDisponibilidade } from '@/actions/status-disponibilidade'
 import { usePathname } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { useSlideNovoAgendamentoAberto } from '@/components/layout/SlideNovoAgendamentoContext'
+import { getCorConfig, DEFAULT_OPCOES, type OpcaoStatus } from '@/lib/status-disponibilidade-cores'
 
 type Profissional = { id: string; nome: string; cargo: string }
 
@@ -16,22 +17,14 @@ type Props = {
   currentUserId: string
   disponibilidades?: Record<string, Record<number, unknown>>
   disponibilidadesHoje?: Record<string, unknown>
+  opcoes?: OpcaoStatus[]
 }
 
-const STATUS_CONFIG: Record<StatusDisponibilidade, { label: string; labelCurto: string; dot: string; bg: string; text: string }> = {
-  disponivel: { label: 'Disponível',   labelCurto: 'livre',    dot: 'bg-emerald-500', bg: 'bg-emerald-100', text: 'text-emerald-700' },
-  reuniao:    { label: 'Em reunião',   labelCurto: 'reunião',  dot: 'bg-amber-400',   bg: 'bg-amber-100',   text: 'text-amber-700'   },
-  ocupado:    { label: 'Ocupado',      labelCurto: 'ocupado',  dot: 'bg-slate-300',   bg: 'bg-slate-100',   text: 'text-slate-500'   },
-  ausente:    { label: 'Ausente',      labelCurto: 'ausente',  dot: 'bg-slate-200',   bg: 'bg-slate-50',    text: 'text-slate-400'   },
-}
-
-const OPCOES: StatusDisponibilidade[] = ['disponivel', 'reuniao', 'ocupado']
-
-function Dot({ status, ping = false }: { status: StatusDisponibilidade; ping?: boolean }) {
-  const cfg = STATUS_CONFIG[status]
+function Dot({ cor, ping = false }: { cor: string; ping?: boolean }) {
+  const cfg = getCorConfig(cor)
   return (
     <span className="relative flex h-2.5 w-2.5 shrink-0">
-      {ping && status !== 'ocupado' && (
+      {ping && (
         <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${cfg.dot} opacity-60`} />
       )}
       <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${cfg.dot}`} />
@@ -39,8 +32,9 @@ function Dot({ status, ping = false }: { status: StatusDisponibilidade; ping?: b
   )
 }
 
-export function WidgetDisponibilidade({ profissionais, initialStatuses, currentUserId }: Props) {
+export function WidgetDisponibilidade({ profissionais, initialStatuses, currentUserId, opcoes: opcoesProp }: Props) {
   const pathname = usePathname()
+  const opcoes = opcoesProp ?? DEFAULT_OPCOES
   const profissionalIds = useMemo(() => profissionais.map(p => p.id), [profissionais])
   const statuses = useRealtimeDisponibilidade(initialStatuses, profissionalIds)
   const [open, setOpen] = useState(false)
@@ -51,50 +45,49 @@ export function WidgetDisponibilidade({ profissionais, initialStatuses, currentU
   useEffect(() => {
     const mediaQuery = window.matchMedia('(max-width: 1023px)')
     const sync = () => setIsMobile(mediaQuery.matches)
-
     sync()
     mediaQuery.addEventListener('change', sync)
     return () => mediaQuery.removeEventListener('change', sync)
   }, [])
 
-  // No desktop, mantemos oculto em telas de cadastro/edição que já possuem barras fixas no rodapé.
   const isTelaCadastro = pathname?.includes('/novo') || pathname?.includes('/editar') || pathname?.includes('/vendas/nova')
-
   if (!isMobile && isTelaCadastro) return null
-  // No mobile, ocultamos apenas durante o fluxo de agendamento aberto.
   if (isMobile && slideNovoAgendamentoAberto) return null
 
-  // Status já computado pelo servidor: ausente/disponivel/ocupado/reuniao
-  // com base na jornada e nos atendimentos ativos.
-  const myStatus = (statuses.find(s => s.profissional_id === currentUserId)?.status ?? 'ausente') as StatusDisponibilidade
+  // Status selecionáveis manualmente (não-sistema, ordenados)
+  const opcoesSelectionaveis = opcoes.filter(o => !o.sistema).sort((a, b) => a.ordem - b.ordem)
+
+  // Config rápida por slug
+  const cfgPorSlug = Object.fromEntries(opcoes.map(o => [o.slug, { ...getCorConfig(o.cor), label: o.label, labelCurto: o.label_curto }]))
+
+  const getStatus = (slug: string) => cfgPorSlug[slug] ?? { ...getCorConfig('slate'), label: slug, labelCurto: slug }
+
+  const myStatus = statuses.find(s => s.profissional_id === currentUserId)?.status ?? 'ausente'
   const podeToggle = profissionais.some(p => p.id === currentUserId)
   const livres = statuses.filter(s => s.status === 'disponivel').length
   const total = profissionais.length
 
-  function handleSet(novoStatus: StatusDisponibilidade) {
+  function handleSet(novoStatus: string) {
     if (novoStatus === myStatus) return
     startTransition(async () => {
       const res = await setStatusDisponibilidade(novoStatus)
       if ('error' in res) {
         toast.error(res.error)
       } else {
-        toast.success(STATUS_CONFIG[novoStatus].label)
+        toast.success(getStatus(novoStatus).label)
       }
     })
   }
 
-  const fabCfg = livres > 0 ? STATUS_CONFIG.disponivel : STATUS_CONFIG.ocupado
+  const fabCfg = livres > 0 ? getCorConfig('emerald') : getCorConfig('slate')
 
   return (
     <div
       className="fixed bottom-5 right-5 z-[300] flex flex-col items-end gap-2"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
-
-      {/* Painel expandido */}
       {open && (
         <div className="bg-white border border-slate-200 rounded-2xl shadow-xl w-64 overflow-hidden">
-          {/* Header */}
           <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Users size={14} className="text-slate-500" />
@@ -107,19 +100,18 @@ export function WidgetDisponibilidade({ profissionais, initialStatuses, currentU
             </span>
           </div>
 
-          {/* Lista */}
           <div className="divide-y divide-slate-50 max-h-72 overflow-y-auto">
             {profissionais.length === 0 ? (
               <p className="text-xs text-slate-400 px-4 py-3 text-center">Nenhum profissional</p>
             ) : (
               profissionais.map(p => {
                 const st = statuses.find(s => s.profissional_id === p.id)
-                const status = (st?.status ?? 'ausente') as StatusDisponibilidade
-                const cfg = STATUS_CONFIG[status]
+                const slug = st?.status ?? 'ausente'
+                const cfg = getStatus(slug)
                 const isMe = p.id === currentUserId
                 return (
                   <div key={p.id} className="flex items-center gap-3 px-4 py-2.5">
-                    <Dot status={status} ping />
+                    <Dot cor={opcoes.find(o => o.slug === slug)?.cor ?? 'slate'} ping />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-slate-800 truncate">
                         {p.nome}{isMe && <span className="text-slate-400 font-normal"> (você)</span>}
@@ -134,17 +126,16 @@ export function WidgetDisponibilidade({ profissionais, initialStatuses, currentU
             )}
           </div>
 
-          {/* Toggle 3 estados — só para quem está na lista */}
           {podeToggle && (
             <div className="px-4 py-3 border-t border-slate-100 space-y-1.5">
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Meu status</p>
-              {OPCOES.map(op => {
-                const cfg = STATUS_CONFIG[op]
-                const isAtual = myStatus === op
+              {opcoesSelectionaveis.map(op => {
+                const cfg = getCorConfig(op.cor)
+                const isAtual = myStatus === op.slug
                 return (
                   <button
-                    key={op}
-                    onClick={() => handleSet(op)}
+                    key={op.slug}
+                    onClick={() => handleSet(op.slug)}
                     disabled={isPending || isAtual}
                     className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors ${
                       isAtual
@@ -153,8 +144,8 @@ export function WidgetDisponibilidade({ profissionais, initialStatuses, currentU
                     } disabled:opacity-50`}
                   >
                     <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
-                    {cfg.label}
-                    {isAtual && <CircleDot size={12} className="ml-auto opacity-60" />}
+                    {op.label}
+                    {isAtual && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-current opacity-60" />}
                   </button>
                 )
               })}
@@ -163,7 +154,6 @@ export function WidgetDisponibilidade({ profissionais, initialStatuses, currentU
         </div>
       )}
 
-      {/* FAB */}
       <button
         onClick={() => setOpen(v => !v)}
         className={`flex items-center gap-2 pl-3 pr-2.5 py-2.5 rounded-2xl shadow-lg border transition-all ${

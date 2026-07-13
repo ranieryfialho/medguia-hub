@@ -6,6 +6,7 @@ import { TabelaTempoFabril } from './TabelaTempoFabril'
 import { EvolucaoSemanal } from '../shared'
 import { GraficoDistribuicaoTempo } from './GraficoDistribuicaoTempo'
 import { GraficoComparativoMedia } from './GraficoComparativoMedia'
+import type { OpcaoStatus } from '@/lib/status-disponibilidade-cores'
 
 type KPIsProfissional = {
   profissionalId: string
@@ -13,6 +14,7 @@ type KPIsProfissional = {
   jornadaContratadaMin: number
   tempoFabrilMin: number
   tempoReuniaoMin: number
+  tempoStatusMin: Record<string, number>
   taxaOcupacao: number
   qtdAtendimentos: number
   tempoMedioMin: number
@@ -24,9 +26,10 @@ type ConteudoRelatorioProps = {
   kpis: KPIsProfissional[]
   kpisEquipe: KPIsProfissional[]
   profFiltro: string
+  statusOpcoes: OpcaoStatus[]
 }
 
-export function ConteudoRelatorio({ kpis, kpisEquipe, profFiltro }: ConteudoRelatorioProps) {
+export function ConteudoRelatorio({ kpis, kpisEquipe, profFiltro, statusOpcoes }: ConteudoRelatorioProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const visaoUrl = searchParams.get('visao')
@@ -66,7 +69,17 @@ export function ConteudoRelatorio({ kpis, kpisEquipe, profFiltro }: ConteudoRela
               <DetailCard label="Jornada Contratada" value={formatarMinutos(kpiIndividual.jornadaContratadaMin)} />
               <DetailCard label="Tempo Fábril" value={formatarMinutos(kpiIndividual.tempoFabrilMin)} />
               <DetailCard label="Taxa de Ocupação" value={`${kpiIndividual.taxaOcupacao}%`} highlight />
-              <DetailCard label="Em Reunião" value={kpiIndividual.tempoReuniaoMin > 0 ? formatarMinutos(kpiIndividual.tempoReuniaoMin) : '—'} />
+              {statusOpcoes
+                .filter(op => !op.sistema && (kpiIndividual.tempoStatusMin[op.slug] ?? 0) > 0)
+                .sort((a, b) => a.ordem - b.ordem)
+                .map(op => (
+                  <DetailCard
+                    key={op.slug}
+                    label={op.label}
+                    value={formatarMinutos(kpiIndividual.tempoStatusMin[op.slug] ?? 0)}
+                  />
+                ))
+              }
               <DetailCard label="Qtd. Atendimentos" value={String(kpiIndividual.qtdAtendimentos)} />
               <DetailCard label="Tempo Médio" value={formatarMinutos(kpiIndividual.tempoMedioMin)} />
               <DetailCard label="Dias Subutilizados" value={String(kpiIndividual.diasSubutilizados)} />
@@ -93,7 +106,7 @@ export function ConteudoRelatorio({ kpis, kpisEquipe, profFiltro }: ConteudoRela
         </div>
       ) : (
         /* Visão Geral - Tabela */
-        <TabelaTempoFabril kpis={kpis} />
+        <TabelaTempoFabril kpis={kpis} statusOpcoes={statusOpcoes} />
       )}
     </div>
   )
