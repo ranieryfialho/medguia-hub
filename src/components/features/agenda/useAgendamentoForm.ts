@@ -264,18 +264,19 @@ export function useAgendamentoForm({
     if (!open || !pacienteDropdownOpen) return
     const termo = pacienteSearch.trim()
     if (termo.length < 2) {
-      queueMicrotask(() => { setPacientes([]); setLoadingPacientes(false) })
+      setPacientes([])
+      setLoadingPacientes(false)
       return
     }
     let active = true
+    setLoadingPacientes(true)
+    setErroPacientes('')
     const id = window.setTimeout(() => {
-      setLoadingPacientes(true)
-      setErroPacientes('')
       buscarPacientesPorNome(supabase, termo)
         .then((data) => { if (active) setPacientes(data) })
         .catch(() => { if (active) { setPacientes([]); setErroPacientes('Não foi possível buscar pacientes agora.') } })
         .finally(() => { if (active) setLoadingPacientes(false) })
-    }, 250)
+    }, 300)
     return () => { active = false; window.clearTimeout(id) }
   }, [open, pacienteDropdownOpen, pacienteSearch, supabase])
 

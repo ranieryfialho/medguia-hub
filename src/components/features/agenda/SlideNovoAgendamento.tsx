@@ -137,7 +137,6 @@ export function SlideNovoAgendamento(props: SlideProps) {
                     value={pacienteSearch}
                     onChange={(e) => { setPacienteSearch(e.target.value); setSelectedPacienteId(''); setPacienteDropdownOpen(true) }}
                     onFocus={() => setPacienteDropdownOpen(true)}
-                    disabled={loadingPacientes && pacientesFiltrados.length === 0}
                     className="w-full bg-white border border-[#bcc9c4] rounded-lg pl-11 pr-4 py-3 text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/50 focus:border-[#006b5a] transition-all font-medium shadow-sm"
                   />
                   <input type="hidden" name="paciente_id" value={selectedPacienteId} />
