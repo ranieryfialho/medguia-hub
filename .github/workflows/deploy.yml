@@ -19,7 +19,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           source: ".,!.git,!.github,!.next,!node_modules"
           target: "~/medguia-hub"
-          timeout: 60s
+          timeout: 5m
           command_timeout: 10m
 
       - name: Construir e Ligar o Docker
