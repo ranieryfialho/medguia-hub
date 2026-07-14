@@ -407,25 +407,6 @@ async function importarPacientesPorOrigemParaColuna(
   return paraInserir.length + paraAtualizar.length
 }
 
-export async function atualizarStatusContato(pacienteId: string, status: StatusContato) {
-  const { supabase, userId } = await getAuthContext()
-  const result = await upsertContato(pacienteId, { status, kanban_coluna_chave: status })
-
-  if (result.success) {
-    await supabase
-      .from('notas_contato')
-      .insert({
-        paciente_id: pacienteId,
-        texto: `Status alterado para: ${LABEL_POR_STATUS_CONTATO[status]}`,
-        autor_id: userId,
-      })
-
-    revalidarContatos()
-  }
-
-  return result
-}
-
 export async function atualizarColunaContato(pacienteId: string, colunaChave: string) {
   const { supabase, userId } = await getAuthContext()
   const colunas = await listarColunasKanbanInterno(supabase)

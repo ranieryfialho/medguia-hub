@@ -630,7 +630,7 @@ export function KanbanContatos({
 
     const result = await atualizarColunaContato(pacienteId, columnKey)
     if (result?.error) {
-      toast.error('Sem permissão para alterar o status. Contate o gestor.')
+      toast.error('Erro ao mover o contato. Tente novamente.')
       router.refresh()
     }
   }
