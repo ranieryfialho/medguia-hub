@@ -25,7 +25,8 @@ const SELECT_VENDAS_BASE = `
   data_venda,
   observacoes,
   status,
-  criado_em
+  criado_em,
+  itens_venda(produtos(nome))
 `
 
 const SELECT_VENDAS_COM_PROTOCOLO = `
@@ -33,6 +34,26 @@ const SELECT_VENDAS_COM_PROTOCOLO = `
   protocolo_id,
   protocolo_nome
 `
+
+function TagsItens({ itens }: { itens: { produtos: { nome: string } | null }[] }) {
+  if (!itens?.length) return null
+  const visiveis = itens.slice(0, 3)
+  const extras = itens.length - 3
+  return (
+    <div className="flex flex-wrap gap-1 mt-1">
+      {visiveis.map((item, idx) => (
+        <span key={idx} className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600">
+          {item.produtos?.nome ?? '—'}
+        </span>
+      ))}
+      {extras > 0 && (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-400">
+          +{extras}
+        </span>
+      )}
+    </div>
+  )
+}
 
 export default async function VendasListPage({
   searchParams,
@@ -49,6 +70,8 @@ export default async function VendasListPage({
   const data_inicio = (resolvedParams.data_inicio as string) || ''
   const data_fim = (resolvedParams.data_fim as string) || ''
   const status = (resolvedParams.status as string) || ''
+  const produtoIdsParam = (resolvedParams.produto_ids as string) || ''
+  const produtoIdsFiltro = produtoIdsParam ? produtoIdsParam.split(',').filter(Boolean) : []
   const limite = Math.max(1, parseInt((resolvedParams.limite as string) || '25'))
   const pagina = Math.max(1, parseInt((resolvedParams.pagina as string) || '1'))
   const offset = (pagina - 1) * limite
@@ -56,23 +79,31 @@ export default async function VendasListPage({
 
   let pacienteIdsBusca: string[] = []
   let profissionalIdsBusca: string[] = []
+  let vendaIdsProduto: string[] | null = null
 
-  if (buscaNormalizada) {
-    const [{ data: pacientesBusca }, { data: profissionaisBusca }] = await Promise.all([
-      supabase
-        .from('pacientes')
-        .select('id')
-        .ilike('nome', `%${buscaNormalizada}%`)
-        .limit(200),
-      supabase
-        .from('profiles')
-        .select('id')
-        .ilike('full_name', `%${buscaNormalizada}%`)
-        .limit(200),
-    ])
+  const [produtosResult, buscaResult, produtoFiltroResult] = await Promise.all([
+    supabase.from('produtos').select('id, nome').eq('ativo', true).order('nome'),
+    buscaNormalizada
+      ? Promise.all([
+          supabase.from('pacientes').select('id').ilike('nome', `%${buscaNormalizada}%`).limit(200),
+          supabase.from('profiles').select('id').ilike('full_name', `%${buscaNormalizada}%`).limit(200),
+        ])
+      : null,
+    produtoIdsFiltro.length > 0
+      ? supabase.from('itens_venda').select('venda_id').in('produto_id', produtoIdsFiltro)
+      : null,
+  ])
 
+  const produtos = (produtosResult.data ?? []) as { id: string; nome: string }[]
+
+  if (buscaResult) {
+    const [{ data: pacientesBusca }, { data: profissionaisBusca }] = buscaResult
     pacienteIdsBusca = (pacientesBusca ?? []).map((item) => item.id)
     profissionalIdsBusca = (profissionaisBusca ?? []).map((item) => item.id)
+  }
+
+  if (produtoFiltroResult) {
+    vendaIdsProduto = [...new Set((produtoFiltroResult.data ?? []).map((i) => i.venda_id))]
   }
 
   const buildQuery = (selectClause: string) => {
@@ -95,6 +126,12 @@ export default async function VendasListPage({
 
     if (status) {
       query = query.eq('status', status)
+    }
+
+    if (vendaIdsProduto !== null) {
+      query = vendaIdsProduto.length > 0
+        ? query.in('id', vendaIdsProduto)
+        : query.in('id', ['00000000-0000-0000-0000-000000000000'])
     }
 
     return query
@@ -167,7 +204,7 @@ export default async function VendasListPage({
       </div>
 
       <div className="bg-surface rounded-b-lg shadow-sm border border-border -mt-6">
-        <FiltrosVendas />
+        <FiltrosVendas produtos={produtos} />
 
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[900px]">
@@ -204,6 +241,7 @@ export default async function VendasListPage({
                             Protocolo: {venda.protocolo_nome}
                           </span>
                         )}
+                        <TagsItens itens={venda.itens_venda ?? []} />
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-text-primary">{venda.profiles?.full_name || '—'}</td>
@@ -282,6 +320,7 @@ export default async function VendasListPage({
                           Protocolo: {venda.protocolo_nome}
                         </p>
                       )}
+                      <TagsItens itens={venda.itens_venda ?? []} />
                       <p className="text-xs text-text-secondary">{venda.profiles?.full_name}</p>
                     </div>
                     <div className="flex flex-col items-end gap-1">
