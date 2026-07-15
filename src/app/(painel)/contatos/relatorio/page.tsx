@@ -298,47 +298,28 @@ export default async function RelatorioContatosPage({
     return diasSdeUltimaAtividade > 30
   })
 
-  // IDs dos responsáveis (lista pequena — evita URL longa com centenas de paciente_ids)
-  const profissionalIds = contatosPorResponsavel
-    .filter(r => r.id !== null)
-    .map(r => r.id!)
+  // Atividade por período: baseado em status dos contatos, não em notas
+  const statusesContatados: StatusContato[] = ['tentativa', 'em_conversa', 'sem_interesse', 'agendou']
+  const statusesEfetivos: StatusContato[] = ['em_conversa', 'sem_interesse', 'agendou']
 
-  // Notas feitas no período filtradas pelo autor (fisio), não pelo paciente
-  const { data: notasPeriodo } = profissionalIds.length > 0
-    ? await supabase
-        .from('notas_contato')
-        .select('paciente_id, autor_id')
-        .in('autor_id', profissionalIds)
-        .gte('criado_em', utcInicio)
-        .lte('criado_em', utcFim)
-    : { data: [] }
+  const totalContatadosPeriodo = contatosPeriodo.filter(c => statusesContatados.includes(c.status)).length
+  const totalEfetivosPeriodo   = contatosPeriodo.filter(c => statusesEfetivos.includes(c.status)).length
 
-  // Atividade no período por responsável
-  const atividadePorResponsavel = contatosPorResponsavel
+  const atividadeContatosPorResponsavel = contatosPorResponsavelPeriodo
     .filter(r => r.id !== null)
     .map(r => {
-      const pacientesCarteira = new Set(
-        (responsavelMap.get(r.id!) ?? []).map(c => c.paciente_id)
-      )
-      const notasDoResp = (notasPeriodo ?? []).filter(
-        n => n.autor_id === r.id && pacientesCarteira.has(n.paciente_id)
-      )
-      const pacientesContatados = new Set(notasDoResp.map(n => n.paciente_id)).size
+      const contatados = statusesContatados.reduce((sum, s) => sum + (r.contagemPorStatus[s] ?? 0), 0)
+      const efetivos   = statusesEfetivos.reduce((sum, s) => sum + (r.contagemPorStatus[s] ?? 0), 0)
       return {
         id: r.id!,
         nome: r.nome,
         carteira: r.total,
-        notasPeriodo: notasDoResp.length,
-        pacientesContatados,
-        taxaAtividade: r.total > 0 ? Math.round((pacientesContatados / r.total) * 100) : 0,
+        contatados,
+        efetivos,
+        taxaEfetividade: contatados > 0 ? Math.round((efetivos / contatados) * 100) : 0,
       }
     })
-    .sort((a, b) => b.notasPeriodo - a.notasPeriodo)
-
-  const totalNotasPeriodo = atividadePorResponsavel.reduce((acc, r) => acc + r.notasPeriodo, 0)
-  const totalPacientesContatados = new Set(
-    (notasPeriodo ?? []).map(n => n.paciente_id)
-  ).size
+    .sort((a, b) => b.contatados - a.contatados)
 
   const contatosSemResponsavel = contatos.filter(c => !c.responsavel_id)
   const contagemPorColuna = kanbanColumns.map((column) => ({
@@ -373,11 +354,11 @@ export default async function RelatorioContatosPage({
         totalContatos={totalContatos}
         isGestorOuMaster={isGestorOuMaster}
         userNome={profile.full_name || 'Você'}
-        atividadePorResponsavel={atividadePorResponsavel}
+        atividadeContatosPorResponsavel={atividadeContatosPorResponsavel}
+        totalContatadosPeriodo={totalContatadosPeriodo}
+        totalEfetivosPeriodo={totalEfetivosPeriodo}
         periodoLabel={periodoLabel}
         periodoAtual={periodoAtual}
-        totalNotasPeriodo={totalNotasPeriodo}
-        totalPacientesContatados={totalPacientesContatados}
         contagemPorStatusPeriodo={contagemPorStatusPeriodo}
         contatosPorResponsavelPeriodo={contatosPorResponsavelPeriodo}
         taxaConversaoPeriodo={taxaConversaoPeriodo}

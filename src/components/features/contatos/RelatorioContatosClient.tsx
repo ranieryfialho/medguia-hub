@@ -8,7 +8,7 @@ import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
-import { AlertCircle, CheckCircle2, TrendingUp, Users, Activity, FileText } from 'lucide-react'
+import { AlertCircle, CheckCircle2, TrendingUp, Users, Activity, MessageSquareCheck } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   LABEL_POR_STATUS_CONTATO,
@@ -34,13 +34,13 @@ type ContatoComDados = {
   atualizado_em: string
 }
 
-type AtividadeResponsavel = {
+type AtividadeContatosResponsavel = {
   id: string
   nome: string
   carteira: number
-  notasPeriodo: number
-  pacientesContatados: number
-  taxaAtividade: number
+  contatados: number
+  efetivos: number
+  taxaEfetividade: number
 }
 
 interface RelatorioContatosClientProps {
@@ -65,11 +65,11 @@ interface RelatorioContatosClientProps {
   totalContatos: number
   isGestorOuMaster: boolean
   userNome: string
-  atividadePorResponsavel: AtividadeResponsavel[]
+  atividadeContatosPorResponsavel: AtividadeContatosResponsavel[]
+  totalContatadosPeriodo: number
+  totalEfetivosPeriodo: number
   periodoLabel: string
   periodoAtual: string
-  totalNotasPeriodo: number
-  totalPacientesContatados: number
   contagemPorStatusPeriodo: Record<StatusContato, number>
   contatosPorResponsavelPeriodo: Array<{
     id: string | null
@@ -128,11 +128,11 @@ export function RelatorioContatosClient({
   totalContatos,
   isGestorOuMaster,
   userNome: _userNome,
-  atividadePorResponsavel,
+  atividadeContatosPorResponsavel,
+  totalContatadosPeriodo,
+  totalEfetivosPeriodo,
   periodoLabel,
   periodoAtual: _periodoAtual,
-  totalNotasPeriodo,
-  totalPacientesContatados,
   contagemPorStatusPeriodo,
   contatosPorResponsavelPeriodo,
   taxaConversaoPeriodo,
@@ -149,7 +149,10 @@ export function RelatorioContatosClient({
   const searchParams = useSearchParams()
   const [abaAtiva, setAbaAtiva] = useState<'performance' | 'risco' | 'atividade'>('performance')
   const [filtroResponsavel, setFiltroResponsavel] = useState<string | null>(null)
-  const [filtroFisioAtividade, setFiltroFisioAtividade] = useState<string>('todos')
+  const [filtroRespAtividade, setFiltroRespAtividade] = useState<string>('todos')
+  const taxaEfetividadeGeral = totalContatadosPeriodo > 0
+    ? Math.round((totalEfetivosPeriodo / totalContatadosPeriodo) * 100)
+    : 0
 
   const deAtual  = searchParams.get('de')  ?? ''
   const ateAtual = searchParams.get('ate') ?? ''
@@ -194,6 +197,13 @@ export function RelatorioContatosClient({
   const contagemRiscoFiltrados = filtroResponsavel
     ? contatosSemResponsavel.filter(c => c.responsavel_id === (filtroResponsavel === 'sem_responsavel' ? null : filtroResponsavel))
     : contatosSemResponsavel
+
+  // Contagem de risco por responsável (para exibir nos botões de filtro)
+  const riscoCountByResp = new Map<string, number>()
+  for (const c of contatosEmRisco) {
+    const key = c.responsavel_id ?? 'sem_responsavel'
+    riscoCountByResp.set(key, (riscoCountByResp.get(key) ?? 0) + 1)
+  }
 
   return (
     <div className="space-y-6">
@@ -437,48 +447,44 @@ export function RelatorioContatosClient({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-gradient-to-br from-[#006b5a] to-[#33a68f] p-6 rounded-2xl text-white shadow-md">
               <div className="flex items-start justify-between mb-4">
-                <h4 className="text-xs font-bold uppercase tracking-widest opacity-80">Notas no Período</h4>
-                <FileText size={18} />
+                <h4 className="text-xs font-bold uppercase tracking-widest opacity-80">Pacientes Contatados</h4>
+                <Users size={18} />
               </div>
-              <p className="text-3xl font-bold">{totalNotasPeriodo}</p>
-              <p className="text-xs mt-2 opacity-70">Interações registradas</p>
+              <p className="text-3xl font-bold">{totalContatadosPeriodo}</p>
+              <p className="text-xs mt-2 opacity-70">Tentativa, em conversa, sem interesse ou agendou</p>
             </div>
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-[#bcc9c4]/30">
               <div className="flex items-start justify-between mb-4">
-                <h4 className="text-xs font-bold text-[#3d4945] uppercase tracking-widest">Pacientes Contatados</h4>
-                <Users size={18} className="text-[#006b5a]" />
+                <h4 className="text-xs font-bold text-[#3d4945] uppercase tracking-widest">Contatos Efetivos</h4>
+                <MessageSquareCheck size={18} className="text-[#006b5a]" />
               </div>
-              <p className="text-3xl font-bold text-[#006b5a]">{totalPacientesContatados}</p>
-              <p className="text-xs mt-2 text-[#3d4945]/60">Pacientes únicos alcançados</p>
+              <p className="text-3xl font-bold text-[#006b5a]">{totalEfetivosPeriodo}</p>
+              <p className="text-xs mt-2 text-[#3d4945]/60">Em conversa, sem interesse ou agendou</p>
             </div>
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-[#bcc9c4]/30">
               <div className="flex items-start justify-between mb-4">
-                <h4 className="text-xs font-bold text-[#3d4945] uppercase tracking-widest">Mais Ativo</h4>
+                <h4 className="text-xs font-bold text-[#3d4945] uppercase tracking-widest">Taxa de Efetividade</h4>
                 <Activity size={18} className="text-amber-500" />
               </div>
-              {atividadePorResponsavel[0] ? (
-                <>
-                  <p className="text-lg font-bold text-[#171d1c] truncate">{atividadePorResponsavel[0].nome.split(' ')[0]}</p>
-                  <p className="text-xs mt-2 text-[#3d4945]/60">{atividadePorResponsavel[0].notasPeriodo} notas</p>
-                </>
-              ) : (
-                <p className="text-sm text-[#3d4945]/50 mt-2">Sem dados</p>
-              )}
+              <p className="text-3xl font-bold text-amber-600">{taxaEfetividadeGeral}%</p>
+              <p className="text-xs mt-2 text-[#3d4945]/60">
+                {totalEfetivosPeriodo} de {totalContatadosPeriodo} contatados
+              </p>
             </div>
           </div>
 
-          {/* Filtro por fisio + Tabela */}
+          {/* Filtro por responsável + Tabela */}
           <div className="bg-white rounded-2xl shadow-sm border border-[#bcc9c4]/30 overflow-hidden">
             <div className="px-6 py-4 border-b border-[#bcc9c4]/30 flex items-center justify-between flex-wrap gap-3">
               <h3 className="text-sm font-bold text-[#171d1c] uppercase tracking-widest">Por Profissional</h3>
-              {atividadePorResponsavel.length > 1 && (
+              {atividadeContatosPorResponsavel.length > 1 && (
                 <select
-                  value={filtroFisioAtividade}
-                  onChange={e => setFiltroFisioAtividade(e.target.value)}
+                  value={filtroRespAtividade}
+                  onChange={e => setFiltroRespAtividade(e.target.value)}
                   className="text-xs font-semibold bg-[#f0f5f4] border border-[#bcc9c4]/50 rounded-lg px-3 py-1.5 text-[#3d4945] focus:outline-none focus:border-[#006b5a]"
                 >
                   <option value="todos">Todos os profissionais</option>
-                  {atividadePorResponsavel.map(r => (
+                  {atividadeContatosPorResponsavel.map(r => (
                     <option key={r.id} value={r.id}>{r.nome}</option>
                   ))}
                 </select>
@@ -489,40 +495,40 @@ export function RelatorioContatosClient({
                 <thead className="bg-[#f9faf8] border-b border-[#bcc9c4]/30">
                   <tr>
                     <th className="px-5 py-3 text-left font-semibold text-[#3d4945]">Profissional</th>
-                    <th className="px-5 py-3 text-center font-semibold text-[#3d4945]">Carteira</th>
-                    <th className="px-5 py-3 text-center font-semibold text-[#3d4945]">Notas no Período</th>
+                    <th className="px-5 py-3 text-center font-semibold text-[#3d4945]">Carteira no Período</th>
                     <th className="px-5 py-3 text-center font-semibold text-[#3d4945]">Pacientes Contatados</th>
-                    <th className="px-5 py-3 text-center font-semibold text-[#3d4945]">Taxa de Atividade</th>
+                    <th className="px-5 py-3 text-center font-semibold text-[#3d4945]">Contatos Efetivos</th>
+                    <th className="px-5 py-3 text-center font-semibold text-[#3d4945]">Taxa de Efetividade</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#bcc9c4]/20">
-                  {atividadePorResponsavel
-                    .filter(r => filtroFisioAtividade === 'todos' || r.id === filtroFisioAtividade)
+                  {atividadeContatosPorResponsavel
+                    .filter(r => filtroRespAtividade === 'todos' || r.id === filtroRespAtividade)
                     .map(r => (
                       <tr key={r.id} className="hover:bg-[#f9faf8] transition-colors">
                         <td className="px-5 py-3 font-semibold text-[#171d1c]">{r.nome}</td>
                         <td className="px-5 py-3 text-center text-[#3d4945]">{r.carteira}</td>
                         <td className="px-5 py-3 text-center">
-                          <span className="font-bold text-[#006b5a]">{r.notasPeriodo}</span>
+                          <span className="font-bold text-[#006b5a]">{r.contatados}</span>
                         </td>
-                        <td className="px-5 py-3 text-center text-[#3d4945]">{r.pacientesContatados}</td>
+                        <td className="px-5 py-3 text-center text-[#3d4945]">{r.efetivos}</td>
                         <td className="px-5 py-3 text-center">
                           <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${
-                            r.taxaAtividade >= 60
+                            r.taxaEfetividade >= 60
                               ? 'bg-green-50 text-green-700 border-green-300'
-                              : r.taxaAtividade >= 30
+                              : r.taxaEfetividade >= 30
                                 ? 'bg-amber-50 text-amber-700 border-amber-300'
                                 : 'bg-red-50 text-red-700 border-red-300'
                           }`}>
-                            {r.taxaAtividade}%
+                            {r.taxaEfetividade}%
                           </span>
                         </td>
                       </tr>
                     ))}
-                  {atividadePorResponsavel.length === 0 && (
+                  {atividadeContatosPorResponsavel.length === 0 && (
                     <tr>
                       <td colSpan={5} className="px-5 py-10 text-center text-sm text-[#3d4945]/50">
-                        Nenhuma nota registrada no período selecionado.
+                        Nenhum contato registrado no período selecionado.
                       </td>
                     </tr>
                   )}
@@ -537,7 +543,7 @@ export function RelatorioContatosClient({
       {abaAtiva === 'risco' && (
         <div className="space-y-6">
           {/* Filtro por responsável */}
-          {isGestorOuMaster && contatosPorResponsavel.length > 1 && (
+          {isGestorOuMaster && contatosEmRisco.length > 0 && riscoCountByResp.size > 1 && (
             <div>
               <h3 className="text-xs font-bold text-[#3d4945] uppercase tracking-widest mb-3">Filtrar por Responsável</h3>
               <div className="flex flex-wrap gap-2">
@@ -549,21 +555,27 @@ export function RelatorioContatosClient({
                       : 'bg-[#f0f5f4] text-[#3d4945] hover:bg-[#e0f5f0]'
                   }`}
                 >
-                  Todos
+                  Todos ({contatosEmRisco.length})
                 </button>
-                {contatosPorResponsavel.map(r => (
-                  <button
-                    key={r.id ?? 'sem_responsavel'}
-                    onClick={() => setFiltroResponsavel(r.id ?? 'sem_responsavel')}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-full transition-all ${
-                      filtroResponsavel === (r.id ?? 'sem_responsavel')
-                        ? 'bg-[#006b5a] text-white'
-                        : 'bg-[#f0f5f4] text-[#3d4945] hover:bg-[#e0f5f0]'
-                    }`}
-                  >
-                    {r.nome} ({r.total})
-                  </button>
-                ))}
+                {contatosPorResponsavel
+                  .filter(r => (riscoCountByResp.get(r.id ?? 'sem_responsavel') ?? 0) > 0)
+                  .map(r => {
+                    const key = r.id ?? 'sem_responsavel'
+                    const count = riscoCountByResp.get(key) ?? 0
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => setFiltroResponsavel(key)}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-full transition-all ${
+                          filtroResponsavel === key
+                            ? 'bg-[#006b5a] text-white'
+                            : 'bg-[#f0f5f4] text-[#3d4945] hover:bg-[#e0f5f0]'
+                        }`}
+                      >
+                        {r.nome} ({count})
+                      </button>
+                    )
+                  })}
               </div>
             </div>
           )}
