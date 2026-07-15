@@ -1,7 +1,8 @@
 'use client'
 
-import { Calendar, ChevronLeft, ChevronRight, Clock, MessageCircle } from 'lucide-react'
+import { Calendar, ChevronLeft, ChevronRight, Clock, ExternalLink, MessageCircle } from 'lucide-react'
 import { format } from 'date-fns'
+import Link from 'next/link'
 import type { ContatoPaciente } from '@/lib/contatos-kanban-data'
 import { diasCor, diasDesde, getAvatarColor, getInitials, labelDias, whatsappLink } from './kanban-utils'
 
@@ -33,18 +34,28 @@ export function KanbanCard({ contato, colIdx, columnsLength, onSelect, onMoveLef
         <span className="font-semibold text-[#1A2E2B] text-sm leading-snug flex-1 line-clamp-2">
           {contato.nome}
         </span>
-        {contato.telefone && (
-          <a
-            href={whatsappLink(contato.telefone)}
-            target="_blank"
-            rel="noopener noreferrer"
+        <div className="flex items-center gap-1 shrink-0 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+          {contato.telefone && (
+            <a
+              href={whatsappLink(contato.telefone)}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="w-7 h-7 flex items-center justify-center rounded-full bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366]/25 transition-colors"
+              title="Abrir WhatsApp"
+            >
+              <MessageCircle size={13} />
+            </a>
+          )}
+          <Link
+            href={`/pacientes/${contato.id}`}
             onClick={(e) => e.stopPropagation()}
-            className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366]/25 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
-            title="Abrir WhatsApp"
+            className="w-7 h-7 flex items-center justify-center rounded-full bg-[#f0f5f4] text-[#6d7a75] hover:bg-[#006b5a]/10 hover:text-[#006b5a] transition-colors"
+            title="Ver perfil do paciente"
           >
-            <MessageCircle size={13} />
-          </a>
-        )}
+            <ExternalLink size={13} />
+          </Link>
+        </div>
       </div>
 
       {contato.telefone && (

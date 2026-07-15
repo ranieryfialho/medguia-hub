@@ -38,7 +38,7 @@ export function ContatoDetailModal({
 }: ContatoDetailModalProps) {
   return (
     <div
-      className="fixed inset-0 z-50 bg-[#171d1c]/40 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4"
+      className="fixed inset-0 z-[210] bg-[#171d1c]/40 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4"
       onClick={onClose}
     >
       <div
