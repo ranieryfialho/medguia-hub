@@ -106,6 +106,7 @@ export function KanbanContatos({
   const boardRefreshTimeoutRef = useRef<number | null>(null)
   const baseSeedRefreshTimeoutRef = useRef<number | null>(null)
   const baseSeedSearchTimeoutRef = useRef<number | null>(null)
+  const boardRef = useRef<HTMLDivElement>(null)
 
   const router = useRouter()
   const canManageColumns = userNivelAcesso === 'gestor' || userNivelAcesso === 'master'
@@ -645,6 +646,13 @@ export function KanbanContatos({
     if (idx >= 0 && idx < columns.length - 1) void moveContato(pacienteId, columns[idx + 1].chave)
   }
 
+  function scrollToColumn(columnKey: string) {
+    const board = boardRef.current
+    const col = document.getElementById(`col-${columnKey}`)
+    if (!board || !col) return
+    board.scrollBy({ left: col.getBoundingClientRect().left - board.getBoundingClientRect().left, behavior: 'smooth' })
+  }
+
   async function handleResponsavelChange(responsavelId: string) {
     if (!selected) return
     const nomeResponsavel = responsavelId
@@ -838,7 +846,8 @@ export function KanbanContatos({
 
       {/* Kanban board */}
       <div
-        className="flex gap-4 lg:gap-5 overflow-x-auto pb-6 pt-2 lg:pt-0 snap-x snap-mandatory hide-scrollbar items-start h-[calc(100svh-230px)] lg:h-[calc(100vh-140px)] min-h-[500px]"
+        ref={boardRef}
+        className="flex gap-4 lg:gap-5 overflow-x-auto pb-6 pt-2 lg:pt-0 snap-x snap-mandatory kanban-board-scroll items-start h-[calc(100svh-230px)] lg:h-[calc(100vh-140px)] min-h-[500px]"
         onScroll={(e) => {
           if (window.innerWidth >= 1024) return
           const container = e.currentTarget
@@ -882,6 +891,42 @@ export function KanbanContatos({
           />
         ))}
       </div>
+
+      {/* Minimap — desktop only, canto inferior esquerdo */}
+      {(() => {
+        const maxTotal = Math.max(1, ...columns.map((c) => columnTotals[c.chave] ?? 0))
+        return (
+          <div className="hidden lg:flex fixed bottom-4 left-72 z-30 flex-col gap-1.5 bg-white/90 backdrop-blur-md border border-[#dee3e3] shadow-lg rounded-xl p-2.5 opacity-30 hover:opacity-100 transition-opacity duration-200">
+            <span className="text-[8px] font-bold text-[#9BB0AD] uppercase tracking-widest text-center">Mapa</span>
+            <div className="flex gap-1 h-14">
+              {columns.map((column) => {
+                const total = columnTotals[column.chave] ?? 0
+                const visual = getVisualColunaContato(column)
+                const lineCount = Math.round((total / maxTotal) * 14)
+                return (
+                  <button
+                    key={`mini-${column.chave}`}
+                    onClick={() => scrollToColumn(column.chave)}
+                    className="w-3.5 rounded p-[1.5px] overflow-hidden border flex-none transition-all hover:scale-105"
+                    style={{ backgroundColor: visual.corBg, borderColor: visual.cor + '50' }}
+                    title={`${column.nome} — ${total}`}
+                  >
+                    <div className="flex flex-col gap-[1.5px]">
+                      {Array.from({ length: lineCount }).map((_, i) => (
+                        <div
+                          key={i}
+                          className="w-full h-[3px] rounded-sm"
+                          style={{ backgroundColor: visual.cor + 'CC' }}
+                        />
+                      ))}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
 
       <BaseSeedModal
         state={baseSeedModal}

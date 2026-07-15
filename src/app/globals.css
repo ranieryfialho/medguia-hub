@@ -98,3 +98,33 @@ button, a, input, select, textarea, label {
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* Kanban board: oculto em mobile (tabs navegam), visível e estilizado em desktop */
+.kanban-board-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.kanban-board-scroll::-webkit-scrollbar {
+  display: none;
+}
+@media (min-width: 1024px) {
+  .kanban-board-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #c5d0ce transparent;
+  }
+  .kanban-board-scroll::-webkit-scrollbar {
+    display: block;
+    height: 5px;
+  }
+  .kanban-board-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .kanban-board-scroll::-webkit-scrollbar-thumb {
+    background: #c5d0ce;
+    border-radius: 999px;
+    transition: background 0.2s;
+  }
+  .kanban-board-scroll::-webkit-scrollbar-thumb:hover {
+    background: #9bb0ad;
+  }
+}
