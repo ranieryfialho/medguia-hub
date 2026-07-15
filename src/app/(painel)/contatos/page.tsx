@@ -12,8 +12,14 @@ import {
 import { Target } from 'lucide-react'
 import { requireModulo } from '@/lib/guard'
 
-export default async function ContatosPage() {
+export default async function ContatosPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
   const { user, profile } = await requireModulo('contatos:base')
+  const params = await searchParams
+  const initialSearch = typeof params.search === 'string' ? params.search : ''
 
   const supabase = await createClient()
 
@@ -39,6 +45,7 @@ export default async function ContatosPage() {
     listarContatosKanbanBoard(supabase, {
       columns: kanbanColumns,
       pageSize: CONTATOS_KANBAN_PAGE_SIZE,
+      busca: initialSearch || null,
     }),
     listarResponsavelStatsContatosKanban(supabase),
   ])
@@ -64,6 +71,7 @@ export default async function ContatosPage() {
 
       <KanbanContatos
         initialBoard={initialBoard}
+        initialSearch={initialSearch}
         profiles={profiles ?? []}
         responsavelCounts={responsavelStats.responsavelCounts}
         semResponsavelCount={responsavelStats.semResponsavelCount}

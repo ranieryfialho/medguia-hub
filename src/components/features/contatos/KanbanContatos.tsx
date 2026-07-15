@@ -46,6 +46,7 @@ import {
 
 export function KanbanContatos({
   initialBoard,
+  initialSearch = '',
   profiles,
   responsavelCounts,
   semResponsavelCount,
@@ -54,6 +55,7 @@ export function KanbanContatos({
   userNivelAcesso,
 }: {
   initialBoard: ContatosKanbanBoardData
+  initialSearch?: string
   profiles: ProfileSimples[]
   responsavelCounts: Record<string, number>
   semResponsavelCount: number
@@ -71,7 +73,7 @@ export function KanbanContatos({
   const [loadingColumns, setLoadingColumns] = useState<Record<string, boolean>>({})
 
   // UI state
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(initialSearch)
   const [responsavelFilter, setResponsavelFilter] = useState<string | null>(null)
   const [activeColuna, setActiveColuna] = useState<string>(initialColumns[0]?.chave ?? 'a_contactar')
   const [selected, setSelected] = useState<ContatoPaciente | null>(null)

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import Link from 'next/link'
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer,
@@ -600,7 +601,14 @@ export function RelatorioContatosClient({
                       const diasSdeUltima = calcularDiasSdeUltimaAtividade(c.ultima_nota_criada_em, c.ultimo_atendimento_data, c.atualizado_em)
                       return (
                         <tr key={c.paciente_id} className={`border-b border-[#bcc9c4]/30 ${corRiscoPorDias(diasSdeUltima)}`}>
-                          <td className="px-4 py-3 font-medium text-[#171d1c]">{c.paciente_nome}</td>
+                          <td className="px-4 py-3 font-medium text-[#171d1c]">
+                            <Link
+                              href={`/contatos?search=${encodeURIComponent(c.paciente_nome)}`}
+                              className="hover:text-[#006b5a] hover:underline transition-colors"
+                            >
+                              {c.paciente_nome}
+                            </Link>
+                          </td>
                           <td className="px-4 py-3">
                             <span
                               className="px-2 py-1 rounded-full text-xs font-semibold text-white"
