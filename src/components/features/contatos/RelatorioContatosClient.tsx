@@ -8,7 +8,7 @@ import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
-import { AlertCircle, CheckCircle2, TrendingUp, Users, Activity, MessageSquareCheck } from 'lucide-react'
+import { AlertCircle, CheckCircle2, TrendingUp, Users, Activity, MessageSquareCheck, MessageSquare } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   LABEL_POR_STATUS_CONTATO,
@@ -32,6 +32,15 @@ type ContatoComDados = {
   ultimo_atendimento_tipo: string | null
   ultima_nota_criada_em: string | null
   atualizado_em: string
+}
+
+type AnotacaoContato = {
+  id: string
+  paciente_id: string
+  paciente_nome: string
+  texto: string
+  criado_em: string
+  autor_nome: string | null
 }
 
 type AtividadeContatosResponsavel = {
@@ -81,6 +90,7 @@ interface RelatorioContatosClientProps {
   taxaConversaoPeriodo: number
   totalContatosPeriodo: number
   contagemPorColunaPeriodo: Array<{ chave: string; nome: string; corChave: ColunaCorContato; total: number }>
+  anotacoesPeriodo: AnotacaoContato[]
 }
 
 const STATUS_COLORS: Record<StatusContato, string> = {
@@ -138,6 +148,7 @@ export function RelatorioContatosClient({
   taxaConversaoPeriodo,
   totalContatosPeriodo,
   contagemPorColunaPeriodo,
+  anotacoesPeriodo,
 }: RelatorioContatosClientProps) {
   void _contatos
   void _userNome
@@ -147,7 +158,7 @@ export function RelatorioContatosClient({
   void _taxaConversaoGeral
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [abaAtiva, setAbaAtiva] = useState<'performance' | 'risco' | 'atividade'>('performance')
+  const [abaAtiva, setAbaAtiva] = useState<'performance' | 'risco' | 'atividade' | 'anotacoes'>('performance')
   const [filtroResponsavel, setFiltroResponsavel] = useState<string | null>(null)
   const [filtroRespAtividade, setFiltroRespAtividade] = useState<string>('todos')
   const taxaEfetividadeGeral = totalContatadosPeriodo > 0
@@ -243,10 +254,10 @@ export function RelatorioContatosClient({
       </div>
 
       {/* Abas */}
-      <div className="flex gap-2 border-b border-[#bcc9c4]/30">
+      <div className="flex gap-2 border-b border-[#bcc9c4]/30 overflow-x-auto scrollbar-none">
         <button
           onClick={() => setAbaAtiva('performance')}
-          className={`px-5 py-3 font-semibold text-sm transition-all border-b-2 ${
+          className={`px-5 py-3 font-semibold text-sm transition-all border-b-2 whitespace-nowrap flex-shrink-0 ${
             abaAtiva === 'performance'
               ? 'text-[#006b5a] border-b-[#006b5a]'
               : 'text-[#3d4945] border-b-transparent hover:text-[#006b5a]'
@@ -256,7 +267,7 @@ export function RelatorioContatosClient({
         </button>
         <button
           onClick={() => setAbaAtiva('atividade')}
-          className={`px-5 py-3 font-semibold text-sm transition-all border-b-2 ${
+          className={`px-5 py-3 font-semibold text-sm transition-all border-b-2 whitespace-nowrap flex-shrink-0 ${
             abaAtiva === 'atividade'
               ? 'text-[#006b5a] border-b-[#006b5a]'
               : 'text-[#3d4945] border-b-transparent hover:text-[#006b5a]'
@@ -266,7 +277,7 @@ export function RelatorioContatosClient({
         </button>
         <button
           onClick={() => setAbaAtiva('risco')}
-          className={`px-5 py-3 font-semibold text-sm transition-all border-b-2 relative ${
+          className={`px-5 py-3 font-semibold text-sm transition-all border-b-2 whitespace-nowrap flex-shrink-0 relative ${
             abaAtiva === 'risco'
               ? 'text-[#006b5a] border-b-[#006b5a]'
               : 'text-[#3d4945] border-b-transparent hover:text-[#006b5a]'
@@ -278,6 +289,16 @@ export function RelatorioContatosClient({
               {contatosEmRisco.length}
             </span>
           )}
+        </button>
+        <button
+          onClick={() => setAbaAtiva('anotacoes')}
+          className={`px-5 py-3 font-semibold text-sm transition-all border-b-2 whitespace-nowrap flex-shrink-0 ${
+            abaAtiva === 'anotacoes'
+              ? 'text-[#006b5a] border-b-[#006b5a]'
+              : 'text-[#3d4945] border-b-transparent hover:text-[#006b5a]'
+          }`}
+        >
+          Anotações
         </button>
       </div>
 
@@ -652,6 +673,53 @@ export function RelatorioContatosClient({
               <CheckCircle2 size={48} className="mx-auto text-green-500 mb-4" />
               <h3 className="text-lg font-semibold text-[#171d1c] mb-2">Nenhum contato em risco</h3>
               <p className="text-[#3d4945]/70">Todos os contatos estão atualizados e ativos.</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ABA 4: ANOTAÇÕES */}
+      {abaAtiva === 'anotacoes' && (
+        <div className="space-y-6">
+          {anotacoesPeriodo.length > 0 ? (
+            <div className="bg-white rounded-2xl shadow-sm border border-[#bcc9c4]/30 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-[#f9faf8] border-b border-[#bcc9c4]/30">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-semibold text-[#3d4945]">Paciente</th>
+                      <th className="px-4 py-3 text-left font-semibold text-[#3d4945]">Anotação</th>
+                      <th className="px-4 py-3 text-left font-semibold text-[#3d4945]">Autor</th>
+                      <th className="px-4 py-3 text-left font-semibold text-[#3d4945]">Data</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#bcc9c4]/20">
+                    {anotacoesPeriodo.map(n => (
+                      <tr key={n.id} className="hover:bg-[#f9faf8] transition-colors">
+                        <td className="px-4 py-3 font-medium text-[#171d1c] whitespace-nowrap">
+                          <Link
+                            href={`/contatos?search=${encodeURIComponent(n.paciente_nome)}`}
+                            className="hover:text-[#006b5a] hover:underline transition-colors"
+                          >
+                            {n.paciente_nome}
+                          </Link>
+                        </td>
+                        <td className="px-4 py-3 text-[#3d4945] max-w-xs md:max-w-md break-words">{n.texto}</td>
+                        <td className="px-4 py-3 text-[#3d4945]/70 whitespace-nowrap">{n.autor_nome ?? '—'}</td>
+                        <td className="px-4 py-3 text-[#3d4945]/60 whitespace-nowrap">
+                          {format(new Date(n.criado_em), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white p-12 rounded-2xl shadow-sm border border-[#bcc9c4]/30 text-center">
+              <MessageSquare size={48} className="mx-auto text-[#bcc9c4] mb-4" />
+              <h3 className="text-lg font-semibold text-[#171d1c] mb-2">Nenhuma anotação no período</h3>
+              <p className="text-[#3d4945]/70">Anotações feitas nos cards de contato aparecerão aqui.</p>
             </div>
           )}
         </div>

@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { ChevronDown, ChevronUp, ExternalLink, MessageCircle, Send, StickyNote, UserCircle2, X } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -19,6 +20,7 @@ type ContatoDetailModalProps = {
   columns: KanbanColunaContato[]
   profiles: ProfileSimples[]
   localTemplates: Template[]
+  templatesAnotacao: Template[]
   templatePickerOpen: boolean
   onTemplatePickerOpenChange: (v: boolean) => void
   onClose: () => void
@@ -32,10 +34,11 @@ export function ContatoDetailModal({
   selected, selectedColumn,
   notas, loadingNotas, novaNotaTexto, onNovaNotaTextoChange,
   mobileModalTab, onMobileModalTabChange,
-  columns, profiles, localTemplates,
+  columns, profiles, localTemplates, templatesAnotacao,
   templatePickerOpen, onTemplatePickerOpenChange,
   onClose, onMoveContato, onResponsavelChange, onAddNota, onMoveTemplate,
 }: ContatoDetailModalProps) {
+  const [anotacaoPickerOpen, setAnotacaoPickerOpen] = useState(false)
   return (
     <div
       className="fixed inset-0 z-[210] bg-[#171d1c]/40 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4"
@@ -166,7 +169,35 @@ export function ContatoDetailModal({
             )}
           </div>
 
-          <div className="px-5 py-3 border-t border-[#dee3e3] flex gap-2">
+          {templatesAnotacao.length > 0 && (
+            <div className="px-5 pt-2 pb-1 border-t border-[#dee3e3]">
+              <button
+                onClick={() => setAnotacaoPickerOpen(v => !v)}
+                className="flex items-center gap-1.5 text-[11px] font-semibold text-[#006b5a] hover:text-[#004f43] transition-colors"
+              >
+                <StickyNote size={12} />
+                Modelos de anotação
+                <ChevronDown size={11} className={`transition-transform ${anotacaoPickerOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {anotacaoPickerOpen && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {templatesAnotacao.map(t => (
+                    <button
+                      key={t.id}
+                      onClick={() => {
+                        onNovaNotaTextoChange(t.conteudo)
+                        setAnotacaoPickerOpen(false)
+                      }}
+                      className="text-[11px] px-2.5 py-1 rounded-full border border-[#dee3e3] bg-[#f0f5f4] text-[#3d4945] hover:border-[#006b5a] hover:text-[#006b5a] hover:bg-[#e8f5f2] transition-colors"
+                    >
+                      {t.nome}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          <div className={`px-5 py-3 flex gap-2 ${templatesAnotacao.length === 0 ? 'border-t border-[#dee3e3]' : ''}`}>
             <input
               type="text"
               value={novaNotaTexto}

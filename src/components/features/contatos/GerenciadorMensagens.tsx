@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { salvarTemplate, atualizarTemplate, deletarTemplate, type CategoriaTemplate } from '@/actions/templates'
-import { Plus, Trash2, Check, X, MessageSquare, Mail, Link, Cake } from 'lucide-react'
+import { Plus, Trash2, Check, X, MessageSquare, Mail, Link, Cake, StickyNote } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface Template {
@@ -45,6 +45,12 @@ const CATEGORIAS: { id: CategoriaTemplate; label: string; descricao: string; ico
     descricao: 'Mensagens de felicitação enviadas a pacientes no dia do aniversário',
     icone: <Cake size={14} />,
   },
+  {
+    id: 'anotacao',
+    label: 'Modelos de Anotação',
+    descricao: 'Textos rápidos para preencher anotações nos cards de contato — clique no modelo dentro do card para inserir',
+    icone: <StickyNote size={14} />,
+  },
 ]
 
 // Shortcodes por categoria
@@ -76,6 +82,7 @@ const SHORTCODE_LINK = {
 }
 
 function getShortcodes(categoria: CategoriaTemplate) {
+  if (categoria === 'anotacao') return []
   if (categoria === 'reativacao') return SHORTCODES_REATIVACAO
   if (categoria === 'confirmacao_sms' || categoria === 'confirmacao_email') {
     return [...SHORTCODES_AGENDAMENTO, SHORTCODE_LINK]
@@ -409,7 +416,7 @@ export function GerenciadorMensagens({
                   ref={textareaRef}
                   value={conteudo}
                   onChange={e => setConteudo(e.target.value)}
-                  placeholder="Digite sua mensagem com shortcodes..."
+                  placeholder={activeTab === 'anotacao' || selectedTemplate?.categoria === 'anotacao' ? 'Digite o texto da anotação...' : 'Digite sua mensagem com shortcodes...'}
                   rows={6}
                   disabled={isGlobal}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#006b5a] text-sm font-mono disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"

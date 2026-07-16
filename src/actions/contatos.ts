@@ -422,13 +422,17 @@ export async function atualizarColunaContato(pacienteId: string, colunaChave: st
   })
 
   if (result.success) {
-    await supabase
-      .from('notas_contato')
-      .insert({
-        paciente_id: pacienteId,
-        texto: mensagemMudancaEtapa(coluna),
-        autor_id: userId,
-      })
+    try {
+      await supabase
+        .from('notas_contato')
+        .insert({
+          paciente_id: pacienteId,
+          texto: mensagemMudancaEtapa(coluna),
+          autor_id: userId,
+        })
+    } catch (e) {
+      console.error('[atualizarColunaContato] falha ao inserir nota automática:', e)
+    }
 
     revalidarContatos()
   }

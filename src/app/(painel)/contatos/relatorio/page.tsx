@@ -26,6 +26,7 @@ import { formatAppDateKey } from '@/lib/datetime'
 
 type StatusContato = StatusContatoPadrao
 
+
 type ContatoComDados = {
   paciente_id: string
   paciente_nome: string
@@ -133,17 +134,13 @@ export default async function RelatorioContatosPage({
   const kanbanColumnMap = new Map(kanbanColumns.map((column) => [column.chave, column]))
   const pacientesIds = contatosRaw.map(c => c.paciente_id)
 
-  // Buscar notas para calcular última atividade
-  let notasQuery = supabase
+  // Buscar notas para calcular última atividade (sem .in() para evitar 502 no gateway)
+  const pacientesIdsSet = new Set(pacientesIds)
+  const { data: todasNotas } = await supabase
     .from('notas_contato')
     .select('paciente_id, criado_em')
     .order('criado_em', { ascending: false })
-
-  if (pacientesIds.length > 0) {
-    notasQuery = notasQuery.in('paciente_id', pacientesIds)
-  }
-
-  const { data: notas } = await notasQuery
+  const notas = (todasNotas ?? []).filter(n => pacientesIdsSet.has(n.paciente_id))
 
   // Mapear notas por paciente (última nota por paciente)
   const ultimaNota = new Map<string, string>()
@@ -183,6 +180,41 @@ export default async function RelatorioContatosPage({
       atualizado_em: c.atualizado_em,
     }
   })
+
+  // Anotações (busca todas sem .in() para evitar 502, filtra em JS)
+  type AnotacaoRow = { id: string; paciente_id: string; texto: string; criado_em: string; autor_id: string | null }
+  const { data: todasAnotacoes } = await supabase
+    .from('notas_contato')
+    .select('id, paciente_id, texto, criado_em, autor_id')
+    .order('criado_em', { ascending: false })
+  const anotacoesRaw: AnotacaoRow[] = (todasAnotacoes ?? [])
+    .filter(n =>
+      pacientesIdsSet.has(n.paciente_id) &&
+      !n.texto.toLowerCase().startsWith('status alterado para:') &&
+      !n.texto.toLowerCase().startsWith('etapa alterada para:')
+    )
+
+  // Montar anotações com nomes de paciente e autor
+  const autorIdsAnotacoes = [...new Set(anotacoesRaw.map(n => n.autor_id).filter((id): id is string => id !== null))]
+  const profileMapAnotacoes: Record<string, string> = {}
+  if (autorIdsAnotacoes.length > 0) {
+    const { data: profilesData } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .in('id', autorIdsAnotacoes)
+    for (const p of profilesData ?? []) {
+      profileMapAnotacoes[p.id] = p.full_name
+    }
+  }
+  const pacienteNomeMap = new Map(contatos.map(c => [c.paciente_id, c.paciente_nome]))
+  const anotacoesPeriodo = anotacoesRaw.map(n => ({
+    id: n.id,
+    paciente_id: n.paciente_id,
+    paciente_nome: pacienteNomeMap.get(n.paciente_id) ?? 'Paciente',
+    texto: n.texto,
+    criado_em: n.criado_em,
+    autor_nome: n.autor_id ? (profileMapAnotacoes[n.autor_id] ?? null) : null,
+  }))
 
   // Calcular agregações
   const contagemPorStatus: Record<StatusContato, number> = criarContagemStatusContato()
@@ -364,6 +396,7 @@ export default async function RelatorioContatosPage({
         taxaConversaoPeriodo={taxaConversaoPeriodo}
         totalContatosPeriodo={totalContatosPeriodo}
         contagemPorColunaPeriodo={contagemPorColunaPeriodo}
+        anotacoesPeriodo={anotacoesPeriodo}
       />
     </div>
   )

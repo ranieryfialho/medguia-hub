@@ -23,7 +23,7 @@ export default async function ContatosPage({
 
   const supabase = await createClient()
 
-  const [{ data: profiles }, templates, { data: kanbanColumnsRaw }] = await Promise.all([
+  const [{ data: profiles }, templates, templatesAnotacao, { data: kanbanColumnsRaw }] = await Promise.all([
     supabase.from('profiles').select('id, full_name').eq('ativo', true).neq('role', 'master').neq('role', 'medico').order('full_name'),
     user
       ? supabase
@@ -31,6 +31,15 @@ export default async function ContatosPage({
           .select('id, nome, conteudo, criado_por')
           .or(`criado_por.is.null,criado_por.eq.${user.id}`)
           .eq('categoria', 'reativacao')
+          .order('criado_em', { ascending: true })
+          .then(({ data }) => data ?? [])
+      : Promise.resolve([]),
+    user
+      ? supabase
+          .from('templates_mensagem')
+          .select('id, nome, conteudo, criado_por')
+          .or(`criado_por.is.null,criado_por.eq.${user.id}`)
+          .eq('categoria', 'anotacao')
           .order('criado_em', { ascending: true })
           .then(({ data }) => data ?? [])
       : Promise.resolve([]),
@@ -76,6 +85,7 @@ export default async function ContatosPage({
         responsavelCounts={responsavelStats.responsavelCounts}
         semResponsavelCount={responsavelStats.semResponsavelCount}
         templates={templates}
+        templatesAnotacao={templatesAnotacao}
         columns={kanbanColumns}
         userNivelAcesso={profile?.nivel_acesso ?? ''}
       />

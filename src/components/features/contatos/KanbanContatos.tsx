@@ -51,6 +51,7 @@ export function KanbanContatos({
   responsavelCounts,
   semResponsavelCount,
   templates,
+  templatesAnotacao,
   columns: initialColumns,
   userNivelAcesso,
 }: {
@@ -60,6 +61,7 @@ export function KanbanContatos({
   responsavelCounts: Record<string, number>
   semResponsavelCount: number
   templates: Template[]
+  templatesAnotacao: Template[]
   columns: KanbanColunaContato[]
   userNivelAcesso: string
 }) {
@@ -631,9 +633,15 @@ export function KanbanContatos({
       )
     }
 
-    const result = await atualizarColunaContato(pacienteId, columnKey)
-    if (result?.error) {
-      toast.error('Erro ao mover o contato. Tente novamente.')
+    try {
+      const result = await atualizarColunaContato(pacienteId, columnKey)
+      if (result?.error) {
+        toast.error('Erro ao mover o contato.')
+        router.refresh()
+      }
+    } catch (e) {
+      console.error('[moveContato]', e)
+      toast.error('Erro ao mover o contato.')
       router.refresh()
     }
   }
@@ -957,6 +965,7 @@ export function KanbanContatos({
           columns={columns}
           profiles={profiles}
           localTemplates={localTemplates}
+          templatesAnotacao={templatesAnotacao}
           templatePickerOpen={templatePickerOpen}
           onTemplatePickerOpenChange={setTemplatePickerOpen}
           onClose={() => setSelected(null)}
