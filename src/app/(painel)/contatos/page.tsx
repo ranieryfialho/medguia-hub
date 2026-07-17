@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { KanbanContatos } from '@/components/features/contatos'
+import type { ContatoFrio } from '@/components/features/contatos/BaseFriaBanner'
 import {
   normalizarColunasContato,
   type KanbanColunaContato,
@@ -12,6 +13,59 @@ import {
 import { Target } from 'lucide-react'
 import { requireModulo } from '@/lib/guard'
 
+const DIAS_SEM_ATIVIDADE_POR_STATUS: Record<string, number> = {
+  a_contactar: 7,
+  recuperacao_base: 7,
+  tentativa: 3,
+  em_conversa: 7,
+}
+
+function cutoffIso(dias: number) {
+  return new Date(Date.now() - dias * 24 * 60 * 60 * 1000).toISOString()
+}
+
+async function buscarContatosFrios(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  role: string,
+): Promise<ContatoFrio[]> {
+  try {
+    const isGestor = role === 'gestor' || role === 'master'
+
+    const orFilter = Object.entries(DIAS_SEM_ATIVIDADE_POR_STATUS)
+      .map(([status, dias]) => `and(status.eq.${status},ultima_atividade.lt.${cutoffIso(dias)})`)
+      .join(',')
+
+    let query = supabase
+      .from('contatos_base')
+      .select('paciente_id, status, ultima_atividade, pacientes(nome)')
+      .or(orFilter)
+      .order('ultima_atividade', { ascending: true })
+
+    if (!isGestor) {
+      query = query.eq('responsavel_id', userId)
+    }
+
+    const { data, error } = await query
+
+    if (error) return []
+
+    const agora = Date.now()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (data ?? []).map((c: any) => {
+      const pacientesNome = Array.isArray(c.pacientes) ? c.pacientes[0]?.nome : c.pacientes?.nome
+      return {
+        paciente_id: c.paciente_id as string,
+        nome: (pacientesNome as string | undefined) ?? 'Contato',
+        status: c.status as string,
+        dias_sem_atividade: Math.floor((agora - new Date(c.ultima_atividade as string).getTime()) / (24 * 60 * 60 * 1000)),
+      }
+    })
+  } catch {
+    return []
+  }
+}
+
 export default async function ContatosPage({
   searchParams,
 }: {
@@ -23,7 +77,7 @@ export default async function ContatosPage({
 
   const supabase = await createClient()
 
-  const [{ data: profiles }, templates, templatesAnotacao, { data: kanbanColumnsRaw }] = await Promise.all([
+  const [{ data: profiles }, templates, templatesAnotacao, { data: kanbanColumnsRaw }, contatosFrios] = await Promise.all([
     supabase.from('profiles').select('id, full_name').eq('ativo', true).neq('role', 'master').neq('role', 'medico').order('full_name'),
     user
       ? supabase
@@ -47,6 +101,7 @@ export default async function ContatosPage({
       .from('kanban_colunas_contatos')
       .select('chave, nome, tipo, status_base, cor_chave, ordem')
       .order('ordem', { ascending: true }),
+    buscarContatosFrios(supabase, user?.id ?? '', profile?.role ?? ''),
   ])
 
   const kanbanColumns = normalizarColunasContato((kanbanColumnsRaw ?? null) as KanbanColunaContato[] | null)
@@ -86,6 +141,7 @@ export default async function ContatosPage({
         semResponsavelCount={responsavelStats.semResponsavelCount}
         templates={templates}
         templatesAnotacao={templatesAnotacao}
+        contatosFrios={contatosFrios}
         columns={kanbanColumns}
         userNivelAcesso={profile?.nivel_acesso ?? ''}
       />

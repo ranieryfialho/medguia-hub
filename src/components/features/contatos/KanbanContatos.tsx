@@ -31,6 +31,7 @@ import { KanbanColumn } from './KanbanColumn'
 import { BaseSeedModal } from './BaseSeedModal'
 import { ContatoDetailModal } from './ContatoDetailModal'
 import { ColumnsManagementModal } from './ColumnsManagementModal'
+import { BaseFriaBanner, type ContatoFrio } from './BaseFriaBanner'
 import { useKanbanColumns } from './hooks/useKanbanColumns'
 import {
   ATTENDANCE_BATCH_SIZE,
@@ -52,6 +53,7 @@ export function KanbanContatos({
   semResponsavelCount,
   templates,
   templatesAnotacao,
+  contatosFrios = [],
   columns: initialColumns,
   userNivelAcesso,
 }: {
@@ -62,6 +64,7 @@ export function KanbanContatos({
   semResponsavelCount: number
   templates: Template[]
   templatesAnotacao: Template[]
+  contatosFrios?: ContatoFrio[]
   columns: KanbanColunaContato[]
   userNivelAcesso: string
 }) {
@@ -83,6 +86,8 @@ export function KanbanContatos({
   const [mobileModalTab, setMobileModalTab] = useState<'detalhes' | 'notas'>('detalhes')
   const [templatePickerOpen, setTemplatePickerOpen] = useState(true)
   const [localTemplates, setLocalTemplates] = useState<Template[]>(templates)
+  const [filtrandoFrios, setFiltrandoFrios] = useState(false)
+  const friosIdsSet = useMemo(() => new Set(contatosFrios.map((c) => c.paciente_id)), [contatosFrios])
 
   // Notes state
   const [notas, setNotas] = useState<Nota[]>([])
@@ -416,13 +421,14 @@ export function KanbanContatos({
 
   const contatosByColumn = useMemo(() => {
     const grouped = new Map<string, ContatoPaciente[]>()
-    for (const c of contatos) {
+    const fonte = filtrandoFrios ? contatos.filter((c) => friosIdsSet.has(c.id)) : contatos
+    for (const c of fonte) {
       const list = grouped.get(c.kanban_coluna_chave)
       if (list) list.push(c)
       else grouped.set(c.kanban_coluna_chave, [c])
     }
     return grouped
-  }, [contatos])
+  }, [contatos, filtrandoFrios, friosIdsSet])
 
   const refreshBoard = useCallback(async (
     nextSearch: string,
@@ -818,6 +824,12 @@ export function KanbanContatos({
         canManageColumns={canManageColumns}
         onAddBaseBatch={handleAddBaseBatch}
         onOpenCreateColumnModal={openCreateColumnModal}
+      />
+
+      <BaseFriaBanner
+        contatos={contatosFrios}
+        filtrandoFrios={filtrandoFrios}
+        onVerQuais={() => setFiltrandoFrios((v) => !v)}
       />
 
       {/* Mobile column tabs */}

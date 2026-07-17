@@ -36,12 +36,13 @@ export async function buscarNotificacoes(): Promise<Notificacao[]> {
 
   const role = profile?.role ?? ''
   const descartados = new Set<string>(profile?.pendentes_descartados ?? [])
-  const [pendentes, followUpsPendentes] = await Promise.all([
+  const [pendentes, followUpsPendentes, contatosFrios] = await Promise.all([
     buscarProntuariosPendentes(supabase, user.id, role, descartados),
     buscarFollowUpsPendentesNotif(supabase, user.id, descartados),
+    buscarContatosFriosNotif(supabase, user.id, role),
   ])
 
-  return [...followUpsPendentes, ...pendentes, ...(notifs ?? [])] as Notificacao[]
+  return [...followUpsPendentes, ...contatosFrios, ...pendentes, ...(notifs ?? [])] as Notificacao[]
 }
 
 async function buscarProntuariosPendentes(
@@ -125,8 +126,65 @@ async function buscarFollowUpsPendentesNotif(
     }))
 }
 
+const DIAS_SEM_ATIVIDADE_POR_STATUS: Record<string, number> = {
+  a_contactar: 7,
+  recuperacao_base: 7,
+  tentativa: 3,
+  em_conversa: 7,
+}
+
+function cutoffIso(dias: number) {
+  return new Date(Date.now() - dias * 24 * 60 * 60 * 1000).toISOString()
+}
+
+async function buscarContatosFriosNotif(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  userId: string,
+  role: string,
+): Promise<Notificacao[]> {
+  try {
+    const isGestor = role === 'gestor' || role === 'master'
+
+    // Filtro SQL preciso por status+threshold — sem JS filter adicional
+    const orFilter = Object.entries(DIAS_SEM_ATIVIDADE_POR_STATUS)
+      .map(([status, dias]) => `and(status.eq.${status},ultima_atividade.lt.${cutoffIso(dias)})`)
+      .join(',')
+
+    let query = supabase
+      .from('contatos_base')
+      .select('paciente_id, status, ultima_atividade, pacientes(nome)')
+      .or(orFilter)
+      .order('ultima_atividade', { ascending: true })
+
+    if (!isGestor) {
+      query = query.eq('responsavel_id', userId)
+    }
+
+    const { data, error } = await query
+
+    if (error) return []
+
+    const frios = data ?? []
+    if (frios.length === 0) return []
+
+    return [{
+      id: 'cold-contacts-summary',
+      tipo: 'contato_frio',
+      titulo: `Base fria: ${frios.length} contato${frios.length !== 1 ? 's' : ''} sem atividade`,
+      mensagem: 'Revise a base para mantê-la aquecida.',
+      lida: false,
+      link: '/contatos',
+      metadados: { total: frios.length },
+      criado_em: new Date().toISOString(),
+    }]
+  } catch {
+    return []
+  }
+}
+
 export async function marcarComoLida(id: string): Promise<void> {
-  if (id.startsWith('pending-') || id.startsWith('followup-')) return
+  if (id.startsWith('pending-') || id.startsWith('followup-') || id.startsWith('cold-')) return
   const supabase = await createClient()
   await supabase.from('notificacoes').update({ lida: true }).eq('id', id)
 }

@@ -17,6 +17,7 @@ const TIPO_CONFIG: Record<string, { cor: string; label: string }> = {
   prontuario_dor_alta:   { cor: 'bg-red-100 text-red-700',         label: 'Prontuário'  },
   acesso_alterado:       { cor: 'bg-blue-100 text-blue-700',       label: 'Acesso'      },
   follow_up_atribuido:   { cor: 'bg-teal-100 text-teal-700',       label: 'Follow-up'   },
+  contato_frio:          { cor: 'bg-amber-100 text-amber-700',     label: 'Base fria'   },
 }
 
 export function SinoNotificacoes({ userId }: { userId: string }) {
