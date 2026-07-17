@@ -10,32 +10,37 @@ import { ObservacoesTagSection } from './ObservacoesTagSection'
 
 type Tab = 'agendamentos' | 'comercial' | 'midias' | 'observacoes' | 'contatos' | 'confirmacoes' | 'followups'
 
-const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
-  { id: 'agendamentos',  label: 'Agendamentos', icon: CalendarDays  },
-  { id: 'comercial',     label: 'Comercial',    icon: ShoppingBag   },
-  { id: 'confirmacoes',  label: 'Confirmações', icon: CheckCircle2  },
-  { id: 'contatos',      label: 'Contatos',     icon: MessageSquare },
-  { id: 'followups',     label: 'Follow-ups',   icon: ClipboardList },
-  { id: 'midias',        label: 'Mídias',       icon: Images        },
-  { id: 'observacoes',   label: 'Observações',  icon: StickyNote    },
+const TABS: { id: Tab; label: string; icon: React.ElementType; modulo?: string }[] = [
+  { id: 'agendamentos',  label: 'Agendamentos', icon: CalendarDays                              },
+  { id: 'comercial',     label: 'Comercial',    icon: ShoppingBag,  modulo: 'comercial:vendas'  },
+  { id: 'confirmacoes',  label: 'Confirmações', icon: CheckCircle2, modulo: 'confirmacoes:cards' },
+  { id: 'contatos',      label: 'Contatos',     icon: MessageSquare, modulo: 'contatos:base'    },
+  { id: 'followups',     label: 'Follow-ups',   icon: ClipboardList, modulo: 'follow_ups'       },
+  { id: 'midias',        label: 'Mídias',       icon: Images                                   },
+  { id: 'observacoes',   label: 'Observações',  icon: StickyNote                               },
 ]
 
 type Props = {
   pacienteId: string
   nomePaciente: string
+  modulosLiberados: string[]
   agendamentosSlot: React.ReactNode
   comercialSlot: React.ReactNode
   followUpsSlot: React.ReactNode
 }
 
-export function PacienteTabsClient({ pacienteId, nomePaciente, agendamentosSlot, comercialSlot, followUpsSlot }: Props) {
-  const [tab, setTab] = useState<Tab>('agendamentos')
+export function PacienteTabsClient({ pacienteId, nomePaciente, modulosLiberados, agendamentosSlot, comercialSlot, followUpsSlot }: Props) {
+  // modulosLiberados vazio = acesso legado completo
+  const temAcesso = (modulo?: string) => !modulo || modulosLiberados.length === 0 || modulosLiberados.includes(modulo)
+  const tabsVisiveis = TABS.filter(t => temAcesso(t.modulo))
+
+  const [tab, setTab] = useState<Tab>(() => tabsVisiveis[0]?.id ?? 'agendamentos')
 
   return (
     <div className="flex flex-col bg-white rounded-xl shadow-sm border border-slate-100">
       {/* Tab bar — scrollable on small screens */}
       <div className="flex overflow-x-auto overflow-y-hidden scrollbar-none border-b border-slate-100 px-3 sm:px-6 pt-3 sm:pt-4 gap-0.5">
-        {TABS.map(({ id, label, icon: Icon }) => (
+        {tabsVisiveis.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             onClick={() => setTab(id)}

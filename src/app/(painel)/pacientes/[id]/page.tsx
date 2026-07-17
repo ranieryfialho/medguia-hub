@@ -57,7 +57,7 @@ export default async function PacienteDetailsPage({
   params: Promise<{ id: string }>,
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
-  await requireModulo('pacientes')
+  const { modulos } = await requireModulo('pacientes')
 
   const supabase = await createClient()
   const resolvedParams = await params
@@ -438,6 +438,7 @@ export default async function PacienteDetailsPage({
           <PacienteTabsClient
             pacienteId={paciente.id}
             nomePaciente={paciente.nome}
+            modulosLiberados={modulos}
             agendamentosSlot={
               <>
                 <Suspense fallback={null}>
