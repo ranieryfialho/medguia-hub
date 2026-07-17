@@ -236,6 +236,115 @@ export async function listarMidiasAtendimento(atendimentoId: string): Promise<{
   }
 }
 
+export async function listarMidiasPaciente(pacienteId: string): Promise<{
+  midias: Array<{
+    id: string
+    google_drive_file_id: string
+    google_drive_file_url: string | null
+    nome: string
+    mime_type: string
+    tamanho_bytes: number | null
+    criado_em: string
+  }>
+  error?: string
+}> {
+  try {
+    const db = createServiceClient()
+    const { data, error } = await db
+      .from('paciente_midias')
+      .select('id, google_drive_file_id, google_drive_file_url, nome, mime_type, tamanho_bytes, criado_em')
+      .eq('paciente_id', pacienteId)
+      .order('criado_em', { ascending: false })
+
+    if (error) return { midias: [], error: error.message }
+    return { midias: data ?? [] }
+  } catch (err) {
+    return { midias: [], error: String(err) }
+  }
+}
+
+export async function listarMidiasPacienteConsultas(pacienteId: string): Promise<{
+  midias: Array<{
+    id: string
+    google_drive_file_id: string
+    google_drive_file_url: string | null
+    nome: string
+    mime_type: string
+    tamanho_bytes: number | null
+    criado_em: string
+    atendimento_data: string | null
+    atendimento_tipo: string | null
+  }>
+  error?: string
+}> {
+  try {
+    const db = createServiceClient()
+
+    const { data: atendimentos } = await db
+      .from('atendimentos')
+      .select('id, data_agendamento, tipo')
+      .eq('paciente_id', pacienteId)
+
+    if (!atendimentos?.length) return { midias: [] }
+
+    const atendimentoIds = atendimentos.map((a: { id: string }) => a.id)
+    const atendimentoMap = new Map(
+      atendimentos.map((a: { id: string; data_agendamento: string; tipo: string | null }) => [a.id, a])
+    )
+
+    const { data, error } = await db
+      .from('atendimento_midias')
+      .select('id, atendimento_id, google_drive_file_id, google_drive_file_url, nome, mime_type, tamanho_bytes, criado_em')
+      .in('atendimento_id', atendimentoIds)
+      .order('criado_em', { ascending: false })
+
+    if (error) return { midias: [], error: error.message }
+
+    return {
+      midias: (data ?? []).map((m: { id: string; atendimento_id: string; google_drive_file_id: string; google_drive_file_url: string | null; nome: string; mime_type: string; tamanho_bytes: number | null; criado_em: string }) => {
+        const atend = atendimentoMap.get(m.atendimento_id) as { data_agendamento: string; tipo: string | null } | undefined
+        return {
+          id: m.id,
+          google_drive_file_id: m.google_drive_file_id,
+          google_drive_file_url: m.google_drive_file_url,
+          nome: m.nome,
+          mime_type: m.mime_type,
+          tamanho_bytes: m.tamanho_bytes,
+          criado_em: m.criado_em,
+          atendimento_data: atend?.data_agendamento ?? null,
+          atendimento_tipo: atend?.tipo ?? null,
+        }
+      }),
+    }
+  } catch (err) {
+    return { midias: [], error: String(err) }
+  }
+}
+
+export async function buscarPastaPaciente(pacienteId: string): Promise<{
+  url: string | null
+  driveConectado: boolean
+}> {
+  try {
+    const db = createServiceClient()
+    const [statusConexao, { data: pasta }] = await Promise.all([
+      getStatusConexao(),
+      db
+        .from('paciente_pastas_drive')
+        .select('google_drive_folder_url')
+        .eq('paciente_id', pacienteId)
+        .maybeSingle(),
+    ])
+
+    return {
+      url: pasta?.google_drive_folder_url ?? null,
+      driveConectado: statusConexao.conectado,
+    }
+  } catch {
+    return { url: null, driveConectado: false }
+  }
+}
+
 export async function buscarPastaAtendimento(atendimentoId: string): Promise<{
   url: string | null
   driveConectado: boolean

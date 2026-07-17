@@ -305,6 +305,68 @@ export async function adicionarObservacao(prevState: PacienteFormState | null, f
   return { success: true }
 }
 
+export type ObservacaoPaciente = {
+  id: string
+  paciente_id: string
+  texto: string | null
+  tag: string
+  google_drive_file_id: string | null
+  google_drive_file_url: string | null
+  google_drive_file_nome: string | null
+  google_drive_file_mime: string | null
+  autor_id: string | null
+  autor_nome: string | null
+  criado_em: string
+}
+
+export async function listarObservacoesPaciente(pacienteId: string): Promise<ObservacaoPaciente[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('observacoes_paciente')
+    .select('id, paciente_id, texto, tag, google_drive_file_id, google_drive_file_url, google_drive_file_nome, google_drive_file_mime, autor_id, criado_em')
+    .eq('paciente_id', pacienteId)
+    .order('criado_em', { ascending: false })
+
+  if (!data?.length) return []
+
+  const autorIds = [...new Set(data.map(o => o.autor_id).filter(Boolean))] as string[]
+  const autoresMap = new Map<string, string>()
+  if (autorIds.length > 0) {
+    const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', autorIds)
+    for (const p of profiles ?? []) autoresMap.set(p.id, p.full_name)
+  }
+
+  return data.map(o => ({ ...o, autor_nome: o.autor_id ? (autoresMap.get(o.autor_id) ?? null) : null }))
+}
+
+export async function adicionarObservacaoPaciente(
+  pacienteId: string,
+  texto: string | null,
+  tag: string,
+  arquivo?: { id: string; url: string; nome: string; mime: string } | null,
+): Promise<{ success?: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!texto?.trim() && !arquivo) return { error: 'Adicione uma observação ou selecione um arquivo.' }
+
+  const { error } = await supabase.from('observacoes_paciente').insert({
+    paciente_id: pacienteId,
+    texto: texto?.trim() || null,
+    tag,
+    google_drive_file_id: arquivo?.id ?? null,
+    google_drive_file_url: arquivo?.url ?? null,
+    google_drive_file_nome: arquivo?.nome ?? null,
+    google_drive_file_mime: arquivo?.mime ?? null,
+    autor_id: user?.id ?? null,
+  })
+
+  if (error) return { error: 'Erro ao salvar observação.' }
+
+  revalidatePath(`/pacientes/${pacienteId}`)
+  return { success: true }
+}
+
 export async function buscarPacientesPorNome(termo: string): Promise<{ id: string; nome: string; detalhe?: string }[]> {
   const termoBusca = termo.trim()
   const termoCpf = normalizarCPF(termoBusca)

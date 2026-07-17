@@ -1,7 +1,6 @@
 import { BtnVoltar } from '@/components/features/shared'
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
-import { FormNovaObservacao } from '@/components/features/prontuarios'
 import { FiltrosJornada } from '@/components/features/configuracoes'
 import { CartaoAgendamento } from '@/components/features/agenda'
 import { CartaoVenda, type VendaTimeline } from '@/components/features/vendas'
@@ -12,11 +11,10 @@ import { format } from 'date-fns'
 import { buscarProntuariosPorPaciente } from '@/actions/prontuarios'
 import { listarFollowUpsPaciente, listarTipos } from '@/actions/follow-ups'
 import { SecaoFollowUpsPaciente } from '@/components/features/follow-ups/SecaoFollowUpsPaciente'
-import { SecaoAuditoriaPaciente } from '@/components/features/confirmacoes/SecaoAuditoriaPaciente'
+import { PacienteTabsClient } from '@/components/features/pacientes/PacienteTabsClient'
 import { extrairMetadataInativacao } from '@/lib/paciente-inativacao'
 import { buildSessaoEfetivaMap } from '@/lib/sessoes'
 import {
-  AlertTriangle,
   FileText,
   CalendarClock,
   Megaphone
@@ -432,77 +430,64 @@ export default async function PacienteDetailsPage({
             </div>
           </div>
 
-          <div className="bg-slate-50 rounded-xl p-5 border-l-4 border-[#006b5a]">
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="font-bold text-sm text-slate-900 flex items-center gap-2">
-                <AlertTriangle size={16} className="text-[#006b5a]" />
-                Observações Críticas
-              </h4>
-              <FormNovaObservacao pacienteId={paciente.id} />
-            </div>
 
-            <ul className="space-y-3 text-xs text-slate-600 mt-2">
-              {(() => {
-                const obsArray = observacoesGeraisLimpa
-                  ? observacoesGeraisLimpa.split('\n').filter((o: string) => o.trim() !== '')
-                  : [];
-                
-                if (obsArray.length === 0) {
-                  return <li className="text-slate-400 italic">Nenhuma observação registrada.</li>;
-                }
 
-                return obsArray.map((obs: string, idx: number) => {
-                  const textoLimpo = obs.replace(/^•\s*/, '').trim();
-                  return (
-                    <li key={idx} className="flex items-start gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#006b5a] mt-1 shrink-0"></span>
-                      <span className="flex-1 leading-relaxed">{textoLimpo}</span>
-                    </li>
-                  )
-                });
-              })()}
-            </ul>
-          </div>
-
-          <SecaoFollowUpsPaciente
-            pacienteId={paciente.id}
-            followUps={followUps}
-            tipos={followUpTipos}
-            profissionais={profissionais}
-          />
-
-          <SecaoAuditoriaPaciente pacienteId={paciente.id} />
         </div>
 
         <div className="col-span-1 lg:col-span-9">
-          <div className="flex flex-col h-full bg-white p-6 md:p-8 rounded-xl shadow-sm border border-slate-100">
-            
-            <Suspense fallback={null}>
-              <FiltrosJornada />
-            </Suspense>
-
-            <div className="relative pl-4 md:pl-8 mt-2">
-              <div className="absolute left-[24px] md:left-[40px] top-4 bottom-4 w-px border-l-2 border-dashed border-slate-200"></div>
-
-              {eventosUnificados.length === 0 ? (
-                <div className="text-sm text-slate-500 pl-8">Nenhum evento encontrado para estes filtros.</div>
-              ) : (
-                eventosUnificados.map(evento =>
-                  evento.tipo === 'agendamento' ? (
-                    <CartaoAgendamento
-                      key={evento.grupo.agendamento_id ?? evento.grupo.sessoes[0]?.id}
-                      grupo={evento.grupo}
-                    />
+          <PacienteTabsClient
+            pacienteId={paciente.id}
+            nomePaciente={paciente.nome}
+            agendamentosSlot={
+              <>
+                <Suspense fallback={null}>
+                  <FiltrosJornada />
+                </Suspense>
+                <div className="relative pl-4 md:pl-8 mt-2">
+                  <div className="absolute left-[24px] md:left-[40px] top-4 bottom-4 w-px border-l-2 border-dashed border-slate-200" />
+                  {gruposFiltrados.length === 0 ? (
+                    <div className="text-sm text-slate-500 pl-8">Nenhum agendamento encontrado para estes filtros.</div>
                   ) : (
-                    <CartaoVenda
-                      key={evento.venda.id}
-                      venda={evento.venda}
-                    />
-                  )
-                )
-              )}
-            </div>
-          </div>
+                    gruposFiltrados
+                      .slice()
+                      .sort((a, b) => {
+                        const dA = Math.max(...a.sessoes.map(s => new Date(s.data_agendamento).getTime()))
+                        const dB = Math.max(...b.sessoes.map(s => new Date(s.data_agendamento).getTime()))
+                        return ordemFiltro === 'asc' ? dA - dB : dB - dA
+                      })
+                      .map(grupo => (
+                        <CartaoAgendamento
+                          key={grupo.agendamento_id ?? grupo.sessoes[0]?.id}
+                          grupo={grupo}
+                        />
+                      ))
+                  )}
+                </div>
+              </>
+            }
+            followUpsSlot={
+              <SecaoFollowUpsPaciente
+                pacienteId={paciente.id}
+                followUps={followUps}
+                tipos={followUpTipos}
+                profissionais={profissionais}
+              />
+            }
+            comercialSlot={
+              <div className="relative pl-4 md:pl-8">
+                <div className="absolute left-[24px] md:left-[40px] top-4 bottom-4 w-px border-l-2 border-dashed border-slate-200" />
+                {vendas.length === 0 ? (
+                  <div className="text-sm text-slate-500 pl-8">Nenhum registro comercial encontrado.</div>
+                ) : (
+                  [...vendas]
+                    .sort((a, b) => new Date(b.data_venda).getTime() - new Date(a.data_venda).getTime())
+                    .map(venda => (
+                      <CartaoVenda key={venda.id} venda={venda} />
+                    ))
+                )}
+              </div>
+            }
+          />
         </div>
       </div>
     </div>

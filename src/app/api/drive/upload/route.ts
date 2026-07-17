@@ -20,9 +20,10 @@ export async function POST(request: Request) {
     const formData = await request.formData()
     const file = formData.get('file') as File | null
     const atendimentoId = formData.get('atendimentoId') as string | null
+    const pacienteId = formData.get('pacienteId') as string | null
 
-    if (!file || !atendimentoId) {
-      return Response.json({ error: 'Arquivo e atendimentoId são obrigatórios' }, { status: 400 })
+    if (!file || (!atendimentoId && !pacienteId)) {
+      return Response.json({ error: 'Arquivo e atendimentoId ou pacienteId são obrigatórios' }, { status: 400 })
     }
 
     if (file.size > 50 * 1024 * 1024) {
@@ -30,14 +31,30 @@ export async function POST(request: Request) {
     }
 
     const db = createAdminClient()
-    const { data: pasta } = await db
-      .from('atendimento_pastas_drive')
-      .select('google_drive_folder_id')
-      .eq('atendimento_id', atendimentoId)
-      .maybeSingle()
+    let folderId: string
 
-    if (!pasta) {
-      return Response.json({ error: 'Pasta do atendimento não encontrada' }, { status: 404 })
+    if (atendimentoId) {
+      const { data: pasta } = await db
+        .from('atendimento_pastas_drive')
+        .select('google_drive_folder_id')
+        .eq('atendimento_id', atendimentoId)
+        .maybeSingle()
+
+      if (!pasta) {
+        return Response.json({ error: 'Pasta do atendimento não encontrada' }, { status: 404 })
+      }
+      folderId = pasta.google_drive_folder_id
+    } else {
+      const { data: pasta } = await db
+        .from('paciente_pastas_drive')
+        .select('google_drive_folder_id')
+        .eq('paciente_id', pacienteId!)
+        .maybeSingle()
+
+      if (!pasta) {
+        return Response.json({ error: 'Pasta do paciente não encontrada. Crie a pasta primeiro.' }, { status: 404 })
+      }
+      folderId = pasta.google_drive_folder_id
     }
 
     const auth = await getClienteAutenticado()
@@ -49,7 +66,7 @@ export async function POST(request: Request) {
     const { data: uploaded } = await drive.files.create({
       requestBody: {
         name: file.name,
-        parents: [pasta.google_drive_folder_id],
+        parents: [folderId],
       },
       media: {
         mimeType: file.type || 'application/octet-stream',
@@ -62,18 +79,34 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Falha ao fazer upload para o Drive' }, { status: 500 })
     }
 
-    const { error: dbError } = await db.from('atendimento_midias').insert({
-      atendimento_id: atendimentoId,
-      google_drive_file_id: uploaded.id,
-      google_drive_file_url: uploaded.webViewLink ?? null,
-      nome: uploaded.name ?? file.name,
-      mime_type: uploaded.mimeType ?? file.type,
-      tamanho_bytes: uploaded.size ? parseInt(uploaded.size) : file.size,
-    })
+    if (atendimentoId) {
+      const { error: dbError } = await db.from('atendimento_midias').insert({
+        atendimento_id: atendimentoId,
+        google_drive_file_id: uploaded.id,
+        google_drive_file_url: uploaded.webViewLink ?? null,
+        nome: uploaded.name ?? file.name,
+        mime_type: uploaded.mimeType ?? file.type,
+        tamanho_bytes: uploaded.size ? parseInt(uploaded.size) : file.size,
+      })
 
-    if (dbError) {
-      console.error('[Drive Upload] Erro ao salvar no banco:', dbError)
-      return Response.json({ error: `Arquivo enviado ao Drive, mas não foi possível registrar no banco: ${dbError.message}` }, { status: 500 })
+      if (dbError) {
+        console.error('[Drive Upload] Erro ao salvar no banco:', dbError)
+        return Response.json({ error: `Arquivo enviado ao Drive, mas não foi possível registrar no banco: ${dbError.message}` }, { status: 500 })
+      }
+    } else {
+      const { error: dbError } = await db.from('paciente_midias').insert({
+        paciente_id: pacienteId!,
+        google_drive_file_id: uploaded.id,
+        google_drive_file_url: uploaded.webViewLink ?? null,
+        nome: uploaded.name ?? file.name,
+        mime_type: uploaded.mimeType ?? file.type,
+        tamanho_bytes: uploaded.size ? parseInt(uploaded.size) : file.size,
+      })
+
+      if (dbError) {
+        console.error('[Drive Upload] Erro ao salvar no banco:', dbError)
+        return Response.json({ error: `Arquivo enviado ao Drive, mas não foi possível registrar no banco: ${dbError.message}` }, { status: 500 })
+      }
     }
 
     return Response.json({

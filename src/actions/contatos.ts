@@ -576,6 +576,33 @@ export async function buscarNotas(pacienteId: string) {
   }))
 }
 
+export async function buscarContatoPaciente(pacienteId: string) {
+  const supabase = await createClient()
+
+  const { data: contato } = await supabase
+    .from('contatos_base')
+    .select('status, kanban_coluna_chave, responsavel_id, ultima_atividade, criado_em')
+    .eq('paciente_id', pacienteId)
+    .maybeSingle()
+
+  if (!contato) return { contato: null, notas: [] }
+
+  const [notasResult, responsavelResult] = await Promise.all([
+    buscarNotas(pacienteId),
+    contato.responsavel_id
+      ? supabase.from('profiles').select('full_name').eq('id', contato.responsavel_id).single()
+      : Promise.resolve({ data: null }),
+  ])
+
+  return {
+    contato: {
+      ...contato,
+      responsavel_nome: responsavelResult.data?.full_name ?? null,
+    },
+    notas: notasResult,
+  }
+}
+
 export async function listarColunasKanbanContato() {
   const { supabase } = await getAuthContext()
   return listarColunasKanbanInterno(supabase)

@@ -60,6 +60,27 @@ export async function buscarAuditoriaAtendimento(atendimentoId: string): Promise
   return (data ?? []) as EventoAuditoria[]
 }
 
+export type ConfirmacaoPaciente = {
+  id: string
+  data_agendamento: string
+  tipo: string | null
+  status: string
+  contato_confirmacao: string | null
+  numero_sessao: number | null
+  total_sessoes: number | null
+}
+
+export async function buscarConfirmacoesPaciente(pacienteId: string): Promise<ConfirmacaoPaciente[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('atendimentos')
+    .select('id, data_agendamento, tipo, status, contato_confirmacao, numero_sessao, total_sessoes')
+    .eq('paciente_id', pacienteId)
+    .order('data_agendamento', { ascending: false })
+    .limit(200)
+  return (data ?? []) as ConfirmacaoPaciente[]
+}
+
 export async function buscarAuditoriaPorPaciente(pacienteId: string): Promise<EventoAuditoria[]> {
   const supabase = await createClient()
   const { data: atendimentos } = await supabase
