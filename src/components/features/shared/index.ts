@@ -36,3 +36,5 @@ export { BtnExportarXlsxAniversariantes } from './BtnExportarXlsxAniversariantes
 export type { ExportarXlsxAniversariantesInput } from './BtnExportarXlsxAniversariantes';
 export { BtnGerarPdfConferencia } from './BtnGerarPdfConferencia';
 export { BtnExportarXlsxConferencia } from './BtnExportarXlsxConferencia';
+export { BtnGerarPdfContatos } from './BtnGerarPdfContatos';
+export { BtnExportarMdContatos } from './BtnExportarMdContatos';

@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { RelatorioContatosClient } from '@/components/features/contatos'
-import { BtnVoltar } from '@/components/features/shared'
+import { BtnVoltar, BtnGerarPdfContatos, BtnExportarMdContatos } from '@/components/features/shared'
+import type { DadosRelatorioContatos } from '@/lib/relatorios/contatos-relatorio-dados'
 import {
   criarContagemStatusContato,
   normalizarColunasContato,
@@ -366,9 +367,67 @@ export default async function RelatorioContatosPage({
     total: contatos.filter((contato) => contato.kanban_coluna_chave === column.chave).length,
   }))
 
+  // Atividade (contatados/efetivos) considerando a base completa, sem filtro de período
+  const totalContatadosGlobal = contatos.filter(c => statusesContatados.includes(c.status)).length
+  const totalEfetivosGlobal   = contatos.filter(c => statusesEfetivos.includes(c.status)).length
+
+  const atividadeContatosPorResponsavelGlobal = contatosPorResponsavel
+    .filter(r => r.id !== null)
+    .map(r => {
+      const contatados = statusesContatados.reduce((sum, s) => sum + (r.contagemPorStatus[s] ?? 0), 0)
+      const efetivos   = statusesEfetivos.reduce((sum, s) => sum + (r.contagemPorStatus[s] ?? 0), 0)
+      return {
+        nome: r.nome,
+        carteira: r.total,
+        contatados,
+        efetivos,
+        taxaEfetividade: contatados > 0 ? Math.round((efetivos / contatados) * 100) : 0,
+      }
+    })
+    .sort((a, b) => b.contatados - a.contatados)
+
+  const dadosRelatorio: DadosRelatorioContatos = {
+    periodoLabel,
+    totalContatos,
+    totalContatosPeriodo,
+    taxaConversaoGeral,
+    taxaConversaoPeriodo,
+    contatosSemResponsavelCount: contatosSemResponsavel.length,
+    contagemPorStatusGlobal: contagemPorStatus,
+    contagemPorStatusPeriodo,
+    contagemPorColunaGlobal: contagemPorColuna.map(c => ({ nome: c.nome, total: c.total })),
+    contagemPorColunaPeriodo: contagemPorColunaPeriodo.map(c => ({ nome: c.nome, total: c.total })),
+    contatosPorResponsavelGlobal: contatosPorResponsavel,
+    contatosPorResponsavelPeriodo,
+    totalContatadosGlobal,
+    totalEfetivosGlobal,
+    totalContatadosPeriodo,
+    totalEfetivosPeriodo,
+    atividadeContatosPorResponsavelGlobal,
+    atividadeContatosPorResponsavel: atividadeContatosPorResponsavel.map(({ id: _id, ...resto }) => {
+      void _id
+      return resto
+    }),
+    contatosEmRisco: contatosEmRisco.map(c => ({
+      paciente_nome: c.paciente_nome,
+      kanban_coluna_nome: c.kanban_coluna_nome,
+      responsavel_nome: c.responsavel_nome,
+      dias_sem_atividade: Math.floor(
+        (new Date().getTime() - new Date(c.ultima_nota_criada_em ?? c.ultimo_atendimento_data ?? c.atualizado_em).getTime())
+          / (1000 * 60 * 60 * 24)
+      ),
+    })),
+    anotacoes: anotacoesPeriodo.map(a => ({
+      paciente_nome: a.paciente_nome,
+      texto: a.texto,
+      autor_nome: a.autor_nome,
+      criado_em: a.criado_em,
+    })),
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <div className="flex items-center gap-3 mb-2">
             <BtnVoltar href="/contatos" />
@@ -377,6 +436,10 @@ export default async function RelatorioContatosPage({
           <p className="text-sm text-[#3d4945]">
             Análise completa do funil de vendas e performance de contatos
           </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <BtnExportarMdContatos {...dadosRelatorio} />
+          <BtnGerarPdfContatos {...dadosRelatorio} />
         </div>
       </div>
 
