@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { ChevronLeft, ChevronRight, Pencil, Trash2 } from 'lucide-react'
 import { LABEL_POR_STATUS_CONTATO, getVisualColunaContato, type KanbanColunaContato } from '@/lib/contatos-kanban'
 import type { ContatoPaciente } from '@/lib/contatos-kanban-data'
@@ -22,6 +23,8 @@ type KanbanColumnProps = {
   onMoveLeft: (id: string, columnKey: string) => void
   onMoveRight: (id: string, columnKey: string) => void
   getColumnCardCount: (chave: string) => number
+  isDesktop: boolean
+  onDropContato: (id: string) => void
 }
 
 export function KanbanColumn({
@@ -32,9 +35,11 @@ export function KanbanColumn({
   onMoveColumn, onEditColumn, onDeleteColumn,
   onLoadMore, onSelectContato, onMoveLeft, onMoveRight,
   getColumnCardCount,
+  isDesktop, onDropContato,
 }: KanbanColumnProps) {
   const hiddenCount = Math.max(0, totalCards - cards.length)
   const visual = getVisualColunaContato(column)
+  const [isDragOver, setIsDragOver] = useState(false)
 
   return (
     <div
@@ -63,8 +68,32 @@ export function KanbanColumn({
       </div>
 
       <div
-        className="border border-t-0 rounded-b-2xl p-2.5 sm:p-3 space-y-3 overflow-y-auto flex-1 flex flex-col hide-scrollbar"
-        style={{ borderColor: visual.cor + '30', backgroundColor: visual.corBg + 'AA' }}
+        className={`border border-t-0 rounded-b-2xl p-2.5 sm:p-3 space-y-3 overflow-y-auto flex-1 flex flex-col hide-scrollbar transition-colors ${
+          isDragOver ? 'ring-2 ring-inset' : ''
+        }`}
+        style={{
+          borderColor: visual.cor + '30',
+          backgroundColor: isDragOver ? visual.cor + '22' : visual.corBg + 'AA',
+          ...(isDragOver ? { ['--tw-ring-color' as string]: visual.cor } : {}),
+        }}
+        onDragOver={(e) => {
+          if (!isDesktop) return
+          e.preventDefault()
+          e.dataTransfer.dropEffect = 'move'
+          if (!isDragOver) setIsDragOver(true)
+        }}
+        onDragLeave={(e) => {
+          if (!isDesktop) return
+          if (e.currentTarget.contains(e.relatedTarget as Node)) return
+          setIsDragOver(false)
+        }}
+        onDrop={(e) => {
+          if (!isDesktop) return
+          e.preventDefault()
+          setIsDragOver(false)
+          const id = e.dataTransfer.getData('text/plain')
+          if (id) onDropContato(id)
+        }}
       >
         {canManageColumns && (
           <div className="flex items-center justify-end gap-1.5 pb-2 lg:opacity-0 lg:group-hover/col:opacity-100 transition-opacity duration-150">
@@ -121,6 +150,7 @@ export function KanbanColumn({
               onSelect={onSelectContato}
               onMoveLeft={onMoveLeft}
               onMoveRight={onMoveRight}
+              draggable={isDesktop}
             />
           ))
         )}

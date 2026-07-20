@@ -1,5 +1,6 @@
 'use client'
 
+import { useRef } from 'react'
 import { Calendar, ChevronLeft, ChevronRight, Clock, ExternalLink, MessageCircle } from 'lucide-react'
 import { format } from 'date-fns'
 import Link from 'next/link'
@@ -13,16 +14,34 @@ type KanbanCardProps = {
   onSelect: (contato: ContatoPaciente) => void
   onMoveLeft: (id: string, columnKey: string) => void
   onMoveRight: (id: string, columnKey: string) => void
+  draggable?: boolean
 }
 
-export function KanbanCard({ contato, colIdx, columnsLength, onSelect, onMoveLeft, onMoveRight }: KanbanCardProps) {
+export function KanbanCard({ contato, colIdx, columnsLength, onSelect, onMoveLeft, onMoveRight, draggable = false }: KanbanCardProps) {
   const dias = diasDesde(contato.ultimo_atendimento_data)
   const cor = dias !== null ? diasCor(dias) : '#9BB0AD'
+  const suppressClickRef = useRef(false)
 
   return (
     <div
-      onClick={() => onSelect(contato)}
-      className="bg-white rounded-lg border border-[#dee3e3] p-3.5 cursor-pointer hover:border-[#006b5a]/40 hover:shadow-sm transition-all group"
+      draggable={draggable}
+      onDragStart={(e) => {
+        e.dataTransfer.setData('text/plain', contato.id)
+        e.dataTransfer.effectAllowed = 'move'
+        suppressClickRef.current = true
+        e.currentTarget.style.opacity = '0.4'
+      }}
+      onDragEnd={(e) => {
+        e.currentTarget.style.opacity = ''
+        window.setTimeout(() => { suppressClickRef.current = false }, 0)
+      }}
+      onClick={() => {
+        if (suppressClickRef.current) return
+        onSelect(contato)
+      }}
+      className={`bg-white rounded-lg border border-[#dee3e3] p-3.5 hover:border-[#006b5a]/40 hover:shadow-sm transition-all group ${
+        draggable ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
+      }`}
     >
       <div className="flex items-start gap-2.5 mb-2.5">
         <div

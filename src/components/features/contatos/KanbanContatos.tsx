@@ -45,6 +45,20 @@ import {
   type Template,
 } from './kanban-utils'
 
+function useIsDesktop() {
+  const [isDesktop, setIsDesktop] = useState(false)
+
+  useEffect(() => {
+    const mql = window.matchMedia('(min-width: 1024px) and (pointer: fine)')
+    const update = () => setIsDesktop(mql.matches)
+    update()
+    mql.addEventListener('change', update)
+    return () => mql.removeEventListener('change', update)
+  }, [])
+
+  return isDesktop
+}
+
 export function KanbanContatos({
   initialBoard,
   initialSearch = '',
@@ -118,6 +132,7 @@ export function KanbanContatos({
   const boardRef = useRef<HTMLDivElement>(null)
 
   const router = useRouter()
+  const isDesktop = useIsDesktop()
   const canManageColumns = userNivelAcesso === 'gestor' || userNivelAcesso === 'master'
   const selectedId = selected?.id
 
@@ -292,9 +307,10 @@ export function KanbanContatos({
 
               if (alreadyLoaded) {
                 applyContatoRealtime(row)
+              } else {
+                scheduleBoardRefresh(true)
               }
 
-              scheduleBoardRefresh(true)
               if (baseSeedModal.open && !baseSeedModal.confirming && isBaseSeedColumn(row.kanban_coluna_chave)) {
                 scheduleBaseSeedPreviewRefresh(row.kanban_coluna_chave)
               }
@@ -612,7 +628,11 @@ export function KanbanContatos({
 
   async function moveContato(pacienteId: string, columnKey: string) {
     const targetColumn = getColumnByKey(columnKey)
-    if (!targetColumn) return
+    if (!targetColumn) {
+      toast.error('Coluna nao encontrada. Atualize a pagina e tente novamente.')
+      router.refresh()
+      return
+    }
 
     const currentContato = contatos.find((c) => c.id === pacienteId)
     const previousColumnKey = currentContato?.kanban_coluna_chave ?? null
@@ -671,13 +691,28 @@ export function KanbanContatos({
 
   async function handleResponsavelChange(responsavelId: string) {
     if (!selected) return
+    const pacienteId = selected.id
+    const previousResponsavelId = selected.responsavel_id ?? null
+    const previousResponsavelNome = selected.responsavel_nome ?? null
     const nomeResponsavel = responsavelId
       ? profiles.find((p) => p.id === responsavelId)?.full_name ?? null
       : null
     const update = { responsavel_id: responsavelId || null, responsavel_nome: nomeResponsavel }
-    setContatos((prev) => prev.map((c) => (c.id === selected.id ? { ...c, ...update } : c)))
+    setContatos((prev) => prev.map((c) => (c.id === pacienteId ? { ...c, ...update } : c)))
     setSelected((prev) => (prev ? { ...prev, ...update } : null))
-    await atualizarResponsavelContato(selected.id, responsavelId || null)
+
+    try {
+      const result = await atualizarResponsavelContato(pacienteId, responsavelId || null)
+      if (result?.error) {
+        throw new Error(result.error)
+      }
+    } catch (e) {
+      console.error('[handleResponsavelChange]', e)
+      toast.error('Erro ao atualizar o responsavel.')
+      const revert = { responsavel_id: previousResponsavelId, responsavel_nome: previousResponsavelNome }
+      setContatos((prev) => prev.map((c) => (c.id === pacienteId ? { ...c, ...revert } : c)))
+      setSelected((prev) => (prev && prev.id === pacienteId ? { ...prev, ...revert } : prev))
+    }
   }
 
   async function handleAddNota() {
@@ -910,6 +945,8 @@ export function KanbanContatos({
             onMoveLeft={moverEsquerda}
             onMoveRight={moverDireita}
             getColumnCardCount={getColumnCardCount}
+            isDesktop={isDesktop}
+            onDropContato={(id) => void moveContato(id, column.chave)}
           />
         ))}
       </div>
