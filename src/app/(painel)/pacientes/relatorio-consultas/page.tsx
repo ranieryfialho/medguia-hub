@@ -40,6 +40,7 @@ type AtendimentoResumo = {
   id: string
   agendamento_id: string | null
   profissional_id: string | null
+  fisioterapeuta_id: string | null
   tipo: string | null
   status: string | null
   data_agendamento: string
@@ -276,6 +277,7 @@ export default async function RelatorioConsultasPage({
       id,
       agendamento_id,
       profissional_id,
+      fisioterapeuta_id,
       tipo,
       status,
       data_agendamento,
@@ -286,7 +288,17 @@ export default async function RelatorioConsultasPage({
     .gte('data_agendamento', dataInicioIso)
     .lte('data_agendamento', dataFimIso)
 
-  if (profissionaisFiltroEfetivos.length === 1) {
+  // Na visão de fisioterapia, um atendimento também conta para quem o executou
+  // (fisioterapeuta_id), não só para quem consta como responsável — mesma regra
+  // já usada no Tempo Fábril. Evita que a sessão "suma" do relatório de quem
+  // efetivamente atendeu.
+  if (profissionaisFiltroEfetivos.length === 1 && visao === 'fisioterapia') {
+    const id = profissionaisFiltroEfetivos[0]
+    atendimentosQuery = atendimentosQuery.or(`profissional_id.eq.${id},fisioterapeuta_id.eq.${id}`)
+  } else if (profissionaisFiltroEfetivos.length > 1 && visao === 'fisioterapia') {
+    const ids = profissionaisFiltroEfetivos.join(',')
+    atendimentosQuery = atendimentosQuery.or(`profissional_id.in.(${ids}),fisioterapeuta_id.in.(${ids})`)
+  } else if (profissionaisFiltroEfetivos.length === 1) {
     atendimentosQuery = atendimentosQuery.eq('profissional_id', profissionaisFiltroEfetivos[0])
   } else if (profissionaisFiltroEfetivos.length > 1) {
     atendimentosQuery = atendimentosQuery.in('profissional_id', profissionaisFiltroEfetivos)
@@ -414,6 +426,18 @@ export default async function RelatorioConsultasPage({
     return false
   }
 
+  // Quem "conta" o atendimento na tabela Por Equipe: na visão de fisioterapia,
+  // crédito vai para quem executou (fisioterapeuta_id) quando esse papel foi
+  // atribuído a outra pessoa — mesmo critério do Tempo Fábril. Sem isso, um
+  // atendimento executado por A mas com profissional_id de B some do relatório
+  // de A e é creditado erroneamente a B, que não atendeu.
+  function profissionalEfetivoId(atendimento: AtendimentoResumo): string | null {
+    if (visao === 'fisioterapia' && atendimento.fisioterapeuta_id) {
+      return atendimento.fisioterapeuta_id
+    }
+    return atendimento.profissional_id
+  }
+
   const atendimentosDoPeriodo = atendimentos
   const detalhamentoConsultas = atendimentosDoPeriodo.map((atendimento) => {
     const paciente = firstRelation(atendimento.pacientes)
@@ -486,7 +510,7 @@ export default async function RelatorioConsultasPage({
     const statusLabel = normalizeAtendimentoStatus(atendimento.status || 'Sem status')
     statusMap[statusLabel] = (statusMap[statusLabel] || 0) + 1
 
-    const linhaProf = garantirLinhaProfissional(atendimento.profissional_id)
+    const linhaProf = garantirLinhaProfissional(profissionalEfetivoId(atendimento))
     linhaProf.agendamentos++
     if (agendamentoPai?.is_recorrente) linhaProf.recorrentes++
 
