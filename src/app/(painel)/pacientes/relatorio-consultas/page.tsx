@@ -4,6 +4,7 @@ import { requireModulo } from '@/lib/guard'
 import { formatAppDate, formatAppTime, getAppDayRangeUTC } from '@/lib/datetime'
 import {
   getAtendimentoStatusKey,
+  isStatusFabril,
   normalizeAtendimentoStatus,
 } from '@/lib/atendimento-status'
 import {
@@ -139,12 +140,18 @@ function buildDetalhamentoUrl(
     detalhe_pagina?: number
     detalhe_limite?: number
     detalhe_ordem?: string
+    detalhe_realizados?: boolean
   } = {},
 ) {
   const query = new URLSearchParams()
 
   for (const [key, rawValue] of Object.entries(params)) {
-    if (key === 'detalhe_pagina' || key === 'detalhe_limite' || key === 'detalhe_ordem') continue
+    if (
+      key === 'detalhe_pagina' ||
+      key === 'detalhe_limite' ||
+      key === 'detalhe_ordem' ||
+      key === 'detalhe_realizados'
+    ) continue
     if (Array.isArray(rawValue)) {
       for (const value of rawValue) query.append(key, value)
       continue
@@ -157,10 +164,12 @@ function buildDetalhamentoUrl(
   const pagina = overrides.detalhe_pagina ?? 1
   const limite = overrides.detalhe_limite ?? 10
   const ordem = overrides.detalhe_ordem ?? 'data_desc'
+  const realizados = overrides.detalhe_realizados ?? params.detalhe_realizados === '1'
 
   if (pagina > 1) query.set('detalhe_pagina', String(pagina))
   if (limite !== 10) query.set('detalhe_limite', String(limite))
   if (ordem !== 'data_desc') query.set('detalhe_ordem', ordem)
+  if (realizados) query.set('detalhe_realizados', '1')
 
   return `/pacientes/relatorio-consultas?${query.toString()}`
 }
@@ -198,6 +207,7 @@ export default async function RelatorioConsultasPage({
   const detalheOrdem = typeof params.detalhe_ordem === 'string' && params.detalhe_ordem.length > 0
     ? params.detalhe_ordem
     : 'data_desc'
+  const detalheRealizados = params.detalhe_realizados === '1'
 
   const dataInicioIso = getAppDayRangeUTC(data_inicio).start
   const dataFimIso = getAppDayRangeUTC(data_fim).end
@@ -457,6 +467,7 @@ export default async function RelatorioConsultasPage({
       contato,
       origem: paciente?.origem?.trim() || 'Sem origem',
       marcouRetorno: isRetorno(atendimento),
+      realizado: isStatusFabril(atendimento.status),
     }
   })
   const detalhamentoConsultasOrdenado = [...detalhamentoConsultas].sort((a, b) => {
@@ -479,12 +490,16 @@ export default async function RelatorioConsultasPage({
     }
   })
 
-  const totalDetalhamento = detalhamentoConsultasOrdenado.length
+  const detalhamentoConsultasFiltrado = detalheRealizados
+    ? detalhamentoConsultasOrdenado.filter((consulta) => consulta.realizado)
+    : detalhamentoConsultasOrdenado
+
+  const totalDetalhamento = detalhamentoConsultasFiltrado.length
   const totalPaginasDetalhamento = Math.max(1, Math.ceil(totalDetalhamento / detalheLimite))
   const detalhePagina = Math.min(detalhePaginaBase, totalPaginasDetalhamento)
   const detalheOffset = (detalhePagina - 1) * detalheLimite
   const detalheAte = Math.min(detalheOffset + detalheLimite, totalDetalhamento)
-  const detalhamentoConsultasPaginado = detalhamentoConsultasOrdenado.slice(detalheOffset, detalheOffset + detalheLimite)
+  const detalhamentoConsultasPaginado = detalhamentoConsultasFiltrado.slice(detalheOffset, detalheOffset + detalheLimite)
   const paginasDetalhamento: Array<number | '...'> = []
 
   if (totalPaginasDetalhamento <= 7) {
@@ -1055,11 +1070,37 @@ export default async function RelatorioConsultasPage({
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100">
-          <h2 className="font-semibold text-slate-900">Detalhamento das Consultas</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Nome do paciente, tipo de atendimento, responsável, data da avaliação e contato.
-          </p>
+        <div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-4">
+          <div>
+            <h2 className="font-semibold text-slate-900">Detalhamento das Consultas</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Nome do paciente, tipo de atendimento, responsável, data da avaliação e contato.
+            </p>
+          </div>
+          <Link
+            href={buildDetalhamentoUrl(params, {
+              detalhe_realizados: !detalheRealizados,
+              detalhe_pagina: 1,
+              detalhe_limite: detalheLimite,
+              detalhe_ordem: detalheOrdem,
+            })}
+            className="flex items-center gap-2 shrink-0 pt-0.5"
+          >
+            <span className="text-sm font-medium text-slate-600 whitespace-nowrap">
+              Somente realizados
+            </span>
+            <span
+              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                detalheRealizados ? 'bg-[#006b5a]' : 'bg-slate-300'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                  detalheRealizados ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </span>
+          </Link>
         </div>
         <div className="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-slate-500">
@@ -1075,6 +1116,7 @@ export default async function RelatorioConsultasPage({
                   detalhe_limite: limite,
                   detalhe_pagina: 1,
                   detalhe_ordem: detalheOrdem,
+                  detalhe_realizados: detalheRealizados,
                 })}
                 className={`rounded-full px-3 py-1.5 text-sm transition-colors ${
                   detalheLimite === limite
@@ -1100,10 +1142,12 @@ export default async function RelatorioConsultasPage({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {detalhamentoConsultas.length === 0 && (
+              {detalhamentoConsultasFiltrado.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
-                    Nenhuma consulta encontrada no período.
+                    {detalheRealizados
+                      ? 'Nenhum atendimento realizado encontrado no período.'
+                      : 'Nenhuma consulta encontrada no período.'}
                   </td>
                 </tr>
               )}
