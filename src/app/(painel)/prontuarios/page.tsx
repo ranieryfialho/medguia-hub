@@ -12,6 +12,137 @@ function iniciais(nome: string) {
 
 const LIMITE = 20
 
+// Componente de filtros inline (reutilizado nas duas abas)
+function PainelFiltros({
+  abaAtual,
+  hasActive,
+  busca,
+  filtroProf,
+  filtroTipo,
+  filtroDataInicio,
+  filtroDataFim,
+  isFisio,
+  profissionaisFiltro,
+  tiposConsulta,
+}: {
+  abaAtual: string
+  hasActive: boolean
+  busca: string
+  filtroProf: string
+  filtroTipo: string
+  filtroDataInicio: string
+  filtroDataFim: string
+  isFisio: boolean
+  profissionaisFiltro: { id: string; nome: string }[]
+  tiposConsulta: string[]
+}) {
+  const limparUrl = abaAtual === 'pendentes' ? '/prontuarios' : '/prontuarios?aba=historico'
+  return (
+    <details open={hasActive} className="group bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+      <summary className="flex items-center justify-between px-4 py-3 cursor-pointer list-none select-none hover:bg-slate-50 transition-colors">
+        <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+          <SlidersHorizontal size={15} className="text-[#006b5a]" />
+          Filtros
+          {hasActive && (
+            <span className="bg-[#006b5a] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+              ativos
+            </span>
+          )}
+        </div>
+        <ChevronRight size={15} className="text-slate-400 group-open:rotate-90 transition-transform" />
+      </summary>
+
+      <div className="border-t border-slate-100 px-4 py-4">
+        <form method="get" action="/prontuarios" className="flex flex-col gap-3">
+          <input type="hidden" name="aba" value={abaAtual} />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* Busca por paciente — só no histórico */}
+            {abaAtual === 'historico' && (
+              <div className="relative">
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  name="busca"
+                  defaultValue={busca}
+                  placeholder="Paciente..."
+                  className="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#006b5a]/50 shadow-sm"
+                />
+              </div>
+            )}
+
+            {/* Profissional (gestor) */}
+            {!isFisio && (
+              <select
+                name="profissional_id"
+                defaultValue={filtroProf}
+                className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#006b5a]/50 shadow-sm text-slate-700"
+              >
+                <option value="">Todos os profissionais</option>
+                {profissionaisFiltro.map(p => (
+                  <option key={p.id} value={p.id}>{p.nome}</option>
+                ))}
+              </select>
+            )}
+
+            {/* Tipo de consulta */}
+            <select
+              name="tipo"
+              defaultValue={filtroTipo}
+              className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#006b5a]/50 shadow-sm text-slate-700"
+            >
+              <option value="">Todos os tipos</option>
+              {tiposConsulta.map(t => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+
+            {/* Data início */}
+            <div className="relative">
+              <label className="absolute -top-2 left-3 bg-white px-1 text-[10px] font-semibold text-slate-400">De</label>
+              <input
+                type="date"
+                name="data_inicio"
+                defaultValue={filtroDataInicio}
+                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#006b5a]/50 shadow-sm text-slate-700"
+              />
+            </div>
+
+            {/* Data fim */}
+            <div className="relative">
+              <label className="absolute -top-2 left-3 bg-white px-1 text-[10px] font-semibold text-slate-400">Até</label>
+              <input
+                type="date"
+                name="data_fim"
+                defaultValue={filtroDataFim}
+                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#006b5a]/50 shadow-sm text-slate-700"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-2 justify-end pt-1">
+            {hasActive && (
+              <Link
+                href={limparUrl}
+                className="flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-sm transition-colors"
+              >
+                <X size={13} />
+                Limpar
+              </Link>
+            )}
+            <button
+              type="submit"
+              className="px-5 py-2 bg-[#006b5a] hover:bg-[#005a4b] text-white rounded-lg text-sm font-semibold transition-colors"
+            >
+              Filtrar
+            </button>
+          </div>
+        </form>
+      </div>
+    </details>
+  )
+}
+
 export default async function ProntuariosPage({
   searchParams,
 }: {
@@ -184,115 +315,6 @@ export default async function ProntuariosPage({
     paginasHistorico.push(totalPaginasHistorico)
   }
 
-  // Componente de filtros inline (reutilizado nas duas abas)
-  function PainelFiltros({ abaAtual, hasActive }: { abaAtual: string; hasActive: boolean }) {
-    const limparUrl = abaAtual === 'pendentes' ? '/prontuarios' : '/prontuarios?aba=historico'
-    return (
-      <details open={hasActive} className="group bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
-        <summary className="flex items-center justify-between px-4 py-3 cursor-pointer list-none select-none hover:bg-slate-50 transition-colors">
-          <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-            <SlidersHorizontal size={15} className="text-[#006b5a]" />
-            Filtros
-            {hasActive && (
-              <span className="bg-[#006b5a] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
-                ativos
-              </span>
-            )}
-          </div>
-          <ChevronRight size={15} className="text-slate-400 group-open:rotate-90 transition-transform" />
-        </summary>
-
-        <div className="border-t border-slate-100 px-4 py-4">
-          <form method="get" action="/prontuarios" className="flex flex-col gap-3">
-            <input type="hidden" name="aba" value={abaAtual} />
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {/* Busca por paciente — só no histórico */}
-              {abaAtual === 'historico' && (
-                <div className="relative">
-                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    name="busca"
-                    defaultValue={busca}
-                    placeholder="Paciente..."
-                    className="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#006b5a]/50 shadow-sm"
-                  />
-                </div>
-              )}
-
-              {/* Profissional (gestor) */}
-              {!isFisio && (
-                <select
-                  name="profissional_id"
-                  defaultValue={filtroProf}
-                  className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#006b5a]/50 shadow-sm text-slate-700"
-                >
-                  <option value="">Todos os profissionais</option>
-                  {profissionaisFiltro.map(p => (
-                    <option key={p.id} value={p.id}>{p.nome}</option>
-                  ))}
-                </select>
-              )}
-
-              {/* Tipo de consulta */}
-              <select
-                name="tipo"
-                defaultValue={filtroTipo}
-                className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#006b5a]/50 shadow-sm text-slate-700"
-              >
-                <option value="">Todos os tipos</option>
-                {tiposConsulta.map(t => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
-
-              {/* Data início */}
-              <div className="relative">
-                <label className="absolute -top-2 left-3 bg-white px-1 text-[10px] font-semibold text-slate-400">De</label>
-                <input
-                  type="date"
-                  name="data_inicio"
-                  defaultValue={filtroDataInicio}
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#006b5a]/50 shadow-sm text-slate-700"
-                />
-              </div>
-
-              {/* Data fim */}
-              <div className="relative">
-                <label className="absolute -top-2 left-3 bg-white px-1 text-[10px] font-semibold text-slate-400">Até</label>
-                <input
-                  type="date"
-                  name="data_fim"
-                  defaultValue={filtroDataFim}
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#006b5a]/50 shadow-sm text-slate-700"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-2 justify-end pt-1">
-              {hasActive && (
-                <Link
-                  href={limparUrl}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-sm transition-colors"
-                >
-                  <X size={13} />
-                  Limpar
-                </Link>
-              )}
-              <button
-                type="submit"
-                className="px-5 py-2 bg-[#006b5a] hover:bg-[#005a4b] text-white rounded-lg text-sm font-semibold transition-colors"
-              >
-                Filtrar
-              </button>
-            </div>
-          </form>
-        </div>
-      </details>
-    )
-  }
-
   return (
     <div className="w-full space-y-5">
 
@@ -352,7 +374,18 @@ export default async function ProntuariosPage({
       {/* ── PENDENTES ─────────────────────────────────────────── */}
       {aba === 'pendentes' && role !== 'medico' && (
         <>
-          <PainelFiltros abaAtual="pendentes" hasActive={hasFiltroPendentes} />
+          <PainelFiltros
+            abaAtual="pendentes"
+            hasActive={hasFiltroPendentes}
+            busca={busca}
+            filtroProf={filtroProf}
+            filtroTipo={filtroTipo}
+            filtroDataInicio={filtroDataInicio}
+            filtroDataFim={filtroDataFim}
+            isFisio={isFisio}
+            profissionaisFiltro={profissionaisFiltro}
+            tiposConsulta={tiposConsulta}
+          />
 
           {pendentes.length === 0 ? (
             <div className="bg-white rounded-xl p-12 shadow-sm border border-slate-100 flex flex-col items-center gap-4 text-center">
@@ -417,7 +450,18 @@ export default async function ProntuariosPage({
       {/* ── HISTÓRICO ─────────────────────────────────────────── */}
       {aba === 'historico' && (
         <div className="space-y-4">
-          <PainelFiltros abaAtual="historico" hasActive={hasFiltroHistorico} />
+          <PainelFiltros
+            abaAtual="historico"
+            hasActive={hasFiltroHistorico}
+            busca={busca}
+            filtroProf={filtroProf}
+            filtroTipo={filtroTipo}
+            filtroDataInicio={filtroDataInicio}
+            filtroDataFim={filtroDataFim}
+            isFisio={isFisio}
+            profissionaisFiltro={profissionaisFiltro}
+            tiposConsulta={tiposConsulta}
+          />
 
           {historicoPaginado.length === 0 ? (
             <div className="bg-white rounded-xl p-12 shadow-sm border border-slate-100 flex flex-col items-center gap-3 text-center">
