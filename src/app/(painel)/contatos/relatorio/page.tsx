@@ -15,14 +15,17 @@ import {
 } from '@/lib/ultimo-atendimento'
 import { requireModulo } from '@/lib/guard'
 import { isGestorSistema } from '@/lib/permissoes'
-import {
-  format, parseISO,
-  startOfWeek, endOfWeek,
-  startOfMonth, endOfMonth,
-  subMonths,
-} from 'date-fns'
+import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { formatAppDateKey } from '@/lib/datetime'
+import {
+  formatAppDateKey,
+  parseAppDate,
+  startOfAppWeekKey,
+  endOfAppWeekKey,
+  startOfAppMonthKey,
+  endOfAppMonthKey,
+  subAppMonthsKey,
+} from '@/lib/datetime'
 
 type StatusContato = StatusContatoPadrao
 
@@ -50,14 +53,16 @@ function resolverPeriodoContatos(params: Record<string, string | string[] | unde
 
   switch (periodo) {
     case 'esta-semana': {
-      const ini = startOfWeek(parseISO(hojeStr), { weekStartsOn: 0 })
-      const fim = endOfWeek(parseISO(hojeStr), { weekStartsOn: 0 })
+      const ini = parseAppDate(startOfAppWeekKey(hojeStr))
+      const fim = parseAppDate(endOfAppWeekKey(hojeStr))
       return { dataInicio: ini, dataFim: fim, periodoAtual: 'esta-semana', label: 'Esta semana' }
     }
     case 'mes-passado': {
-      const mp = subMonths(parseISO(hojeStr), 1)
+      const mpStr = subAppMonthsKey(hojeStr, 1)
+      const mp = parseAppDate(mpStr)
       return {
-        dataInicio: startOfMonth(mp), dataFim: endOfMonth(mp),
+        dataInicio: parseAppDate(startOfAppMonthKey(mpStr)),
+        dataFim: parseAppDate(endOfAppMonthKey(mpStr)),
         periodoAtual: 'mes-passado',
         label: format(mp, "MMMM 'de' yyyy", { locale: ptBR }),
       }
@@ -66,17 +71,17 @@ function resolverPeriodoContatos(params: Record<string, string | string[] | unde
       const de  = typeof params.de  === 'string' ? params.de  : hojeStr
       const ate = typeof params.ate === 'string' ? params.ate : hojeStr
       return {
-        dataInicio: parseISO(de), dataFim: parseISO(ate),
+        dataInicio: parseAppDate(de), dataFim: parseAppDate(ate),
         periodoAtual: 'personalizado',
-        label: `${format(parseISO(de), 'dd/MM/yyyy')} – ${format(parseISO(ate), 'dd/MM/yyyy')}`,
+        label: `${format(parseAppDate(de), 'dd/MM/yyyy')} – ${format(parseAppDate(ate), 'dd/MM/yyyy')}`,
       }
     }
     default: {
       return {
-        dataInicio: startOfMonth(parseISO(hojeStr)),
-        dataFim: endOfMonth(parseISO(hojeStr)),
+        dataInicio: parseAppDate(startOfAppMonthKey(hojeStr)),
+        dataFim: parseAppDate(endOfAppMonthKey(hojeStr)),
         periodoAtual: 'este-mes',
-        label: format(parseISO(hojeStr), "MMMM 'de' yyyy", { locale: ptBR }),
+        label: format(parseAppDate(hojeStr), "MMMM 'de' yyyy", { locale: ptBR }),
       }
     }
   }

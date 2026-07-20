@@ -1,5 +1,11 @@
 FROM node:20-alpine AS base
 
+# Alpine não vem com tzdata; sem isso, TZ vira no-op e o processo roda em UTC.
+# Fixa o relógio do processo em horário de Brasília para qualquer código (inclusive
+# de terceiros) que use Date/date-fns sem passar por timeZone explícito.
+RUN apk add --no-cache tzdata
+ENV TZ=America/Fortaleza
+
 # Dependências
 FROM base AS deps
 RUN apk add --no-cache libc6-compat

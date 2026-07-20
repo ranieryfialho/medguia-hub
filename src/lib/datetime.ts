@@ -65,3 +65,36 @@ export function getAppDayRangeUTC(date: string) {
     end: new Date(`${date}T23:59:59.999${APP_UTC_OFFSET}`).toISOString(),
   }
 }
+
+// As funções abaixo calculam limites de semana/mês operando só sobre os
+// componentes Y-M-D da chave "yyyy-MM-dd" via getUTC*/setUTC*/Date.UTC.
+// Isso as torna imunes ao timezone do processo Node: usar startOfWeek/startOfMonth
+// do date-fns aqui resetaria a hora para meia-noite NO FUSO DO PROCESSO, e se o
+// servidor rodar em UTC (padrão em containers Docker), meia-noite UTC vira 21h do
+// dia anterior em America/Fortaleza — voltando um dia inteiro ao reconverter com
+// formatAppDateKey/parseAppDate.
+export function startOfAppWeekKey(dateKey: string): string {
+  const d = new Date(`${dateKey}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() - d.getUTCDay())
+  return d.toISOString().slice(0, 10)
+}
+
+export function endOfAppWeekKey(dateKey: string): string {
+  const d = new Date(`${dateKey}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + (6 - d.getUTCDay()))
+  return d.toISOString().slice(0, 10)
+}
+
+export function startOfAppMonthKey(dateKey: string): string {
+  return `${dateKey.slice(0, 7)}-01`
+}
+
+export function endOfAppMonthKey(dateKey: string): string {
+  const [y, m] = dateKey.split('-').map(Number)
+  return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10)
+}
+
+export function subAppMonthsKey(dateKey: string, months: number): string {
+  const [y, m, day] = dateKey.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1 - months, day)).toISOString().slice(0, 10)
+}

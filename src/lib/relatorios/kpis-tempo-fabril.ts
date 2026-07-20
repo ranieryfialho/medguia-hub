@@ -1,13 +1,14 @@
+import { addDays } from 'date-fns'
 import {
-  addDays,
-  endOfMonth,
-  endOfWeek,
-  parseISO,
-  startOfMonth,
-  startOfWeek,
-  subMonths,
-} from 'date-fns'
-import { formatAppDateKey, parseAppDate, APP_TIME_ZONE } from '@/lib/datetime'
+  formatAppDateKey,
+  parseAppDate,
+  APP_TIME_ZONE,
+  startOfAppWeekKey,
+  endOfAppWeekKey,
+  startOfAppMonthKey,
+  endOfAppMonthKey,
+  subAppMonthsKey,
+} from '@/lib/datetime'
 import { calcularMinutosJornada, obterIntervalosJornada, toHora } from '@/lib/jornada'
 import {
   buildMapaMensalPorProfissional,
@@ -29,6 +30,7 @@ export type Atendimento = {
   tipo: string
   numero_sessao: number | null
   paciente_id: string
+  paciente_nome?: string | null
 }
 
 export type Jornada = JornadaSemanal
@@ -56,6 +58,14 @@ export type HistoricoStatus = {
   duracao_minutos: number
 }
 
+export type AtendimentoDetalheKPI = {
+  id: string
+  pacienteNome: string
+  tipo: string
+  duracaoMinutos: number
+  data: string
+}
+
 export type KPIsProfissional = {
   profissionalId: string
   nome: string
@@ -68,6 +78,7 @@ export type KPIsProfissional = {
   tempoMedioMin: number
   diasSubutilizados: number
   evolucaoPorSemana: EvolucaoSemanalKPI[]
+  detalheAtendimentos: AtendimentoDetalheKPI[]
 }
 
 export function toMin(hora: string): number {
@@ -152,15 +163,17 @@ export function agruparPorSemana(
   dataFim: Date,
 ): EvolucaoSemanalKPI[] {
   const semanas: EvolucaoSemanalKPI[] = []
-  let cursor = startOfWeek(dataInicio, { weekStartsOn: 0 })
+  const dataInicioStr = formatAppDateKey(dataInicio)
+  const dataFimStr = formatAppDateKey(dataFim)
+  let cursorStr = startOfAppWeekKey(dataInicioStr)
 
-  while (cursor <= dataFim) {
-    const fimSemana = endOfWeek(cursor, { weekStartsOn: 0 })
-    const inicioEfetivo = cursor < dataInicio ? dataInicio : cursor
-    const fimEfetivo = fimSemana > dataFim ? dataFim : fimSemana
+  while (cursorStr <= dataFimStr) {
+    const fimSemanaStr = endOfAppWeekKey(cursorStr)
+    const inicioEfetivoStr = cursorStr < dataInicioStr ? dataInicioStr : cursorStr
+    const fimEfetivoStr = fimSemanaStr > dataFimStr ? dataFimStr : fimSemanaStr
 
-    const inicioEfetivoStr = formatAppDateKey(inicioEfetivo)
-    const fimEfetivoStr = formatAppDateKey(fimEfetivo)
+    const inicioEfetivo = parseAppDate(inicioEfetivoStr)
+    const fimEfetivo = parseAppDate(fimEfetivoStr)
 
     const atsSemana = atendimentos.filter((a) => {
       const dataKeyAtt = formatAppDateKey(new Date(a.data_agendamento))
@@ -190,7 +203,7 @@ export function agruparPorSemana(
       pct,
     })
 
-    cursor = addDays(fimSemana, 1)
+    cursorStr = formatAppDateKey(addDays(parseAppDate(fimSemanaStr), 1))
   }
 
   return semanas
@@ -321,6 +334,17 @@ export function calcularKPIs(
       dataFim,
     )
 
+    const detalheAtendimentos: AtendimentoDetalheKPI[] = atsProfissional
+      .filter((a) => isStatusFabril(a.status))
+      .map((a) => ({
+        id: a.id,
+        pacienteNome: a.paciente_nome?.trim() || 'Sem paciente',
+        tipo: a.tipo || 'Sem tipo',
+        duracaoMinutos: a.duracao_minutos ?? 0,
+        data: a.data_agendamento,
+      }))
+      .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+
     kpis.push({
       profissionalId: prof.id,
       nome: prof.nome,
@@ -333,6 +357,7 @@ export function calcularKPIs(
       tempoMedioMin,
       diasSubutilizados,
       evolucaoPorSemana,
+      detalheAtendimentos,
     })
   }
 
@@ -349,28 +374,28 @@ export function resolverPeriodo(
   switch (periodo) {
     case 'esta-semana':
       return {
-        dataInicio: startOfWeek(parseISO(hojeStr), { weekStartsOn: 0 }),
-        dataFim: endOfWeek(parseISO(hojeStr), { weekStartsOn: 0 }),
+        dataInicio: parseAppDate(startOfAppWeekKey(hojeStr)),
+        dataFim: parseAppDate(endOfAppWeekKey(hojeStr)),
       }
     case 'mes-passado': {
-      const mesPassado = subMonths(parseISO(hojeStr), 1)
+      const mesPassadoStr = subAppMonthsKey(hojeStr, 1)
       return {
-        dataInicio: startOfMonth(mesPassado),
-        dataFim: endOfMonth(mesPassado),
+        dataInicio: parseAppDate(startOfAppMonthKey(mesPassadoStr)),
+        dataFim: parseAppDate(endOfAppMonthKey(mesPassadoStr)),
       }
     }
     case 'personalizado': {
       const de = typeof params.de === 'string' ? params.de : hojeStr
       const ate = typeof params.ate === 'string' ? params.ate : hojeStr
       return {
-        dataInicio: parseISO(de),
-        dataFim: parseISO(ate),
+        dataInicio: parseAppDate(de),
+        dataFim: parseAppDate(ate),
       }
     }
     default:
       return {
-        dataInicio: startOfMonth(parseISO(hojeStr)),
-        dataFim: endOfMonth(parseISO(hojeStr)),
+        dataInicio: parseAppDate(startOfAppMonthKey(hojeStr)),
+        dataFim: parseAppDate(endOfAppMonthKey(hojeStr)),
       }
   }
 }
