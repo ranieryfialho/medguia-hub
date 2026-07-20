@@ -4,17 +4,20 @@ import { useState } from 'react'
 import { Printer } from 'lucide-react'
 import type { KPIsProfissional } from '@/lib/relatorios/kpis-tempo-fabril'
 import { gerarPdfTempoFabril } from '@/lib/relatorios/pdf-tempo-fabril'
+import type { OpcaoStatus } from '@/lib/status-disponibilidade-cores'
 
 type BtnImprimirRelatorioProps = {
   periodoLabel: string
   kpisEquipe: KPIsProfissional[]
   profFiltro: string
+  statusOpcoes: OpcaoStatus[]
 }
 
 export function BtnImprimirRelatorio({
   periodoLabel,
   kpisEquipe,
   profFiltro,
+  statusOpcoes,
 }: BtnImprimirRelatorioProps) {
   const [isLoading, setIsLoading] = useState(false)
 
@@ -25,6 +28,7 @@ export function BtnImprimirRelatorio({
         periodoLabel,
         kpisEquipe,
         profFiltro,
+        statusOpcoes,
       })
     } finally {
       setIsLoading(false)

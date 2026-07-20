@@ -1,10 +1,13 @@
 import type { jsPDF } from 'jspdf'
 import { formatarMinutos, type KPIsProfissional } from '@/lib/relatorios/kpis-tempo-fabril'
+import { formatAppDate, formatAppTime } from '@/lib/datetime'
+import type { OpcaoStatus } from '@/lib/status-disponibilidade-cores'
 
 type GerarPdfTempoFabrilInput = {
   periodoLabel: string
   kpisEquipe: KPIsProfissional[]
   profFiltro: string
+  statusOpcoes: OpcaoStatus[]
 }
 
 type RGB = readonly [number, number, number]
@@ -23,6 +26,7 @@ export async function gerarPdfTempoFabril({
   periodoLabel,
   kpisEquipe,
   profFiltro,
+  statusOpcoes,
 }: GerarPdfTempoFabrilInput) {
   const { jsPDF } = await import('jspdf')
   const doc = new jsPDF({
@@ -39,11 +43,17 @@ export async function gerarPdfTempoFabril({
   const resumo = calcularResumoGeral(kpisEquipe)
   const mediaTaxa = calcularMediaTaxa(kpisEquipe)
   const mediaTempo = calcularMediaTempoFabril(kpisEquipe)
+  // Só entram no relatório os status não-sistema (ex.: "Em reunião", "Ocupado" e
+  // status customizados criados em /configuracoes/status-disponibilidade) que
+  // acumularam tempo para algum profissional no período — mesmo critério da tabela web.
+  const statusComTempo = statusOpcoes
+    .filter((op) => !op.sistema && kpisEquipe.some((k) => (k.tempoStatusMin[op.slug] ?? 0) > 0))
+    .sort((a, b) => a.ordem - b.ordem)
 
   desenharPaginaResumo(doc, periodoLabel, kpisOrdenados, resumo)
 
   doc.addPage()
-  desenharPaginaEquipe(doc, kpisOrdenados)
+  desenharPaginaEquipe(doc, kpisOrdenados, statusComTempo)
 
   for (const kpi of individuais) {
     doc.addPage()
@@ -54,6 +64,7 @@ export async function gerarPdfTempoFabril({
       mediaTempo,
       totalProfissionais: kpisOrdenados.length,
       posicao: kpisOrdenados.findIndex((item) => item.profissionalId === kpi.profissionalId) + 1,
+      statusComTempo,
     })
   }
 
@@ -102,7 +113,7 @@ function desenharPaginaResumo(
   desenharTabelaRanking(doc, y, ranking.slice(0, 6))
 }
 
-function desenharPaginaEquipe(doc: jsPDF, ranking: KPIsProfissional[]) {
+function desenharPaginaEquipe(doc: jsPDF, ranking: KPIsProfissional[], statusComTempo: OpcaoStatus[]) {
   let y = desenharCabecalhoInterno(doc, 'Visão Geral da Equipe', 'Comparativo consolidado')
 
   y += 4
@@ -111,7 +122,7 @@ function desenharPaginaEquipe(doc: jsPDF, ranking: KPIsProfissional[]) {
 
   y += 8
   y = desenharTituloSecao(doc, y, 'Tabela consolidada')
-  desenharTabelaEquipe(doc, y, ranking)
+  desenharTabelaEquipe(doc, y, ranking, statusComTempo)
 }
 
 function desenharPaginaIndividual(
@@ -123,6 +134,7 @@ function desenharPaginaIndividual(
     mediaTempo,
     totalProfissionais,
     posicao,
+    statusComTempo,
   }: {
     periodoLabel: string
     kpi: KPIsProfissional
@@ -130,6 +142,7 @@ function desenharPaginaIndividual(
     mediaTempo: number
     totalProfissionais: number
     posicao: number
+    statusComTempo: OpcaoStatus[]
   },
 ) {
   let y = desenharCabecalhoInterno(doc, 'Relatório Individual', kpi.nome)
@@ -143,11 +156,15 @@ function desenharPaginaIndividual(
 
   y += 8
   y = desenharTituloSecao(doc, y, 'Indicadores')
+  const statusCards = statusComTempo
+    .filter((op) => (kpi.tempoStatusMin[op.slug] ?? 0) > 0)
+    .map((op): [string, string] => [op.label, formatarMinutos(kpi.tempoStatusMin[op.slug] ?? 0)])
   y = desenharGradeCards(doc, y, [
     ['Tempo fabril', formatarMinutos(kpi.tempoFabrilMin)],
     ['Jornada contratada', formatarMinutos(kpi.jornadaContratadaMin)],
     ['Atendimentos', String(kpi.qtdAtendimentos)],
     ['Tempo médio', formatarMinutos(kpi.tempoMedioMin)],
+    ...statusCards,
   ])
 
   y += 8
@@ -163,6 +180,11 @@ function desenharPaginaIndividual(
   y += 8
   y = desenharTituloSecao(doc, y, 'Evolução semanal')
   desenharTabelaSemanal(doc, y, kpi)
+
+  doc.addPage()
+  let yDetalhe = desenharCabecalhoInterno(doc, 'Atendimentos do Período', kpi.nome)
+  yDetalhe += 4
+  desenharTabelaAtendimentos(doc, yDetalhe, kpi)
 }
 
 function desenharCabecalhoInterno(doc: jsPDF, titulo: string, subtitulo: string) {
@@ -312,9 +334,25 @@ function desenharTabelaRanking(doc: jsPDF, y: number, ranking: KPIsProfissional[
   return cursor
 }
 
-function desenharTabelaEquipe(doc: jsPDF, y: number, dados: KPIsProfissional[]) {
-  const headers = ['Profissional', 'Taxa', 'Tempo fabril', 'Jornada', 'Atend.']
-  const widths = [72, 18, 34, 34, 20]
+function desenharTabelaEquipe(doc: jsPDF, y: number, dados: KPIsProfissional[], statusComTempo: OpcaoStatus[]) {
+  const numStatus = statusComTempo.length
+  const baseHeaders = ['Profissional', 'Taxa', 'Tempo fabril', 'Jornada', 'Atend.']
+  const baseWidths = numStatus > 0 ? [46, 16, 28, 28, 16] : [72, 18, 34, 34, 20]
+  const statusWidth = numStatus > 0
+    ? (CONTENT_WIDTH - baseWidths.reduce((acc, w) => acc + w, 0)) / numStatus
+    : 0
+
+  const headers = [
+    baseHeaders[0],
+    ...statusComTempo.map((op) => op.label_curto),
+    ...baseHeaders.slice(1),
+  ]
+  const widths = [
+    baseWidths[0],
+    ...statusComTempo.map(() => statusWidth),
+    ...baseWidths.slice(1),
+  ]
+
   let cursor = desenharLinhaTabela(doc, y, headers, widths, true)
 
   for (const item of dados) {
@@ -326,6 +364,10 @@ function desenharTabelaEquipe(doc: jsPDF, y: number, dados: KPIsProfissional[]) 
 
     cursor = desenharLinhaTabela(doc, cursor, [
       item.nome,
+      ...statusComTempo.map((op) => {
+        const min = item.tempoStatusMin[op.slug] ?? 0
+        return min > 0 ? formatarMinutos(min) : '—'
+      }),
       `${item.taxaOcupacao}%`,
       formatarMinutos(item.tempoFabrilMin),
       formatarMinutos(item.jornadaContratadaMin),
@@ -353,6 +395,37 @@ function desenharTabelaSemanal(doc: jsPDF, y: number, kpi: KPIsProfissional) {
       formatarMinutos(semana.fabrilMin),
       formatarMinutos(semana.jornadaMin),
       `${semana.pct}%`,
+    ], widths)
+  }
+
+  return cursor
+}
+
+function desenharTabelaAtendimentos(doc: jsPDF, y: number, kpi: KPIsProfissional) {
+  if (kpi.detalheAtendimentos.length === 0) {
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.setTextColor(...MUTED)
+    doc.text('Nenhum atendimento fábril no período.', MARGIN_X, y + 4)
+    return y + 8
+  }
+
+  const headers = ['Paciente', 'Tipo de Consulta', 'Dia', 'Tempo']
+  const widths = [70, 46, 40, 22]
+  let cursor = desenharLinhaTabela(doc, y, headers, widths, true)
+
+  for (const atendimento of kpi.detalheAtendimentos) {
+    if (cursor > PAGE_HEIGHT - 22) {
+      doc.addPage()
+      cursor = desenharCabecalhoInterno(doc, 'Atendimentos do Período', `${kpi.nome} · Continuação`)
+      cursor = desenharLinhaTabela(doc, cursor + 4, headers, widths, true)
+    }
+
+    cursor = desenharLinhaTabela(doc, cursor, [
+      atendimento.pacienteNome,
+      atendimento.tipo,
+      `${formatAppDate(atendimento.data)} ${formatAppTime(atendimento.data)}`,
+      formatarMinutos(atendimento.duracaoMinutos),
     ], widths)
   }
 

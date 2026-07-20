@@ -8,6 +8,14 @@ import { GraficoDistribuicaoTempo } from './GraficoDistribuicaoTempo'
 import { GraficoComparativoMedia } from './GraficoComparativoMedia'
 import type { OpcaoStatus } from '@/lib/status-disponibilidade-cores'
 
+type AtendimentoDetalheKPI = {
+  id: string
+  pacienteNome: string
+  tipo: string
+  duracaoMinutos: number
+  data: string
+}
+
 type KPIsProfissional = {
   profissionalId: string
   nome: string
@@ -20,6 +28,7 @@ type KPIsProfissional = {
   tempoMedioMin: number
   diasSubutilizados: number
   evolucaoPorSemana: { label: string; fabrilMin: number; jornadaMin: number; pct: number }[]
+  detalheAtendimentos: AtendimentoDetalheKPI[]
 }
 
 type ConteudoRelatorioProps = {

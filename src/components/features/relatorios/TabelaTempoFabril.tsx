@@ -1,10 +1,19 @@
 'use client'
 
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronUp, ChevronDown, Eye } from 'lucide-react'
+import { ChevronUp, ChevronDown, Eye, ChevronRight } from 'lucide-react'
 import { Tooltip } from '../shared'
 import { getCorConfig, type OpcaoStatus } from '@/lib/status-disponibilidade-cores'
+import { formatAppDate, formatAppTime } from '@/lib/datetime'
+
+type AtendimentoDetalheKPI = {
+  id: string
+  pacienteNome: string
+  tipo: string
+  duracaoMinutos: number
+  data: string
+}
 
 type KPIsProfissional = {
   profissionalId: string
@@ -17,6 +26,7 @@ type KPIsProfissional = {
   qtdAtendimentos: number
   tempoMedioMin: number
   diasSubutilizados: number
+  detalheAtendimentos: AtendimentoDetalheKPI[]
 }
 
 type TabelaTempoFabrilProps = {
@@ -64,6 +74,19 @@ export function TabelaTempoFabril({ kpis, statusOpcoes }: TabelaTempoFabrilProps
   const router = useRouter()
   const [orderBy, setOrderBy] = useState<OrderBy>('nome')
   const [orderDir, setOrderDir] = useState<OrderDir>('asc')
+  const [expandidos, setExpandidos] = useState<Set<string>>(new Set())
+
+  const toggleExpandido = (profissionalId: string) => {
+    setExpandidos((atual) => {
+      const proximo = new Set(atual)
+      if (proximo.has(profissionalId)) {
+        proximo.delete(profissionalId)
+      } else {
+        proximo.add(profissionalId)
+      }
+      return proximo
+    })
+  }
 
   const handleSort = (col: OrderBy) => {
     if (orderBy === col) {
@@ -212,54 +235,88 @@ export function TabelaTempoFabril({ kpis, statusOpcoes }: TabelaTempoFabrilProps
             </tr>
           </thead>
           <tbody className="divide-y divide-[#bcc9c4]/30">
-            {sortedKpis.map(kpi => (
-              <tr key={kpi.profissionalId} className="hover:bg-[#f9faf8] transition-colors">
-                <td className="px-4 py-3 font-semibold text-[#171d1c]">{kpi.nome}</td>
-                <td className="px-4 py-3 text-[#3d4945]">{formatarMinutos(kpi.jornadaContratadaMin)}</td>
-                <td className="px-4 py-3 text-[#3d4945]">{formatarMinutos(kpi.tempoFabrilMin)}</td>
-                {statusComTempo.map(op => {
-                  const min = kpi.tempoStatusMin[op.slug] ?? 0
-                  const cfg = getCorConfig(op.cor)
-                  return (
-                    <td key={op.slug} className={`px-4 py-3 font-medium ${cfg.text}`}>
-                      {min > 0 ? formatarMinutos(min) : <span className="text-slate-300">—</span>}
+            {sortedKpis.map(kpi => {
+              const expandido = expandidos.has(kpi.profissionalId)
+              return (
+                <Fragment key={kpi.profissionalId}>
+                  <tr className="hover:bg-[#f9faf8] transition-colors">
+                    <td className="px-4 py-3 font-semibold text-[#171d1c]">
+                      <button
+                        onClick={() => toggleExpandido(kpi.profissionalId)}
+                        className="flex items-center gap-1.5 hover:text-[#006b5a] transition-colors"
+                        aria-expanded={expandido}
+                      >
+                        <ChevronRight
+                          size={16}
+                          className={`shrink-0 transition-transform text-[#6d7a75] ${expandido ? 'rotate-90' : ''}`}
+                        />
+                        {kpi.nome}
+                      </button>
                     </td>
-                  )
-                })}
-                <td className="px-4 py-3">
-                  <span
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${getBadgeColor(kpi.taxaOcupacao)}`}
-                  >
-                    {kpi.taxaOcupacao}%
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-[#3d4945] text-center font-medium">{kpi.qtdAtendimentos}</td>
-                <td className="px-4 py-3 text-[#3d4945]">{formatarMinutos(kpi.tempoMedioMin)}</td>
-                <td className="px-4 py-3 text-[#3d4945] text-center font-medium">{kpi.diasSubutilizados}</td>
-                <td className="px-4 py-3 text-center">
-                  <button
-                    onClick={() => router.push(`/relatorios/tempo-fabril?profissional=${kpi.profissionalId}&visao=individual`)}
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#006b5a] text-white text-xs font-semibold hover:bg-[#005247] transition-colors"
-                  >
-                    <Eye size={16} />
-                    Ver Detalhes
-                  </button>
-                </td>
-              </tr>
-            ))}
+                    <td className="px-4 py-3 text-[#3d4945]">{formatarMinutos(kpi.jornadaContratadaMin)}</td>
+                    <td className="px-4 py-3 text-[#3d4945]">{formatarMinutos(kpi.tempoFabrilMin)}</td>
+                    {statusComTempo.map(op => {
+                      const min = kpi.tempoStatusMin[op.slug] ?? 0
+                      const cfg = getCorConfig(op.cor)
+                      return (
+                        <td key={op.slug} className={`px-4 py-3 font-medium ${cfg.text}`}>
+                          {min > 0 ? formatarMinutos(min) : <span className="text-slate-300">—</span>}
+                        </td>
+                      )
+                    })}
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${getBadgeColor(kpi.taxaOcupacao)}`}
+                      >
+                        {kpi.taxaOcupacao}%
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-[#3d4945] text-center font-medium">{kpi.qtdAtendimentos}</td>
+                    <td className="px-4 py-3 text-[#3d4945]">{formatarMinutos(kpi.tempoMedioMin)}</td>
+                    <td className="px-4 py-3 text-[#3d4945] text-center font-medium">{kpi.diasSubutilizados}</td>
+                    <td className="px-4 py-3 text-center">
+                      <button
+                        onClick={() => router.push(`/relatorios/tempo-fabril?profissional=${kpi.profissionalId}&visao=individual`)}
+                        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#006b5a] text-white text-xs font-semibold hover:bg-[#005247] transition-colors"
+                      >
+                        <Eye size={16} />
+                        Ver Detalhes
+                      </button>
+                    </td>
+                  </tr>
+                  {expandido && (
+                    <tr>
+                      <td colSpan={8 + statusComTempo.length} className="bg-[#f9faf8] px-4 py-4">
+                        <DetalheAtendimentos atendimentos={kpi.detalheAtendimentos} />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              )
+            })}
           </tbody>
         </table>
       </div>
 
       {/* Mobile: Cards com informações */}
       <div className="md:hidden divide-y divide-[#bcc9c4]/30">
-        {sortedKpis.map(kpi => (
+        {sortedKpis.map(kpi => {
+          const expandido = expandidos.has(kpi.profissionalId)
+          return (
           <div key={kpi.profissionalId} className="p-4 space-y-3 hover:bg-[#f9faf8] transition-colors">
             {/* Nome + Taxa (principal) */}
             <div className="flex items-start justify-between gap-3">
-              <div className="flex-1">
+              <button
+                onClick={() => toggleExpandido(kpi.profissionalId)}
+                className="flex-1 flex items-center gap-1.5 text-left hover:text-[#006b5a] transition-colors"
+                aria-expanded={expandido}
+              >
+                <ChevronRight
+                  size={16}
+                  className={`shrink-0 transition-transform text-[#6d7a75] ${expandido ? 'rotate-90' : ''}`}
+                />
                 <p className="font-semibold text-[#171d1c]">{kpi.nome}</p>
-              </div>
+              </button>
               <span
                 className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-bold border whitespace-nowrap ${getBadgeColor(kpi.taxaOcupacao)}`}
               >
@@ -301,6 +358,12 @@ export function TabelaTempoFabril({ kpis, statusOpcoes }: TabelaTempoFabrilProps
               </div>
             </div>
 
+            {expandido && (
+              <div className="pt-2">
+                <DetalheAtendimentos atendimentos={kpi.detalheAtendimentos} />
+              </div>
+            )}
+
             {/* Botão de Ações */}
             <button
               onClick={() => router.push(`/relatorios/tempo-fabril?profissional=${kpi.profissionalId}&visao=individual`)}
@@ -310,8 +373,44 @@ export function TabelaTempoFabril({ kpis, statusOpcoes }: TabelaTempoFabrilProps
               Ver Detalhes Completos
             </button>
           </div>
-        ))}
+          )
+        })}
       </div>
+    </div>
+  )
+}
+
+function DetalheAtendimentos({ atendimentos }: { atendimentos: AtendimentoDetalheKPI[] }) {
+  if (atendimentos.length === 0) {
+    return <p className="text-sm text-[#6d7a75] italic">Nenhum atendimento fábril no período.</p>
+  }
+
+  return (
+    <div className="max-h-80 overflow-y-auto rounded-lg border border-[#bcc9c4]/30">
+      <table className="w-full text-sm">
+        <thead className="bg-white sticky top-0">
+          <tr className="text-left text-xs font-semibold text-[#6d7a75] uppercase">
+            <th className="px-3 py-2">Paciente</th>
+            <th className="px-3 py-2">Tipo de Consulta</th>
+            <th className="px-3 py-2">Dia</th>
+            <th className="px-3 py-2 text-right">Tempo</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-[#bcc9c4]/30 bg-white">
+          {atendimentos.map((a) => (
+            <tr key={a.id}>
+              <td className="px-3 py-2 text-[#171d1c] font-medium">{a.pacienteNome}</td>
+              <td className="px-3 py-2 text-[#3d4945]">{a.tipo}</td>
+              <td className="px-3 py-2 text-[#3d4945] whitespace-nowrap">
+                {formatAppDate(a.data)} {formatAppTime(a.data)}
+              </td>
+              <td className="px-3 py-2 text-[#3d4945] text-right whitespace-nowrap">
+                {formatarMinutos(a.duracaoMinutos)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }

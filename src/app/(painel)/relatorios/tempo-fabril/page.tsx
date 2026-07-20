@@ -118,13 +118,13 @@ export default async function TempoFabrilPage({
   const [{ data: atendimentosResp }, { data: atendimentosExec }, { data: jornadas }, { data: jornadasPlanejadas }, { data: reunioes }, { data: historicoResp }, statusOpcoes] = await Promise.all([
     supabase
       .from('atendimentos')
-      .select('id, profissional_id, fisioterapeuta_id, data_agendamento, duracao_minutos, status, tipo, numero_sessao, paciente_id')
+      .select('id, profissional_id, fisioterapeuta_id, data_agendamento, duracao_minutos, status, tipo, numero_sessao, paciente_id, pacientes(nome)')
       .in('profissional_id', profIds)
       .gte('data_agendamento', utcInicio)
       .lte('data_agendamento', utcFim),
     supabase
       .from('atendimentos')
-      .select('id, profissional_id, fisioterapeuta_id, data_agendamento, duracao_minutos, status, tipo, numero_sessao, paciente_id')
+      .select('id, profissional_id, fisioterapeuta_id, data_agendamento, duracao_minutos, status, tipo, numero_sessao, paciente_id, pacientes(nome)')
       .in('fisioterapeuta_id', profIds)
       .gte('data_agendamento', utcInicio)
       .lte('data_agendamento', utcFim),
@@ -159,7 +159,9 @@ export default async function TempoFabrilPage({
   // Unir responsáveis + executores sem duplicar (mesmo atendimento pode aparecer nos dois)
   const atendimentosMap = new Map<string, Atendimento>()
   for (const a of [...(atendimentosResp ?? []), ...(atendimentosExec ?? [])]) {
-    if (!atendimentosMap.has(a.id)) atendimentosMap.set(a.id, a as Atendimento)
+    if (atendimentosMap.has(a.id)) continue
+    const pacienteRelacao = Array.isArray(a.pacientes) ? a.pacientes[0] : a.pacientes
+    atendimentosMap.set(a.id, { ...a, paciente_nome: pacienteRelacao?.nome ?? null } as Atendimento)
   }
   const atendimentos = Array.from(atendimentosMap.values())
 
@@ -197,6 +199,7 @@ export default async function TempoFabrilPage({
             periodoLabel={semanaLabel}
             kpisEquipe={kpisEquipe}
             profFiltro={profFiltro}
+            statusOpcoes={statusOpcoes}
           />
         </div>
       </div>
