@@ -54,8 +54,10 @@ export function WidgetDisponibilidade({ profissionais, initialStatuses, currentU
   if (!isMobile && isTelaCadastro) return null
   if (isMobile && slideNovoAgendamentoAberto) return null
 
-  // Status selecionáveis manualmente (não-sistema, ordenados)
-  const opcoesSelectionaveis = opcoes.filter(o => !o.sistema).sort((a, b) => a.ordem - b.ordem)
+  // Status selecionáveis manualmente: não-sistema + "Disponível" (permite encerrar um status manual em aberto)
+  const opcoesSelectionaveis = opcoes
+    .filter(o => !o.sistema || o.slug === 'disponivel')
+    .sort((a, b) => a.ordem - b.ordem)
 
   // Config rápida por slug
   const cfgPorSlug = Object.fromEntries(opcoes.map(o => [o.slug, { ...getCorConfig(o.cor), label: o.label, labelCurto: o.label_curto }]))
