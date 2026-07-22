@@ -10,6 +10,9 @@ import { ObservacoesTagSection } from './ObservacoesTagSection'
 
 type Tab = 'agendamentos' | 'comercial' | 'midias' | 'observacoes' | 'contatos' | 'confirmacoes' | 'followups'
 
+// Aliases de valores antigos/alternativos usados em links (?aba=follow-ups)
+const ALIAS_ABA: Record<string, Tab> = { 'follow-ups': 'followups' }
+
 const TABS: { id: Tab; label: string; icon: React.ElementType; modulo?: string }[] = [
   { id: 'agendamentos',  label: 'Agendamentos', icon: CalendarDays                              },
   { id: 'comercial',     label: 'Comercial',    icon: ShoppingBag,  modulo: 'comercial:vendas'  },
@@ -27,14 +30,19 @@ type Props = {
   agendamentosSlot: React.ReactNode
   comercialSlot: React.ReactNode
   followUpsSlot: React.ReactNode
+  abaInicial?: string
 }
 
-export function PacienteTabsClient({ pacienteId, nomePaciente, modulosLiberados, agendamentosSlot, comercialSlot, followUpsSlot }: Props) {
+export function PacienteTabsClient({ pacienteId, nomePaciente, modulosLiberados, agendamentosSlot, comercialSlot, followUpsSlot, abaInicial }: Props) {
   // modulosLiberados vazio = acesso legado completo
   const temAcesso = (modulo?: string) => !modulo || modulosLiberados.length === 0 || modulosLiberados.includes(modulo)
   const tabsVisiveis = TABS.filter(t => temAcesso(t.modulo))
 
-  const [tab, setTab] = useState<Tab>(() => tabsVisiveis[0]?.id ?? 'agendamentos')
+  const [tab, setTab] = useState<Tab>(() => {
+    const abaNormalizada = abaInicial ? (ALIAS_ABA[abaInicial] ?? (abaInicial as Tab)) : undefined
+    const abaValida = abaNormalizada && tabsVisiveis.some(t => t.id === abaNormalizada) ? abaNormalizada : undefined
+    return abaValida ?? tabsVisiveis[0]?.id ?? 'agendamentos'
+  })
 
   return (
     <div className="flex flex-col bg-white rounded-xl shadow-sm border border-slate-100">

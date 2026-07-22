@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { ClipboardList, User, ChevronDown, ChevronUp, CheckCircle2 } from 'lucide-react'
@@ -15,14 +15,28 @@ type Props = {
   followUps: FollowUp[]
   tipos: FollowUpTipo[]
   profissionais: Profissional[]
+  focusId?: string
 }
 
 const PREVIEW_COUNT = 3
 
-export function SecaoFollowUpsPaciente({ pacienteId, followUps: inicial, tipos, profissionais }: Props) {
+export function SecaoFollowUpsPaciente({ pacienteId, followUps: inicial, tipos, profissionais, focusId }: Props) {
   const [followUps] = useState(inicial)
-  const [expandido, setExpandido] = useState(false)
+  const [expandido, setExpandido] = useState(() => {
+    if (!focusId) return false
+    const indice = inicial.findIndex(fu => fu.id === focusId)
+    return indice >= PREVIEW_COUNT
+  })
   const [descExpandidas, setDescExpandidas] = useState<Set<string>>(new Set())
+  const [destaqueId, setDestaqueId] = useState(focusId ?? null)
+
+  useEffect(() => {
+    if (!focusId) return
+    const el = document.getElementById(`follow-up-${focusId}`)
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const timer = setTimeout(() => setDestaqueId(null), 2500)
+    return () => clearTimeout(timer)
+  }, [focusId])
 
   function toggleDesc(id: string) {
     setDescExpandidas(prev => {
@@ -76,7 +90,15 @@ export function SecaoFollowUpsPaciente({ pacienteId, followUps: inicial, tipos, 
             const isPendente = fu.status === 'pendente'
 
             return (
-              <li key={fu.id} className={`rounded-lg p-3 border transition-colors ${isPendente ? 'bg-slate-50 border-slate-100' : 'bg-emerald-50/40 border-emerald-100/60'}`}>
+              <li
+                key={fu.id}
+                id={`follow-up-${fu.id}`}
+                className={`rounded-lg p-3 border transition-colors ${
+                  destaqueId === fu.id
+                    ? 'bg-amber-50 border-amber-300 ring-2 ring-amber-300'
+                    : isPendente ? 'bg-slate-50 border-slate-100' : 'bg-emerald-50/40 border-emerald-100/60'
+                }`}
+              >
                 <div className="flex items-start gap-2">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">

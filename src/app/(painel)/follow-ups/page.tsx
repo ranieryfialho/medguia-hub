@@ -4,6 +4,7 @@ import { ptBR } from 'date-fns/locale'
 import { ClipboardList, Search, User, ChevronRight, CalendarDays, CheckCheck, History } from 'lucide-react'
 import { requireModulo } from '@/lib/guard'
 import { createClient } from '@/lib/supabase/server'
+import { isGestorSistema } from '@/lib/permissoes'
 import { BotaoConcluirFollowUp } from '@/components/features/follow-ups/BotaoConcluirFollowUp'
 
 function iniciais(nome: string) {
@@ -17,14 +18,17 @@ export default async function FollowUpsPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
-  const { user } = await requireModulo('follow_ups')
+  const { user, profile } = await requireModulo('follow_ups')
   const supabase = await createClient()
   const params = await searchParams
+
+  const isGestorOuMaster = isGestorSistema(profile?.nivel_acesso)
 
   const aba = (params.aba as string) || 'pendentes'
   const busca = ((params.busca as string) || '').trim()
   const tipoFiltro = (params.tipo_id as string) || ''
-  const responsavelFiltro = (params.responsavel_id as string) || user.id
+  // Não-gestor só pode ver os próprios follow-ups, independente do que vier na URL
+  const responsavelFiltro = isGestorOuMaster ? ((params.responsavel_id as string) || '') : user.id
   const pagina = Math.max(1, parseInt((params.pagina as string) || '1'))
   const offset = (pagina - 1) * LIMITE
 
@@ -42,7 +46,9 @@ export default async function FollowUpsPage({
 
   const [tiposRes, profissionaisRes] = await Promise.all([
     supabase.from('follow_up_tipos').select('id, nome, cor').eq('ativo', true).order('ordem').order('nome'),
-    supabase.from('profiles').select('id, full_name').order('full_name'),
+    isGestorOuMaster
+      ? supabase.from('profiles').select('id, full_name').order('full_name')
+      : Promise.resolve({ data: null }),
   ])
 
   const tipos = tiposRes.data ?? []
@@ -78,7 +84,7 @@ export default async function FollowUpsPage({
     sp.set('aba', abaAlvo ?? aba)
     if (busca) sp.set('busca', busca)
     if (tipoFiltro) sp.set('tipo_id', tipoFiltro)
-    if (responsavelFiltro && responsavelFiltro !== user.id) sp.set('responsavel_id', responsavelFiltro)
+    if (isGestorOuMaster && responsavelFiltro) sp.set('responsavel_id', responsavelFiltro)
     if (p > 1) sp.set('pagina', String(p))
     return `/follow-ups?${sp.toString()}`
   }
@@ -165,18 +171,20 @@ export default async function FollowUpsPage({
           <option value="">Todos os tipos</option>
           {tipos.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
         </select>
-        <select
-          name="responsavel_id"
-          defaultValue={responsavelFiltro}
-          className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#006b5a]/50 shadow-sm"
-        >
-          <option value="">Todos os responsáveis</option>
-          {profissionais.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-        </select>
+        {isGestorOuMaster && (
+          <select
+            name="responsavel_id"
+            defaultValue={responsavelFiltro}
+            className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#006b5a]/50 shadow-sm"
+          >
+            <option value="">Todos os responsáveis</option>
+            {profissionais.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+          </select>
+        )}
         <button type="submit" className="px-4 py-2 bg-[#006b5a] hover:bg-[#005a4b] text-white rounded-lg text-sm font-medium transition-colors">
           Filtrar
         </button>
-        {(busca || tipoFiltro || (responsavelFiltro && responsavelFiltro !== user.id)) && (
+        {(busca || tipoFiltro || (isGestorOuMaster && responsavelFiltro)) && (
           <Link href={`/follow-ups?aba=${aba}`} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-sm transition-colors">
             Limpar
           </Link>
@@ -221,13 +229,13 @@ export default async function FollowUpsPage({
                 className="flex items-center gap-4 bg-white rounded-xl p-4 shadow-sm border border-slate-100 hover:border-[#006b5a]/20 transition-all"
               >
                 <Link
-                  href={`/pacientes/${fu.paciente_id}?aba=follow-ups`}
+                  href={`/pacientes/${fu.paciente_id}?aba=follow-ups&follow_up_id=${fu.id}`}
                   className="w-11 h-11 rounded-2xl bg-[#006b5a] flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm"
                 >
                   {iniciais(nome)}
                 </Link>
                 <Link
-                  href={`/pacientes/${fu.paciente_id}?aba=follow-ups`}
+                  href={`/pacientes/${fu.paciente_id}?aba=follow-ups&follow_up_id=${fu.id}`}
                   className="flex-1 min-w-0 group"
                 >
                   <div className="flex items-center gap-2 flex-wrap">

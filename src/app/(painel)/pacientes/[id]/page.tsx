@@ -67,6 +67,8 @@ export default async function PacienteDetailsPage({
   const termoBusca = resolvedSearchParams.q as string | undefined
   const statusFiltro = resolvedSearchParams.status as string | undefined
   const ordemFiltro = resolvedSearchParams.ordem as string | undefined
+  const abaInicial = resolvedSearchParams.aba as string | undefined
+  const followUpIdDestaque = resolvedSearchParams.follow_up_id as string | undefined
 
   const { data: paciente, error } = await supabase
     .from('pacientes')
@@ -439,6 +441,7 @@ export default async function PacienteDetailsPage({
             pacienteId={paciente.id}
             nomePaciente={paciente.nome}
             modulosLiberados={modulos}
+            abaInicial={abaInicial}
             agendamentosSlot={
               <>
                 <Suspense fallback={null}>
@@ -472,6 +475,7 @@ export default async function PacienteDetailsPage({
                 followUps={followUps}
                 tipos={followUpTipos}
                 profissionais={profissionais}
+                focusId={followUpIdDestaque}
               />
             }
             comercialSlot={
