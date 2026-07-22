@@ -5,13 +5,18 @@ import { ClipboardList, Search, User, ChevronRight, CalendarDays, CheckCheck, Hi
 import { requireModulo } from '@/lib/guard'
 import { createClient } from '@/lib/supabase/server'
 import { isGestorSistema } from '@/lib/permissoes'
+import { parseAppDate, getAppDayRangeUTC } from '@/lib/datetime'
 import { BotaoConcluirFollowUp } from '@/components/features/follow-ups/BotaoConcluirFollowUp'
+import { DashboardFollowUps } from '@/components/features/follow-ups/DashboardFollowUps'
+import { BtnGerarPdfFollowUps, BtnExportarMdFollowUps } from '@/components/features/shared'
+import type { DadosRelatorioFollowUps } from '@/lib/relatorios/follow-ups-relatorio-dados'
 
 function iniciais(nome: string) {
   return nome.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()
 }
 
 const LIMITE = 25
+const BACKLOG_DIAS = 7
 
 export default async function FollowUpsPage({
   searchParams,
@@ -29,6 +34,8 @@ export default async function FollowUpsPage({
   const tipoFiltro = (params.tipo_id as string) || ''
   // Não-gestor só pode ver os próprios follow-ups, independente do que vier na URL
   const responsavelFiltro = isGestorOuMaster ? ((params.responsavel_id as string) || '') : user.id
+  const de = (params.de as string) || ''
+  const ate = (params.ate as string) || ''
   const pagina = Math.max(1, parseInt((params.pagina as string) || '1'))
   const offset = (pagina - 1) * LIMITE
 
@@ -54,6 +61,7 @@ export default async function FollowUpsPage({
   const tipos = tiposRes.data ?? []
   const profissionais = profissionaisRes.data ?? []
 
+  // ─── Lista paginada (respeita aba + filtros, incluindo o range de datas) ────
   let query = supabase
     .from('follow_ups')
     .select(`
@@ -70,14 +78,157 @@ export default async function FollowUpsPage({
   if (tipoFiltro) query = query.eq('tipo_id', tipoFiltro)
   if (responsavelFiltro) query = query.eq('responsavel_id', responsavelFiltro)
   if (pacienteIdsBusca.length > 0) query = query.in('paciente_id', pacienteIdsBusca)
+  if (de) query = query.gte('created_at', getAppDayRangeUTC(de).start)
+  if (ate) query = query.lte('created_at', getAppDayRangeUTC(ate).end)
 
-  const { data: followUpsRaw, count } = semResultados
-    ? { data: [] as any[], count: 0 }
-    : await query
-  const followUps = followUpsRaw ?? []
+  // ─── Backlog: pendentes há mais de 7 dias (sempre sobre o total atual, sem filtro de período) ───
+  const cutoffBacklogIso = new Date(new Date().getTime() - BACKLOG_DIAS * 24 * 60 * 60 * 1000).toISOString()
 
-  const total = count ?? 0
+  let pendentesAntigosCountQuery = supabase
+    .from('follow_ups')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'pendente')
+    .lt('created_at', cutoffBacklogIso)
+  if (tipoFiltro) pendentesAntigosCountQuery = pendentesAntigosCountQuery.eq('tipo_id', tipoFiltro)
+  if (responsavelFiltro) pendentesAntigosCountQuery = pendentesAntigosCountQuery.eq('responsavel_id', responsavelFiltro)
+  if (pacienteIdsBusca.length > 0) pendentesAntigosCountQuery = pendentesAntigosCountQuery.in('paciente_id', pacienteIdsBusca)
+
+  let pendentesAntigosListaQuery = supabase
+    .from('follow_ups')
+    .select(`
+      id, created_at,
+      tipo:follow_up_tipos(nome),
+      responsavel:profiles!responsavel_id(full_name),
+      paciente:pacientes(nome)
+    `)
+    .eq('status', 'pendente')
+    .lt('created_at', cutoffBacklogIso)
+    .order('created_at', { ascending: true })
+    .limit(20)
+  if (tipoFiltro) pendentesAntigosListaQuery = pendentesAntigosListaQuery.eq('tipo_id', tipoFiltro)
+  if (responsavelFiltro) pendentesAntigosListaQuery = pendentesAntigosListaQuery.eq('responsavel_id', responsavelFiltro)
+  if (pacienteIdsBusca.length > 0) pendentesAntigosListaQuery = pendentesAntigosListaQuery.in('paciente_id', pacienteIdsBusca)
+
+  // ─── Dashboard: conjunto filtrado (tipo/responsável/busca + período), pendente e concluído ───
+  let periodoQuery = supabase
+    .from('follow_ups')
+    .select(`
+      id, tipo_id, responsavel_id, status, created_at, updated_at,
+      tipo:follow_up_tipos(nome, cor),
+      responsavel:profiles!responsavel_id(full_name)
+    `)
+    .order('created_at', { ascending: false })
+    .limit(3000)
+  if (tipoFiltro) periodoQuery = periodoQuery.eq('tipo_id', tipoFiltro)
+  if (responsavelFiltro) periodoQuery = periodoQuery.eq('responsavel_id', responsavelFiltro)
+  if (pacienteIdsBusca.length > 0) periodoQuery = periodoQuery.in('paciente_id', pacienteIdsBusca)
+  if (de) periodoQuery = periodoQuery.gte('created_at', getAppDayRangeUTC(de).start)
+  if (ate) periodoQuery = periodoQuery.lte('created_at', getAppDayRangeUTC(ate).end)
+
+  let followUpsRaw: any[] = []
+  let count = 0
+  let totalPendentesAntigos = 0
+  let pendentesAntigosRaw: any[] = []
+  let periodoRaw: any[] = []
+
+  if (!semResultados) {
+    const [listaRes, backlogCountRes, backlogListaRes, periodoRes] = await Promise.all([
+      query,
+      pendentesAntigosCountQuery,
+      pendentesAntigosListaQuery,
+      periodoQuery,
+    ])
+    followUpsRaw = listaRes.data ?? []
+    count = listaRes.count ?? 0
+    totalPendentesAntigos = backlogCountRes.count ?? 0
+    pendentesAntigosRaw = backlogListaRes.data ?? []
+    periodoRaw = periodoRes.data ?? []
+  }
+
+  const followUps = followUpsRaw
+  const total = count
   const totalPaginas = Math.ceil(total / LIMITE)
+
+  // ─── Monta os dados agregados do dashboard / exportações ───────────────────
+  const totalDashboard = periodoRaw.length
+  const totalPendentesFiltro = periodoRaw.filter((p: any) => p.status === 'pendente').length
+  const totalConcluidosFiltro = periodoRaw.filter((p: any) => p.status === 'concluido').length
+  const taxaConclusao = totalDashboard > 0 ? Math.round((totalConcluidosFiltro / totalDashboard) * 100) : 0
+
+  const concluidosComTempo = periodoRaw.filter((p: any) => p.status === 'concluido')
+  const tempoMedioConclusaoDias = concluidosComTempo.length > 0
+    ? Math.round(
+        concluidosComTempo.reduce((soma: number, p: any) =>
+          soma + (new Date(p.updated_at).getTime() - new Date(p.created_at).getTime()), 0)
+        / concluidosComTempo.length / (1000 * 60 * 60 * 24)
+      )
+    : null
+
+  const tipoMap = new Map<string, { nome: string; cor: string | null; total: number }>()
+  for (const p of periodoRaw) {
+    const nome = p.tipo?.nome ?? 'Sem tipo'
+    const atual = tipoMap.get(nome) ?? { nome, cor: p.tipo?.cor ?? null, total: 0 }
+    atual.total++
+    tipoMap.set(nome, atual)
+  }
+
+  const responsavelMap = new Map<string, { nome: string; total: number; pendentes: number; concluidos: number }>()
+  for (const p of periodoRaw) {
+    const chave = p.responsavel_id ?? 'sem_responsavel'
+    const nome = p.responsavel?.full_name ?? 'Sem responsável'
+    const atual = responsavelMap.get(chave) ?? { nome, total: 0, pendentes: 0, concluidos: 0 }
+    atual.total++
+    if (p.status === 'pendente') atual.pendentes++
+    else atual.concluidos++
+    responsavelMap.set(chave, atual)
+  }
+
+  const pendentesAntigos = pendentesAntigosRaw.map((p: any) => ({
+    paciente_nome: p.paciente?.nome ?? 'Paciente',
+    tipo_nome: p.tipo?.nome ?? 'Sem tipo',
+    responsavel_nome: p.responsavel?.full_name ?? null,
+    dias_pendente: Math.floor((new Date().getTime() - new Date(p.created_at).getTime()) / (1000 * 60 * 60 * 24)),
+    criado_em: p.created_at,
+  }))
+
+  const periodoLabel = de && ate
+    ? `${format(parseAppDate(de), 'dd/MM/yyyy')} – ${format(parseAppDate(ate), 'dd/MM/yyyy')}`
+    : de
+    ? `A partir de ${format(parseAppDate(de), 'dd/MM/yyyy')}`
+    : ate
+    ? `Até ${format(parseAppDate(ate), 'dd/MM/yyyy')}`
+    : 'Todos os períodos'
+
+  const partesFiltro: string[] = []
+  if (tipoFiltro) {
+    const tipoNome = tipos.find(t => t.id === tipoFiltro)?.nome
+    if (tipoNome) partesFiltro.push(`Tipo: ${tipoNome}`)
+  }
+  if (isGestorOuMaster && responsavelFiltro) {
+    const respNome = profissionais.find(p => p.id === responsavelFiltro)?.full_name
+    if (respNome) partesFiltro.push(`Responsável: ${respNome}`)
+  } else if (!isGestorOuMaster) {
+    partesFiltro.push(`Responsável: ${profile?.full_name ?? 'Você'}`)
+  }
+  if (busca) partesFiltro.push(`Busca: "${busca}"`)
+  const filtrosLabel = partesFiltro.length > 0 ? partesFiltro.join(' · ') : 'Todos os follow-ups'
+
+  const dadosRelatorio: DadosRelatorioFollowUps = {
+    periodoLabel,
+    filtrosLabel,
+    total: totalDashboard,
+    totalPendentes: totalPendentesFiltro,
+    totalConcluidos: totalConcluidosFiltro,
+    taxaConclusao,
+    tempoMedioConclusaoDias,
+    totalPendentesAntigos,
+    pendentesAntigos,
+    contagemPorTipo: [...tipoMap.values()],
+    porResponsavel: [...responsavelMap.values()].map(r => ({
+      ...r,
+      taxaConclusao: r.total > 0 ? Math.round((r.concluidos / r.total) * 100) : 0,
+    })),
+  }
 
   function buildUrl(p: number, abaAlvo?: string) {
     const sp = new URLSearchParams()
@@ -85,6 +236,8 @@ export default async function FollowUpsPage({
     if (busca) sp.set('busca', busca)
     if (tipoFiltro) sp.set('tipo_id', tipoFiltro)
     if (isGestorOuMaster && responsavelFiltro) sp.set('responsavel_id', responsavelFiltro)
+    if (de) sp.set('de', de)
+    if (ate) sp.set('ate', ate)
     if (p > 1) sp.set('pagina', String(p))
     return `/follow-ups?${sp.toString()}`
   }
@@ -104,7 +257,7 @@ export default async function FollowUpsPage({
     <div className="w-full space-y-5">
 
       {/* Header */}
-      <div className="flex items-center justify-between bg-white/80 backdrop-blur-md p-4 rounded-xl shadow-sm border border-slate-100">
+      <div className="flex items-center justify-between flex-wrap gap-3 bg-white/80 backdrop-blur-md p-4 rounded-xl shadow-sm border border-slate-100">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-[#006b5a]/10 flex items-center justify-center shrink-0">
             <ClipboardList size={20} className="text-[#006b5a]" />
@@ -116,17 +269,24 @@ export default async function FollowUpsPage({
             </p>
           </div>
         </div>
-        {aba === 'pendentes' && total > 0 && (
-          <span className="bg-red-100 text-red-700 text-sm font-bold px-3 py-1.5 rounded-full shrink-0">
-            {total} pendente{total !== 1 ? 's' : ''}
-          </span>
-        )}
-        {aba === 'historico' && (
-          <span className="bg-[#006b5a]/10 text-[#006b5a] text-sm font-semibold px-3 py-1.5 rounded-full shrink-0">
-            {total} registro{total !== 1 ? 's' : ''}
-          </span>
-        )}
+        <div className="flex items-center gap-3 flex-wrap">
+          <BtnExportarMdFollowUps {...dadosRelatorio} />
+          <BtnGerarPdfFollowUps {...dadosRelatorio} />
+          {aba === 'pendentes' && total > 0 && (
+            <span className="bg-red-100 text-red-700 text-sm font-bold px-3 py-1.5 rounded-full shrink-0">
+              {total} pendente{total !== 1 ? 's' : ''}
+            </span>
+          )}
+          {aba === 'historico' && (
+            <span className="bg-[#006b5a]/10 text-[#006b5a] text-sm font-semibold px-3 py-1.5 rounded-full shrink-0">
+              {total} registro{total !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
       </div>
+
+      {/* Dashboard */}
+      <DashboardFollowUps dados={dadosRelatorio} />
 
       {/* Abas */}
       <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
@@ -181,10 +341,28 @@ export default async function FollowUpsPage({
             {profissionais.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
           </select>
         )}
+        <div className="flex flex-col">
+          <label className="text-[11px] font-semibold text-slate-500 mb-1">De</label>
+          <input
+            type="date"
+            name="de"
+            defaultValue={de}
+            className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#006b5a]/50 shadow-sm"
+          />
+        </div>
+        <div className="flex flex-col">
+          <label className="text-[11px] font-semibold text-slate-500 mb-1">Até</label>
+          <input
+            type="date"
+            name="ate"
+            defaultValue={ate}
+            className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#006b5a]/50 shadow-sm"
+          />
+        </div>
         <button type="submit" className="px-4 py-2 bg-[#006b5a] hover:bg-[#005a4b] text-white rounded-lg text-sm font-medium transition-colors">
           Filtrar
         </button>
-        {(busca || tipoFiltro || (isGestorOuMaster && responsavelFiltro)) && (
+        {(busca || tipoFiltro || (isGestorOuMaster && responsavelFiltro) || de || ate) && (
           <Link href={`/follow-ups?aba=${aba}`} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-sm transition-colors">
             Limpar
           </Link>

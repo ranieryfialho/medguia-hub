@@ -38,3 +38,5 @@ export { BtnGerarPdfConferencia } from './BtnGerarPdfConferencia';
 export { BtnExportarXlsxConferencia } from './BtnExportarXlsxConferencia';
 export { BtnGerarPdfContatos } from './BtnGerarPdfContatos';
 export { BtnExportarMdContatos } from './BtnExportarMdContatos';
+export { BtnGerarPdfFollowUps } from './BtnGerarPdfFollowUps';
+export { BtnExportarMdFollowUps } from './BtnExportarMdFollowUps';
