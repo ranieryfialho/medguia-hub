@@ -20,6 +20,7 @@ type KPIsProfissional = {
   nome: string
   jornadaContratadaMin: number
   tempoFabrilMin: number
+  horasAgendamentoMin: number
   tempoReuniaoMin: number
   tempoStatusMin: Record<string, number>
   taxaOcupacao: number
@@ -34,7 +35,7 @@ type TabelaTempoFabrilProps = {
   statusOpcoes: OpcaoStatus[]
 }
 
-type OrderBy = 'nome' | 'taxa' | 'fabril' | 'contratada' | 'qtd' | 'media'
+type OrderBy = 'nome' | 'taxa' | 'fabril' | 'contratada' | 'qtd' | 'media' | 'agendamento'
 type OrderDir = 'asc' | 'desc'
 
 function formatarMinutos(min: number): string {
@@ -126,6 +127,10 @@ export function TabelaTempoFabril({ kpis, statusOpcoes }: TabelaTempoFabrilProps
         aVal = a.tempoMedioMin
         bVal = b.tempoMedioMin
         break
+      case 'agendamento':
+        aVal = a.horasAgendamentoMin
+        bVal = b.horasAgendamentoMin
+        break
     }
 
     if (typeof aVal === 'string' && typeof bVal === 'string') {
@@ -144,7 +149,7 @@ export function TabelaTempoFabril({ kpis, statusOpcoes }: TabelaTempoFabrilProps
         <table className="w-full text-sm">
           <thead className="bg-gradient-to-r from-[#f0f5f4] to-white border-b border-[#bcc9c4]/30">
             <tr>
-              <th className="px-4 py-4 text-left font-semibold text-[#171d1c]">
+              <th className="px-4 py-4 text-left font-semibold text-[#171d1c] whitespace-nowrap">
                 <button
                   onClick={() => handleSort('nome')}
                   className="flex items-center gap-1.5 hover:text-[#006b5a] transition-colors"
@@ -153,7 +158,7 @@ export function TabelaTempoFabril({ kpis, statusOpcoes }: TabelaTempoFabrilProps
                   <SortIcon col="nome" orderBy={orderBy} orderDir={orderDir} />
                 </button>
               </th>
-              <th className="px-4 py-4 text-left font-semibold text-[#171d1c]">
+              <th className="px-4 py-4 text-left font-semibold text-[#171d1c] whitespace-nowrap">
                 <div className="flex items-center gap-2">
                   <button
                   onClick={() => handleSort('contratada')}
@@ -165,7 +170,7 @@ export function TabelaTempoFabril({ kpis, statusOpcoes }: TabelaTempoFabrilProps
                   <Tooltip texto="Horas totais contratadas no período" />
                 </div>
               </th>
-              <th className="px-4 py-4 text-left font-semibold text-[#171d1c]">
+              <th className="px-4 py-4 text-left font-semibold text-[#171d1c] whitespace-nowrap">
                 <div className="flex items-center gap-2">
                   <button
                   onClick={() => handleSort('fabril')}
@@ -174,13 +179,25 @@ export function TabelaTempoFabril({ kpis, statusOpcoes }: TabelaTempoFabrilProps
                   Tempo Fábril
                   <SortIcon col="fabril" orderBy={orderBy} orderDir={orderDir} />
                 </button>
-                  <Tooltip texto="Horas reais em atendimento (Concluído ou Em atendimento)" />
+                  <Tooltip texto="Horas em atendimento (Concluído ou Em atendimento) + status personalizados (reunião, hora administrativa, etc.)" />
+                </div>
+              </th>
+              <th className="px-4 py-4 text-left font-semibold text-[#171d1c] whitespace-nowrap">
+                <div className="flex items-center gap-2">
+                  <button
+                  onClick={() => handleSort('agendamento')}
+                  className="flex items-center gap-1.5 hover:text-[#006b5a] transition-colors"
+                >
+                  Horas de Agendamento
+                  <SortIcon col="agendamento" orderBy={orderBy} orderDir={orderDir} />
+                </button>
+                  <Tooltip texto="Somatória das horas de consultas concluídas ou em atendimento" />
                 </div>
               </th>
               {statusComTempo.map(op => {
                 const cfg = getCorConfig(op.cor)
                 return (
-                  <th key={op.slug} className="px-4 py-4 text-left font-semibold text-[#171d1c]">
+                  <th key={op.slug} className="px-4 py-4 text-left font-semibold text-[#171d1c] whitespace-nowrap">
                     <div className="flex items-center gap-2">
                       <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
                       <span>{op.label}</span>
@@ -189,7 +206,7 @@ export function TabelaTempoFabril({ kpis, statusOpcoes }: TabelaTempoFabrilProps
                   </th>
                 )
               })}
-              <th className="px-4 py-4 text-left font-semibold text-[#171d1c]">
+              <th className="px-4 py-4 text-left font-semibold text-[#171d1c] whitespace-nowrap">
                 <div className="flex items-center gap-2">
                   <button
                   onClick={() => handleSort('taxa')}
@@ -201,7 +218,7 @@ export function TabelaTempoFabril({ kpis, statusOpcoes }: TabelaTempoFabrilProps
                   <Tooltip texto="Percentual do tempo fábril em relação à jornada contratada" />
                 </div>
               </th>
-              <th className="px-4 py-4 text-left font-semibold text-[#171d1c]">
+              <th className="px-4 py-4 text-left font-semibold text-[#171d1c] whitespace-nowrap">
                 <div className="flex items-center gap-2">
                   <button
                   onClick={() => handleSort('qtd')}
@@ -213,7 +230,7 @@ export function TabelaTempoFabril({ kpis, statusOpcoes }: TabelaTempoFabrilProps
                   <Tooltip texto="Quantidade total de atendimentos realizados" />
                 </div>
               </th>
-              <th className="px-4 py-4 text-left font-semibold text-[#171d1c]">
+              <th className="px-4 py-4 text-left font-semibold text-[#171d1c] whitespace-nowrap">
                 <div className="flex items-center gap-2">
                   <button
                   onClick={() => handleSort('media')}
@@ -222,10 +239,10 @@ export function TabelaTempoFabril({ kpis, statusOpcoes }: TabelaTempoFabrilProps
                   Tempo Médio
                   <SortIcon col="media" orderBy={orderBy} orderDir={orderDir} />
                 </button>
-                  <Tooltip texto="Tempo fábril dividido pela quantidade de atendimentos" />
+                  <Tooltip texto="Horas de agendamento dividido pela quantidade de atendimentos" />
                 </div>
               </th>
-              <th className="px-4 py-4 text-left font-semibold text-[#171d1c]">
+              <th className="px-4 py-4 text-left font-semibold text-[#171d1c] whitespace-nowrap">
                 <div className="flex items-center gap-2">
                   <span>Dias Subutilizados</span>
                   <Tooltip texto="Dias com ocupação menor que 50%" />
@@ -255,6 +272,7 @@ export function TabelaTempoFabril({ kpis, statusOpcoes }: TabelaTempoFabrilProps
                     </td>
                     <td className="px-4 py-3 text-[#3d4945]">{formatarMinutos(kpi.jornadaContratadaMin)}</td>
                     <td className="px-4 py-3 text-[#3d4945]">{formatarMinutos(kpi.tempoFabrilMin)}</td>
+                    <td className="px-4 py-3 text-[#3d4945]">{formatarMinutos(kpi.horasAgendamentoMin)}</td>
                     {statusComTempo.map(op => {
                       const min = kpi.tempoStatusMin[op.slug] ?? 0
                       const cfg = getCorConfig(op.cor)
@@ -286,7 +304,7 @@ export function TabelaTempoFabril({ kpis, statusOpcoes }: TabelaTempoFabrilProps
                   </tr>
                   {expandido && (
                     <tr>
-                      <td colSpan={8 + statusComTempo.length} className="bg-[#f9faf8] px-4 py-4">
+                      <td colSpan={9 + statusComTempo.length} className="bg-[#f9faf8] px-4 py-4">
                         <DetalheAtendimentos atendimentos={kpi.detalheAtendimentos} />
                       </td>
                     </tr>
@@ -333,6 +351,10 @@ export function TabelaTempoFabril({ kpis, statusOpcoes }: TabelaTempoFabrilProps
               <div>
                 <p className="text-xs font-semibold text-[#6d7a75] mb-1">Tempo Fábril</p>
                 <p className="font-medium text-[#171d1c]">{formatarMinutos(kpi.tempoFabrilMin)}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-[#6d7a75] mb-1">Horas de Agendamento</p>
+                <p className="font-medium text-[#171d1c]">{formatarMinutos(kpi.horasAgendamentoMin)}</p>
               </div>
               {statusComTempo.map(op => {
                 const min = kpi.tempoStatusMin[op.slug] ?? 0

@@ -71,6 +71,7 @@ export type KPIsProfissional = {
   nome: string
   jornadaContratadaMin: number
   tempoFabrilMin: number
+  horasAgendamentoMin: number   // soma bruta dos atendimentos concluídos/em atendimento (sem status personalizados)
   tempoReuniaoMin: number       // alias para tempoStatusMin['reuniao'] ?? 0
   tempoStatusMin: Record<string, number>  // slug → minutos
   taxaOcupacao: number
@@ -133,6 +134,31 @@ function calcularMinutosStatusNaJornada(
   return Math.max(0, total)
 }
 
+// Soma o tempo de status personalizados (reunião, hora administrativa, etc.) que caiu
+// dentro de um intervalo específico, já capado pela jornada real do profissional.
+function somarTempoStatusNoIntervalo(
+  historico: HistoricoStatus[],
+  jornadaSemanalMap: Map<number, JornadaSemanal>,
+  jornadaMensalMap: Map<string, JornadaMensalDiaPlanejado> | undefined,
+  inicio: Date,
+  fim: Date,
+): number {
+  let total = 0
+
+  for (const h of historico) {
+    const ini = new Date(h.inicio)
+    const hFim = new Date(h.fim)
+    if (ini > fim || hFim < inicio) continue
+
+    const inicioEfetivo = ini < inicio ? inicio : ini
+    const fimEfetivo = hFim > fim ? fim : hFim
+
+    total += calcularMinutosStatusNaJornada(inicioEfetivo, fimEfetivo, jornadaSemanalMap, jornadaMensalMap)
+  }
+
+  return total
+}
+
 export function calcularJornadaContratadaMinutos(
   jornadaSemanalMap: Map<number, JornadaSemanal>,
   jornadaMensalMap: Map<string, JornadaMensalDiaPlanejado> | undefined,
@@ -157,6 +183,8 @@ export function calcularJornadaContratadaMinutos(
 
 export function agruparPorSemana(
   atendimentos: Atendimento[],
+  historicoProfissional: HistoricoStatus[],
+  reuniaoProfissional: Reuniao[],
   jornadaSemanalMap: Map<number, JornadaSemanal>,
   jornadaMensalMap: Map<string, JornadaMensalDiaPlanejado> | undefined,
   dataInicio: Date,
@@ -180,9 +208,27 @@ export function agruparPorSemana(
       return dataKeyAtt >= inicioEfetivoStr && dataKeyAtt <= fimEfetivoStr
     })
 
-    const fabrilMin = atsSemana
+    const fabrilAtendimentosMin = atsSemana
       .filter((a) => isStatusFabril(a.status))
       .reduce((acc, a) => acc + (a.duracao_minutos ?? 0), 0)
+
+    const statusPersonalizadoMin = somarTempoStatusNoIntervalo(
+      historicoProfissional,
+      jornadaSemanalMap,
+      jornadaMensalMap,
+      inicioEfetivo,
+      fimEfetivo,
+    )
+
+    const legadoReuniaoMin = reuniaoProfissional
+      .filter((r) => r.duracao_minutos !== null)
+      .filter((r) => {
+        const ini = new Date(r.inicio)
+        return ini >= inicioEfetivo && ini <= fimEfetivo
+      })
+      .reduce((acc, r) => acc + (r.duracao_minutos ?? 0), 0)
+
+    const fabrilMin = fabrilAtendimentosMin + statusPersonalizadoMin + legadoReuniaoMin
 
     const jornadaMin = calcularJornadaContratadaMinutos(
       jornadaSemanalMap,
@@ -238,11 +284,13 @@ export function calcularKPIs(
       }
     }
 
+    const historicoProfissional = historico.filter((h) => h.profissional_id === prof.id)
+    const reuniaoProfissional = reunioes.filter((r) => r.profissional_id === prof.id)
+
     // Agrega tempo por status a partir do histórico automático,
     // capando cada registro pela interseção real com a jornada do profissional.
     const tempoStatusMin: Record<string, number> = {}
-    for (const h of historico) {
-      if (h.profissional_id !== prof.id) continue
+    for (const h of historicoProfissional) {
       const ini = new Date(h.inicio)
       const fim = new Date(h.fim)
       if (ini > dataFim || fim < dataInicio) continue
@@ -263,8 +311,8 @@ export function calcularKPIs(
     }
 
     // Merge legado: historico_reunioes alimenta o slug 'reuniao' (dados anteriores ao trigger)
-    const legadoReuniaoMin = reunioes
-      .filter(r => r.profissional_id === prof.id && r.duracao_minutos !== null)
+    const legadoReuniaoMin = reuniaoProfissional
+      .filter(r => r.duracao_minutos !== null)
       .filter(r => {
         const ini = new Date(r.inicio)
         return ini >= dataInicio && ini <= dataFim
@@ -284,15 +332,20 @@ export function calcularKPIs(
       dataFim,
     )
 
-    const tempoFabrilMin = atsProfissional
+    const horasAgendamentoMin = atsProfissional
       .filter((a) => isStatusFabril(a.status))
       .reduce((acc, a) => acc + (a.duracao_minutos ?? 0), 0)
+
+    // Tempo Fábril = consultas concluídas/em atendimento + status personalizados
+    // (reunião, hora administrativa, etc. registrados em historico_status_disponibilidade)
+    const tempoStatusPersonalizadoMin = Object.values(tempoStatusMin).reduce((acc, min) => acc + min, 0)
+    const tempoFabrilMin = horasAgendamentoMin + tempoStatusPersonalizadoMin
 
     const qtdAtendimentos = atsProfissional.filter((a) =>
       isStatusFabril(a.status),
     ).length
 
-    const tempoMedioMin = qtdAtendimentos > 0 ? Math.round(tempoFabrilMin / qtdAtendimentos) : 0
+    const tempoMedioMin = qtdAtendimentos > 0 ? Math.round(horasAgendamentoMin / qtdAtendimentos) : 0
 
     const taxaOcupacao = jornadaContratadaMin > 0
       ? Math.round((tempoFabrilMin / jornadaContratadaMin) * 100)
@@ -328,6 +381,8 @@ export function calcularKPIs(
 
     const evolucaoPorSemana = agruparPorSemana(
       atsProfissional,
+      historicoProfissional,
+      reuniaoProfissional,
       jornadaSemanalMap,
       jornadaMensalMap,
       dataInicio,
@@ -350,6 +405,7 @@ export function calcularKPIs(
       nome: prof.nome,
       jornadaContratadaMin,
       tempoFabrilMin,
+      horasAgendamentoMin,
       tempoReuniaoMin,
       tempoStatusMin,
       taxaOcupacao,

@@ -21,6 +21,7 @@ type KPIsProfissional = {
   nome: string
   jornadaContratadaMin: number
   tempoFabrilMin: number
+  horasAgendamentoMin: number
   tempoReuniaoMin: number
   tempoStatusMin: Record<string, number>
   taxaOcupacao: number
@@ -77,6 +78,7 @@ export function ConteudoRelatorio({ kpis, kpisEquipe, profFiltro, statusOpcoes }
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <DetailCard label="Jornada Contratada" value={formatarMinutos(kpiIndividual.jornadaContratadaMin)} />
               <DetailCard label="Tempo Fábril" value={formatarMinutos(kpiIndividual.tempoFabrilMin)} />
+              <DetailCard label="Horas de Agendamento" value={formatarMinutos(kpiIndividual.horasAgendamentoMin)} />
               <DetailCard label="Taxa de Ocupação" value={`${kpiIndividual.taxaOcupacao}%`} highlight />
               {statusOpcoes
                 .filter(op => !op.sistema && (kpiIndividual.tempoStatusMin[op.slug] ?? 0) > 0)

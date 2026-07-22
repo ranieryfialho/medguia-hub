@@ -161,6 +161,7 @@ function desenharPaginaIndividual(
     .map((op): [string, string] => [op.label, formatarMinutos(kpi.tempoStatusMin[op.slug] ?? 0)])
   y = desenharGradeCards(doc, y, [
     ['Tempo fabril', formatarMinutos(kpi.tempoFabrilMin)],
+    ['Horas de agendamento', formatarMinutos(kpi.horasAgendamentoMin)],
     ['Jornada contratada', formatarMinutos(kpi.jornadaContratadaMin)],
     ['Atendimentos', String(kpi.qtdAtendimentos)],
     ['Tempo médio', formatarMinutos(kpi.tempoMedioMin)],
@@ -336,8 +337,8 @@ function desenharTabelaRanking(doc: jsPDF, y: number, ranking: KPIsProfissional[
 
 function desenharTabelaEquipe(doc: jsPDF, y: number, dados: KPIsProfissional[], statusComTempo: OpcaoStatus[]) {
   const numStatus = statusComTempo.length
-  const baseHeaders = ['Profissional', 'Taxa', 'Tempo fabril', 'Jornada', 'Atend.']
-  const baseWidths = numStatus > 0 ? [46, 16, 28, 28, 16] : [72, 18, 34, 34, 20]
+  const baseHeaders = ['Profissional', 'Taxa', 'Tempo fabril', 'Horas agend.', 'Jornada', 'Atend.']
+  const baseWidths = numStatus > 0 ? [38, 14, 24, 24, 24, 14] : [60, 16, 28, 28, 28, 18]
   const statusWidth = numStatus > 0
     ? (CONTENT_WIDTH - baseWidths.reduce((acc, w) => acc + w, 0)) / numStatus
     : 0
@@ -370,6 +371,7 @@ function desenharTabelaEquipe(doc: jsPDF, y: number, dados: KPIsProfissional[], 
       }),
       `${item.taxaOcupacao}%`,
       formatarMinutos(item.tempoFabrilMin),
+      formatarMinutos(item.horasAgendamentoMin),
       formatarMinutos(item.jornadaContratadaMin),
       String(item.qtdAtendimentos),
     ], widths)

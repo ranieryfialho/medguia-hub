@@ -102,7 +102,7 @@ export function GraficoComparativoMedia({
         <div className="space-y-4">
           <div>
             <p className="text-sm font-semibold text-[#171d1c]">Tempo Fábril Total</p>
-            <p className="text-xs text-[#3d4945] mt-1">Horas reais em atendimento</p>
+            <p className="text-xs text-[#3d4945] mt-1">Atendimentos + status personalizados (reunião, hora administrativa, etc.)</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
