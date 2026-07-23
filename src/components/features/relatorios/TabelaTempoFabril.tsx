@@ -15,6 +15,15 @@ type AtendimentoDetalheKPI = {
   data: string
 }
 
+type StatusDetalheKPI = {
+  id: string
+  status: string
+  inicio: string
+  fim: string | null
+  duracaoMinutos: number
+  aberto: boolean
+}
+
 type KPIsProfissional = {
   profissionalId: string
   nome: string
@@ -28,7 +37,12 @@ type KPIsProfissional = {
   tempoMedioMin: number
   diasSubutilizados: number
   detalheAtendimentos: AtendimentoDetalheKPI[]
+  detalheStatus: StatusDetalheKPI[]
 }
+
+// Mesmo cap do fallback automático (job "fechar-status-esquecidos") — usado só
+// pra destacar visualmente entradas suspeitas, não afeta nenhum cálculo.
+const LIMITE_ALERTA_MIN = 110
 
 type TabelaTempoFabrilProps = {
   kpis: KPIsProfissional[]
@@ -304,8 +318,15 @@ export function TabelaTempoFabril({ kpis, statusOpcoes }: TabelaTempoFabrilProps
                   </tr>
                   {expandido && (
                     <tr>
-                      <td colSpan={9 + statusComTempo.length} className="bg-[#f9faf8] px-4 py-4">
-                        <DetalheAtendimentos atendimentos={kpi.detalheAtendimentos} />
+                      <td colSpan={9 + statusComTempo.length} className="bg-[#f9faf8] px-4 py-4 space-y-4">
+                        <div>
+                          <p className="text-xs font-semibold text-[#6d7a75] uppercase tracking-wide mb-2">Atendimentos</p>
+                          <DetalheAtendimentos atendimentos={kpi.detalheAtendimentos} />
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-[#6d7a75] uppercase tracking-wide mb-2">Conferência de status</p>
+                          <DetalheStatus statusDetalhe={kpi.detalheStatus} statusOpcoes={statusOpcoes} />
+                        </div>
                       </td>
                     </tr>
                   )}
@@ -381,8 +402,15 @@ export function TabelaTempoFabril({ kpis, statusOpcoes }: TabelaTempoFabrilProps
             </div>
 
             {expandido && (
-              <div className="pt-2">
-                <DetalheAtendimentos atendimentos={kpi.detalheAtendimentos} />
+              <div className="pt-2 space-y-4">
+                <div>
+                  <p className="text-xs font-semibold text-[#6d7a75] uppercase tracking-wide mb-2">Atendimentos</p>
+                  <DetalheAtendimentos atendimentos={kpi.detalheAtendimentos} />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-[#6d7a75] uppercase tracking-wide mb-2">Conferência de status</p>
+                  <DetalheStatus statusDetalhe={kpi.detalheStatus} statusOpcoes={statusOpcoes} />
+                </div>
               </div>
             )}
 
@@ -433,6 +461,93 @@ function DetalheAtendimentos({ atendimentos }: { atendimentos: AtendimentoDetalh
           ))}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+function DetalheStatus({
+  statusDetalhe,
+  statusOpcoes,
+}: {
+  statusDetalhe: StatusDetalheKPI[]
+  statusOpcoes: OpcaoStatus[]
+}) {
+  if (statusDetalhe.length === 0) {
+    return <p className="text-sm text-[#6d7a75] italic">Nenhum status personalizado registrado no período.</p>
+  }
+
+  const totalGeralMin = statusDetalhe.reduce((acc, s) => acc + s.duracaoMinutos, 0)
+  const totaisPorStatus = new Map<string, number>()
+  for (const s of statusDetalhe) {
+    totaisPorStatus.set(s.status, (totaisPorStatus.get(s.status) ?? 0) + s.duracaoMinutos)
+  }
+  const statusOrdenados = [...totaisPorStatus.entries()].sort((a, b) => b[1] - a[1])
+
+  return (
+    <div className="rounded-lg border border-[#bcc9c4]/30 overflow-hidden">
+      <div className="max-h-80 overflow-y-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-white sticky top-0">
+            <tr className="text-left text-xs font-semibold text-[#6d7a75] uppercase">
+              <th className="px-3 py-2">Status</th>
+              <th className="px-3 py-2">Início</th>
+              <th className="px-3 py-2">Fim</th>
+              <th className="px-3 py-2 text-right">Duração</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#bcc9c4]/30 bg-white">
+            {statusDetalhe.map((s) => {
+              const opcao = statusOpcoes.find((o) => o.slug === s.status)
+              const cfg = getCorConfig(opcao?.cor ?? 'slate')
+              const suspeito = s.aberto || s.duracaoMinutos >= LIMITE_ALERTA_MIN
+              return (
+                <tr key={s.id}>
+                  <td className="px-3 py-2 text-[#171d1c] font-medium">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
+                      {opcao?.label ?? s.status}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-[#3d4945] whitespace-nowrap">
+                    {formatAppDate(s.inicio)} {formatAppTime(s.inicio)}
+                  </td>
+                  <td className="px-3 py-2 text-[#3d4945] whitespace-nowrap">
+                    {s.aberto ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-300">
+                        Em aberto
+                      </span>
+                    ) : (
+                      <>{formatAppDate(s.fim!)} {formatAppTime(s.fim!)}</>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-right whitespace-nowrap">
+                    <span className={suspeito ? 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-50 text-red-700 border border-red-300' : 'text-[#3d4945]'}>
+                      {formatarMinutos(s.duracaoMinutos)}
+                    </span>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Totais: por status (bate com as colunas da tabela principal) + geral */}
+      <div className="bg-[#f9faf8] border-t border-[#bcc9c4]/30 px-3 py-2.5 flex flex-wrap items-center gap-x-5 gap-y-1.5">
+        {statusOrdenados.map(([slug, min]) => {
+          const opcao = statusOpcoes.find((o) => o.slug === slug)
+          const cfg = getCorConfig(opcao?.cor ?? 'slate')
+          return (
+            <span key={slug} className="inline-flex items-center gap-1.5 text-xs font-medium text-[#3d4945]">
+              <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
+              {opcao?.label ?? slug}: <span className="font-bold text-[#171d1c]">{formatarMinutos(min)}</span>
+            </span>
+          )
+        })}
+        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#006b5a] ml-auto">
+          Total: <span className="font-bold">{formatarMinutos(totalGeralMin)}</span>
+        </span>
+      </div>
     </div>
   )
 }

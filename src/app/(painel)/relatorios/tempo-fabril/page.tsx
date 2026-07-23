@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { format } from 'date-fns'
 import { formatAppDateKey } from '@/lib/datetime'
 import { ptBR } from 'date-fns/locale'
-import { BtnImprimirRelatorio } from '@/components/features/shared'
+import { BtnImprimirRelatorio, BtnExportarMdTempoFabril } from '@/components/features/shared'
 import { FiltrosRelatorio } from '@/components/features/relatorios'
 import { ConteudoRelatorio } from '@/components/features/relatorios'
 import {
@@ -14,6 +14,7 @@ import {
   type JornadaPlanejada,
   type Reuniao,
   type HistoricoStatus,
+  type HistoricoStatusAberto,
   type KPIsProfissional,
 } from '@/lib/relatorios/kpis-tempo-fabril'
 import { listarStatusOpcoes } from '@/actions/status-disponibilidade-config'
@@ -115,7 +116,7 @@ export default async function TempoFabrilPage({
     : [profFiltro]
 
   // Queries paralelas
-  const [{ data: atendimentosResp }, { data: atendimentosExec }, { data: jornadas }, { data: jornadasPlanejadas }, { data: reunioes }, { data: historicoResp }, statusOpcoes] = await Promise.all([
+  const [{ data: atendimentosResp }, { data: atendimentosExec }, { data: jornadas }, { data: jornadasPlanejadas }, { data: reunioes }, { data: historicoResp }, { data: historicoAbertoResp }, statusOpcoes] = await Promise.all([
     supabase
       .from('atendimentos')
       .select('id, profissional_id, fisioterapeuta_id, data_agendamento, duracao_minutos, status, tipo, numero_sessao, paciente_id, pacientes(nome)')
@@ -148,11 +149,16 @@ export default async function TempoFabrilPage({
       .not('fim', 'is', null),
     supabase
       .from('historico_status_disponibilidade')
-      .select('profissional_id, status, inicio, fim, duracao_minutos')
+      .select('id, profissional_id, status, inicio, fim, duracao_minutos')
       .in('profissional_id', profIds)
       .gte('inicio', utcInicio)
       .lte('inicio', utcFim)
       .not('fim', 'is', null),
+    supabase
+      .from('historico_status_disponibilidade')
+      .select('id, profissional_id, status, inicio')
+      .in('profissional_id', profIds)
+      .is('fim', null),
     listarStatusOpcoes(),
   ])
 
@@ -175,6 +181,7 @@ export default async function TempoFabrilPage({
     dataFim,
     (reunioes ?? []) as Reuniao[],
     (historicoResp ?? []) as HistoricoStatus[],
+    (historicoAbertoResp ?? []) as HistoricoStatusAberto[],
   )
 
   const profissionaisFiltrados = profFiltro === 'todos'
@@ -195,12 +202,20 @@ export default async function TempoFabrilPage({
             <h2 className="text-xl font-bold text-[#006b5a]">Tempo Fábril</h2>
             <p className="text-sm text-[#3d4945] mt-0.5">{semanaLabel}</p>
           </div>
-          <BtnImprimirRelatorio
-            periodoLabel={semanaLabel}
-            kpisEquipe={kpisEquipe}
-            profFiltro={profFiltro}
-            statusOpcoes={statusOpcoes}
-          />
+          <div className="flex items-center gap-3 flex-wrap">
+            <BtnExportarMdTempoFabril
+              periodoLabel={semanaLabel}
+              kpisEquipe={kpisEquipe}
+              profFiltro={profFiltro}
+              statusOpcoes={statusOpcoes}
+            />
+            <BtnImprimirRelatorio
+              periodoLabel={semanaLabel}
+              kpisEquipe={kpisEquipe}
+              profFiltro={profFiltro}
+              statusOpcoes={statusOpcoes}
+            />
+          </div>
         </div>
       </div>
 

@@ -186,6 +186,13 @@ function desenharPaginaIndividual(
   let yDetalhe = desenharCabecalhoInterno(doc, 'Atendimentos do Período', kpi.nome)
   yDetalhe += 4
   desenharTabelaAtendimentos(doc, yDetalhe, kpi)
+
+  if (kpi.detalheStatus.length > 0) {
+    doc.addPage()
+    let yStatus = desenharCabecalhoInterno(doc, 'Conferência de Status', kpi.nome)
+    yStatus += 4
+    desenharTabelaDetalheStatus(doc, yStatus, kpi, statusComTempo)
+  }
 }
 
 function desenharCabecalhoInterno(doc: jsPDF, titulo: string, subtitulo: string) {
@@ -430,6 +437,60 @@ function desenharTabelaAtendimentos(doc: jsPDF, y: number, kpi: KPIsProfissional
       formatarMinutos(atendimento.duracaoMinutos),
     ], widths)
   }
+
+  return cursor
+}
+
+function desenharTabelaDetalheStatus(
+  doc: jsPDF,
+  y: number,
+  kpi: KPIsProfissional,
+  statusOpcoes: OpcaoStatus[],
+) {
+  const headers = ['Status', 'Início', 'Fim', 'Duração']
+  const widths = [58, 46, 46, 28]
+  let cursor = desenharLinhaTabela(doc, y, headers, widths, true)
+
+  for (const s of kpi.detalheStatus) {
+    if (cursor > PAGE_HEIGHT - 22) {
+      doc.addPage()
+      cursor = desenharCabecalhoInterno(doc, 'Conferência de Status', `${kpi.nome} · Continuação`)
+      cursor = desenharLinhaTabela(doc, cursor + 4, headers, widths, true)
+    }
+
+    const label = statusOpcoes.find((op) => op.slug === s.status)?.label ?? s.status
+    const fimLabel = s.aberto ? 'Em aberto' : `${formatAppDate(s.fim!)} ${formatAppTime(s.fim!)}`
+
+    cursor = desenharLinhaTabela(doc, cursor, [
+      label,
+      `${formatAppDate(s.inicio)} ${formatAppTime(s.inicio)}`,
+      fimLabel,
+      formatarMinutos(s.duracaoMinutos),
+    ], widths)
+  }
+
+  // Totais por status (bate com as colunas da tabela consolidada) + total geral
+  const totaisPorStatus = new Map<string, number>()
+  for (const s of kpi.detalheStatus) {
+    totaisPorStatus.set(s.status, (totaisPorStatus.get(s.status) ?? 0) + s.duracaoMinutos)
+  }
+  const totalGeral = kpi.detalheStatus.reduce((acc, s) => acc + s.duracaoMinutos, 0)
+
+  if (cursor > PAGE_HEIGHT - 30) {
+    doc.addPage()
+    cursor = desenharCabecalhoInterno(doc, 'Conferência de Status', `${kpi.nome} · Continuação`)
+  }
+
+  cursor += 6
+  const linhasTotais = [...totaisPorStatus.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([slug, min]) => {
+      const label = statusOpcoes.find((op) => op.slug === slug)?.label ?? slug
+      return `${label}: ${formatarMinutos(min)}`
+    })
+  linhasTotais.push(`Total: ${formatarMinutos(totalGeral)}`)
+
+  cursor = desenharBlocosTexto(doc, cursor, [linhasTotais.join('   ·   ')])
 
   return cursor
 }

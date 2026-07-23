@@ -51,11 +51,30 @@ export type Reuniao = {
 }
 
 export type HistoricoStatus = {
+  id: string
   profissional_id: string
   status: string
   inicio: string
   fim: string
   duracao_minutos: number
+}
+
+// Status manual ainda em aberto (fim IS NULL) — usado só pra exibir na conferência,
+// não entra nos cálculos agregados de tempo fábril.
+export type HistoricoStatusAberto = {
+  id: string
+  profissional_id: string
+  status: string
+  inicio: string
+}
+
+export type StatusDetalheKPI = {
+  id: string
+  status: string
+  inicio: string
+  fim: string | null
+  duracaoMinutos: number
+  aberto: boolean
 }
 
 export type AtendimentoDetalheKPI = {
@@ -80,6 +99,7 @@ export type KPIsProfissional = {
   diasSubutilizados: number
   evolucaoPorSemana: EvolucaoSemanalKPI[]
   detalheAtendimentos: AtendimentoDetalheKPI[]
+  detalheStatus: StatusDetalheKPI[]
 }
 
 export function toMin(hora: string): number {
@@ -264,6 +284,7 @@ export function calcularKPIs(
   dataFim: Date,
   reunioes: Reuniao[] = [],
   historico: HistoricoStatus[] = [],
+  historicoAberto: HistoricoStatusAberto[] = [],
 ): KPIsProfissional[] {
   const kpis: KPIsProfissional[] = []
   const jornadasSemanaisPorProfissional = buildMapaSemanalPorProfissional(jornadas)
@@ -400,6 +421,38 @@ export function calcularKPIs(
       }))
       .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
 
+    // Conferência de status: entradas fechadas no período + qualquer entrada ainda
+    // em aberto agora (não entra no cálculo de tempoStatusMin, só é exibida pra
+    // o gestor conseguir revisar/pegar anomalias antes do fallback de 2h agir).
+    const historicoAbertoProfissional = historicoAberto.filter((h) => h.profissional_id === prof.id)
+
+    const detalheStatusFechados: StatusDetalheKPI[] = historicoProfissional
+      .filter((h) => {
+        const ini = new Date(h.inicio)
+        const fim = new Date(h.fim)
+        return !(ini > dataFim || fim < dataInicio)
+      })
+      .map((h) => ({
+        id: h.id,
+        status: h.status,
+        inicio: h.inicio,
+        fim: h.fim,
+        duracaoMinutos: h.duracao_minutos,
+        aberto: false,
+      }))
+
+    const detalheStatusAbertos: StatusDetalheKPI[] = historicoAbertoProfissional.map((h) => ({
+      id: h.id,
+      status: h.status,
+      inicio: h.inicio,
+      fim: null,
+      duracaoMinutos: Math.max(0, Math.round((Date.now() - new Date(h.inicio).getTime()) / 60_000)),
+      aberto: true,
+    }))
+
+    const detalheStatus = [...detalheStatusAbertos, ...detalheStatusFechados]
+      .sort((a, b) => new Date(b.inicio).getTime() - new Date(a.inicio).getTime())
+
     kpis.push({
       profissionalId: prof.id,
       nome: prof.nome,
@@ -414,6 +467,7 @@ export function calcularKPIs(
       diasSubutilizados,
       evolucaoPorSemana,
       detalheAtendimentos,
+      detalheStatus,
     })
   }
 

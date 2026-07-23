@@ -16,6 +16,15 @@ type AtendimentoDetalheKPI = {
   data: string
 }
 
+type StatusDetalheKPI = {
+  id: string
+  status: string
+  inicio: string
+  fim: string | null
+  duracaoMinutos: number
+  aberto: boolean
+}
+
 type KPIsProfissional = {
   profissionalId: string
   nome: string
@@ -30,6 +39,7 @@ type KPIsProfissional = {
   diasSubutilizados: number
   evolucaoPorSemana: { label: string; fabrilMin: number; jornadaMin: number; pct: number }[]
   detalheAtendimentos: AtendimentoDetalheKPI[]
+  detalheStatus: StatusDetalheKPI[]
 }
 
 type ConteudoRelatorioProps = {

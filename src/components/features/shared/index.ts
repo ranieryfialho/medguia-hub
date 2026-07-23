@@ -40,3 +40,4 @@ export { BtnGerarPdfContatos } from './BtnGerarPdfContatos';
 export { BtnExportarMdContatos } from './BtnExportarMdContatos';
 export { BtnGerarPdfFollowUps } from './BtnGerarPdfFollowUps';
 export { BtnExportarMdFollowUps } from './BtnExportarMdFollowUps';
+export { BtnExportarMdTempoFabril } from './BtnExportarMdTempoFabril';
