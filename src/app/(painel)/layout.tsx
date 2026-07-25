@@ -16,6 +16,7 @@ import { listarTiposConsultaAtivos } from '@/actions/tipos-consulta'
 import { listarPlanosSaudeAtivos } from '@/actions/planos-saude'
 import { contarFollowUpsPendentes } from '@/actions/follow-ups'
 import { contarProntuariosPendentes } from '@/actions/prontuarios'
+import { resolverModulosEfetivos } from '@/lib/modulos'
 
 function buildAvatarFallbackDataUrl(nomeUsuario: string) {
   const iniciais = nomeUsuario
@@ -77,7 +78,7 @@ export default async function DashboardLayout({
   const cargoUsuario = profile?.role || 'Gestor'
   const userRole = profile?.role || ''
   const userNivelAcesso = profile?.nivel_acesso || ''
-  const modulosLiberados: string[] = profile?.modulos_liberados ?? []
+  const modulosLiberados: string[] = resolverModulosEfetivos(profile?.modulos_liberados ?? [], profile?.nivel_acesso)
   const avatarUrl = profile?.avatar_url || buildAvatarFallbackDataUrl(nomeUsuario)
 
   const [prontuariosPendentes, followUpsPendentes] = await Promise.all([

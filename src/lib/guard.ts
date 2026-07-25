@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import type { ModuloChave } from './modulos'
+import { resolverModulosEfetivos, type ModuloChave } from './modulos'
 
 export async function getUsuarioComPermissoes() {
   const supabase = await createClient()
@@ -15,7 +15,7 @@ export async function getUsuarioComPermissoes() {
 
   if (!profile) redirect('/login')
 
-  const modulos: string[] = profile.modulos_liberados ?? []
+  const modulos: string[] = resolverModulosEfetivos(profile.modulos_liberados ?? [], profile.nivel_acesso)
   return { user, profile, modulos }
 }
 

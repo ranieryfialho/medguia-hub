@@ -183,6 +183,14 @@ export function temAcessoGrupo(modulos: string[], chave_grupo: string): boolean 
   return grupo.modulos.some(m => modulos.includes(m.chave))
 }
 
+// Gestor/master do sistema sempre tem acesso total, independente do snapshot
+// salvo em modulos_liberados (evita bloqueios quando o array não foi
+// regenerado corretamente após uma promoção de nível de acesso).
+export function resolverModulosEfetivos(modulos: string[], nivelAcesso?: string | null): string[] {
+  if (nivelAcesso === 'gestor' || nivelAcesso === 'master') return []
+  return modulos
+}
+
 export function obterPrimeiraRotaLiberadaDoGrupo(modulos: string[], chaveGrupo: string): string | null {
   const grupo = GRUPOS_MODULOS.find((item) => item.chave_grupo === chaveGrupo)
   if (!grupo) return null
