@@ -13,6 +13,7 @@ export type VendaDetalhe = {
   id: string
   data_venda: string
   paciente_nome: string
+  paciente_origem?: string | null
   profissional_nome: string
   nome?: string | null
   status: string
@@ -447,11 +448,12 @@ function desenharPaginaVendasDetalhadas(doc: jsPDF, vendas: VendaDetalhe[]) {
 
     const linhasItens = doc.splitTextToSize(itensTexto, widths[2] - 4)
     const temNome = !!venda.nome
+    const temOrigem = !!venda.paciente_origem
     const temMotivo = !!venda.motivo_recusa
     const linhasMotivo = temMotivo ? doc.splitTextToSize(venda.motivo_recusa!, widths[4] - 4) : []
     const rowH = Math.max(
-      (temNome ? 12 : 8) + (temMotivo ? linhasMotivo.length * 3.5 : 0),
-      linhasItens.length * 4 + 4,
+      9 + (temOrigem ? 5 : 0) + (temNome ? 5 : 0) + (temMotivo ? linhasMotivo.length * 4.5 : 0),
+      linhasItens.length * 4.5 + 5,
     )
 
     if (y + rowH > PAGE_HEIGHT - 22) {
@@ -481,12 +483,19 @@ function desenharPaginaVendasDetalhadas(doc: jsPDF, vendas: VendaDetalhe[]) {
         maxWidth: widths[idx] - 4,
       })
 
-      // Nome do protocolo/venda abaixo do paciente
-      if (idx === 1 && temNome) {
+      // Origem do paciente e nome do protocolo/venda abaixo do paciente
+      if (idx === 1 && (temOrigem || temNome)) {
         doc.setFont('helvetica', 'italic')
         doc.setFontSize(6)
         doc.setTextColor(...MUTED)
-        doc.text(venda.nome!, x + 2, y + 9, { maxWidth: widths[idx] - 4 })
+        let linhaY = y + 10
+        if (temOrigem) {
+          doc.text(`Origem: ${venda.paciente_origem}`, x + 2, linhaY, { maxWidth: widths[idx] - 4 })
+          linhaY += 5
+        }
+        if (temNome) {
+          doc.text(venda.nome!, x + 2, linhaY, { maxWidth: widths[idx] - 4 })
+        }
       }
 
       // Motivo de recusa abaixo do status
@@ -494,7 +503,7 @@ function desenharPaginaVendasDetalhadas(doc: jsPDF, vendas: VendaDetalhe[]) {
         doc.setFont('helvetica', 'italic')
         doc.setFontSize(6)
         doc.setTextColor(...MUTED)
-        doc.text(linhasMotivo, x + 2, y + 9, { maxWidth: widths[idx] - 4 })
+        doc.text(linhasMotivo, x + 2, y + 10, { maxWidth: widths[idx] - 4, lineHeightFactor: 1.3 })
       }
 
       x += widths[idx]
@@ -557,7 +566,8 @@ function desenharPaginaDetalheReferenciadores(doc: jsPDF, vendasPorRef: Record<s
 
       const linhasItens = doc.splitTextToSize(itensTexto, widths[2] - 4)
       const temNome = !!venda.nome
-      const rowH = Math.max(temNome ? 12 : 8, linhasItens.length * 4 + 4)
+      const temOrigem = !!venda.paciente_origem
+      const rowH = Math.max(9 + (temOrigem ? 5 : 0) + (temNome ? 5 : 0), linhasItens.length * 4.5 + 5)
 
       if (y + rowH > PAGE_HEIGHT - 22) {
         doc.addPage()
@@ -590,11 +600,18 @@ function desenharPaginaDetalheReferenciadores(doc: jsPDF, vendasPorRef: Record<s
           maxWidth: widths[idx] - 4,
         })
 
-        if (idx === 1 && temNome) {
+        if (idx === 1 && (temOrigem || temNome)) {
           doc.setFont('helvetica', 'italic')
           doc.setFontSize(6)
           doc.setTextColor(...MUTED)
-          doc.text(venda.nome!, x + 2, y + 9, { maxWidth: widths[idx] - 4 })
+          let linhaY = y + 10
+          if (temOrigem) {
+            doc.text(`Origem: ${venda.paciente_origem}`, x + 2, linhaY, { maxWidth: widths[idx] - 4 })
+            linhaY += 5
+          }
+          if (temNome) {
+            doc.text(venda.nome!, x + 2, linhaY, { maxWidth: widths[idx] - 4 })
+          }
         }
 
         x += widths[idx]

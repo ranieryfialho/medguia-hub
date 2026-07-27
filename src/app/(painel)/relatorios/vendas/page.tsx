@@ -24,6 +24,7 @@ type PerfilVenda = {
 
 type PacienteVenda = {
   nome: string | null
+  origem: string | null
 }
 
 type ProdutoVenda = {
@@ -57,6 +58,16 @@ type VendaRow = {
 function firstRelation<T>(value: T | T[] | null | undefined): T | null {
   if (Array.isArray(value)) return value[0] ?? null
   return value ?? null
+}
+
+function parsearOrigemPaciente(origem: string | null | undefined): string {
+  if (!origem?.trim()) return 'Não informada'
+  const base = origem.split('::')[0].trim()
+  if (!base) return 'Não informada'
+  const baseNorm = base.charAt(0).toUpperCase() + base.slice(1).toLowerCase()
+  if (baseNorm === 'Facebook') return 'Facebook'
+  if (baseNorm === 'Meta') return 'Meta'
+  return baseNorm
 }
 
 export default async function RelatorioVendasPage({
@@ -116,7 +127,7 @@ export default async function RelatorioVendasPage({
     .from('vendas')
     .select(`
       id, origem, forma_pagamento, data_venda, profissional_id, paciente_id, medico_referenciador_nome, status, nome, motivo_recusa,
-      pacientes:paciente_id ( nome ),
+      pacientes:paciente_id ( nome, origem ),
       profiles:profissional_id ( full_name, role ),
       itens_venda ( quantidade, preco_unitario, produtos:produto_id ( id, nome, categoria ) )
     `)
@@ -213,6 +224,7 @@ export default async function RelatorioVendasPage({
       id: venda.id,
       data_venda: venda.data_venda,
       paciente_nome: paciente?.nome || '—',
+      paciente_origem: parsearOrigemPaciente(paciente?.origem),
       profissional_nome: perfil?.full_name || 'Desconhecido',
       nome: venda.nome || null,
       status: statusVenda,
@@ -270,6 +282,7 @@ export default async function RelatorioVendasPage({
         id: venda.id,
         data_venda: venda.data_venda,
         paciente_nome: firstRelation(venda.pacientes)?.nome || '—',
+        paciente_origem: parsearOrigemPaciente(paciente?.origem),
         profissional_nome: perfil?.full_name || 'Desconhecido',
         nome: venda.nome || null,
         status: statusVenda,
@@ -768,6 +781,9 @@ export default async function RelatorioVendasPage({
                                     </td>
                                     <td className="px-4 py-3">
                                       <p className="text-sm font-medium text-text-primary">{venda.paciente_nome}</p>
+                                      {venda.paciente_origem && (
+                                        <p className="text-xs text-text-secondary mt-0.5">Origem: {venda.paciente_origem}</p>
+                                      )}
                                       {venda.nome && (
                                         <p className="text-xs text-primary-500 mt-0.5">{venda.nome}</p>
                                       )}
@@ -938,6 +954,9 @@ export default async function RelatorioVendasPage({
                         </td>
                         <td className="px-4 py-3">
                           <p className="text-sm text-text-primary font-medium">{venda.paciente_nome}</p>
+                          {venda.paciente_origem && (
+                            <p className="text-xs text-text-secondary mt-0.5">Origem: {venda.paciente_origem}</p>
+                          )}
                           {venda.nome && (
                             <p className="text-xs text-primary-500 font-medium mt-0.5">{venda.nome}</p>
                           )}
