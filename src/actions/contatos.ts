@@ -204,101 +204,25 @@ async function listarPacientesDisponiveisBaseInterno(
       }))
   }
 
-  if (search?.trim()) {
-    const searchTerm = search.trim()
-    const { data, error } = await supabase
-      .from('pacientes')
-      .select(`
-        id,
-        nome,
-        telefone,
-        email,
-        recuperacao_base,
-        contatos_base (
-          paciente_id
-        )
-      `)
-      .eq('ativo', true)
-      .eq('recuperacao_base', recuperacaoBase)
-      .ilike('nome', `%${searchTerm}%`)
-      .order('nome', { ascending: true })
-      .limit(limit + 50)
+  // Ordem aleatoria (nao alfabetica) via função no banco — evita carregar e
+  // embaralhar em JS uma base que pode ter milhares de pacientes disponiveis.
+  const { data, error } = await supabase.rpc('fn_listar_pacientes_disponiveis_contatos_base_aleatorio', {
+    p_coluna_chave: colunaChave,
+    p_limit: limit,
+    p_busca: search?.trim() || null,
+  })
 
-    if (error) {
-      throw new Error(error.message)
-    }
-
-    return (data ?? [])
-      .filter((paciente) => {
-        const contatoRelacao = Array.isArray(paciente.contatos_base) ? paciente.contatos_base[0] : paciente.contatos_base
-        return !contatoRelacao
-      })
-      .slice(0, limit)
-      .map((paciente) => ({
-        id: paciente.id,
-        nome: paciente.nome,
-        telefone: paciente.telefone,
-        email: paciente.email,
-        recuperacao_base: paciente.recuperacao_base,
-      }))
+  if (error) {
+    throw new Error(error.message)
   }
 
-  const disponiveis: PreviewPacienteBaseContato[] = []
-  let from = 0
-  const pageSize = Math.max(limit * 2, 100)
-
-  while (disponiveis.length < limit) {
-    const to = from + pageSize - 1
-    const { data, error } = await supabase
-      .from('pacientes')
-      .select(`
-        id,
-        nome,
-        telefone,
-        email,
-        recuperacao_base,
-        contatos_base (
-          paciente_id
-        )
-      `)
-      .eq('ativo', true)
-      .eq('recuperacao_base', recuperacaoBase)
-      .order('nome', { ascending: true })
-      .range(from, to)
-
-    if (error) {
-      throw new Error(error.message)
-    }
-
-    if (!data?.length) {
-      break
-    }
-
-    for (const paciente of data) {
-      const contatoRelacao = Array.isArray(paciente.contatos_base) ? paciente.contatos_base[0] : paciente.contatos_base
-      if (contatoRelacao) continue
-
-      disponiveis.push({
-        id: paciente.id,
-        nome: paciente.nome,
-        telefone: paciente.telefone,
-        email: paciente.email,
-        recuperacao_base: paciente.recuperacao_base,
-      })
-
-      if (disponiveis.length >= limit) {
-        break
-      }
-    }
-
-    if (data.length < pageSize) {
-      break
-    }
-
-    from += pageSize
-  }
-
-  return disponiveis
+  return ((data ?? []) as PreviewPacienteBaseContato[]).map((paciente) => ({
+    id: paciente.id,
+    nome: paciente.nome,
+    telefone: paciente.telefone,
+    email: paciente.email,
+    recuperacao_base: paciente.recuperacao_base,
+  }))
 }
 
 function normalizarOrigemContato(origem: string | null | undefined): OrigemImportacaoContato | null {
