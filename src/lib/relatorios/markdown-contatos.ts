@@ -17,6 +17,10 @@ export function gerarMarkdownContatos(input: GerarMarkdownContatosInput): string
   linhas.push(`# Relatório de Contatos`)
   linhas.push('')
   linhas.push(`### ${input.periodoLabel}`)
+  if (input.filtroProfissionalLabel) {
+    linhas.push('')
+    linhas.push(`**Profissional:** ${input.filtroProfissionalLabel}`)
+  }
   linhas.push('')
 
   // ── Resumo geral ────────────────────────────────────────────

@@ -91,6 +91,8 @@ interface RelatorioContatosClientProps {
   totalContatosPeriodo: number
   contagemPorColunaPeriodo: Array<{ chave: string; nome: string; corChave: ColunaCorContato; total: number }>
   anotacoesPeriodo: AnotacaoContato[]
+  profissionais: Array<{ id: string; nome: string }>
+  responsavelSelecionadoId: string
 }
 
 const STATUS_COLORS: Record<StatusContato, string> = {
@@ -149,6 +151,8 @@ export function RelatorioContatosClient({
   totalContatosPeriodo,
   contagemPorColunaPeriodo,
   anotacoesPeriodo,
+  profissionais,
+  responsavelSelecionadoId,
 }: RelatorioContatosClientProps) {
   void _contatos
   void _userNome
@@ -176,6 +180,16 @@ export function RelatorioContatosClient({
     params.set('periodo', 'personalizado')
     params.set('de', de)
     params.set('ate', ate)
+    router.push(`?${params.toString()}`)
+  }
+
+  function aplicarProfissional(value: string) {
+    const params = new URLSearchParams(searchParams)
+    if (value) {
+      params.set('responsavel_id', value)
+    } else {
+      params.delete('responsavel_id')
+    }
     router.push(`?${params.toString()}`)
   }
 
@@ -251,6 +265,23 @@ export function RelatorioContatosClient({
             <p className="text-xs text-[#3d4945]/60 self-center capitalize">{periodoLabel}</p>
           )}
         </div>
+
+        {profissionais.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-[#bcc9c4]/30">
+            <label className="text-[11px] font-semibold text-[#3d4945] block mb-1">Profissional</label>
+            <select
+              value={responsavelSelecionadoId}
+              onChange={e => aplicarProfissional(e.target.value)}
+              className="bg-[#f0f5f4] border border-[#bcc9c4]/50 rounded-lg px-3 py-2 text-sm text-[#171d1c] focus:outline-none focus:border-[#006b5a] focus:ring-1 focus:ring-[#006b5a]/30 min-w-[220px]"
+            >
+              <option value="">Todos os profissionais</option>
+              <option value="sem_responsavel">Sem responsável</option>
+              {profissionais.map(p => (
+                <option key={p.id} value={p.id}>{p.nome}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Abas */}

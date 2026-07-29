@@ -105,6 +105,19 @@ export default async function RelatorioContatosPage({
   const atendimentoCutoffIso = atendimentoCutoff.toISOString()
 
   const isGestorOuMaster = isGestorSistema(profile?.nivel_acesso)
+  const responsavelIdParam = typeof params.responsavel_id === 'string' ? params.responsavel_id : ''
+
+  const { data: profissionaisRaw } = isGestorOuMaster
+    ? await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .eq('ativo', true)
+        .neq('role', 'master')
+        .neq('role', 'medico')
+        .order('full_name')
+    : { data: null }
+
+  const profissionaisFiltro = (profissionaisRaw ?? []).map((p) => ({ id: p.id, nome: p.full_name || 'Sem nome' }))
 
   // Construir query base
   let q = supabase
@@ -122,7 +135,19 @@ export default async function RelatorioContatosPage({
   // Filtrar por responsável se não for gestor/master
   if (!isGestorOuMaster) {
     q = q.eq('responsavel_id', user.id)
+  } else if (responsavelIdParam === 'sem_responsavel') {
+    q = q.is('responsavel_id', null)
+  } else if (responsavelIdParam) {
+    q = q.eq('responsavel_id', responsavelIdParam)
   }
+
+  const filtroProfissionalLabel = isGestorOuMaster
+    ? (responsavelIdParam === 'sem_responsavel'
+        ? 'Sem responsável'
+        : responsavelIdParam
+          ? (profissionaisFiltro.find((p) => p.id === responsavelIdParam)?.nome ?? null)
+          : null)
+    : null
 
   const { data: contatosRaw, error } = await q.order('atualizado_em', { ascending: false })
 
@@ -388,6 +413,7 @@ export default async function RelatorioContatosPage({
 
   const dadosRelatorio: DadosRelatorioContatos = {
     periodoLabel,
+    filtroProfissionalLabel: filtroProfissionalLabel ?? undefined,
     totalContatos,
     totalContatosPeriodo,
     taxaConversaoGeral,
@@ -465,6 +491,8 @@ export default async function RelatorioContatosPage({
         totalContatosPeriodo={totalContatosPeriodo}
         contagemPorColunaPeriodo={contagemPorColunaPeriodo}
         anotacoesPeriodo={anotacoesPeriodo}
+        profissionais={profissionaisFiltro}
+        responsavelSelecionadoId={responsavelIdParam}
       />
     </div>
   )

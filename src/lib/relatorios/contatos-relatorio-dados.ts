@@ -39,6 +39,7 @@ export type AnotacaoContatoResumo = {
 
 export type DadosRelatorioContatos = {
   periodoLabel: string
+  filtroProfissionalLabel?: string
 
   // Totais e taxas: geral (toda a base) x período filtrado
   totalContatos: number

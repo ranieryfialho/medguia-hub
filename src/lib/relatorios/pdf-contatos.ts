@@ -73,7 +73,11 @@ function desenharPaginaResumo(doc: jsPDF, input: GerarPdfContatosInput) {
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(10)
   doc.text('Funil de vendas e performance de contatos — base completa e período filtrado', MARGIN_X, 30)
-  doc.text(input.periodoLabel, MARGIN_X, 38)
+  doc.text(
+    input.filtroProfissionalLabel ? `${input.periodoLabel} · Profissional: ${input.filtroProfissionalLabel}` : input.periodoLabel,
+    MARGIN_X,
+    38,
+  )
 
   let y = 58
   y = desenharGradeCards(doc, y, [
