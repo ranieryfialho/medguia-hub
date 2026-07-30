@@ -96,7 +96,7 @@ export function KanbanColumn({
         }}
       >
         {canManageColumns && (
-          <div className="flex items-center justify-end gap-1.5 pb-2 lg:opacity-0 lg:group-hover/col:opacity-100 transition-opacity duration-150">
+          <div className={`flex items-center justify-end gap-1.5 pb-2 transition-opacity duration-150 ${isDesktop ? 'lg:opacity-0 lg:group-hover/col:opacity-100' : ''}`}>
             <div className="flex items-center rounded-full border border-[#e2e8e6] bg-white shadow-sm overflow-hidden">
               <button
                 onClick={() => onMoveColumn(column, 'left')}

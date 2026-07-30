@@ -53,7 +53,7 @@ export function KanbanCard({ contato, colIdx, columnsLength, onSelect, onMoveLef
         <span className="font-semibold text-[#1A2E2B] text-sm leading-snug flex-1 line-clamp-2">
           {contato.nome}
         </span>
-        <div className="flex items-center gap-1 shrink-0 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+        <div className={`flex items-center gap-1 shrink-0 opacity-100 transition-opacity ${draggable ? 'lg:opacity-0 lg:group-hover:opacity-100' : ''}`}>
           {contato.telefone && (
             <a
               href={whatsappLink(contato.telefone)}
@@ -125,7 +125,7 @@ export function KanbanCard({ contato, colIdx, columnsLength, onSelect, onMoveLef
           </div>
         )}
 
-        <div className="flex gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+        <div className={`flex gap-1 opacity-100 transition-opacity ${draggable ? 'lg:opacity-0 lg:group-hover:opacity-100' : ''}`}>
           {colIdx > 0 && (
             <button
               onClick={(e) => {
