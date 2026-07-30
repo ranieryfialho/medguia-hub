@@ -662,13 +662,28 @@ export function KanbanContatos({
     try {
       const result = await atualizarColunaContato(pacienteId, columnKey)
       if (result?.error) {
-        toast.error('Erro ao mover o contato.')
+        toast.error(`Erro ao mover o contato: ${result.error}`, { duration: 8000 })
+        void logFalhaMoveContato(pacienteId, targetColumn.nome, result.error)
         router.refresh()
       }
     } catch (e) {
       console.error('[moveContato]', e)
-      toast.error('Erro ao mover o contato.')
+      const detalhe = e instanceof Error ? e.message : String(e)
+      toast.error(`Erro ao mover o contato: ${detalhe}`, { duration: 8000 })
+      void logFalhaMoveContato(pacienteId, targetColumn.nome, detalhe)
       router.refresh()
+    }
+  }
+
+  async function logFalhaMoveContato(pacienteId: string, colunaNome: string, detalhe: string) {
+    try {
+      const dispositivo = typeof navigator !== 'undefined' ? navigator.userAgent : 'desconhecido'
+      await adicionarNota(
+        pacienteId,
+        `[Diagnostico] Falha ao mover para "${colunaNome}": ${detalhe} | dispositivo: ${dispositivo}`
+      )
+    } catch (logError) {
+      console.error('[logFalhaMoveContato] tambem falhou ao registrar nota de diagnostico', logError)
     }
   }
 
