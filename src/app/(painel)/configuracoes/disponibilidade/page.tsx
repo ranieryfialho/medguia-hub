@@ -10,7 +10,7 @@ import Link from 'next/link'
 import { formatAppDateKey, getAppDayRangeUTC, getAppHour, parseAppDate } from '@/lib/datetime'
 import { BtnCopiarDisponibilidade } from '@/components/features/configuracoes'
 import { normalizarDisponibilidade, type DisponibilidadeDia } from '@/lib/disponibilidade'
-import { obterIntervalosJornada, toHora } from '@/lib/jornada'
+import { obterIntervalosJornada, toHora, toMin } from '@/lib/jornada'
 import { buildMapaMensalPorProfissional, resolverJornadaDoDia } from '@/lib/jornada-planejada'
 import { StatusEquipeRealtime } from '@/components/features/equipe'
 import { listarStatusDisponibilidade } from '@/actions/status-disponibilidade'
@@ -170,6 +170,20 @@ async function ViewIndividual({
     .lte('data_agendamento', getAppDayRangeUTC(fimKey).end)
     .not('status', 'in', STATUS_NAO_BLOQUEIAM_RAW_SQL)
 
+  const { data: bloqueiosSemana } = await supabase
+    .from('jornada_mensal_bloqueio')
+    .select('data, hora_inicio, hora_fim')
+    .eq('profissional_id', targetId)
+    .gte('data', inicioKey)
+    .lte('data', fimKey)
+
+  const bloqueiosPorData = new Map<string, IntervaloBloqueado[]>()
+  for (const b of bloqueiosSemana ?? []) {
+    const doDia = bloqueiosPorData.get(b.data) ?? []
+    doDia.push({ inicio: toMin(b.hora_inicio), fim: toMin(b.hora_fim) })
+    bloqueiosPorData.set(b.data, doDia)
+  }
+
   type DiaDados = {
     dia: Date
     trabalha: boolean
@@ -188,11 +202,14 @@ async function ViewIndividual({
 
     const diaKey = formatAppDateKey(dia)
     const agsDoDia = (agendamentos ?? []).filter(a => formatAppDateKey(new Date(a.data_agendamento)) === diaKey)
-    const ocupados: IntervaloBloqueado[] = agsDoDia.map(a => {
-      const d = new Date(a.data_agendamento)
-      const horaMin = getAppHour(d) * 60 + parseInt(format(d, 'mm'))
-      return { inicio: horaMin, fim: horaMin + (a.duracao_minutos ?? 60) }
-    })
+    const ocupados: IntervaloBloqueado[] = [
+      ...agsDoDia.map(a => {
+        const d = new Date(a.data_agendamento)
+        const horaMin = getAppHour(d) * 60 + parseInt(format(d, 'mm'))
+        return { inicio: horaMin, fim: horaMin + (a.duracao_minutos ?? 60) }
+      }),
+      ...(bloqueiosPorData.get(diaKey) ?? []),
+    ]
 
     const livres = calcularSlotsLivres(jornDia, ocupados)
     const intervalosJornada = obterIntervalosJornada(jornDia)
@@ -465,6 +482,23 @@ async function ViewGeral({
         .not('status', 'in', STATUS_NAO_BLOQUEIAM_RAW_SQL)
     : { data: [] }
 
+  const { data: todosBloqueios } = profIdsComJornada.length > 0
+    ? await supabase
+        .from('jornada_mensal_bloqueio')
+        .select('profissional_id, data, hora_inicio, hora_fim')
+        .in('profissional_id', profIdsComJornada)
+        .gte('data', inicioKey)
+        .lte('data', fimKey)
+    : { data: [] }
+
+  const bloqueiosPorProfEData = new Map<string, IntervaloBloqueado[]>()
+  for (const b of todosBloqueios ?? []) {
+    const chave = `${b.profissional_id}|${b.data}`
+    const doDia = bloqueiosPorProfEData.get(chave) ?? []
+    doDia.push({ inicio: toMin(b.hora_inicio), fim: toMin(b.hora_fim) })
+    bloqueiosPorProfEData.set(chave, doDia)
+  }
+
   // Calcular slots livres por profissional por dia
   type ProfDia = {
     profId: string
@@ -493,12 +527,15 @@ async function ViewGeral({
       const agsDoDia = (todosAgendamentos ?? []).filter(
         a => a.profissional_id === prof.id && formatAppDateKey(new Date(a.data_agendamento)) === diaKey
       )
-      const ocupados: IntervaloBloqueado[] = agsDoDia.map(a => {
-        const h = getAppHour(new Date(a.data_agendamento))
-        const m = new Date(a.data_agendamento).getMinutes()
-        const horaMin = h * 60 + m
-        return { inicio: horaMin, fim: horaMin + (a.duracao_minutos ?? 60) }
-      })
+      const ocupados: IntervaloBloqueado[] = [
+        ...agsDoDia.map(a => {
+          const h = getAppHour(new Date(a.data_agendamento))
+          const m = new Date(a.data_agendamento).getMinutes()
+          const horaMin = h * 60 + m
+          return { inicio: horaMin, fim: horaMin + (a.duracao_minutos ?? 60) }
+        }),
+        ...(bloqueiosPorProfEData.get(`${prof.id}|${diaKey}`) ?? []),
+      ]
       grid.push({
         profId: prof.id,
         nome: prof.nome,

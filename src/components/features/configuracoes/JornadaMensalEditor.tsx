@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   addDays,
   endOfMonth,
@@ -14,7 +14,7 @@ import {
 } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import toast from 'react-hot-toast'
-import { CalendarDays, CheckCircle2, CopyPlus, RotateCcw } from 'lucide-react'
+import { CalendarDays, CheckCircle2, CopyPlus, RotateCcw, Ban, Trash2, Plus } from 'lucide-react'
 import type { DiaDisponibilidade } from '@/actions/disponibilidade'
 import {
   materializarJornadaMensal,
@@ -22,6 +22,11 @@ import {
   salvarJornadaMensalDia,
   type JornadaMensalDia,
 } from '@/actions/jornada-mensal'
+import {
+  adicionarBloqueioHorario,
+  removerBloqueioHorario,
+  type BloqueioDia,
+} from '@/actions/jornada-bloqueios'
 
 const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 const ORIGEM_LABEL: Record<string, string> = {
@@ -42,6 +47,7 @@ type Props = {
   mesReferencia: string
   disponibilidade: DiaDisponibilidade[]
   jornadaMensal: JornadaMensalDia[]
+  bloqueiosMensal: BloqueioDia[]
 }
 
 function parseMes(mesReferencia: string) {
@@ -110,13 +116,23 @@ export function JornadaMensalEditor({
   mesReferencia,
   disponibilidade,
   jornadaMensal,
+  bloqueiosMensal,
 }: Props) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
   const [selectedDate, setSelectedDate] = useState(() => `${mesReferencia}-01`)
+  const [novoBloqueio, setNovoBloqueio] = useState({ hora_inicio: '', hora_fim: '', motivo: '' })
 
   const templateMap = new Map(disponibilidade.map((dia) => [dia.dia_semana, dia]))
   const mensalMap = new Map(jornadaMensal.map((dia) => [dia.data, dia]))
+  const bloqueiosMap = new Map<string, BloqueioDia[]>()
+  for (const bloqueio of bloqueiosMensal) {
+    const doDia = bloqueiosMap.get(bloqueio.data) ?? []
+    doDia.push(bloqueio)
+    bloqueiosMap.set(bloqueio.data, doDia)
+  }
+  const bloqueiosDoDiaSelecionado = bloqueiosMap.get(selectedDate) ?? []
   const diasCalendario = buildCalendarDays(mesReferencia)
   const inicioMes = startOfMonth(parseMes(mesReferencia))
   const diasDoMes = diasCalendario.filter((dia) => isSameMonth(dia, inicioMes))
@@ -209,12 +225,47 @@ export function JornadaMensalEditor({
   function handleSelectDate(data: string) {
     setSelectedDate(data)
     setForm(buildFormState(resolverDia(parse(data, 'yyyy-MM-dd', new Date()))))
+    setNovoBloqueio({ hora_inicio: '', hora_fim: '', motivo: '' })
+  }
+
+  function handleAdicionarBloqueio() {
+    startTransition(async () => {
+      const res = await adicionarBloqueioHorario(targetProfissionalId, {
+        data: selectedDate,
+        hora_inicio: novoBloqueio.hora_inicio,
+        hora_fim: novoBloqueio.hora_fim,
+        motivo: novoBloqueio.motivo,
+      })
+
+      if (res.error) {
+        toast.error(res.error)
+        return
+      }
+
+      toast.success('Bloqueio adicionado.')
+      setNovoBloqueio({ hora_inicio: '', hora_fim: '', motivo: '' })
+      router.refresh()
+    })
+  }
+
+  function handleRemoverBloqueio(bloqueioId: string) {
+    startTransition(async () => {
+      const res = await removerBloqueioHorario(bloqueioId)
+
+      if (res.error) {
+        toast.error(res.error)
+        return
+      }
+
+      toast.success('Bloqueio removido.')
+      router.refresh()
+    })
   }
 
   function pushFilters(next: { profissional?: string; mes?: string }) {
     const profissional = next.profissional ?? profissionalAtualId
     const mes = next.mes ?? mesReferencia
-    const params = new URLSearchParams()
+    const params = new URLSearchParams(searchParams.toString())
     params.set('mes', mes)
     if (isGestor) params.set('profissional', profissional)
     router.push(`/configuracoes/jornada?${params.toString()}`)
@@ -286,6 +337,7 @@ export function JornadaMensalEditor({
     const isSelected = selectedDate === resolvido.data
     const hasManual = resolvido.origemExibicao !== 'fallback' && resolvido.origemExibicao !== 'template'
     const hasMaterializedTemplate = resolvido.origemExibicao === 'template'
+    const bloqueiosDoDia = bloqueiosMap.get(resolvido.data) ?? []
 
     return (
       <button
@@ -303,7 +355,17 @@ export function JornadaMensalEditor({
         } ${isCurrentMonth ? '' : 'opacity-45'}`}
       >
         <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-bold text-slate-900">{format(dia, 'd')}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm font-bold text-slate-900">{format(dia, 'd')}</span>
+            {bloqueiosDoDia.length > 0 && (
+              <span
+                title={`${bloqueiosDoDia.length} bloqueio${bloqueiosDoDia.length > 1 ? 's' : ''} de horário`}
+                className="flex h-4 w-4 items-center justify-center rounded-full bg-rose-100 text-rose-600"
+              >
+                <Ban size={10} />
+              </span>
+            )}
+          </div>
           <span className={`rounded-full px-2 py-0.5 text-[9px] sm:text-[10px] font-semibold ${
             resolvido.ativo
               ? hasManual
@@ -549,6 +611,87 @@ export function JornadaMensalEditor({
                   Sempre informe o motivo quando o horário do dia sair do padrão semanal.
                 </p>
               )}
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-white p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <Ban size={14} className="text-rose-500" />
+                <p className="text-xs font-semibold text-slate-600">Bloqueios de horário neste dia</p>
+              </div>
+              <p className="text-[11px] text-slate-400 mb-3">
+                Reserve faixas específicas (reunião, consulta, imprevisto) sem alterar o restante da jornada do dia.
+              </p>
+
+              {bloqueiosDoDiaSelecionado.length > 0 && (
+                <ul className="mb-3 space-y-2">
+                  {bloqueiosDoDiaSelecionado.map((bloqueio) => (
+                    <li
+                      key={bloqueio.id}
+                      className="flex items-start justify-between gap-2 rounded-lg border border-rose-100 bg-rose-50/60 px-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-rose-700">
+                          {bloqueio.hora_inicio} – {bloqueio.hora_fim}
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-rose-700/80 break-words">
+                          {bloqueio.motivo}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoverBloqueio(bloqueio.id)}
+                        disabled={isPending}
+                        className="mt-0.5 shrink-0 text-rose-400 hover:text-rose-700 transition-colors disabled:opacity-50"
+                        title="Remover bloqueio"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <div className="space-y-2 rounded-lg border border-slate-100 bg-slate-50/70 p-2.5">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-500 block mb-1">Início</label>
+                    <input
+                      type="time"
+                      value={novoBloqueio.hora_inicio}
+                      onChange={(e) => setNovoBloqueio((prev) => ({ ...prev, hora_inicio: e.target.value }))}
+                      className="w-full border border-[#bcc9c4] rounded-lg px-2 py-1.5 text-sm font-medium text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/50 focus:border-[#006b5a] outline-none transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-500 block mb-1">Fim</label>
+                    <input
+                      type="time"
+                      value={novoBloqueio.hora_fim}
+                      onChange={(e) => setNovoBloqueio((prev) => ({ ...prev, hora_fim: e.target.value }))}
+                      className="w-full border border-[#bcc9c4] rounded-lg px-2 py-1.5 text-sm font-medium text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/50 focus:border-[#006b5a] outline-none transition-all"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-500 block mb-1">Motivo</label>
+                  <input
+                    type="text"
+                    value={novoBloqueio.motivo}
+                    onChange={(e) => setNovoBloqueio((prev) => ({ ...prev, motivo: e.target.value }))}
+                    placeholder="Ex.: reunião de equipe"
+                    className="w-full border border-[#bcc9c4] rounded-lg px-2 py-1.5 text-sm text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/50 focus:border-[#006b5a] outline-none transition-all"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAdicionarBloqueio}
+                  disabled={isPending || !novoBloqueio.hora_inicio || !novoBloqueio.hora_fim || !novoBloqueio.motivo.trim()}
+                  className="inline-flex w-full items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-[#006b5a] text-white text-xs font-bold hover:bg-[#005548] transition-colors disabled:opacity-50"
+                >
+                  <Plus size={14} />
+                  Adicionar bloqueio
+                </button>
+              </div>
             </div>
           </div>
 

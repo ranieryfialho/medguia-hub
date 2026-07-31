@@ -3,6 +3,7 @@ import { format } from 'date-fns'
 import { createClient } from '@/lib/supabase/server'
 import { listarDisponibilidade } from '@/actions/disponibilidade'
 import { listarJornadaMensal } from '@/actions/jornada-mensal'
+import { listarBloqueiosMes } from '@/actions/jornada-bloqueios'
 import { JornadaEditor, JornadaMensalEditor } from '@/components/features/configuracoes'
 import { requireModulo } from '@/lib/guard'
 import { podeGerirEquipe } from '@/lib/permissoes'
@@ -44,9 +45,10 @@ export default async function JornadaPage({
 
   const targetId = isGestor && paramProfId ? paramProfId : user.id
 
-  const [disponibilidade, jornadaMensal] = await Promise.all([
+  const [disponibilidade, jornadaMensal, bloqueiosMensal] = await Promise.all([
     listarDisponibilidade(targetId),
     listarJornadaMensal(targetId, mesReferencia),
+    listarBloqueiosMes(targetId, mesReferencia),
   ])
 
   return (
@@ -56,6 +58,7 @@ export default async function JornadaPage({
         targetProfissionalId={targetId}
         disponibilidade={disponibilidade}
         jornadaMensal={jornadaMensal}
+        bloqueiosMensal={bloqueiosMensal}
         isGestor={isGestor}
         profissionais={profissionais}
         profissionalAtualId={targetId}

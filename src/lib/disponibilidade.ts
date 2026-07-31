@@ -1,14 +1,19 @@
 import { parseAppDate } from '@/lib/datetime'
 import {
-  formatarFaixasJornada,
+  formatarIntervalos,
   obterIntervalosJornada,
+  subtrairIntervalos,
   toMin,
+  type IntervaloMinutos,
   type JornadaDia,
 } from '@/lib/jornada'
 import { resolverJornadaDoDia, type JornadaMensalDiaPlanejado } from '@/lib/jornada-planejada'
 
 export type DisponibilidadeDia = JornadaDia
 export type DisponibilidadeMensalMap = Map<string, JornadaMensalDiaPlanejado>
+
+export type BloqueioHorario = { hora_inicio: string; hora_fim: string }
+export type BloqueiosPorDataMap = Map<string, BloqueioHorario[]>
 
 export function normalizarDisponibilidade(dia: {
   jornada_inicio: string
@@ -54,12 +59,29 @@ export function obterDisponibilidadeDoDia(
   }
 }
 
+export function obterIntervalosDisponiveisDoDia(
+  disponibilidades: Map<number, DisponibilidadeDia>,
+  data: string,
+  disponibilidadesMensais?: DisponibilidadeMensalMap,
+  bloqueiosDoDia?: BloqueioHorario[],
+): IntervaloMinutos[] {
+  const { disponibilidade } = obterDisponibilidadeDoDia(disponibilidades, data, disponibilidadesMensais)
+  if (!disponibilidade) return []
+
+  const base = obterIntervalosJornada(disponibilidade)
+  if (!bloqueiosDoDia || bloqueiosDoDia.length === 0) return base
+
+  const bloqueiosMin = bloqueiosDoDia.map((b) => ({ inicio: toMin(b.hora_inicio), fim: toMin(b.hora_fim) }))
+  return subtrairIntervalos(base, bloqueiosMin)
+}
+
 export function validarHorarioDisponibilidade(
   disponibilidades: Map<number, DisponibilidadeDia>,
   data: string,
   horaInicio: string,
   horaFim: string,
   disponibilidadesMensais?: DisponibilidadeMensalMap,
+  bloqueiosDoDia?: BloqueioHorario[],
 ) {
   const { disponibilidade } = obterDisponibilidadeDoDia(disponibilidades, data, disponibilidadesMensais)
 
@@ -71,8 +93,16 @@ export function validarHorarioDisponibilidade(
     }
   }
 
-  const faixas = formatarFaixasJornada(disponibilidade)
-  const ok = horarioDentroDaDisponibilidade(disponibilidade, horaInicio, horaFim)
+  const intervalosDisponiveis = obterIntervalosDisponiveisDoDia(
+    disponibilidades,
+    data,
+    disponibilidadesMensais,
+    bloqueiosDoDia,
+  )
+  const faixas = formatarIntervalos(intervalosDisponiveis)
+  const inicio = toMin(horaInicio)
+  const fim = toMin(horaFim)
+  const ok = fim > inicio && intervalosDisponiveis.some((intervalo) => inicio >= intervalo.inicio && fim <= intervalo.fim)
 
   return {
     ok,

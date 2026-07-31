@@ -7,6 +7,8 @@ import { buildAppDateTimeISO, formatAppDateKey } from '@/lib/datetime'
 import {
   normalizarDisponibilidade,
   validarHorarioDisponibilidade,
+  type BloqueioHorario,
+  type BloqueiosPorDataMap,
   type DisponibilidadeMensalMap,
   type DisponibilidadeDia,
 } from '@/lib/disponibilidade'
@@ -123,10 +125,35 @@ async function carregarRoleProfissional(profissionalId: string) {
   return data?.role ?? null
 }
 
+async function carregarBloqueiosProfissional(
+  profissionalId: string,
+  dataInicio: string,
+  dataFim: string,
+) {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('jornada_mensal_bloqueio')
+    .select('data, hora_inicio, hora_fim')
+    .eq('profissional_id', profissionalId)
+    .gte('data', dataInicio)
+    .lte('data', dataFim)
+
+  const bloqueios = new Map() as BloqueiosPorDataMap
+  for (const item of (data ?? []) as { data: string; hora_inicio: string; hora_fim: string }[]) {
+    const bloqueio: BloqueioHorario = { hora_inicio: item.hora_inicio, hora_fim: item.hora_fim }
+    const doDia = bloqueios.get(item.data) ?? []
+    doDia.push(bloqueio)
+    bloqueios.set(item.data, doDia)
+  }
+
+  return bloqueios
+}
+
 function validarOcorrenciasNaDisponibilidade(
   disponibilidades: Map<number, DisponibilidadeDia>,
   disponibilidadesMensais: DisponibilidadeMensalMap,
   ocorrencias: { data: string; hora_inicio: string; hora_fim: string }[],
+  bloqueios?: BloqueiosPorDataMap,
 ) {
   for (const ocorrencia of ocorrencias) {
     const validacao = validarHorarioDisponibilidade(
@@ -135,6 +162,7 @@ function validarOcorrenciasNaDisponibilidade(
       ocorrencia.hora_inicio,
       ocorrencia.hora_fim,
       disponibilidadesMensais,
+      bloqueios?.get(ocorrencia.data),
     )
 
     if (!validacao.ok) {
@@ -373,11 +401,18 @@ export async function criarAgendamento(formData: FormData) {
   if (exigeDisponibilidade) {
     const disponibilidades = await carregarDisponibilidadesProfissional(profissional_id)
     const datasOcorrencias = atendimentosParaInserir.map((a) => a.data).sort()
-    const disponibilidadesMensais = await carregarDisponibilidadesMensaisProfissional(
-      profissional_id,
-      datasOcorrencias[0],
-      datasOcorrencias[datasOcorrencias.length - 1],
-    )
+    const [disponibilidadesMensais, bloqueios] = await Promise.all([
+      carregarDisponibilidadesMensaisProfissional(
+        profissional_id,
+        datasOcorrencias[0],
+        datasOcorrencias[datasOcorrencias.length - 1],
+      ),
+      carregarBloqueiosProfissional(
+        profissional_id,
+        datasOcorrencias[0],
+        datasOcorrencias[datasOcorrencias.length - 1],
+      ),
+    ])
     const erroDisponibilidade = validarOcorrenciasNaDisponibilidade(
       disponibilidades,
       disponibilidadesMensais,
@@ -386,6 +421,7 @@ export async function criarAgendamento(formData: FormData) {
         hora_inicio: a.hora_inicio,
         hora_fim: a.hora_fim,
       })),
+      bloqueios,
     )
 
     if (erroDisponibilidade) {
@@ -1108,14 +1144,16 @@ export async function editarAtendimento(id: string, formData: FormData) {
   const roleProfissional = await carregarRoleProfissional(profissional_id)
   if (roleProfissional !== 'medico') {
     const disponibilidades = await carregarDisponibilidadesProfissional(profissional_id)
-    const disponibilidadesMensais = await carregarDisponibilidadesMensaisProfissional(
-      profissional_id,
-      dataStr,
-      dataStr,
-    )
-    const erroDisponibilidade = validarOcorrenciasNaDisponibilidade(disponibilidades, disponibilidadesMensais, [
-      { data: dataStr, hora_inicio: horaInicio, hora_fim: horaFim },
+    const [disponibilidadesMensais, bloqueios] = await Promise.all([
+      carregarDisponibilidadesMensaisProfissional(profissional_id, dataStr, dataStr),
+      carregarBloqueiosProfissional(profissional_id, dataStr, dataStr),
     ])
+    const erroDisponibilidade = validarOcorrenciasNaDisponibilidade(
+      disponibilidades,
+      disponibilidadesMensais,
+      [{ data: dataStr, hora_inicio: horaInicio, hora_fim: horaFim }],
+      bloqueios,
+    )
 
     if (erroDisponibilidade) {
       return erroDisponibilidade

@@ -60,10 +60,40 @@ export function calcularMinutosJornada(jornada: JornadaDia): number {
   )
 }
 
-export function formatarFaixasJornada(jornada: JornadaDia): string {
-  return obterIntervalosJornada(jornada)
+export function subtrairIntervalos(
+  base: IntervaloMinutos[],
+  bloqueios: IntervaloMinutos[],
+): IntervaloMinutos[] {
+  let resultado = base
+
+  for (const bloqueio of bloqueios) {
+    resultado = resultado.flatMap((intervalo) => {
+      if (bloqueio.fim <= intervalo.inicio || bloqueio.inicio >= intervalo.fim) {
+        return [intervalo]
+      }
+
+      const partes: IntervaloMinutos[] = []
+      if (bloqueio.inicio > intervalo.inicio) {
+        partes.push({ inicio: intervalo.inicio, fim: Math.min(bloqueio.inicio, intervalo.fim) })
+      }
+      if (bloqueio.fim < intervalo.fim) {
+        partes.push({ inicio: Math.max(bloqueio.fim, intervalo.inicio), fim: intervalo.fim })
+      }
+      return partes
+    })
+  }
+
+  return resultado.filter((intervalo) => intervalo.fim > intervalo.inicio)
+}
+
+export function formatarIntervalos(intervalos: IntervaloMinutos[]): string {
+  return intervalos
     .map((intervalo) => `${toHora(intervalo.inicio)} – ${toHora(intervalo.fim)}`)
     .join(' • ')
+}
+
+export function formatarFaixasJornada(jornada: JornadaDia): string {
+  return formatarIntervalos(obterIntervalosJornada(jornada))
 }
 
 export function toHora(min: number): string {
