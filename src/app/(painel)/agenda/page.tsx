@@ -15,13 +15,16 @@ import { ptBR } from 'date-fns/locale'
 import { AgendaFiltrosAutoSubmit, SlideNovoAgendamento, AgendaDatePicker } from '@/components/features/agenda'
 import { AgendamentoItemDia, AgendamentoItemSemana } from '@/components/features/agenda'
 import type { AgendamentoDetalhe } from '@/components/features/agenda'
+import { CardStatusEquipe, type StatusEquipeDeclaracaoRow } from '@/components/features/agenda/CardStatusEquipe'
 import { buildSessaoEfetivaMap } from '@/lib/sessoes'
 import { listarTodasDisponibilidades } from '@/actions/disponibilidade'
 import { listarPlanosSaudeAtivos } from '@/actions/planos-saude'
+import { listarStatusOpcoes } from '@/actions/status-disponibilidade-config'
 import { formatAppDateKey, formatAppTime, getAppDayRangeUTC, getAppHour, parseAppDate } from '@/lib/datetime'
 import { normalizarDisponibilidade, type DisponibilidadeDia } from '@/lib/disponibilidade'
 import { buildMapaMensalPorProfissional, resolverJornadaDoDia } from '@/lib/jornada-planejada'
 import { podeEntrarNaAgendaOuRelatorio } from '@/lib/profissionais'
+import { ehStatusPersonalizado } from '@/lib/status-disponibilidade-regras'
 import { requireModulo } from '@/lib/guard'
 import { podeGerirEquipe, isGestorSistema } from '@/lib/permissoes'
 import {
@@ -514,6 +517,54 @@ export default async function AgendaPage({ searchParams }: PageProps) {
   const atendidos = agendamentosHoje.filter(a => isStatusConcluido(a.status)).length
   const pendentes = totalAgendamentos - atendidos
 
+  // US-003: card de status ao vivo da equipe — só para quem coordena a agenda.
+  let cardStatusEquipe: {
+    profissionais: { profissionalId: string; nome: string; ativo: boolean }[]
+    declaracoesIniciais: StatusEquipeDeclaracaoRow[]
+    emAtendimentoIdsIniciais: string[]
+    opcoes: { slug: string; label: string; cor: string }[]
+    slugsDeSistema: string[]
+  } | null = null
+
+  if (podeGerirAgendaEquipe) {
+    const idsEquipeCard = profissionaisElegiveisAgenda.map((p) => p.id)
+    const hojeRangeUTC = getAppDayRangeUTC(hojeString)
+
+    const [{ data: statusRows }, statusOpcoesEquipe, { data: atendimentosEmCursoRows }] = await Promise.all([
+      idsEquipeCard.length > 0
+        ? supabase
+            .from('status_disponibilidade')
+            .select('profissional_id, status, observacao, atualizado_em')
+            .in('profissional_id', idsEquipeCard)
+        : Promise.resolve({ data: [] as StatusEquipeDeclaracaoRow[] }),
+      listarStatusOpcoes(),
+      supabase
+        .from('atendimentos')
+        .select('profissional_id, fisioterapeuta_id')
+        .gte('data_agendamento', hojeRangeUTC.start)
+        .lte('data_agendamento', hojeRangeUTC.end)
+        .in('status', getStatusRawValuesForKeys(['em_atendimento'])),
+    ])
+
+    const emAtendimentoIdsSet = new Set<string>()
+    for (const row of atendimentosEmCursoRows ?? []) {
+      if (row.profissional_id) emAtendimentoIdsSet.add(row.profissional_id)
+      if (row.fisioterapeuta_id) emAtendimentoIdsSet.add(row.fisioterapeuta_id)
+    }
+
+    cardStatusEquipe = {
+      profissionais: profissionaisElegiveisAgenda.map((p) => ({
+        profissionalId: p.id,
+        nome: p.nome,
+        ativo: true,
+      })),
+      declaracoesIniciais: (statusRows ?? []) as StatusEquipeDeclaracaoRow[],
+      emAtendimentoIdsIniciais: [...emAtendimentoIdsSet],
+      opcoes: statusOpcoesEquipe.map((o) => ({ slug: o.slug, label: o.label, cor: o.cor })),
+      slugsDeSistema: statusOpcoesEquipe.filter((o) => !ehStatusPersonalizado(o)).map((o) => o.slug),
+    }
+  }
+
   return (
     <div className="flex-1 min-h-0 overflow-hidden flex flex-col gap-3 lg:gap-4 p-2.5 sm:p-3 lg:p-4" style={{ paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))' }}>
 
@@ -883,6 +934,17 @@ export default async function AgendaPage({ searchParams }: PageProps) {
               planos={planosSaude}
             />
           </div>
+
+          {/* Status ao vivo da equipe (US-003) */}
+          {cardStatusEquipe && (
+            <CardStatusEquipe
+              profissionais={cardStatusEquipe.profissionais}
+              declaracoesIniciais={cardStatusEquipe.declaracoesIniciais}
+              emAtendimentoIdsIniciais={cardStatusEquipe.emAtendimentoIdsIniciais}
+              opcoes={cardStatusEquipe.opcoes}
+              slugsDeSistema={cardStatusEquipe.slugsDeSistema}
+            />
+          )}
 
           {/* Mini calendário — ocupa o espaço restante */}
           <div className="flex-1 min-h-0 bg-[#f0f5f4] rounded-3xl p-3 sm:p-4 overflow-hidden flex flex-col">

@@ -1,0 +1,18 @@
+{
+  "testCommand": "node --test --test-reporter=tap",
+  "reporter": "tap",
+  "testGlobs": [
+    "test/**",
+    "tests/**",
+    "src/**/*.test.*",
+    "src/**/*.spec.*",
+    "__tests__/**"
+  ],
+  "srcGlobs": [
+    "src/lib/status-*.ts",
+    "src/lib/relatorios/inclusao-profissional.ts",
+    "src/actions/status-disponibilidade*.ts",
+    "src/components/features/agenda/CardStatusEquipe.tsx",
+    "src/components/features/configuracoes/WidgetDisponibilidade.tsx"
+  ]
+}

@@ -7,6 +7,7 @@ export type OpcaoStatus = {
   ordem: number
   sistema: boolean
   ativo: boolean
+  observacao_obrigatoria: boolean
 }
 
 export type CorConfig = {
@@ -42,8 +43,8 @@ export const CORES_SELECIONAVEIS = Object.entries(COR_CONFIG)
   .map(([key, val]) => ({ key, ...val }))
 
 export const DEFAULT_OPCOES: OpcaoStatus[] = [
-  { id: 'sys-disponivel', slug: 'disponivel', label: 'Disponível', label_curto: 'livre',    cor: 'emerald',     ordem: 0,  sistema: true,  ativo: true },
-  { id: 'sys-reuniao',    slug: 'reuniao',    label: 'Em reunião', label_curto: 'reunião',  cor: 'amber',       ordem: 1,  sistema: false, ativo: true },
-  { id: 'sys-ocupado',    slug: 'ocupado',    label: 'Ocupado',    label_curto: 'ocupado',  cor: 'slate',       ordem: 2,  sistema: false, ativo: true },
-  { id: 'sys-ausente',    slug: 'ausente',    label: 'Ausente',    label_curto: 'ausente',  cor: 'slate-light', ordem: 99, sistema: true,  ativo: true },
+  { id: 'sys-disponivel', slug: 'disponivel', label: 'Disponível',     label_curto: 'livre',      cor: 'emerald',     ordem: 0,  sistema: true,  ativo: true, observacao_obrigatoria: false },
+  { id: 'sys-reuniao',    slug: 'reuniao',    label: 'Em reunião',     label_curto: 'reunião',    cor: 'amber',       ordem: 1,  sistema: false, ativo: true, observacao_obrigatoria: false },
+  { id: 'sys-ocupado',    slug: 'ocupado',    label: 'Em atendimento', label_curto: 'atendimento', cor: 'slate',       ordem: 2,  sistema: true,  ativo: true, observacao_obrigatoria: false },
+  { id: 'sys-ausente',    slug: 'ausente',    label: 'Ausente',        label_curto: 'ausente',    cor: 'slate-light', ordem: 99, sistema: true,  ativo: true, observacao_obrigatoria: false },
 ]
