@@ -112,7 +112,8 @@ SELECT proname FROM pg_proc
 WHERE proname IN ('fn_trigger_concluir_atendimento', 'fn_atualizar_status_em_atendimento');
 
 -- Catálogo: 'ocupado' agora é de sistema, com o identificador intacto.
-SELECT slug, label, label_curto, sistema FROM status_disponibilidade_opcoes WHERE slug = 'ocupado';
+SELECT slug, label, label_curto, sistema
+FROM status_disponibilidade_opcoes WHERE slug = 'ocupado';
 -- Esperado: ocupado | Em atendimento | atendimento | true
 
 -- Resíduos limpos. Esperado: 0.
