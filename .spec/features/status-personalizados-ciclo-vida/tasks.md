@@ -16,8 +16,7 @@ Ordem de execução: as tarefas de **regra pura** (T-001 a T-004) e as de **migr
 - Esforço: baixo
 - Notas: em `DEFAULT_OPCOES`, `ocupado` passa a `sistema: true` e rótulo "Em atendimento" / "atendimento". **Não mexer no identificador `ocupado`** — está fixo em quatro pontos do sistema. Acrescentar `observacao_obrigatoria: boolean` ao tipo `OpcaoStatus`.
 
-## T-003 — Modelo de exibição do card da agenda [pendente]
-
+## T-003 — Modelo de exibição do card da agenda [concluida]
 - Refs: AC-008, AC-009, AC-010
 - Arquivos: src/lib/status-card-agenda.ts, src/lib/status-card-agenda.test.ts
 - Esforço: alto
