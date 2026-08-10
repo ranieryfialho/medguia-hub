@@ -58,8 +58,7 @@ Ordem de execução: as tarefas de **regra pura** (T-001 a T-004) e as de **migr
 - Esforço: medio
 - Notas: `setStatusDisponibilidade` passa a receber a observação, buscar a opção no catálogo e chamar `validarObservacao` **no servidor** antes de gravar. Grava a observação junto do status. Depende de T-001.
 
-## T-010 — Configuração: marcar quais status exigem observação [pendente]
-
+## T-010 — Configuração: marcar quais status exigem observação [concluida]
 - Refs: AC-012
 - Arquivos: src/actions/status-disponibilidade-config.ts, src/app/(painel)/configuracoes/status-disponibilidade/page.tsx
 - Esforço: medio
