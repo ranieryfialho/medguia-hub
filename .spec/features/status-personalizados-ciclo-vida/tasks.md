@@ -64,8 +64,7 @@ Ordem de execução: as tarefas de **regra pura** (T-001 a T-004) e as de **migr
 - Esforço: medio
 - Notas: CRUD do campo `observacao_obrigatoria` e uso de `podeEditarOpcao` na guarda de edição/remoção. Depende de T-001 e T-002.
 
-## T-011 — Widget: campo de observação na troca de status [pendente]
-
+## T-011 — Widget: campo de observação na troca de status [concluida]
 - Refs: AC-001, AC-011
 - Arquivos: src/components/features/configuracoes/WidgetDisponibilidade.tsx
 - Esforço: alto
