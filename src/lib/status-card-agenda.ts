@@ -24,11 +24,19 @@ export type OpcaoCatalogoInput = {
   cor: string
 }
 
+export type StatusExibicao = { slug: string; label: string; cor: string }
+
 export type CardStatusAgenda = {
   profissionalId: string
   nome: string
   emAtendimento: boolean
-  statusPrincipal: { slug: string; label: string; cor: string }
+  statusPrincipal: StatusExibicao
+  /**
+   * AC-020: o que o profissional declarou, preenchido só quando o atendimento
+   * vence a declaração e a esconde do status principal. Sem isso a observação
+   * apareceria colada em "Em atendimento", como se descrevesse o atendimento.
+   */
+  declaracao: StatusExibicao | null
   observacao: string | null
   iniciadoEm: Date
   tempoDecorridoMin: number
@@ -71,15 +79,15 @@ export function montarCardsStatus(
     if (!profissional || !profissional.ativo) continue // AC-010
 
     const emAtendimento = emAtendimentoSet.has(declaracao.profissionalId)
-    const statusPrincipal = emAtendimento
-      ? resolverOpcao(SLUG_OCUPADO, opcoes)
-      : resolverOpcao(declaracao.slug, opcoes)
+    const statusDeclarado = resolverOpcao(declaracao.slug, opcoes)
+    const statusPrincipal = emAtendimento ? resolverOpcao(SLUG_OCUPADO, opcoes) : statusDeclarado
 
     cards.push({
       profissionalId: declaracao.profissionalId,
       nome: profissional.nome,
       emAtendimento,
       statusPrincipal,
+      declaracao: emAtendimento ? statusDeclarado : null, // AC-020
       observacao: declaracao.observacao,
       iniciadoEm: declaracao.iniciadoEm,
       tempoDecorridoMin: calcularTempoDecorridoMin(declaracao.iniciadoEm, agora),

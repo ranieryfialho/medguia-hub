@@ -24,4 +24,9 @@ AC_SEM_PROVA, TASK_CONCLUIDA_SEM_PROVA) — não precisa de teste extra seu.
 
 Chaves e senhas vêm de variáveis de ambiente, nunca hard-coded.
 
-- verificação(proibido): `(api[_-]?key|senha|password)\s*[:=]\s*['"][^'"]{8,}` em `src/**/*.js`
+Nota: o valor precisa estar entre aspas fechadas para contar. Sem exigir a aspa
+final, a regex casava mensagens de erro em português como
+`'Erro ao redefinir a senha: ' + err.message` — onde a aspa é de fechamento, não
+início de segredo. Alerta que dispara em falso ensina a ignorar alerta.
+
+- verificação(proibido): `(api[_-]?key|senha|password)\s*[:=]\s*['"][^'"]{8,}['"]` em `src/**/*.ts`

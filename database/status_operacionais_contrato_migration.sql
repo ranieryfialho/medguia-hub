@@ -25,9 +25,15 @@ SET label = 'Em atendimento',
 WHERE slug = 'ocupado';
 
 -- ─── 2. Limpa resíduos de 'ocupado' travado por escritor manual antigo ─────
+--
+-- NÃO grava origem = 'fallback' aqui de propósito: o valor 'fallback' só passa
+-- a ser aceito pela constraint criada em status_personalizados_fallback_1h_migration.sql.
+-- Gravá-lo tornaria esta migration dependente da ordem de aplicação — e as
+-- quatro migrations desta feature foram desenhadas para serem independentes.
+-- Preservar a origem existente também é mais honesto: quem escreveu a linha
+-- foi o escritor legado, não o fallback.
 UPDATE status_disponibilidade
 SET status = 'disponivel',
-    origem = 'fallback',
     atualizado_em = now()
 WHERE status = 'ocupado';
 

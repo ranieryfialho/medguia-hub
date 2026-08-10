@@ -57,6 +57,12 @@ Como dono da empresa, quero que um status personalizado expire em 1 hora e devol
 - **Quando** a migration da feature é aplicada
 - **Então** o comando que fecha o histórico aparece **antes** do que reseta o status — pois a ordem inversa faria o trigger fechar o bloco com a duração inteira e inflar o Tempo Fábril (asserção estática no arquivo SQL)
 
+#### AC-019 — Quem já está travado também é destravado
+
+- **Dado** um profissional com status personalizado ao vivo há mais de uma hora **sem** bloco aberto no histórico — o estado exato dos três profissionais encontrados em produção em 10/08, um deles preso há 2 dias e 20 horas
+- **Quando** o job de expiração roda
+- **Então** ele também é devolvido para "Disponível" — a expiração não pode depender de haver bloco aberto, senão quem já dessincronizou fica preso para sempre (asserção estática no arquivo SQL)
+
 #### AC-007 — Bloco vencido é sinalizado na tela
 
 - **Dado** um bloco de status aberto há mais de 1 hora
@@ -78,6 +84,12 @@ Como quem coordena a agenda, quero ver na própria rota de agendamento em que st
 - **Dado** um profissional que declarou um status personalizado e tem um atendimento em curso
 - **Quando** o card é montado
 - **Então** o status principal é "Em atendimento" (a agenda vence, decisão de 10/08) e a declaração aparece como informação secundária, junto do horário e da observação
+
+#### AC-020 — A declaração continua legível quando o atendimento vence
+
+- **Dado** um profissional que declarou "Em reunião" com observação e tem atendimento em curso
+- **Quando** o card é montado
+- **Então** o rótulo do status declarado continua disponível junto da observação, para a tela poder exibir "Em atendimento · declarou: Em reunião" — sem ele, a observação aparece colada em "Em atendimento" e o leitor entende que ela descreve o atendimento, não a reunião
 
 #### AC-010 — Profissional desligado não aparece no card
 
@@ -159,7 +171,7 @@ Como engenharia, quero remover o gatilho legado que sobrescreve o status do prof
 |---|---|---|---|
 | ASM-001 | Node 24 remove tipos nativamente, então `node --test` roda `.ts` sem transpilador; os testes usam import relativo porque o alias `@/` não é resolvido | confirmada | Verificado: Node v24.16.0. Decisão do runner tomada com o dono em 10/08 |
 | ASM-002 | Asserção estática sobre o texto do `.sql` previne a regressão de ordem e de intervalo, mas **não prova** o comportamento do Postgres | confirmada | Limitação aceita conscientemente: sem Docker/psql no ambiente. Rotulada como verificação estática em AC-003/004/005/006/013/017/018 |
-| ASM-003 | O Realtime propaga para a tela os updates feitos pelo `pg_cron`, não só os feitos pela aplicação | aberta | Não verificável aqui. Mitigado por AC-007, que detecta o vencimento no cliente sem depender do aviso |
+| ASM-003 | O Realtime propaga para a tela os updates feitos pelo `pg_cron`, não só os feitos pela aplicação | confirmada | **Deixou de ser carregadora.** Resolvida por desenho, não por verificação: AC-007 detecta o vencimento no cliente a partir do horário de abertura do bloco, sem depender de aviso do banco. Se o Realtime não propagar, a tela ainda marca o bloco como vencido. A suposição deixou de sustentar qualquer critério |
 | ASM-004 | Tornar `profiles.ativo` obrigatório não quebra nenhum fluxo que cria usuário sem preencher esse campo | confirmada | Auditado em 10/08: o único ponto de criação é o gatilho `handle_new_user`, que insere `(id, full_name, role)` e não toca em `ativo` — o padrão `true` da coluna cobre. Nenhum código da aplicação insere em `profiles` |
 
 ## Perguntas em aberto

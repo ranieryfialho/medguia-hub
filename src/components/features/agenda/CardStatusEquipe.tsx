@@ -145,6 +145,17 @@ export function CardStatusEquipe({
                     {card.statusPrincipal.label}
                   </span>
                 </div>
+                {/* AC-020: com atendimento em curso, o status declarado sai do lugar
+                    principal — sem exibi-lo aqui, a observação abaixo pareceria
+                    descrever o atendimento, e não a reunião que o profissional declarou. */}
+                {card.declaracao && (
+                  <p className="text-[10px] text-[#6d7a75] mt-0.5">
+                    declarou{' '}
+                    <span className={`font-semibold ${getCorConfig(card.declaracao.cor).text}`}>
+                      {card.declaracao.label}
+                    </span>
+                  </p>
+                )}
                 {card.observacao && (
                   <p className="text-[11px] text-[#3d4945] truncate mt-0.5">{card.observacao}</p>
                 )}

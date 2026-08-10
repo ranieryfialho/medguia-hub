@@ -42,6 +42,28 @@ test('@spec:AC-006 o histórico é fechado antes do status ser resetado', () => 
   )
 })
 
+test('@spec:AC-019 destrava também quem não tem bloco aberto no histórico', () => {
+  // A rede de segurança olha só o estado ao vivo — sem JOIN/CTE com o histórico.
+  const redeDeSeguranca =
+    /UPDATE\s+status_disponibilidade\s+sd\s+SET[\s\S]*?WHERE\s+sd\.status\s+NOT IN \('disponivel', 'ausente', 'ocupado'\)\s*AND\s+sd\.atualizado_em\s*<\s*NOW\(\) - INTERVAL '1 hour'/i
+
+  const ocorrencias = sql.match(new RegExp(redeDeSeguranca, 'gi')) ?? []
+
+  assert.ok(
+    ocorrencias.length >= 2,
+    'precisa existir dentro do cron (recorrente) e uma vez na migration (destrava os presos agora)',
+  )
+})
+
+test('@spec:AC-019 a rede de segurança não depende do CTE de fechamento', () => {
+  const posCte = sql.slice(sql.search(/FROM\s+fechados\s+f/i))
+  assert.match(
+    posCte,
+    /WHERE\s+sd\.status\s+NOT IN \('disponivel', 'ausente', 'ocupado'\)/i,
+    'o destravamento por estado ao vivo precisa vir depois do reset acoplado ao CTE',
+  )
+})
+
 test('@spec:AC-006 o reset do status depende do resultado do fechamento (mesma transação/CTE)', () => {
   assert.match(sql, /WITH\s+fechados\s+AS\s*\(/i)
   assert.match(sql, /RETURNING\s+profissional_id/i)

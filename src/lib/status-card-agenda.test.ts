@@ -64,6 +64,36 @@ test('@spec:AC-009 com atendimento em curso, o principal é "Em atendimento" e a
   assert.deepEqual(card.iniciadoEm, new Date('2026-08-10T11:30:00Z'))
 })
 
+test('@spec:AC-020 com atendimento em curso, o rótulo declarado continua legível ao lado da observação', () => {
+  const cards = montarCardsStatus(
+    [profissional()],
+    [declaracao()],
+    ['prof-1'],
+    OPCOES,
+    new Date('2026-08-10T12:05:00Z'),
+  )
+
+  const [card] = cards
+  // sem isto a tela mostraria: Em atendimento / "Reunião com fornecedor"
+  // e o leitor entenderia que a observação descreve o atendimento.
+  assert.deepEqual(card.declaracao, { slug: 'reuniao', label: 'Em reunião', cor: 'amber' })
+  assert.equal(card.statusPrincipal.label, 'Em atendimento')
+})
+
+test('@spec:AC-020 sem atendimento em curso não há declaração secundária a exibir', () => {
+  const cards = montarCardsStatus(
+    [profissional()],
+    [declaracao()],
+    [],
+    OPCOES,
+    new Date('2026-08-10T12:05:00Z'),
+  )
+
+  // o status principal JÁ é a declaração — repeti-la ao lado seria redundante
+  assert.equal(cards[0].declaracao, null)
+  assert.equal(cards[0].statusPrincipal.label, 'Em reunião')
+})
+
 test('@spec:AC-010 profissional desligado não aparece no card, mesmo com declaração remanescente', () => {
   const desligado = profissional({ profissionalId: 'prof-2', nome: 'Dr. Bruno', ativo: false })
   const declaracaoRemanescente = declaracao({ profissionalId: 'prof-2' })

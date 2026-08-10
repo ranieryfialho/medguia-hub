@@ -42,8 +42,31 @@ SELECT cron.schedule(
       origem = 'fallback'
   FROM fechados f
   WHERE sd.profissional_id = f.profissional_id;
+
+  -- ─── Rede de segurança: destrava quem dessincronizou (AC-019) ──────────────
+  -- O comando acima só alcança quem tinha bloco ABERTO. Em 10/08 havia três
+  -- profissionais em produção com status personalizado ao vivo e o bloco já
+  -- fechado — um deles preso há 2 dias e 20 horas. Para esses, o CTE não
+  -- devolve nada e eles ficariam presos para sempre.
+  -- Este comando não depende do histórico: olha só o estado ao vivo.
+  UPDATE status_disponibilidade sd
+  SET status = 'disponivel',
+      atualizado_em = NOW(),
+      origem = 'fallback'
+  WHERE sd.status NOT IN ('disponivel', 'ausente', 'ocupado')
+    AND sd.atualizado_em < NOW() - INTERVAL '1 hour';
   $cron$
 );
+
+-- ─── 3. Destrava agora quem já está preso ─────────────────────────────────────
+-- Mesmo comando da rede de segurança, aplicado uma vez na migration para não
+-- esperar até 10 minutos pelo próximo ciclo do cron.
+UPDATE status_disponibilidade sd
+SET status = 'disponivel',
+    atualizado_em = NOW(),
+    origem = 'fallback'
+WHERE sd.status NOT IN ('disponivel', 'ausente', 'ocupado')
+  AND sd.atualizado_em < NOW() - INTERVAL '1 hour';
 
 -- Confirma o novo agendamento
 SELECT jobid, jobname, schedule, active, command

@@ -17,7 +17,7 @@ Ordem de execução: as tarefas de **regra pura** (T-001 a T-004) e as de **migr
 - Notas: em `DEFAULT_OPCOES`, `ocupado` passa a `sistema: true` e rótulo "Em atendimento" / "atendimento". **Não mexer no identificador `ocupado`** — está fixo em quatro pontos do sistema. Acrescentar `observacao_obrigatoria: boolean` ao tipo `OpcaoStatus`.
 
 ## T-003 — Modelo de exibição do card da agenda [concluida]
-- Refs: AC-008, AC-009, AC-010
+- Refs: AC-008, AC-009, AC-010, AC-020
 - Arquivos: src/lib/status-card-agenda.ts, src/lib/status-card-agenda.test.ts
 - Esforço: alto
 - Notas: `montarCardsStatus` concentra as três decisões — atendimento em curso vence a declaração (AC-009, decisão de 10/08), inativo fora da lista (AC-010), tempo decorrido formatado (AC-008). Devolve modelo pronto; o componente só percorre. Depende do tipo alterado em T-002.
@@ -35,7 +35,7 @@ Ordem de execução: as tarefas de **regra pura** (T-001 a T-004) e as de **migr
 - Notas: `observacao` em `status_disponibilidade` e em `historico_status_disponibilidade`; `observacao_obrigatoria` em `status_disponibilidade_opcoes`. O gatilho de log passa a copiar a observação ao abrir o bloco, para que ela sobreviva à próxima troca. Teste = asserção estática sobre o texto do arquivo (ASM-002).
 
 ## T-006 — Migration: teto de 1 hora e devolução para Disponível [concluida]
-- Refs: AC-004, AC-005, AC-006
+- Refs: AC-004, AC-005, AC-006, AC-019
 - Arquivos: database/status_personalizados_fallback_1h_migration.sql, test/sql/fallback-1h.test.ts
 - Esforço: alto
 - Notas: **ponto mais sensível da feature.** O fechamento do histórico tem de vir antes do reset do status — a ordem inversa faz o gatilho fechar o bloco com a duração inteira e inflar o Tempo Fábril. AC-006 existe para travar isso. Reset grava `origem = 'fallback'`.
@@ -71,7 +71,7 @@ Ordem de execução: as tarefas de **regra pura** (T-001 a T-004) e as de **migr
 - Notas: fluxo passa de clique único para clique + confirmação com campo de texto quando o status exigir. Trocar o filtro inline por `opcoesSelecionaveis`. Cuidar do retorno antecipado `if (novoStatus === myStatus) return`. Depende de T-001 e T-009.
 
 ## T-012 — Card de status na rota de agendamento [concluida]
-- Refs: AC-008, AC-009, AC-010
+- Refs: AC-008, AC-009, AC-010, AC-020
 - Arquivos: src/components/features/agenda/CardStatusEquipe.tsx, src/app/(painel)/agenda/page.tsx
 - Esforço: alto
 - Notas: componente novo alimentado por `montarCardsStatus`, assinando o realtime que já existe. Layout da agenda é apertado (grade de 12 colunas). Sem horas acumuladas no dia (Q-001 respondida: não). Depende de T-003.

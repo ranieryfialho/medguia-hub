@@ -1,11 +1,112 @@
 {
   "feature": "status-personalizados-ciclo-vida",
-  "timestamp": "2026-08-10T17:52:57.730Z",
-  "gitRev": "4e4deb7",
-  "command": "node --test",
+  "timestamp": "2026-08-10T18:03:16.853Z",
+  "gitRev": "c046bad",
+  "command": "node --test --test-reporter=tap",
   "reporter": "tap",
   "exitCode": 0,
-  "testsParsed": 0,
-  "results": {},
+  "testsParsed": 49,
+  "results": {
+    "AC-001": {
+      "status": "pass",
+      "testName": "@spec:AC-001 recusa a troca quando o status exige observação e ela vem vazia",
+      "method": "tap"
+    },
+    "AC-002": {
+      "status": "pass",
+      "testName": "@spec:AC-002 aceita a troca sem observação quando o status não exige justificativa",
+      "method": "tap"
+    },
+    "AC-003": {
+      "status": "pass",
+      "testName": "@spec:AC-003 status_disponibilidade e historico_status_disponibilidade ganham a coluna observacao",
+      "method": "tap"
+    },
+    "AC-004": {
+      "status": "pass",
+      "testName": "@spec:AC-004 o teto do bloco passa a ser de 1 hora, não mais 2",
+      "method": "tap"
+    },
+    "AC-005": {
+      "status": "pass",
+      "testName": "@spec:AC-005 o job devolve status_disponibilidade para disponivel com origem fallback",
+      "method": "tap"
+    },
+    "AC-006": {
+      "status": "pass",
+      "testName": "@spec:AC-006 o histórico é fechado antes do status ser resetado",
+      "method": "tap"
+    },
+    "AC-019": {
+      "status": "pass",
+      "testName": "@spec:AC-019 destrava também quem não tem bloco aberto no histórico",
+      "method": "tap"
+    },
+    "AC-007": {
+      "status": "pass",
+      "testName": "@spec:AC-007 sinaliza bloco vencido quando aberto há mais de 1 hora",
+      "method": "tap"
+    },
+    "AC-008": {
+      "status": "pass",
+      "testName": "@spec:AC-008 o card mostra nome, status com cor do catálogo, observação e tempo decorrido",
+      "method": "tap"
+    },
+    "AC-009": {
+      "status": "pass",
+      "testName": "@spec:AC-009 com atendimento em curso, o principal é \"Em atendimento\" e a declaração vira secundária",
+      "method": "tap"
+    },
+    "AC-020": {
+      "status": "pass",
+      "testName": "@spec:AC-020 com atendimento em curso, o rótulo declarado continua legível ao lado da observação",
+      "method": "tap"
+    },
+    "AC-010": {
+      "status": "pass",
+      "testName": "@spec:AC-010 profissional desligado não aparece no card, mesmo com declaração remanescente",
+      "method": "tap"
+    },
+    "AC-011": {
+      "status": "pass",
+      "testName": "@spec:AC-011 \"ocupado\" está reclassificado como status de sistema",
+      "method": "tap"
+    },
+    "AC-012": {
+      "status": "pass",
+      "testName": "@spec:AC-012 recusa gerenciar (editar/remover) um status de sistema",
+      "method": "tap"
+    },
+    "AC-013": {
+      "status": "pass",
+      "testName": "@spec:AC-013 rótulo de \"ocupado\" muda para \"Em atendimento\", identificador permanece",
+      "method": "tap"
+    },
+    "AC-014": {
+      "status": "pass",
+      "testName": "@spec:AC-014 profissional desligado que trabalhou no período continua no relatório",
+      "method": "tap"
+    },
+    "AC-015": {
+      "status": "pass",
+      "testName": "@spec:AC-015 profissional desligado sem registro no período some do relatório",
+      "method": "tap"
+    },
+    "AC-016": {
+      "status": "pass",
+      "testName": "@spec:AC-016 profissional ativo sem registro no período aparece com zero horas",
+      "method": "tap"
+    },
+    "AC-017": {
+      "status": "pass",
+      "testName": "@spec:AC-017 o gatilho de inativação existe na tabela profiles",
+      "method": "tap"
+    },
+    "AC-018": {
+      "status": "pass",
+      "testName": "@spec:AC-018 remove o gatilho legado e as funções órfãs, gatilho antes das funções",
+      "method": "tap"
+    }
+  },
   "principles": {}
 }

@@ -43,7 +43,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 BEGIN
-  -- Só age na transição de ativo para inativo
+  -- Desligamento: registra a data e limpa o estado ao vivo
   IF NEW.ativo = false AND OLD.ativo = true THEN
     NEW.inativado_em := NOW();
 
@@ -54,6 +54,12 @@ BEGIN
 
     DELETE FROM status_disponibilidade
     WHERE profissional_id = NEW.id;
+  END IF;
+
+  -- Recontratação: limpa a data, senão a pessoa segue marcada como
+  -- "inativa desde X" na auditoria mesmo estando de volta ao quadro.
+  IF NEW.ativo = true AND OLD.ativo = false THEN
+    NEW.inativado_em := NULL;
   END IF;
 
   RETURN NEW;
