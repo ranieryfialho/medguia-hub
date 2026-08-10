@@ -38,9 +38,9 @@ SELECT column_name, data_type, is_nullable
 FROM information_schema.columns
 WHERE table_name = 'status_disponibilidade' AND column_name = 'origem';
 ```
+
 > **Resultado: nenhuma linha — a coluna NÃO existe em produção.** Era o cenário
-> que bloqueava o passo 3. A migration passou a criá-la com `ADD COLUMN IF NOT
-> EXISTS` antes da constraint. É também a explicação do caminho defensivo em
+> que bloqueava o passo 3. A migration passou a criá-la com `ADD COLUMN IF NOT EXISTS` antes da constraint. É também a explicação do caminho defensivo em
 > `setStatusDisponibilidade`, que reescreve o upsert sem `origem` quando o banco
 > reclama que a coluna não existe.
 
@@ -52,6 +52,7 @@ WHERE origem IS NOT NULL
   AND origem NOT IN ('manual', 'automatico', 'fallback')
 GROUP BY origem;
 ```
+
 > **Resultado: erro `column "origem" does not exist`** — consequência de (A), não
 > um problema à parte. Depois de aplicar o passo 3, a coluna existirá vazia e
 > esta consulta volta 0 linhas. Não precisa ser rodada de novo antes.
@@ -72,13 +73,13 @@ SELECT
 
 **Resultado de C em 10/08:**
 
-| Medida | Valor |
-|---|---:|
-| `em_status_personalizado` | 3 |
-| `travados_ha_mais_de_1h` | 3 |
-| `blocos_abertos` | 0 |
-| `perfis_com_ativo_nulo` | 0 |
-| `travados_em_ocupado` | 2 |
+| Medida                      | Valor |
+| --------------------------- | ----: |
+| `em_status_personalizado` |     3 |
+| `travados_ha_mais_de_1h`  |     3 |
+| `blocos_abertos`          |     0 |
+| `perfis_com_ativo_nulo`   |     0 |
+| `travados_em_ocupado`     |     2 |
 
 Duas leituras importantes:
 
@@ -92,7 +93,9 @@ Duas leituras importantes:
 
 ## 1. Remover o escritor legado
 
-**Arquivo:** [`status_operacionais_contrato_migration.sql`](status_operacionais_contrato_migration.sql)
+**Aplicar:** copie o conteúdo inteiro de
+[`status_operacionais_contrato_migration.sql`](status_operacionais_contrato_migration.sql)
+no SQL Editor e execute.
 
 Primeiro porque elimina o gatilho que pode sobrescrever status durante os passos
 seguintes. Também renomeia "Ocupado" para "Em atendimento" e o reclassifica como
@@ -123,7 +126,9 @@ escritor legado.
 
 ## 2. Observação com lastro no histórico
 
-**Arquivo:** [`status_personalizados_observacao_migration.sql`](status_personalizados_observacao_migration.sql)
+**Aplicar:** copie o conteúdo inteiro de
+[`status_personalizados_observacao_migration.sql`](status_personalizados_observacao_migration.sql)
+no SQL Editor e execute.
 
 Antes do passo 3, porque o gatilho de log recriado aqui é o que grava a
 observação — e o passo 3 dispara esse gatilho no destravamento.
@@ -148,7 +153,9 @@ FROM pg_proc WHERE proname = 'fn_log_mudanca_status_disponibilidade';
 
 ## 3. Teto de 1 hora e devolução para Disponível
 
-**Arquivo:** [`status_personalizados_fallback_1h_migration.sql`](status_personalizados_fallback_1h_migration.sql)
+**Aplicar:** copie o conteúdo inteiro de
+[`status_personalizados_fallback_1h_migration.sql`](status_personalizados_fallback_1h_migration.sql)
+no SQL Editor e execute.
 
 **É o passo que muda comportamento visível.** Reagenda o job, cria o domínio de
 `origem` e destrava quem já está preso — incluindo os 3 profissionais
@@ -186,7 +193,9 @@ WHERE duracao_minutos > 61
 
 ## 4. Profissional inativo
 
-**Arquivo:** [`profissional_inativo_migration.sql`](profissional_inativo_migration.sql)
+**Aplicar:** copie o conteúdo inteiro de
+[`profissional_inativo_migration.sql`](profissional_inativo_migration.sql)
+no SQL Editor e execute.
 
 ### Conferência
 
@@ -220,10 +229,10 @@ prova o comportamento do Postgres. Estes seis testes só podem ser feitos aqui.
 
 | # | O que testar                             | Como                                                                      | Esperado                                                                                 |
 | - | ---------------------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| 1 | Observação é gravada nas duas tabelas | Trocar para um status com observação pelo widget                        | Texto em `status_disponibilidade.observacao` e no bloco novo do histórico              |
+| 1 | Observação é gravada nas duas tabelas | Trocar para um status com observação pelo widget                        | Texto em`status_disponibilidade.observacao` e no bloco novo do histórico              |
 | 2 | Observação obrigatória bloqueia       | Marcar um status como obrigatório e tentar trocar sem texto              | Recusa com mensagem, mesmo forçando pela API                                            |
 | 3 | Observação sobrevive à troca          | Entrar em Reunião com texto A, depois em Hora administrativa com texto B | Dois blocos no histórico, cada um com o seu texto                                       |
-| 4 | O teto de 1h fecha e devolve             | Entrar num status e esperar ~70 min                                       | Bloco com ~60 min, status de volta em Disponível, `origem = 'fallback'`                |
+| 4 | O teto de 1h fecha e devolve             | Entrar num status e esperar ~70 min                                       | Bloco com ~60 min, status de volta em Disponível,`origem = 'fallback'`                |
 | 5 | "Em atendimento" sumiu da escolha        | Abrir o widget                                                            | Não aparece na lista "Meu status"                                                       |
 | 6 | Desligar limpa o estado ao vivo          | Inativar um perfil de teste                                               | `inativado_em` preenchido, bloco fechado, linha removida de `status_disponibilidade` |
 
@@ -257,9 +266,9 @@ Cada passo é reversível de forma independente.
 
 | Passo | Reversão                                                                                                                                                                                                                                                                                  |
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1     | Recriar gatilho e funções a partir de [`status_disponibilidade_automatico.sql`](status_disponibilidade_automatico.sql); `UPDATE status_disponibilidade_opcoes SET label='Ocupado', label_curto='ocupado', sistema=false WHERE slug='ocupado'`                                          |
-| 2     | Restaurar a função de log de [`historico_status_disponibilidade_migration.sql`](historico_status_disponibilidade_migration.sql). **Não remova as colunas** — elas são aditivas e podem já ter dados                                                                            |
-| 3     | Reagendar o job com o teto de 2h a partir de [`ajustar_frequencia_cron_fallback.sql`](ajustar_frequencia_cron_fallback.sql); `ALTER TABLE status_disponibilidade DROP CONSTRAINT status_disponibilidade_origem_check`. O destravamento já feito **não** se desfaz — nem deveria |
+| 1     | Recriar gatilho e funções a partir de[`status_disponibilidade_automatico.sql`](status_disponibilidade_automatico.sql); `UPDATE status_disponibilidade_opcoes SET label='Ocupado', label_curto='ocupado', sistema=false WHERE slug='ocupado'`                                          |
+| 2     | Restaurar a função de log de[`historico_status_disponibilidade_migration.sql`](historico_status_disponibilidade_migration.sql). **Não remova as colunas** — elas são aditivas e podem já ter dados                                                                            |
+| 3     | Reagendar o job com o teto de 2h a partir de[`ajustar_frequencia_cron_fallback.sql`](ajustar_frequencia_cron_fallback.sql); `ALTER TABLE status_disponibilidade DROP CONSTRAINT status_disponibilidade_origem_check`. O destravamento já feito **não** se desfaz — nem deveria |
 | 4     | `DROP TRIGGER trg_profiles_inativar ON profiles; DROP FUNCTION fn_inativar_profissional(); ALTER TABLE profiles ALTER COLUMN ativo DROP NOT NULL`                                                                                                                                        |
 
 Se precisar reverter o app sem reverter o banco: as colunas novas são aditivas e
