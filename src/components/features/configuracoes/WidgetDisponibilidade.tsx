@@ -8,6 +8,7 @@ import { usePathname } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { useSlideNovoAgendamentoAberto } from '@/components/layout/SlideNovoAgendamentoContext'
 import { getCorConfig, DEFAULT_OPCOES, type OpcaoStatus } from '@/lib/status-disponibilidade-cores'
+import { opcoesSelecionaveis, validarObservacao } from '@/lib/status-disponibilidade-regras'
 
 type Profissional = { id: string; nome: string; cargo: string }
 
@@ -41,6 +42,8 @@ export function WidgetDisponibilidade({ profissionais, initialStatuses, currentU
   const [isPending, startTransition] = useTransition()
   const slideNovoAgendamentoAberto = useSlideNovoAgendamentoAberto()
   const [isMobile, setIsMobile] = useState(false)
+  const [pendingStatus, setPendingStatus] = useState<string | null>(null)
+  const [observacaoInput, setObservacaoInput] = useState('')
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(max-width: 1023px)')
@@ -54,10 +57,8 @@ export function WidgetDisponibilidade({ profissionais, initialStatuses, currentU
   if (!isMobile && isTelaCadastro) return null
   if (isMobile && slideNovoAgendamentoAberto) return null
 
-  // Status selecionáveis manualmente: não-sistema + "Disponível" (permite encerrar um status manual em aberto)
-  const opcoesSelectionaveis = opcoes
-    .filter(o => !o.sistema || o.slug === 'disponivel')
-    .sort((a, b) => a.ordem - b.ordem)
+  // Status selecionáveis manualmente (AC-011: status de sistema, como "Em atendimento", não entram)
+  const opcoesParaEscolha = opcoesSelecionaveis(opcoes).sort((a, b) => a.ordem - b.ordem)
 
   // Config rápida por slug
   const cfgPorSlug = Object.fromEntries(opcoes.map(o => [o.slug, { ...getCorConfig(o.cor), label: o.label, labelCurto: o.label_curto }]))
@@ -69,16 +70,45 @@ export function WidgetDisponibilidade({ profissionais, initialStatuses, currentU
   const livres = statuses.filter(s => s.status === 'disponivel').length
   const total = profissionais.length
 
-  function handleSet(novoStatus: string) {
+  function handleSet(novoStatus: string, observacao?: string) {
     if (novoStatus === myStatus) return
     startTransition(async () => {
-      const res = await setStatusDisponibilidade(novoStatus)
+      const res = await setStatusDisponibilidade(novoStatus, observacao)
       if ('error' in res) {
         toast.error(res.error)
       } else {
         toast.success(getStatus(novoStatus).label)
+        setPendingStatus(null)
+        setObservacaoInput('')
       }
     })
+  }
+
+  // AC-001: status que exige observação abre confirmação com campo de texto em vez de trocar direto.
+  function handleSelecionarOpcao(op: OpcaoStatus) {
+    if (op.slug === myStatus) return
+    if (op.observacao_obrigatoria) {
+      setPendingStatus(op.slug)
+      setObservacaoInput('')
+      return
+    }
+    handleSet(op.slug)
+  }
+
+  function handleConfirmarObservacao() {
+    const op = opcoes.find(o => o.slug === pendingStatus)
+    if (!op) return
+    const validacao = validarObservacao(op, observacaoInput)
+    if (!validacao.valido) {
+      toast.error(validacao.mensagem)
+      return
+    }
+    handleSet(op.slug, observacaoInput)
+  }
+
+  function handleCancelarObservacao() {
+    setPendingStatus(null)
+    setObservacaoInput('')
   }
 
   const fabCfg = livres > 0 ? getCorConfig('emerald') : getCorConfig('slate')
@@ -131,13 +161,48 @@ export function WidgetDisponibilidade({ profissionais, initialStatuses, currentU
           {podeToggle && (
             <div className="px-4 py-3 border-t border-slate-100 space-y-1.5">
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Meu status</p>
-              {opcoesSelectionaveis.map(op => {
+              {opcoesParaEscolha.map(op => {
                 const cfg = getCorConfig(op.cor)
                 const isAtual = myStatus === op.slug
+
+                if (pendingStatus === op.slug) {
+                  return (
+                    <div key={op.slug} className="rounded-xl border border-slate-200 p-2 space-y-1.5">
+                      <p className="text-[11px] font-semibold text-slate-600">{op.label} — observação obrigatória</p>
+                      <textarea
+                        autoFocus
+                        rows={2}
+                        value={observacaoInput}
+                        onChange={e => setObservacaoInput(e.target.value)}
+                        placeholder="Descreva o motivo..."
+                        className="w-full text-xs rounded-lg border border-slate-200 px-2 py-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-slate-300"
+                      />
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={handleCancelarObservacao}
+                          disabled={isPending}
+                          className="text-[11px] font-semibold text-slate-500 hover:text-slate-700 px-2 py-1 disabled:opacity-50"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleConfirmarObservacao}
+                          disabled={isPending}
+                          className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg ${cfg.bg} ${cfg.text} disabled:opacity-50`}
+                        >
+                          Confirmar
+                        </button>
+                      </div>
+                    </div>
+                  )
+                }
+
                 return (
                   <button
                     key={op.slug}
-                    onClick={() => handleSet(op.slug)}
+                    onClick={() => handleSelecionarOpcao(op)}
                     disabled={isPending || isAtual}
                     className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors ${
                       isAtual
