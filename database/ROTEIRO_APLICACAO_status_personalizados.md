@@ -56,6 +56,7 @@ GROUP BY origem;
 > um problema à parte. Depois de aplicar o passo 3, a coluna existirá vazia e
 > esta consulta volta 0 linhas. Não precisa ser rodada de novo antes.
 
+```sql
 -- C) Retrato do que existe agora — guarde a saída para comparar depois.
 SELECT
   (SELECT COUNT(*) FROM status_disponibilidade
@@ -69,18 +70,23 @@ SELECT
   (SELECT COUNT(*) FROM status_disponibilidade WHERE status = 'ocupado') AS travados_em_ocupado;
 ```
 
-> **Resultado de C em 10/08:**
-> ```
-> em_status_personalizado: 3    travados_ha_mais_de_1h: 3
-> blocos_abertos: 0             travados_em_ocupado: 2
-> perfis_com_ativo_nulo: 0
-> ```
-> Duas leituras importantes:
-> - **3 travados com 0 blocos abertos** é o caso órfão puro. Sem a rede de
->   segurança de AC-019, o passo 3 destravaria ninguém — o CTE não teria o que
->   retornar. É a confirmação de que aquele achado era real e carregava a feature.
-> - **0 perfis com `ativo` nulo** torna o `SET NOT NULL` do passo 4 seguro, sem
->   depender da normalização que a própria migration faz antes.
+**Resultado de C em 10/08:**
+
+| Medida | Valor |
+|---|---:|
+| `em_status_personalizado` | 3 |
+| `travados_ha_mais_de_1h` | 3 |
+| `blocos_abertos` | 0 |
+| `perfis_com_ativo_nulo` | 0 |
+| `travados_em_ocupado` | 2 |
+
+Duas leituras importantes:
+
+- **3 travados com 0 blocos abertos** é o caso órfão puro. Sem a rede de segurança
+  de AC-019, o passo 3 destravaria ninguém — o CTE não teria o que retornar. É a
+  confirmação de que aquele achado era real e carregava a feature.
+- **0 perfis com `ativo` nulo** torna o `SET NOT NULL` do passo 4 seguro, sem
+  depender da normalização que a própria migration faz antes.
 
 ---
 
@@ -203,7 +209,7 @@ SELECT
 Só depois dos quatro passos acima. A branch é `spec/status-personalizados-ciclo-vida`.
 
 Confira antes do deploy: `npx tsc --noEmit` e `node --test` devem sair limpos —
-49 testes passando na última execução.
+50 testes passando na última execução.
 
 ---
 
@@ -214,10 +220,10 @@ prova o comportamento do Postgres. Estes seis testes só podem ser feitos aqui.
 
 | # | O que testar                             | Como                                                                      | Esperado                                                                                 |
 | - | ---------------------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| 1 | Observação é gravada nas duas tabelas | Trocar para um status com observação pelo widget                        | Texto em`status_disponibilidade.observacao` e no bloco novo do histórico              |
+| 1 | Observação é gravada nas duas tabelas | Trocar para um status com observação pelo widget                        | Texto em `status_disponibilidade.observacao` e no bloco novo do histórico              |
 | 2 | Observação obrigatória bloqueia       | Marcar um status como obrigatório e tentar trocar sem texto              | Recusa com mensagem, mesmo forçando pela API                                            |
 | 3 | Observação sobrevive à troca          | Entrar em Reunião com texto A, depois em Hora administrativa com texto B | Dois blocos no histórico, cada um com o seu texto                                       |
-| 4 | O teto de 1h fecha e devolve             | Entrar num status e esperar ~70 min                                       | Bloco com ~60 min, status de volta em Disponível,`origem = 'fallback'`                |
+| 4 | O teto de 1h fecha e devolve             | Entrar num status e esperar ~70 min                                       | Bloco com ~60 min, status de volta em Disponível, `origem = 'fallback'`                |
 | 5 | "Em atendimento" sumiu da escolha        | Abrir o widget                                                            | Não aparece na lista "Meu status"                                                       |
 | 6 | Desligar limpa o estado ao vivo          | Inativar um perfil de teste                                               | `inativado_em` preenchido, bloco fechado, linha removida de `status_disponibilidade` |
 
@@ -251,9 +257,9 @@ Cada passo é reversível de forma independente.
 
 | Passo | Reversão                                                                                                                                                                                                                                                                                  |
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1     | Recriar gatilho e funções a partir de[`status_disponibilidade_automatico.sql`](status_disponibilidade_automatico.sql); `UPDATE status_disponibilidade_opcoes SET label='Ocupado', label_curto='ocupado', sistema=false WHERE slug='ocupado'`                                          |
-| 2     | Restaurar a função de log de[`historico_status_disponibilidade_migration.sql`](historico_status_disponibilidade_migration.sql). **Não remova as colunas** — elas são aditivas e podem já ter dados                                                                            |
-| 3     | Reagendar o job com o teto de 2h a partir de[`ajustar_frequencia_cron_fallback.sql`](ajustar_frequencia_cron_fallback.sql); `ALTER TABLE status_disponibilidade DROP CONSTRAINT status_disponibilidade_origem_check`. O destravamento já feito **não** se desfaz — nem deveria |
+| 1     | Recriar gatilho e funções a partir de [`status_disponibilidade_automatico.sql`](status_disponibilidade_automatico.sql); `UPDATE status_disponibilidade_opcoes SET label='Ocupado', label_curto='ocupado', sistema=false WHERE slug='ocupado'`                                          |
+| 2     | Restaurar a função de log de [`historico_status_disponibilidade_migration.sql`](historico_status_disponibilidade_migration.sql). **Não remova as colunas** — elas são aditivas e podem já ter dados                                                                            |
+| 3     | Reagendar o job com o teto de 2h a partir de [`ajustar_frequencia_cron_fallback.sql`](ajustar_frequencia_cron_fallback.sql); `ALTER TABLE status_disponibilidade DROP CONSTRAINT status_disponibilidade_origem_check`. O destravamento já feito **não** se desfaz — nem deveria |
 | 4     | `DROP TRIGGER trg_profiles_inativar ON profiles; DROP FUNCTION fn_inativar_profissional(); ALTER TABLE profiles ALTER COLUMN ativo DROP NOT NULL`                                                                                                                                        |
 
 Se precisar reverter o app sem reverter o banco: as colunas novas são aditivas e
