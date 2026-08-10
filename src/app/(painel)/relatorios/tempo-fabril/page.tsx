@@ -19,6 +19,7 @@ import {
 } from '@/lib/relatorios/kpis-tempo-fabril'
 import { listarStatusOpcoes } from '@/actions/status-disponibilidade-config'
 import { podeEntrarNaAgendaOuRelatorio } from '@/lib/profissionais'
+import { deveIncluirNoRelatorio } from '@/lib/relatorios/inclusao-profissional'
 import { requireModulo } from '@/lib/guard'
 import { isGestorSistema } from '@/lib/permissoes'
 
@@ -79,9 +80,8 @@ export default async function TempoFabrilPage({
   const [{ data: listaProfissionais }, { data: jornadasAtivas }, { data: jornadasMensaisAtivas }] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, full_name, role')
+      .select('id, full_name, role, ativo')
       .in('role', ['fisioterapeuta', 'gestor'])
-      .eq('ativo', true)
       .order('full_name'),
     supabase
       .from('disponibilidade_profissional')
@@ -98,21 +98,22 @@ export default async function TempoFabrilPage({
     ...(jornadasAtivas ?? []).map((j) => j.profissional_id),
     ...(jornadasMensaisAtivas ?? []).map((j) => j.profissional_id),
   ])
-  const profissionais = (listaProfissionais ?? [])
+  const profissionaisElegiveis = (listaProfissionais ?? [])
     .filter((p) => podeEntrarNaAgendaOuRelatorio(p, profissionaisComJornada))
     .map(p => ({
     id: p.id,
     nome: p.full_name || 'Sem nome',
+    ativo: p.ativo === true,
   }))
 
   // Determinar profissionais a serem consultados
   const profFiltroParam = typeof params.profissional === 'string' ? params.profissional : 'todos'
   const profFiltro = isGestorOuMaster
-    ? (profFiltroParam === 'todos' || profissionais.some((p) => p.id === profFiltroParam) ? profFiltroParam : 'todos')
+    ? (profFiltroParam === 'todos' || profissionaisElegiveis.some((p) => p.id === profFiltroParam) ? profFiltroParam : 'todos')
     : user.id
 
   const profIds = profFiltro === 'todos'
-    ? profissionais.map(p => p.id)
+    ? profissionaisElegiveis.map(p => p.id)
     : [profFiltro]
 
   // Queries paralelas
@@ -170,6 +171,22 @@ export default async function TempoFabrilPage({
     atendimentosMap.set(a.id, { ...a, paciente_nome: pacienteRelacao?.nome ?? null } as Atendimento)
   }
   const atendimentos = Array.from(atendimentosMap.values())
+
+  // Presença de dado no período: quem trabalhou ou teve bloco de status aberto/fechado conta,
+  // mesmo desligado (AC-014/AC-015). Quem está ativo entra mesmo sem registro (AC-016).
+  const idsComRegistroNoPeriodo = new Set([
+    ...atendimentos.map((a) => a.profissional_id),
+    ...atendimentos.map((a) => a.fisioterapeuta_id),
+    ...(historicoResp ?? []).map((h) => h.profissional_id),
+    ...(historicoAbertoResp ?? []).map((h) => h.profissional_id),
+  ])
+
+  const profissionais = profissionaisElegiveis
+    .filter((p) => deveIncluirNoRelatorio({
+      ativo: p.ativo,
+      temRegistroNoPeriodo: idsComRegistroNoPeriodo.has(p.id),
+    }))
+    .map(({ id, nome }) => ({ id, nome }))
 
   // Calcular KPIs
   const kpisEquipe = calcularKPIs(
