@@ -76,8 +76,7 @@ Ordem de execução: as tarefas de **regra pura** (T-001 a T-004) e as de **migr
 - Esforço: alto
 - Notas: componente novo alimentado por `montarCardsStatus`, assinando o realtime que já existe. Layout da agenda é apertado (grade de 12 colunas). Sem horas acumuladas no dia (Q-001 respondida: não). Depende de T-003.
 
-## T-013 — Relatório passa a incluir por presença de dado [pendente]
-
+## T-013 — Relatório passa a incluir por presença de dado [concluida]
 - Refs: AC-014, AC-015, AC-016
 - Arquivos: src/app/(painel)/relatorios/tempo-fabril/page.tsx
 - Esforço: medio
