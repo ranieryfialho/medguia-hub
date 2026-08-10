@@ -52,8 +52,7 @@ Ordem de execução: as tarefas de **regra pura** (T-001 a T-004) e as de **migr
 - Esforço: medio
 - Notas: `profiles.inativado_em`; normalizar nulos e tornar `ativo` obrigatório (seguro — ASM-004 confirmada); gatilho em `profiles` que ao inativar grava a data, fecha o bloco aberto e remove a linha de estado ao vivo. Histórico preservado.
 
-## T-009 — Ligar a validação de observação na action [pendente]
-
+## T-009 — Ligar a validação de observação na action [concluida]
 - Refs: AC-001, AC-002
 - Arquivos: src/actions/status-disponibilidade.ts
 - Esforço: medio
