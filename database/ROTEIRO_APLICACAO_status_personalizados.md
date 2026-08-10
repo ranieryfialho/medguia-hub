@@ -3,6 +3,14 @@
 Aplicação em produção (`supabase.medguia.cloud`) das 4 migrations da feature
 `status-personalizados-ciclo-vida` — [RFC 002](../docs/rfcs/002-ciclo-de-vida-dos-status-personalizados.md).
 
+> **APLICADO EM 10/08/2026.** Os quatro passos rodaram e todas as conferências
+> passaram. Destaques: os 3 profissionais travados (um há 2d20h) foram
+> destravados pela rede de segurança de AC-019 — com `blocos_abertos = 0`, o CTE
+> sozinho não os teria alcançado; e nenhum bloco foi inflado (`duracao_minutos >
+> 61` fechados na janela: 0), confirmando que a ordem "fecha histórico antes de
+> resetar status" segurou. Falta o deploy do app (seção 5) e a validação de
+> comportamento (seção 6).
+
 **Tudo pelo SQL Editor do Studio.** Rode um bloco por vez e confira o resultado
 antes de seguir. As migrations são independentes entre si, mas a ordem abaixo
 reduz o tempo em que o sistema fica em estado misto.
