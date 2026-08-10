@@ -70,8 +70,7 @@ Ordem de execução: as tarefas de **regra pura** (T-001 a T-004) e as de **migr
 - Esforço: alto
 - Notas: fluxo passa de clique único para clique + confirmação com campo de texto quando o status exigir. Trocar o filtro inline por `opcoesSelecionaveis`. Cuidar do retorno antecipado `if (novoStatus === myStatus) return`. Depende de T-001 e T-009.
 
-## T-012 — Card de status na rota de agendamento [pendente]
-
+## T-012 — Card de status na rota de agendamento [concluida]
 - Refs: AC-008, AC-009, AC-010
 - Arquivos: src/components/features/agenda/CardStatusEquipe.tsx, src/app/(painel)/agenda/page.tsx
 - Esforço: alto
