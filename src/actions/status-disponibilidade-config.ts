@@ -1,9 +1,27 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
-import { DEFAULT_OPCOES, type OpcaoStatus } from '@/lib/status-disponibilidade-cores'
+// Imports relativos/dinâmicos: precisam ser resolvíveis por `node --test`
+// sem alias (ASM-001), pois este arquivo é carregado diretamente pelo seu teste.
+import { DEFAULT_OPCOES, type OpcaoStatus } from '../lib/status-disponibilidade-cores.ts'
+import {
+  podeEditarOpcao,
+  type OpcaoStatusRegra,
+  type ResultadoValidacao,
+} from '../lib/status-disponibilidade-regras.ts'
+
+/** AC-012: status de sistema não pode ser editado nem removido pelo gestor. */
+export async function podeGerenciarOpcao(
+  opcao: OpcaoStatusRegra | null | undefined,
+): Promise<ResultadoValidacao> {
+  if (!opcao) return { valido: true }
+  if (!podeEditarOpcao(opcao)) {
+    return { valido: false, mensagem: 'Status de sistema não pode ser editado nem removido' }
+  }
+  return { valido: true }
+}
 
 export async function listarStatusOpcoes(): Promise<OpcaoStatus[]> {
+  const { createClient } = await import('@/lib/supabase/server')
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('status_disponibilidade_opcoes')
@@ -16,6 +34,7 @@ export async function listarStatusOpcoes(): Promise<OpcaoStatus[]> {
 }
 
 async function assertGestor() {
+  const { createClient } = await import('@/lib/supabase/server')
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Não autenticado')
@@ -35,6 +54,7 @@ type OpcaoInput = {
   label: string
   label_curto: string
   cor: string
+  observacao_obrigatoria?: boolean
 }
 
 function gerarSlug(label: string) {
@@ -67,6 +87,7 @@ export async function criarStatusOpcao(input: OpcaoInput): Promise<{ error?: str
     ordem: novaOrdem,
     sistema: false,
     ativo: true,
+    observacao_obrigatoria: input.observacao_obrigatoria ?? false,
   })
   return error ? { error: error.message } : {}
 }
@@ -77,11 +98,17 @@ export async function editarStatusOpcao(id: string, input: OpcaoInput): Promise<
 
   const { data: opcao } = await supabase
     .from('status_disponibilidade_opcoes').select('sistema').eq('id', id).single()
-  if (opcao?.sistema) return { error: 'Status de sistema não pode ser editado' }
+  const guarda = await podeGerenciarOpcao(opcao as OpcaoStatusRegra | null)
+  if (!guarda.valido) return { error: guarda.mensagem }
 
   const { error } = await supabase
     .from('status_disponibilidade_opcoes')
-    .update({ label: input.label.trim(), label_curto: input.label_curto.trim(), cor: input.cor })
+    .update({
+      label: input.label.trim(),
+      label_curto: input.label_curto.trim(),
+      cor: input.cor,
+      observacao_obrigatoria: input.observacao_obrigatoria ?? false,
+    })
     .eq('id', id)
   return error ? { error: error.message } : {}
 }
@@ -92,7 +119,8 @@ export async function removerStatusOpcao(id: string): Promise<{ error?: string }
 
   const { data: opcao } = await supabase
     .from('status_disponibilidade_opcoes').select('sistema').eq('id', id).single()
-  if (opcao?.sistema) return { error: 'Status de sistema não pode ser removido' }
+  const guarda = await podeGerenciarOpcao(opcao as OpcaoStatusRegra | null)
+  if (!guarda.valido) return { error: guarda.mensagem }
 
   const { error } = await supabase
     .from('status_disponibilidade_opcoes').update({ ativo: false }).eq('id', id)
