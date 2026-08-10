@@ -30,6 +30,16 @@ test("@spec:AC-005 'fallback' passa a ser um valor aceito para origem", () => {
   assert.match(sql, /CHECK\s*\(origem IN \('manual', 'automatico', 'fallback'\)\)/)
 })
 
+test('@spec:AC-005 a coluna origem é criada antes da constraint que a restringe', () => {
+  // Verificado em produção em 10/08: a coluna não existe. Sem o ADD COLUMN,
+  // tanto a constraint quanto o reset do cron falhariam ao ser aplicados.
+  const indiceAddColumn = sql.search(/ADD COLUMN IF NOT EXISTS origem/i)
+  const indiceConstraint = sql.search(/ADD CONSTRAINT status_disponibilidade_origem_check/i)
+
+  assert.notEqual(indiceAddColumn, -1, 'a migration precisa criar a coluna defensivamente')
+  assert.ok(indiceAddColumn < indiceConstraint, 'a coluna precisa existir antes da constraint')
+})
+
 test('@spec:AC-006 o histórico é fechado antes do status ser resetado', () => {
   const indiceFechamentoHistorico = sql.search(/UPDATE\s+historico_status_disponibilidade/i)
   const indiceResetStatus = sql.search(/UPDATE\s+status_disponibilidade\s+sd/i)

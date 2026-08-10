@@ -16,7 +16,16 @@
 -- profissional_id já retornado por ela — a ordem textual reflete a ordem real
 -- de execução dentro do mesmo statement.
 
--- ─── 1. Amplia o domínio de origem para aceitar o fallback automático ─────────
+-- ─── 1. Garante a coluna 'origem' e amplia seu domínio ───────────────────────
+--
+-- A coluna NÃO existe em produção (verificado em 10/08: information_schema não
+-- retorna linha para status_disponibilidade.origem). É por isso que
+-- setStatusDisponibilidade carrega um caminho defensivo que reescreve o upsert
+-- sem 'origem' quando o banco reclama que a coluna não existe.
+-- Sem este ADD COLUMN, a constraint abaixo e o reset do cron falhariam.
+ALTER TABLE status_disponibilidade
+  ADD COLUMN IF NOT EXISTS origem TEXT;
+
 ALTER TABLE status_disponibilidade
   DROP CONSTRAINT IF EXISTS status_disponibilidade_origem_check;
 
