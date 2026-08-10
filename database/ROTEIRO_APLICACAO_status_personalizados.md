@@ -19,10 +19,10 @@ reduz o tempo em que o sistema fica em estado misto.
 
 Escolha um horário **fora do expediente** dos fisioterapeutas. Dois motivos:
 
-- O passo 2 destrava quem está com status personalizado aberto há mais de 1h — se
-  alguém estiver em reunião de verdade, o bloco será fechado no teto de 1h.
-- O passo 3 remove o gatilho legado; concluir atendimento durante a troca tem
+- O passo 1 remove o gatilho legado; concluir atendimento durante a troca tem
   comportamento indefinido por alguns segundos.
+- O passo 3 destrava quem está com status personalizado aberto há mais de 1h — se
+  alguém estiver em reunião de verdade, o bloco será fechado no teto de 1h.
 
 ### 0.2 Backup
 
