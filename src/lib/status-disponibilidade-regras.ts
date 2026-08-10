@@ -51,6 +51,41 @@ export function podeEditarOpcao(opcao: OpcaoStatusRegra): boolean {
 }
 
 /**
+ * Estado do formulário de configuração de um status (criar/editar).
+ * Vive aqui, e não no componente, para que o vai-e-vem entre a opção salva e o
+ * formulário seja provável sem renderizar JSX — foi exatamente o elo que faltou
+ * quando `observacao_obrigatoria` existia na action e nunca chegava nela.
+ */
+export type FormularioOpcao = {
+  label: string
+  label_curto: string
+  cor: string
+  observacao_obrigatoria: boolean
+}
+
+export const FORMULARIO_OPCAO_VAZIO: FormularioOpcao = {
+  label: '',
+  label_curto: '',
+  cor: 'amber',
+  observacao_obrigatoria: false,
+}
+
+/**
+ * AC-021: abrir a edição carrega a exigência de observação já configurada —
+ * sem isso, salvar qualquer outro campo apagaria a marcação silenciosamente.
+ */
+export function formularioDaOpcao(
+  opcao: { label: string; label_curto: string; cor: string; observacao_obrigatoria?: boolean },
+): FormularioOpcao {
+  return {
+    label: opcao.label,
+    label_curto: opcao.label_curto,
+    cor: opcao.cor,
+    observacao_obrigatoria: opcao.observacao_obrigatoria ?? false,
+  }
+}
+
+/**
  * AC-007: sinaliza na tela um bloco aberto há mais de 1 hora, sem depender
  * do aviso do banco (ASM-003) — cálculo client-side sobre o momento de abertura.
  */

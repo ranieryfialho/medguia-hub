@@ -81,3 +81,9 @@ Ordem de execução: as tarefas de **regra pura** (T-001 a T-004) e as de **migr
 - Arquivos: src/app/(painel)/relatorios/tempo-fabril/page.tsx
 - Esforço: medio
 - Notas: trocar o `.eq('ativo', true)` da consulta por `deveIncluirNoRelatorio`, aplicado depois de carregar atendimentos e blocos de status do período. Depende de T-004.
+
+## T-014 — Formulário: marcar quais status exigem justificativa [concluida]
+- Refs: AC-021
+- Arquivos: src/lib/status-disponibilidade-regras.ts, src/components/features/configuracoes/GerenciadorStatusDisponibilidade.tsx
+- Esforço: baixo
+- Notas: fecha o buraco de T-010, que prometia isto no título mas referenciava só AC-012. Estado do formulário (`FormularioOpcao`, `FORMULARIO_OPCAO_VAZIO`, `formularioDaOpcao`) sai do componente para o módulo de regras, de modo que o vai-e-vem opção↔formulário seja provável sem renderizar JSX.

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Lock, Plus, Pencil, Trash2, Check, X, ChevronUp, ChevronDown } from 'lucide-react'
+import { Lock, Plus, Pencil, Trash2, Check, X, ChevronUp, ChevronDown, MessageSquare } from 'lucide-react'
 import toast from 'react-hot-toast'
 import {
   criarStatusOpcao,
@@ -10,8 +10,11 @@ import {
   reordenarStatusOpcoes,
 } from '@/actions/status-disponibilidade-config'
 import { getCorConfig, CORES_SELECIONAVEIS, type OpcaoStatus } from '@/lib/status-disponibilidade-cores'
-
-const FORM_VAZIO = { label: '', label_curto: '', cor: 'amber' }
+import {
+  FORMULARIO_OPCAO_VAZIO as FORM_VAZIO,
+  formularioDaOpcao,
+  type FormularioOpcao,
+} from '@/lib/status-disponibilidade-regras'
 
 function SeletorCor({ value, onChange }: { value: string; onChange: (cor: string) => void }) {
   return (
@@ -39,8 +42,8 @@ function FormStatus({
   isPending,
   submitLabel,
 }: {
-  form: typeof FORM_VAZIO
-  onChange: (f: typeof FORM_VAZIO) => void
+  form: FormularioOpcao
+  onChange: (f: FormularioOpcao) => void
   onSubmit: () => void
   onCancel: () => void
   isPending: boolean
@@ -83,6 +86,22 @@ function FormStatus({
           {form.label || 'Pré-visualização'}
         </div>
       )}
+      <label className="flex items-start gap-2.5 cursor-pointer pt-1">
+        <input
+          type="checkbox"
+          checked={form.observacao_obrigatoria}
+          onChange={e => onChange({ ...form, observacao_obrigatoria: e.target.checked })}
+          disabled={isPending}
+          className="mt-0.5 w-4 h-4 shrink-0 rounded border-slate-300 text-[#006b5a] focus:ring-2 focus:ring-[#006b5a]/30 cursor-pointer"
+        />
+        <span>
+          <span className="text-xs font-semibold text-slate-700 block">Exigir justificativa</span>
+          <span className="text-[11px] text-slate-500 block mt-0.5">
+            O profissional precisa escrever o motivo ao assumir este status. O texto
+            fica gravado no bloco do histórico.
+          </span>
+        </span>
+      </label>
       <div className="flex items-center justify-end gap-2 pt-1">
         <button
           type="button"
@@ -131,7 +150,7 @@ export function GerenciadorStatusDisponibilidade({ opcoes: inicial }: { opcoes: 
 
   function iniciarEdicao(op: OpcaoStatus) {
     setEditandoId(op.id)
-    setEditandoForm({ label: op.label, label_curto: op.label_curto, cor: op.cor })
+    setEditandoForm(formularioDaOpcao(op))
   }
 
   function handleSalvarEdicao(id: string) {
@@ -141,7 +160,13 @@ export function GerenciadorStatusDisponibilidade({ opcoes: inicial }: { opcoes: 
       if (res.error) { toast.error(res.error); return }
       toast.success('Status atualizado')
       setOpcoes(prev => prev.map(o => o.id === id
-        ? { ...o, label: editandoForm.label.trim(), label_curto: editandoForm.label_curto.trim(), cor: editandoForm.cor }
+        ? {
+            ...o,
+            label: editandoForm.label.trim(),
+            label_curto: editandoForm.label_curto.trim(),
+            cor: editandoForm.cor,
+            observacao_obrigatoria: editandoForm.observacao_obrigatoria,
+          }
         : o
       ))
       setEditandoId(null)
@@ -280,6 +305,11 @@ export function GerenciadorStatusDisponibilidade({ opcoes: inicial }: { opcoes: 
                 <div className="flex-1 min-w-0">
                   <span className="text-sm font-semibold text-slate-800">{op.label}</span>
                   <span className="text-xs text-slate-400 ml-2">&quot;{op.label_curto}&quot;</span>
+                  {op.observacao_obrigatoria && (
+                    <span className="inline-flex items-center gap-1 ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 align-middle">
+                      <MessageSquare size={9} /> justificativa
+                    </span>
+                  )}
                 </div>
 
                 {isConfirmando ? (

@@ -17,6 +17,24 @@ Hoje um status personalizado ("Em reunião", "Hora administrativa") é uma etiqu
 
 Como gestor, quero que o profissional registre o motivo ao assumir um status personalizado, para que eu consiga auditar no Tempo Fábril o que foi feito em cada bloco de tempo.
 
+#### AC-021 — O gestor consegue marcar quais status exigem justificativa
+
+- **Dado** o formulário de criação ou de edição de um status personalizado
+- **Quando** o gestor marca ou desmarca "exigir justificativa" e salva
+- **Então** a escolha vai junto no que é enviado para a action, e reabrir a edição mostra o valor salvo — nunca o padrão
+
+> Escrito depois do resto da feature, já em produção. AC-001 e AC-002 provavam a
+> validação a partir da marcação, mas nenhum critério cobria **fazer** a
+> marcação: a coluna existia, a action aceitava o campo e o formulário nunca o
+> enviava, então a regra jamais disparava. A tarefa T-010 prometia o controle no
+> título e referenciava só AC-012, de outro assunto.
+>
+> Não virou lição registrada porque `licoes` exige lastro em sinal de auditoria,
+> e esta falha não produziu nenhum — é precisamente o motivo de ter passado. O
+> gate prova o que a especificação pede; uma capacidade sem critério é invisível
+> para ele. A regra que sobra: quando um critério descreve **reagir** a uma
+> configuração, procurar o critério irmão que cobre **definir** a configuração.
+
 #### AC-001 — Status que exige justificativa recusa troca sem texto
 
 - **Dado** um status personalizado configurado como "exige observação" e uma observação vazia ou só com espaços

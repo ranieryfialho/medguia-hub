@@ -6,8 +6,13 @@ import {
   opcoesSelecionaveis,
   podeEditarOpcao,
   blocoVencido,
+  formularioDaOpcao,
+  FORMULARIO_OPCAO_VAZIO,
   type OpcaoStatusRegra,
 } from './status-disponibilidade-regras.ts'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import path from 'node:path'
 
 function opcao(overrides: Partial<OpcaoStatusRegra> = {}): OpcaoStatusRegra {
   return { slug: 'reuniao', sistema: false, observacao_obrigatoria: false, ...overrides }
@@ -78,4 +83,67 @@ test('@spec:AC-012 status de sistema não pode ser editado nem removido', () => 
 test('ehStatusPersonalizado classifica corretamente sistema vs. declarado', () => {
   assert.equal(ehStatusPersonalizado(opcao({ sistema: true })), false)
   assert.equal(ehStatusPersonalizado(opcao({ sistema: false })), true)
+})
+
+// ─── AC-021 — o gestor consegue marcar quais status exigem justificativa ──────
+
+test('@spec:AC-021 o formulário carrega a exigência já configurada na opção', () => {
+  const exigente = formularioDaOpcao({
+    label: 'Em reunião',
+    label_curto: 'reunião',
+    cor: 'amber',
+    observacao_obrigatoria: true,
+  })
+
+  // Este é o elo que faltava: sem ele, abrir a edição para trocar a cor
+  // devolveria false e apagaria a marcação ao salvar.
+  assert.equal(exigente.observacao_obrigatoria, true)
+
+  const naoExigente = formularioDaOpcao({
+    label: 'Almoço',
+    label_curto: 'almoço',
+    cor: 'slate',
+    observacao_obrigatoria: false,
+  })
+  assert.equal(naoExigente.observacao_obrigatoria, false)
+})
+
+test('@spec:AC-021 opção sem o campo definido não vira undefined no formulário', () => {
+  const form = formularioDaOpcao({ label: 'X', label_curto: 'x', cor: 'amber' })
+
+  // Precisa ser false de verdade — undefined desmarcaria o checkbox de forma
+  // não-controlada e o React reclamaria da troca controlado/não-controlado.
+  assert.equal(form.observacao_obrigatoria, false)
+})
+
+test('@spec:AC-021 o formulário vazio traz o campo, para que criar já possa marcar', () => {
+  assert.ok(
+    'observacao_obrigatoria' in FORMULARIO_OPCAO_VAZIO,
+    'criar um status sem o campo no estado inicial faz a action receber undefined',
+  )
+  assert.equal(FORMULARIO_OPCAO_VAZIO.observacao_obrigatoria, false)
+})
+
+test('@spec:AC-021 a tela de configuração liga um controle ao campo', () => {
+  // As asserções acima provam o modelo; esta guarda o fio até o JSX, que
+  // node --test não renderiza. É exatamente a ligação que faltava quando a
+  // regra existia inteira e nunca disparava.
+  const componente = readFileSync(
+    path.join(
+      path.dirname(fileURLToPath(import.meta.url)),
+      '../components/features/configuracoes/GerenciadorStatusDisponibilidade.tsx',
+    ),
+    'utf-8',
+  )
+
+  assert.match(
+    componente,
+    /type="checkbox"[\s\S]{0,200}observacao_obrigatoria/,
+    'o formulário precisa de um controle ligado a observacao_obrigatoria',
+  )
+  assert.match(
+    componente,
+    /formularioDaOpcao\(op\)/,
+    'a edição precisa carregar o estado salvo, não montar o formulário à mão',
+  )
 })

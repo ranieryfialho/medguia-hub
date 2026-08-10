@@ -1,12 +1,17 @@
 {
   "feature": "status-personalizados-ciclo-vida",
-  "timestamp": "2026-08-10T18:21:21.293Z",
-  "gitRev": "9b214c8",
+  "timestamp": "2026-08-10T19:13:01.278Z",
+  "gitRev": "2b75b9c",
   "command": "node --test --test-reporter=tap",
   "reporter": "tap",
   "exitCode": 0,
-  "testsParsed": 50,
+  "testsParsed": 54,
   "results": {
+    "AC-021": {
+      "status": "pass",
+      "testName": "@spec:AC-021 o formulário carrega a exigência já configurada na opção",
+      "method": "tap"
+    },
     "AC-001": {
       "status": "pass",
       "testName": "@spec:AC-001 recusa a troca quando o status exige observação e ela vem vazia",
