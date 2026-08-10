@@ -59,8 +59,27 @@ SELECT cron.schedule(
 );
 
 -- ─── 3. Destrava agora quem já está preso ─────────────────────────────────────
--- Mesmo comando da rede de segurança, aplicado uma vez na migration para não
--- esperar até 10 minutos pelo próximo ciclo do cron.
+-- Mesmo par de comandos do cron, aplicado uma vez para não esperar até 10
+-- minutos pelo próximo ciclo.
+--
+-- A MESMA ORDEM DO CRON VALE AQUI (AC-006). Se o reset viesse primeiro, o
+-- gatilho de log fecharia com fim = NOW() o bloco de quem está em reunião
+-- legítima há mais de 1h neste instante — gravando a duração inteira em vez
+-- do teto. Fechar o histórico antes elimina essa janela.
+WITH fechados AS (
+  UPDATE historico_status_disponibilidade
+  SET fim = inicio + INTERVAL '1 hour'
+  WHERE fim IS NULL
+    AND inicio < NOW() - INTERVAL '1 hour'
+  RETURNING profissional_id
+)
+UPDATE status_disponibilidade sd
+SET status = 'disponivel',
+    atualizado_em = NOW(),
+    origem = 'fallback'
+FROM fechados f
+WHERE sd.profissional_id = f.profissional_id;
+
 UPDATE status_disponibilidade sd
 SET status = 'disponivel',
     atualizado_em = NOW(),
