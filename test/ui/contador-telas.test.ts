@@ -60,6 +60,22 @@ for (const tela of TELAS) {
     assert.doesNotMatch(fonte, /7_?200_?000/)
   })
 
+  test(`@spec:AC-029 ${tela.nome} recarrega o estado sem depender do Realtime`, () => {
+    const fonte = ler(tela.arquivo)
+
+    // Entre junho e 11/08 a tabela esteve fora da publicação `supabase_realtime`
+    // e nenhum evento chegou. O widget e a tela de Configurações sobreviveram
+    // pelo polling de useRealtimeDisponibilidade; o card da agenda, que não o
+    // tinha, ficou congelado. As três telas precisam de rede — direta ou pelo hook.
+    const temRedePropria = /setInterval\([\s\S]{0,160}?,\s*60_?000\s*\)/.test(fonte)
+    const herdaRedeDoHook = /useRealtimeDisponibilidade/.test(fonte)
+
+    assert.ok(
+      temRedePropria || herdaRedeDoHook,
+      'a tela precisa reler o estado periodicamente, por conta própria ou pelo hook',
+    )
+  })
+
   test(`@spec:AC-025 ${tela.nome} tem relógio para o contador correr`, () => {
     const fonte = ler(tela.arquivo)
 

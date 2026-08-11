@@ -137,6 +137,32 @@ Como profissional que declarou um status, quero ver quanto tempo falta para ele 
 - **Quando** a tela recalcula o contador a cada tique do relógio
 - **Então** ele continua correto, porque é derivado do instante de abertura já em mãos — e não de um evento novo do banco
 
+#### AC-028 — A tabela de status está publicada para o Realtime
+
+- **Dado** que em 11/08 o diagnóstico mostrou `status_disponibilidade` **fora** da publicação `supabase_realtime` em produção, enquanto `atendimentos` estava dentro
+- **Quando** a migration da correção é aplicada
+- **Então** a tabela é adicionada à publicação de forma **idempotente** — rodar de novo não pode falhar, porque `ALTER PUBLICATION ... ADD TABLE` erra se a tabela já estiver lá, e uma migration que quebra na segunda execução não é reaplicável (asserção estática no arquivo SQL)
+
+> A causa-raiz é instrutiva: `atendimentos` entrou pelo bloco `DO $$` guardado de
+> `fn_status_equipe_agora_v2.sql`, que rodou depois da mudança para o
+> self-hosted em junho. `status_disponibilidade` dependia de um `alter
+> publication` solto em `status_disponibilidade_migration.sql:26`, de antes. A
+> publicação foi recriada do zero no self-hosted e só a linha guardada
+> sobreviveu — porque só ela era reexecutável.
+
+#### AC-029 — O card da agenda não depende só do Realtime
+
+- **Dado** o card de status na rota de agendamento
+- **Quando** nenhum evento de Realtime chega — o estado exato de produção entre junho e 11/08
+- **Então** ele ainda assim recarrega o estado periodicamente, como o widget já faz
+
+> Este critério nasce de uma falha real, não de precaução. O card foi ao ar em
+> 10/08 assinando um canal que nunca recebeu evento, e ficou congelado no estado
+> do carregamento da página. Ninguém percebeu porque a mesma quebra, no widget,
+> era mascarada pelo polling de `useRealtimeDisponibilidade`. A rede não existe
+> para o caso de o Realtime falhar — existe porque ele **já falhou em silêncio
+> por dois meses**, e a diferença entre notar e não notar foi exatamente ela.
+
 #### AC-027 — O estado do Realtime é diagnosticável, não adivinhado
 
 - **Dado** a dúvida registrada em Q-002 sobre se as escritas do `pg_cron` chegam às telas
@@ -255,5 +281,5 @@ Como engenharia, quero remover o gatilho legado que sobrescreve o status do prof
 | ID | Pergunta | Status | Resposta |
 |---|---|---|---|
 | Q-001 | O card da agenda deve mostrar também as horas acumuladas no dia, além do tempo do bloco atual? | respondida | Não (dono, 10/08). O card mostra só o tempo do bloco atual, com o dado que a tela já carrega. O acumulado do dia permanece no relatório de Tempo Fábril, onde é analisado com calma |
-| Q-002 | O Realtime propaga de fato para as telas os updates que o `pg_cron` faz em `status_disponibilidade`? | aberta | A tabela está na publicação `supabase_realtime` desde `status_disponibilidade_migration.sql:26`, o que é condição necessária mas não suficiente. A resposta exige rodar `database/diagnostico_realtime_status.sql` no SQL Editor do Studio (`pg_publication_tables` e `cron.job_run_details` não saem via REST). **Não bloqueia esta entrega**: por AC-026 o contador é derivado do instante de abertura e continua correto mesmo se a resposta for "não" |
-| Q-003 | O card da agenda deve ganhar a rede de polling de 60s que o widget já tem? | aberta | Hoje `CardStatusEquipe` só recebe estado novo por Realtime — `useRealtimeDisponibilidade` tem `setInterval` de 60s, o card não tem. Se o Realtime não propagar, o card marca o bloco como expirado (AC-024, correto) mas nunca descobre que o profissional já voltou. Decidir depois do resultado de Q-002, para não adicionar polling contra um problema que talvez não exista |
+| Q-002 | O Realtime propaga de fato para as telas os updates que o `pg_cron` faz em `status_disponibilidade`? | respondida | **NÃO — medido em produção em 11/08.** E a causa é mais básica do que a pergunta supunha: a tabela **não está na publicação `supabase_realtime`**, então nenhum update propaga — nem os do cron, nem os da aplicação. Os outros três elos estão sadios: `pubupdate = true`, replica identity `d`, política `"Leitura autenticados"` com `SELECT true` para `authenticated`. Ver AC-028 |
+| Q-003 | O card da agenda deve ganhar a rede de polling de 60s que o widget já tem? | respondida | **Sim (dono, 11/08), junto com a correção da publicação.** O argumento decisivo veio do próprio achado: a falha ficou invisível por ~2 meses porque o widget tinha rede e o card não. Corrigir só a publicação devolve o card ao ar e deixa a próxima falha igualmente silenciosa. Ver AC-029 |

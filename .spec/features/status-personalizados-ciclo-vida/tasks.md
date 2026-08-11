@@ -110,6 +110,18 @@ Ordem de execução: as tarefas de **regra pura** (T-001 a T-004) e as de **migr
 - Esforço: alto
 - Notas: os três já têm um relógio próprio (60s, 60s e 30s) — para o contador de segundos a cadência vai a 1s, e **só quando há bloco personalizado em curso na tela**, para não manter um `setInterval` de segundo aceso à toa. O widget precisa do `atualizado_em` do próprio usuário, que `listarStatusDisponibilidade` já traz. Teste = asserção estática de que cada arquivo consome a regra pura (ASM-005) — é o formato que teria pego a falha do AC-021. Depende de T-016.
 
+## T-019 — Migration: pôr status_disponibilidade na publicação do Realtime [concluida]
+- Refs: AC-028
+- Arquivos: database/realtime_status_disponibilidade_publication.sql, test/sql/realtime-publication.test.ts
+- Esforço: baixo
+- Notas: usa o mesmo bloco `DO $$` guardado por `pg_publication_tables` de `fn_status_equipe_agora_v2.sql` — e é justamente por ser guardado que aquele sobreviveu à recriação da publicação no self-hosted, enquanto o `alter publication` solto de `status_disponibilidade_migration.sql:26` se perdeu. Corrige a causa-raiz achada em 11/08. Não depende de nenhuma outra tarefa.
+
+## T-020 — Rede de polling no card da agenda [concluida]
+- Refs: AC-029
+- Arquivos: src/components/features/agenda/CardStatusEquipe.tsx, src/actions/status-disponibilidade.ts, test/ui/contador-telas.test.ts
+- Esforço: medio
+- Notas: o card passa a rebuscar as declarações periodicamente, como `useRealtimeDisponibilidade` já faz. Reusar `listarStatusDisponibilidade`, que já traz `profissional_id, status, atualizado_em` — precisa passar a trazer `observacao` também, senão a releitura apaga o motivo exibido no card. Cuidar de não sobrescrever estado bom com lista vazia em erro silencioso do RPC, a mesma defesa que o hook já tem.
+
 ## T-018 — Diagnóstico do Realtime em produção [concluida]
 - Refs: AC-027
 - Arquivos: database/diagnostico_realtime_status.sql, test/sql/diagnostico-realtime.test.ts

@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { listarDeclaracoesStatus } from '@/actions/status-disponibilidade'
 import { getCorConfig } from '@/lib/status-disponibilidade-cores'
 import {
   montarCardsStatus,
@@ -59,6 +60,33 @@ export function CardStatusEquipe({
   useEffect(() => {
     setEmAtendimentoIds(new Set(emAtendimentoIdsIniciais))
   }, [emAtendimentoIdsIniciais])
+
+  // AC-029: rede de releitura, independente do Realtime.
+  //
+  // Não é precaução — é reparo. Entre junho e 11/08 a tabela esteve fora da
+  // publicação `supabase_realtime` e este card, que subiu em 10/08 sem rede,
+  // ficou congelado no estado do carregamento da página. O widget sofreu a
+  // mesma quebra e ninguém notou, porque `useRealtimeDisponibilidade` tem
+  // exatamente este polling desde sempre.
+  const profissionaisIdsRef = useRef(profissionais)
+  useEffect(() => {
+    profissionaisIdsRef.current = profissionais
+  })
+
+  const recarregar = useCallback(async () => {
+    const ids = profissionaisIdsRef.current.map((p) => p.profissionalId)
+    if (ids.length === 0) return
+    const frescos = await listarDeclaracoesStatus(ids)
+    // Lista vazia é ambígua: pode ser "ninguém em status personalizado" ou erro
+    // silencioso da consulta. Mesma defesa de useRealtimeDisponibilidade —
+    // sobrescrever estado bom com vazio apagaria o card sem motivo.
+    if (frescos.length > 0) setDeclaracoesRows(frescos)
+  }, [])
+
+  useEffect(() => {
+    const id = setInterval(() => { void recarregar() }, 60_000)
+    return () => clearInterval(id)
+  }, [recarregar])
 
   useEffect(() => {
     const supabase = createClient()

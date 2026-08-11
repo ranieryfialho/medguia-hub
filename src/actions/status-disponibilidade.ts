@@ -87,3 +87,38 @@ export async function listarStatusDisponibilidade(profissionalIds?: string[]): P
     .select('profissional_id, status, atualizado_em')
   return (data ?? []) as StatusRow[]
 }
+
+export type DeclaracaoStatusRow = {
+  profissional_id: string
+  status: string
+  observacao: string | null
+  atualizado_em: string
+}
+
+/**
+ * AC-029: rede de releitura do card da agenda.
+ *
+ * Devolve a DECLARAÇÃO crua de `status_disponibilidade`, não o status resolvido
+ * por `fn_status_equipe_agora` — o card aplica a própria precedência em
+ * `montarCardsStatus` e precisa da declaração original, com a observação, para
+ * poder exibir "Em atendimento · declarou: Em reunião" (AC-009/AC-020).
+ *
+ * É a mesma consulta que a rota de agendamento faz na renderização do servidor;
+ * existe aqui para que o cliente possa repeti-la sem depender de um evento de
+ * Realtime que, entre junho e 11/08, nunca chegou.
+ */
+export async function listarDeclaracoesStatus(
+  profissionalIds: string[],
+): Promise<DeclaracaoStatusRow[]> {
+  if (profissionalIds.length === 0) return []
+
+  const { createClient } = await import('@/lib/supabase/server')
+  const supabase = await createClient()
+
+  const { data } = await supabase
+    .from('status_disponibilidade')
+    .select('profissional_id, status, observacao, atualizado_em')
+    .in('profissional_id', profissionalIds)
+
+  return (data ?? []) as DeclaracaoStatusRow[]
+}

@@ -6,8 +6,7 @@ Aplicação em produção (`supabase.medguia.cloud`) das 4 migrations da feature
 > **APLICADO EM 10/08/2026.** Os quatro passos rodaram e todas as conferências
 > passaram. Destaques: os 3 profissionais travados (um há 2d20h) foram
 > destravados pela rede de segurança de AC-019 — com `blocos_abertos = 0`, o CTE
-> sozinho não os teria alcançado; e nenhum bloco foi inflado (`duracao_minutos >
-> 61` fechados na janela: 0), confirmando que a ordem "fecha histórico antes de
+> sozinho não os teria alcançado; e nenhum bloco foi inflado (`duracao_minutos > 61` fechados na janela: 0), confirmando que a ordem "fecha histórico antes de
 > resetar status" segurou. Falta o deploy do app (seção 5) e a validação de
 > comportamento (seção 6).
 
@@ -374,6 +373,44 @@ cliente a partir de `atualizado_em` e fica correto mesmo se o Realtime estiver
 mudo. O que a resposta decide é Q-003: se o card da agenda precisa da rede de
 polling de 60s que o widget já tem em `useRealtimeDisponibilidade`.
 
+### 9.2-bis Corrigir a publicação do Realtime — **achado de 11/08**
+
+> **O diagnóstico da 9.2 encontrou uma falha real, anterior a esta entrega.**
+>
+> ```
+> SELECT tablename FROM pg_publication_tables
+> WHERE pubname = 'supabase_realtime'
+>   AND tablename IN ('status_disponibilidade', 'atendimentos');
+> → devolveu SÓ 'atendimentos'
+> ```
+>
+> `status_disponibilidade` está **fora** da publicação. Não é que os updates do
+> `pg_cron` não propagam — nenhum update propaga, nem os da aplicação. Os
+> outros três elos estão sadios: `pubupdate = true`, replica identity `d`, e a
+> política `"Leitura autenticados"` (`SELECT true` para `authenticated`).
+
+**Causa-raiz.** `atendimentos` entrou pelo bloco `DO $$` guardado de
+[`fn_status_equipe_agora_v2.sql`](fn_status_equipe_agora_v2.sql), que rodou
+depois da mudança para o self-hosted em junho. `status_disponibilidade`
+dependia de um `alter publication` solto em
+[`status_disponibilidade_migration.sql:26`](status_disponibilidade_migration.sql).
+A publicação foi recriada do zero no self-hosted e só o comando **reexecutável**
+sobreviveu — o solto teria falhado com *"already member of publication"* e nunca
+foi rodado isolado.
+
+**Impacto observado.** Desde junho, em silêncio. O widget e a tela de
+Configurações continuaram corretos porque `useRealtimeDisponibilidade` tem
+polling de 60s como rede. O **card da agenda**, que subiu em 10/08 sem rede,
+está congelado no estado do carregamento da página **neste momento**.
+
+**Aplicar:** copie o conteúdo inteiro de
+[`realtime_status_disponibilidade_publication.sql`](realtime_status_disponibilidade_publication.sql)
+no SQL Editor e execute. É idempotente e pode rodar em horário comercial.
+
+**Conferência (já embutida no arquivo):** a consulta final precisa devolver
+**duas** linhas — `status_disponibilidade` e `atendimentos`. Se vier só uma, o
+bloco não teve efeito.
+
 ### 9.3 Deploy do app — **depois** da migration
 
 **O push para `main` É o deploy.** O workflow
@@ -413,17 +450,23 @@ As asserções são sobre o **texto** do SQL e dos componentes (ASM-002, ASM-005
 Nada disso prova o Postgres nem o que aparece na tela. Estes três só podem ser
 feitos aqui:
 
-| # | O que testar | Como | Esperado |
-|---|--------------|------|----------|
-| 1 | O contador aparece e corre | Entrar num status personalizado e abrir a agenda | Card com "expira em 1h59", descendo de segundo em segundo |
-| 2 | O teto de 2h fecha e devolve | Entrar num status e esperar ~2h10 (conta de teste) | Bloco com ~120 min, status de volta em Disponível, `origem = 'fallback'` |
-| 3 | A janela de "expirado" | Observar entre o contador zerar e o cron passar | Rótulo "expirado" em vermelho; a pessoa **não** some da lista antes de o banco devolver |
+| # | O que testar                 | Como                                               | Esperado                                                                                       |
+| - | ---------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| 1 | O contador aparece e corre   | Entrar num status personalizado e abrir a agenda   | Card com "expira em 1h59", descendo de segundo em segundo                                      |
+| 2 | O teto de 2h fecha e devolve | Entrar num status e esperar ~2h10 (conta de teste) | Bloco com ~120 min, status de volta em Disponível,`origem = 'fallback'`                     |
+| 3 | A janela de "expirado"       | Observar entre o contador zerar e o cron passar    | Rótulo "expirado" em vermelho; a pessoa**não** some da lista antes de o banco devolver |
 
 O teste **2 é o mais importante** — é o comportamento inteiro da emenda, e o
 único que depende do `pg_cron` executar de fato.
 
+| 4 | O Realtime voltou            | Trocar de status numa aba, olhar a agenda em outra | O card muda **na hora**, sem esperar os 60s do polling — é a prova de que 9.2-bis funcionou |
+
 O teste **3 valida a decisão de desenho** do AC-024: a tela não pode antecipar o
 que o banco ainda não fez.
+
+O teste **4 distingue as duas correções**. Se o card só mudar depois de ~60s, o
+polling de AC-029 está funcionando mas a publicação não foi corrigida — rode a
+conferência de 9.2-bis de novo.
 
 ### 9.4 Reversão
 

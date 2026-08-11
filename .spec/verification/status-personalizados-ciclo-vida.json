@@ -1,11 +1,11 @@
 {
   "feature": "status-personalizados-ciclo-vida",
-  "timestamp": "2026-08-11T12:37:58.233Z",
-  "gitRev": "3b2cb3b",
+  "timestamp": "2026-08-11T12:58:05.327Z",
+  "gitRev": "e21442f",
   "command": "node --test --test-reporter=tap",
   "reporter": "tap",
   "exitCode": 0,
-  "testsParsed": 76,
+  "testsParsed": 83,
   "results": {
     "AC-021": {
       "status": "pass",
@@ -75,6 +75,16 @@
     "AC-026": {
       "status": "pass",
       "testName": "@spec:AC-026 o contador é derivado da abertura, sem depender de evento novo do banco",
+      "method": "tap"
+    },
+    "AC-028": {
+      "status": "pass",
+      "testName": "@spec:AC-028 adiciona status_disponibilidade à publicação supabase_realtime",
+      "method": "tap"
+    },
+    "AC-029": {
+      "status": "pass",
+      "testName": "@spec:AC-029 card da agenda recarrega o estado sem depender do Realtime",
       "method": "tap"
     },
     "AC-027": {
