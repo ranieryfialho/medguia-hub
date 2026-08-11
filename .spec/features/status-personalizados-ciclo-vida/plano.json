@@ -1,20 +1,12 @@
 {
-  "runId": "medguia-hub-status-personalizados-ciclo-vida-msni1mkd",
+  "runId": "medguia-hub-status-personalizados-ciclo-vida-msomfgnq",
   "feature": "status-personalizados-ciclo-vida",
   "agent": "claude",
   "modo": "paralelo",
-  "paralelizar": [
-    "T-001",
-    "T-002",
-    "T-004",
-    "T-005",
-    "T-006",
-    "T-007",
-    "T-008"
-  ],
+  "paralelizar": null,
   "modeloForcado": null,
   "esforcoForcado": null,
-  "geradoEm": "2026-08-10 17:22",
+  "geradoEm": "2026-08-11 12:12",
   "branchTrabalho": "spec/status-personalizados-ciclo-vida",
   "baseDir": ".spec/features/status-personalizados-ciclo-vida",
   "specDir": ".spec",
@@ -27,12 +19,7 @@
       "faixa-3"
     ],
     [
-      "faixa-4",
-      "faixa-5",
-      "faixa-6"
-    ],
-    [
-      "faixa-7"
+      "faixa-4"
     ]
   ],
   "faixas": [
@@ -42,20 +29,19 @@
       "worktree": "../onp-worktrees/medguia-hub-status-personalizados-ciclo-vida-faixa-1",
       "tarefas": [
         {
-          "id": "T-001",
-          "titulo": "Regras puras de status: validação, classificação e vencimento",
+          "id": "T-015",
+          "titulo": "Migration: o teto do bloco volta para 2 horas",
           "modelo": "claude-sonnet-5",
           "esforco": "medium",
           "arquivos": [
-            "src/lib/status-disponibilidade-regras.ts",
-            "src/lib/status-disponibilidade-regras.test.ts"
+            "database/status_personalizados_fallback_2h_migration.sql",
+            "test/sql/fallback-2h.test.ts"
           ],
           "refs": [
-            "AC-001",
-            "AC-002",
-            "AC-007",
-            "AC-011",
-            "AC-012"
+            "AC-004",
+            "AC-005",
+            "AC-006",
+            "AC-019"
           ]
         }
       ]
@@ -66,16 +52,20 @@
       "worktree": "../onp-worktrees/medguia-hub-status-personalizados-ciclo-vida-faixa-2",
       "tarefas": [
         {
-          "id": "T-002",
-          "titulo": "Catálogo no cliente: \"Em atendimento\" vira status de sistema",
+          "id": "T-016",
+          "titulo": "Regra pura do contador regressivo",
           "modelo": "claude-sonnet-5",
-          "esforco": "low",
+          "esforco": "medium",
           "arquivos": [
-            "src/lib/status-disponibilidade-cores.ts"
+            "src/lib/status-disponibilidade-regras.ts",
+            "src/lib/status-disponibilidade-regras.test.ts"
           ],
           "refs": [
-            "AC-011",
-            "AC-013"
+            "AC-007",
+            "AC-022",
+            "AC-023",
+            "AC-024",
+            "AC-026"
           ]
         }
       ]
@@ -86,18 +76,18 @@
       "worktree": "../onp-worktrees/medguia-hub-status-personalizados-ciclo-vida-faixa-3",
       "tarefas": [
         {
-          "id": "T-004",
-          "titulo": "Regra de inclusão de profissional no relatório",
+          "id": "T-017",
+          "titulo": "O contador nas três telas de status",
           "modelo": "claude-sonnet-5",
-          "esforco": "low",
+          "esforco": "high",
           "arquivos": [
-            "src/lib/relatorios/inclusao-profissional.ts",
-            "src/lib/relatorios/inclusao-profissional.test.ts"
+            "src/components/features/agenda/CardStatusEquipe.tsx",
+            "src/components/features/configuracoes/WidgetDisponibilidade.tsx",
+            "src/components/features/equipe/StatusEquipeRealtime.tsx",
+            "test/ui/contador-telas.test.ts"
           ],
           "refs": [
-            "AC-014",
-            "AC-015",
-            "AC-016"
+            "AC-025"
           ]
         }
       ]
@@ -108,169 +98,37 @@
       "worktree": "../onp-worktrees/medguia-hub-status-personalizados-ciclo-vida-faixa-4",
       "tarefas": [
         {
-          "id": "T-005",
-          "titulo": "Migration: observação com lastro no histórico",
+          "id": "T-018",
+          "titulo": "Diagnóstico do Realtime em produção",
           "modelo": "claude-sonnet-5",
-          "esforco": "medium",
+          "esforco": "low",
           "arquivos": [
-            "database/status_personalizados_observacao_migration.sql",
-            "test/sql/observacao.test.ts"
+            "database/diagnostico_realtime_status.sql",
+            "test/sql/diagnostico-realtime.test.ts"
           ],
           "refs": [
-            "AC-003"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "faixa-5",
-      "branch": "spec/status-personalizados-ciclo-vida-faixa-5",
-      "worktree": "../onp-worktrees/medguia-hub-status-personalizados-ciclo-vida-faixa-5",
-      "tarefas": [
-        {
-          "id": "T-006",
-          "titulo": "Migration: teto de 1 hora e devolução para Disponível",
-          "modelo": "claude-sonnet-5",
-          "esforco": "high",
-          "arquivos": [
-            "database/status_personalizados_fallback_1h_migration.sql",
-            "test/sql/fallback-1h.test.ts"
-          ],
-          "refs": [
-            "AC-004",
-            "AC-005",
-            "AC-006"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "faixa-6",
-      "branch": "spec/status-personalizados-ciclo-vida-faixa-6",
-      "worktree": "../onp-worktrees/medguia-hub-status-personalizados-ciclo-vida-faixa-6",
-      "tarefas": [
-        {
-          "id": "T-007",
-          "titulo": "Migration: contrato dos operacionais e remoção do gatilho legado",
-          "modelo": "claude-sonnet-5",
-          "esforco": "medium",
-          "arquivos": [
-            "database/status_operacionais_contrato_migration.sql",
-            "test/sql/contrato-operacionais.test.ts"
-          ],
-          "refs": [
-            "AC-013",
-            "AC-018"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "faixa-7",
-      "branch": "spec/status-personalizados-ciclo-vida-faixa-7",
-      "worktree": "../onp-worktrees/medguia-hub-status-personalizados-ciclo-vida-faixa-7",
-      "tarefas": [
-        {
-          "id": "T-008",
-          "titulo": "Migration: profissional inativo",
-          "modelo": "claude-sonnet-5",
-          "esforco": "medium",
-          "arquivos": [
-            "database/profissional_inativo_migration.sql",
-            "test/sql/profissional-inativo.test.ts"
-          ],
-          "refs": [
-            "AC-017"
+            "AC-027"
           ]
         }
       ]
     }
   ],
-  "sequenciais": [
-    {
-      "id": "T-003",
-      "titulo": "Modelo de exibição do card da agenda",
-      "modelo": "claude-sonnet-5",
-      "esforco": "high",
-      "arquivos": [
-        "src/lib/status-card-agenda.ts",
-        "src/lib/status-card-agenda.test.ts"
-      ],
-      "refs": [
-        "AC-008",
-        "AC-009",
-        "AC-010"
-      ]
-    },
-    {
-      "id": "T-009",
-      "titulo": "Ligar a validação de observação na action",
-      "modelo": "claude-sonnet-5",
-      "esforco": "medium",
-      "arquivos": [
-        "src/actions/status-disponibilidade.ts"
-      ],
-      "refs": [
-        "AC-001",
-        "AC-002"
-      ]
-    },
-    {
-      "id": "T-010",
-      "titulo": "Configuração: marcar quais status exigem observação",
-      "modelo": "claude-sonnet-5",
-      "esforco": "medium",
-      "arquivos": [
-        "src/actions/status-disponibilidade-config.ts",
-        "src/app/(painel)/configuracoes/status-disponibilidade/page.tsx"
-      ],
-      "refs": [
-        "AC-012"
-      ]
-    },
-    {
-      "id": "T-011",
-      "titulo": "Widget: campo de observação na troca de status",
-      "modelo": "claude-sonnet-5",
-      "esforco": "high",
-      "arquivos": [
-        "src/components/features/configuracoes/WidgetDisponibilidade.tsx"
-      ],
-      "refs": [
-        "AC-001",
-        "AC-011"
-      ]
-    },
-    {
-      "id": "T-012",
-      "titulo": "Card de status na rota de agendamento",
-      "modelo": "claude-sonnet-5",
-      "esforco": "high",
-      "arquivos": [
-        "src/components/features/agenda/CardStatusEquipe.tsx",
-        "src/app/(painel)/agenda/page.tsx"
-      ],
-      "refs": [
-        "AC-008",
-        "AC-009",
-        "AC-010"
-      ]
-    },
-    {
-      "id": "T-013",
-      "titulo": "Relatório passa a incluir por presença de dado",
-      "modelo": "claude-sonnet-5",
-      "esforco": "medium",
-      "arquivos": [
-        "src/app/(painel)/relatorios/tempo-fabril/page.tsx"
-      ],
-      "refs": [
-        "AC-014",
-        "AC-015",
-        "AC-016"
-      ]
-    }
+  "sequenciais": [],
+  "concluidas": [
+    "T-001",
+    "T-002",
+    "T-003",
+    "T-004",
+    "T-005",
+    "T-006",
+    "T-007",
+    "T-008",
+    "T-009",
+    "T-010",
+    "T-011",
+    "T-012",
+    "T-013",
+    "T-014"
   ],
-  "concluidas": [],
   "avisos": []
 }

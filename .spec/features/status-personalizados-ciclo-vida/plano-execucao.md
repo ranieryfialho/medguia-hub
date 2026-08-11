@@ -1,12 +1,11 @@
 # Plano de execução — status-personalizados-ciclo-vida
 
-> gerado por `onp-spec plano` em 2026-08-10 17:22 — NÃO edite à mão;
-> mudou tasks.md ou a config? Regenere: `onp-spec plano status-personalizados-ciclo-vida --paralelizar T-001,T-002,T-004,T-005,T-006,T-007,T-008`
+> gerado por `onp-spec plano` em 2026-08-11 12:12 — NÃO edite à mão;
+> mudou tasks.md ou a config? Regenere: `onp-spec plano status-personalizados-ciclo-vida`
 
 ## Resumo — o que vai acontecer
 
-- **13 tarefa(s) pendente(s)**: 7 em 7 faixa(s) paralela(s) + 6 sequencial(is)
-- **seleção do usuário**: paralelizar só T-001, T-002, T-004, T-005, T-006, T-007, T-008 — as demais rodam uma após a outra, ao final
+- **4 tarefa(s) pendente(s)**: 4 em 4 faixa(s) paralela(s) + 0 sequencial(is) (14 já concluída(s): T-001, T-002, T-003, T-004, T-005, T-006, T-007, T-008, T-009, T-010, T-011, T-012, T-013, T-014)
 - **1 faixa = 1 worktree + 1 branch + 1 janela de contexto limpa** — faixas não compartilham nenhum arquivo entre si
 - prefere outra seleção ou uma após a outra? Regenere com `onp-spec plano status-personalizados-ciclo-vida --paralelizar T-xxx,T-yyy` ou `--sequencial`
 - tudo acontece na branch de trabalho `spec/status-personalizados-ciclo-vida`; levar para a main é decisão sua
@@ -19,58 +18,27 @@
 
 | tarefa | título | modelo | esforço | arquivos |
 |---|---|---|---|---|
-| T-001 | Regras puras de status: validação, classificação e vencimento | `claude-sonnet-5` | medium | `src/lib/status-disponibilidade-regras.ts`, `src/lib/status-disponibilidade-regras.test.ts` |
+| T-015 | Migration: o teto do bloco volta para 2 horas | `claude-sonnet-5` | medium | `database/status_personalizados_fallback_2h_migration.sql`, `test/sql/fallback-2h.test.ts` |
 
 #### faixa-2 — branch `spec/status-personalizados-ciclo-vida-faixa-2` — worktree `../onp-worktrees/medguia-hub-status-personalizados-ciclo-vida-faixa-2`
 
 | tarefa | título | modelo | esforço | arquivos |
 |---|---|---|---|---|
-| T-002 | Catálogo no cliente: "Em atendimento" vira status de sistema | `claude-sonnet-5` | low | `src/lib/status-disponibilidade-cores.ts` |
+| T-016 | Regra pura do contador regressivo | `claude-sonnet-5` | medium | `src/lib/status-disponibilidade-regras.ts`, `src/lib/status-disponibilidade-regras.test.ts` |
 
 #### faixa-3 — branch `spec/status-personalizados-ciclo-vida-faixa-3` — worktree `../onp-worktrees/medguia-hub-status-personalizados-ciclo-vida-faixa-3`
 
 | tarefa | título | modelo | esforço | arquivos |
 |---|---|---|---|---|
-| T-004 | Regra de inclusão de profissional no relatório | `claude-sonnet-5` | low | `src/lib/relatorios/inclusao-profissional.ts`, `src/lib/relatorios/inclusao-profissional.test.ts` |
+| T-017 | O contador nas três telas de status | `claude-sonnet-5` | high | `src/components/features/agenda/CardStatusEquipe.tsx`, `src/components/features/configuracoes/WidgetDisponibilidade.tsx`, `src/components/features/equipe/StatusEquipeRealtime.tsx`, `test/ui/contador-telas.test.ts` |
 
-### Onda 2 — faixa-4 ∥ faixa-5 ∥ faixa-6
+### Onda 2 — faixa-4
 
 #### faixa-4 — branch `spec/status-personalizados-ciclo-vida-faixa-4` — worktree `../onp-worktrees/medguia-hub-status-personalizados-ciclo-vida-faixa-4`
 
 | tarefa | título | modelo | esforço | arquivos |
 |---|---|---|---|---|
-| T-005 | Migration: observação com lastro no histórico | `claude-sonnet-5` | medium | `database/status_personalizados_observacao_migration.sql`, `test/sql/observacao.test.ts` |
-
-#### faixa-5 — branch `spec/status-personalizados-ciclo-vida-faixa-5` — worktree `../onp-worktrees/medguia-hub-status-personalizados-ciclo-vida-faixa-5`
-
-| tarefa | título | modelo | esforço | arquivos |
-|---|---|---|---|---|
-| T-006 | Migration: teto de 1 hora e devolução para Disponível | `claude-sonnet-5` | high | `database/status_personalizados_fallback_1h_migration.sql`, `test/sql/fallback-1h.test.ts` |
-
-#### faixa-6 — branch `spec/status-personalizados-ciclo-vida-faixa-6` — worktree `../onp-worktrees/medguia-hub-status-personalizados-ciclo-vida-faixa-6`
-
-| tarefa | título | modelo | esforço | arquivos |
-|---|---|---|---|---|
-| T-007 | Migration: contrato dos operacionais e remoção do gatilho legado | `claude-sonnet-5` | medium | `database/status_operacionais_contrato_migration.sql`, `test/sql/contrato-operacionais.test.ts` |
-
-### Onda 3 — faixa-7
-
-#### faixa-7 — branch `spec/status-personalizados-ciclo-vida-faixa-7` — worktree `../onp-worktrees/medguia-hub-status-personalizados-ciclo-vida-faixa-7`
-
-| tarefa | título | modelo | esforço | arquivos |
-|---|---|---|---|---|
-| T-008 | Migration: profissional inativo | `claude-sonnet-5` | medium | `database/profissional_inativo_migration.sql`, `test/sql/profissional-inativo.test.ts` |
-
-## Tarefas sequenciais (após as ondas, na árvore principal)
-
-| tarefa | título | modelo | esforço | por que sequencial |
-|---|---|---|---|---|
-| T-003 | Modelo de exibição do card da agenda | `claude-sonnet-5` | high | fora da seleção do usuário |
-| T-009 | Ligar a validação de observação na action | `claude-sonnet-5` | medium | fora da seleção do usuário |
-| T-010 | Configuração: marcar quais status exigem observação | `claude-sonnet-5` | medium | fora da seleção do usuário |
-| T-011 | Widget: campo de observação na troca de status | `claude-sonnet-5` | high | fora da seleção do usuário |
-| T-012 | Card de status na rota de agendamento | `claude-sonnet-5` | high | fora da seleção do usuário |
-| T-013 | Relatório passa a incluir por presença de dado | `claude-sonnet-5` | medium | fora da seleção do usuário |
+| T-018 | Diagnóstico do Realtime em produção | `claude-sonnet-5` | low | `database/diagnostico_realtime_status.sql`, `test/sql/diagnostico-realtime.test.ts` |
 
 ## Gestão de branches e commits
 

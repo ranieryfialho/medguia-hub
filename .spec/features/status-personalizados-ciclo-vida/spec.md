@@ -55,13 +55,23 @@ Como gestor, quero que o profissional registre o motivo ao assumir um status per
 
 ### US-002 — Fim garantido do bloco
 
-Como dono da empresa, quero que um status personalizado expire em 1 hora e devolva o profissional ao estado normal, para que ninguém fique marcado indevidamente e quem precisar de mais tempo reafirme o status.
+Como dono da empresa, quero que um status personalizado expire em 2 horas e devolva o profissional ao estado normal, para que ninguém fique marcado indevidamente e quem precisar de mais tempo reafirme o status.
 
-#### AC-004 — O bloco é capado em 1 hora
+> **Emenda de 11/08/2026 — o teto voltou de 1h para 2h.** A entrega de 10/08
+> reduziu o teto a 1 hora, conforme o PRD 002. Na primeira semana em produção
+> o dono reavaliou: reuniões e horas administrativas de 1h30–2h são rotina, e o
+> teto de 1h obrigava reafirmar no meio delas — o atrito previsto na ASM-001 do
+> RFC ("se reuniões de 2h+ forem rotina, o atrito de reafirmar pode gerar
+> sub-registro sistemático no Tempo Fábril") se materializou. Os critérios
+> abaixo passam a falar em 2 horas; AC-022 a AC-025 tornam o prazo visível
+> **antes** de vencer, que é o que faltava para a reafirmação ser consciente em
+> vez de surpresa.
+
+#### AC-004 — O bloco é capado em 2 horas
 
 - **Dado** o job `fechar-status-esquecidos`
 - **Quando** a migration da feature é aplicada
-- **Então** o teto do bloco passa a ser de 1 hora, não mais 2 (asserção estática no arquivo SQL)
+- **Então** o teto do bloco volta a ser de 2 horas, e nenhum comando do job permanece com o teto de 1 hora da entrega anterior (asserção estática no arquivo SQL)
 
 #### AC-005 — O profissional volta para Disponível
 
@@ -77,15 +87,61 @@ Como dono da empresa, quero que um status personalizado expire em 1 hora e devol
 
 #### AC-019 — Quem já está travado também é destravado
 
-- **Dado** um profissional com status personalizado ao vivo há mais de uma hora **sem** bloco aberto no histórico — o estado exato dos três profissionais encontrados em produção em 10/08, um deles preso há 2 dias e 20 horas
+- **Dado** um profissional com status personalizado ao vivo há mais de duas horas **sem** bloco aberto no histórico — o estado exato dos três profissionais encontrados em produção em 10/08, um deles preso há 2 dias e 20 horas
 - **Quando** o job de expiração roda
 - **Então** ele também é devolvido para "Disponível" — a expiração não pode depender de haver bloco aberto, senão quem já dessincronizou fica preso para sempre (asserção estática no arquivo SQL)
 
 #### AC-007 — Bloco vencido é sinalizado na tela
 
-- **Dado** um bloco de status aberto há mais de 1 hora
+- **Dado** um bloco de status aberto há mais de 2 horas
 - **Quando** a tela calcula o que exibir
 - **Então** o bloco é sinalizado como vencido, mesmo que o aviso do banco ainda não tenha chegado à tela
+
+### US-007 — O prazo é visível antes de vencer
+
+Como profissional que declarou um status, quero ver quanto tempo falta para ele expirar, para reafirmar antes de ser devolvido para "Disponível" sem perceber — e como gestão, quero enxergar o mesmo prazo no card da agenda.
+
+> Sem contador, o teto de 2 horas só se manifesta quando já passou. A pessoa
+> descobre que expirou pelo efeito (voltou a constar Disponível), nunca pelo
+> aviso. É a Suposição 2 do RFC 002 ("voltar automaticamente para Disponível é
+> aceitável — não gera reclamação") deixando de ser um risco aceito e virando
+> um prazo mostrado.
+
+#### AC-022 — O tempo restante é calculado a partir da abertura do bloco
+
+- **Dado** um bloco de status personalizado aberto em um instante conhecido e o teto de 2 horas
+- **Quando** o tempo restante é calculado
+- **Então** ele é a diferença entre o teto e o tempo já decorrido — e **nunca é negativo**: um bloco aberto há 5 horas devolve zero, não menos vinte e uma mil
+
+#### AC-023 — O contador é legível em qualquer faixa do prazo
+
+- **Dado** um tempo restante qualquer
+- **Quando** ele é formatado para a tela
+- **Então** acima de uma hora aparece em horas e minutos (`1h47`), abaixo de uma hora em minutos e segundos (`47:05`) — a precisão aumenta conforme o prazo aperta, que é quando ela importa
+
+#### AC-024 — Ao zerar, o contador para e o bloco fica marcado como expirado
+
+- **Dado** um bloco que passou das 2 horas e ainda não foi devolvido pelo job — a janela de até 10 minutos entre o vencimento e o próximo ciclo do `pg_cron`
+- **Quando** a tela calcula o que exibir
+- **Então** o bloco aparece como **expirado** e o contador para de correr, em vez de sumir da lista ou virar tempo negativo — a tela não pode afirmar que o profissional já voltou para "Disponível" antes de o banco ter feito isso, que é exatamente a divergência entre tela e banco que o RFC 002 combate
+
+#### AC-025 — As três telas de status consomem o mesmo contador
+
+- **Dado** o card da agenda, o widget global de disponibilidade e a tela de Configurações → Disponibilidade
+- **Quando** cada componente é montado
+- **Então** os três leem o tempo restante da mesma regra pura, em vez de cada um reimplementar a conta (asserção estática sobre o texto dos componentes — ver ASM-005)
+
+#### AC-026 — O contador não depende do Realtime estar saudável
+
+- **Dado** um bloco cujo aviso de mudança nunca chegou pelo Realtime
+- **Quando** a tela recalcula o contador a cada tique do relógio
+- **Então** ele continua correto, porque é derivado do instante de abertura já em mãos — e não de um evento novo do banco
+
+#### AC-027 — O estado do Realtime é diagnosticável, não adivinhado
+
+- **Dado** a dúvida registrada em Q-002 sobre se as escritas do `pg_cron` chegam às telas
+- **Quando** o script de diagnóstico é aberto
+- **Então** ele consulta a publicação `supabase_realtime`, a *replica identity* da tabela, a política de leitura e as últimas execuções do job — de modo que a resposta venha de medição em produção, e não de inferência sobre o código (asserção estática no arquivo SQL)
 
 ### US-003 — Estado ao vivo visível na agenda
 
@@ -167,7 +223,7 @@ Como gestão, quero que quem saiu da empresa suma das telas ao vivo sem que suas
 
 ### US-006 — Remoção do escritor legado
 
-Como engenharia, quero remover o gatilho legado que sobrescreve o status do profissional, para que a garantia de vida de 1 hora do bloco não seja quebrada por um escritor invisível.
+Como engenharia, quero remover o gatilho legado que sobrescreve o status do profissional, para que a garantia de vida de 2 horas do bloco não seja quebrada por um escritor invisível.
 
 #### AC-018 — O gatilho legado é removido
 
@@ -177,7 +233,7 @@ Como engenharia, quero remover o gatilho legado que sobrescreve o status do prof
 
 ## Fora de escopo
 
-- **Deduplicar a contagem dupla** entre atendimento e status personalizado no Tempo Fábril — medida em 0,77% em 90 dias, abaixo do limiar de materialidade. Vai para backlog, a remedir depois que o teto de 1 hora estiver em produção.
+- **Deduplicar a contagem dupla** entre atendimento e status personalizado no Tempo Fábril — medida em 0,77% em 90 dias, abaixo do limiar de materialidade. Vai para backlog, a remedir depois que o teto estiver estável em produção.
 - **Inverter a precedência** entre atendimento e status declarado — decisão de 10/08 foi manter a agenda vencendo.
 - **Editar a observação** com o status já em andamento — ela é escrita no ato da escolha e não é alterada depois.
 - **Duração declarada na entrada** (Opção 3 do RFC) — reavaliar 2 semanas após o go-live.
@@ -191,9 +247,13 @@ Como engenharia, quero remover o gatilho legado que sobrescreve o status do prof
 | ASM-002 | Asserção estática sobre o texto do `.sql` previne a regressão de ordem e de intervalo, mas **não prova** o comportamento do Postgres | confirmada | Limitação aceita conscientemente: sem Docker/psql no ambiente. Rotulada como verificação estática em AC-003/004/005/006/013/017/018 |
 | ASM-003 | O Realtime propaga para a tela os updates feitos pelo `pg_cron`, não só os feitos pela aplicação | confirmada | **Deixou de ser carregadora.** Resolvida por desenho, não por verificação: AC-007 detecta o vencimento no cliente a partir do horário de abertura do bloco, sem depender de aviso do banco. Se o Realtime não propagar, a tela ainda marca o bloco como vencido. A suposição deixou de sustentar qualquer critério |
 | ASM-004 | Tornar `profiles.ativo` obrigatório não quebra nenhum fluxo que cria usuário sem preencher esse campo | confirmada | Auditado em 10/08: o único ponto de criação é o gatilho `handle_new_user`, que insere `(id, full_name, role)` e não toca em `ativo` — o padrão `true` da coluna cobre. Nenhum código da aplicação insere em `profiles` |
+| ASM-005 | Asserção estática sobre o texto de um componente `.tsx` prova que ele **consome** a regra pura, mas não prova o que o usuário vê na tela | confirmada | Mesma limitação e mesma escolha consciente da ASM-002, agora no front: não há runner de componente neste projeto. O que a asserção trava é a regressão que já aconteceu uma vez aqui (AC-021: regra existente, tela que nunca a chamava). O comportamento visual é validado à mão |
+| ASM-006 | O contador tornar o prazo visível é suficiente para a reafirmação ser consciente — não é preciso notificar ativamente quem está prestes a expirar | aberta | Decisão do dono ainda não tomada. Se na revisão de 2 semanas (Ação 13 do RFC) muitos blocos ainda expirarem sem reafirmação, a notificação volta à mesa |
 
 ## Perguntas em aberto
 
 | ID | Pergunta | Status | Resposta |
 |---|---|---|---|
 | Q-001 | O card da agenda deve mostrar também as horas acumuladas no dia, além do tempo do bloco atual? | respondida | Não (dono, 10/08). O card mostra só o tempo do bloco atual, com o dado que a tela já carrega. O acumulado do dia permanece no relatório de Tempo Fábril, onde é analisado com calma |
+| Q-002 | O Realtime propaga de fato para as telas os updates que o `pg_cron` faz em `status_disponibilidade`? | aberta | A tabela está na publicação `supabase_realtime` desde `status_disponibilidade_migration.sql:26`, o que é condição necessária mas não suficiente. A resposta exige rodar `database/diagnostico_realtime_status.sql` no SQL Editor do Studio (`pg_publication_tables` e `cron.job_run_details` não saem via REST). **Não bloqueia esta entrega**: por AC-026 o contador é derivado do instante de abertura e continua correto mesmo se a resposta for "não" |
+| Q-003 | O card da agenda deve ganhar a rede de polling de 60s que o widget já tem? | aberta | Hoje `CardStatusEquipe` só recebe estado novo por Realtime — `useRealtimeDisponibilidade` tem `setInterval` de 60s, o card não tem. Se o Realtime não propagar, o card marca o bloco como expirado (AC-024, correto) mas nunca descobre que o profissional já voltou. Decidir depois do resultado de Q-002, para não adicionar polling contra um problema que talvez não exista |

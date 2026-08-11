@@ -34,11 +34,11 @@ Ordem de execução: as tarefas de **regra pura** (T-001 a T-004) e as de **migr
 - Esforço: medio
 - Notas: `observacao` em `status_disponibilidade` e em `historico_status_disponibilidade`; `observacao_obrigatoria` em `status_disponibilidade_opcoes`. O gatilho de log passa a copiar a observação ao abrir o bloco, para que ela sobreviva à próxima troca. Teste = asserção estática sobre o texto do arquivo (ASM-002).
 
-## T-006 — Migration: teto de 1 hora e devolução para Disponível [concluida]
-- Refs: AC-004, AC-005, AC-006, AC-019
-- Arquivos: database/status_personalizados_fallback_1h_migration.sql, test/sql/fallback-1h.test.ts
+## T-006 — Migration: teto do bloco e devolução para Disponível [concluida]
+- Refs: AC-005, AC-006
+- Arquivos: database/status_personalizados_fallback_1h_migration.sql
 - Esforço: alto
-- Notas: **ponto mais sensível da feature.** O fechamento do histórico tem de vir antes do reset do status — a ordem inversa faz o gatilho fechar o bloco com a duração inteira e inflar o Tempo Fábril. AC-006 existe para travar isso. Reset grava `origem = 'fallback'`.
+- Notas: **ponto mais sensível da feature.** O fechamento do histórico tem de vir antes do reset do status — a ordem inversa faz o gatilho fechar o bloco com a duração inteira e inflar o Tempo Fábril. AC-006 existe para travar isso. Reset grava `origem = 'fallback'`. **Aplicada em produção em 10/08 com teto de 1h; o arquivo permanece como registro do que foi aplicado e o teto é reagendado por T-015.** As asserções de AC-004/AC-005/AC-006/AC-019 passaram para o teste de T-015, que cobre a migration vigente.
 
 ## T-007 — Migration: contrato dos operacionais e remoção do gatilho legado [concluida]
 - Refs: AC-013, AC-018
@@ -87,3 +87,31 @@ Ordem de execução: as tarefas de **regra pura** (T-001 a T-004) e as de **migr
 - Arquivos: src/lib/status-disponibilidade-regras.ts, src/components/features/configuracoes/GerenciadorStatusDisponibilidade.tsx
 - Esforço: baixo
 - Notas: fecha o buraco de T-010, que prometia isto no título mas referenciava só AC-012. Estado do formulário (`FormularioOpcao`, `FORMULARIO_OPCAO_VAZIO`, `formularioDaOpcao`) sai do componente para o módulo de regras, de modo que o vai-e-vem opção↔formulário seja provável sem renderizar JSX.
+
+---
+
+## Emenda de 11/08/2026 — teto de 2 horas e contador regressivo
+
+## T-015 — Migration: o teto do bloco volta para 2 horas [concluida]
+- Refs: AC-004, AC-005, AC-006, AC-019
+- Arquivos: database/status_personalizados_fallback_2h_migration.sql, test/sql/fallback-2h.test.ts
+- Esforço: medio
+- Notas: migration NOVA, que reagenda `fechar-status-esquecidos` — a de 1h **não é editada**, porque já foi aplicada em produção em 10/08 e o arquivo é o registro do que rodou. A ordem crítica de AC-006 (fechar histórico antes de resetar o status) é reproduzida integralmente: é a mesma armadilha, não some por ser a segunda vez. O teste substitui `test/sql/fallback-1h.test.ts`, que é REMOVIDO junto — deixá-lo faria a suíte exigir 1h e 2h ao mesmo tempo.
+
+## T-016 — Regra pura do contador regressivo [pendente]
+- Refs: AC-007, AC-022, AC-023, AC-024, AC-026
+- Arquivos: src/lib/status-disponibilidade-regras.ts, src/lib/status-disponibilidade-regras.test.ts
+- Esforço: medio
+- Notas: `LIMITE_BLOCO_MS` passa a 2h e vira exportado; entram `tempoRestanteBlocoMs` (nunca negativo — AC-022) e `formatarContagemRegressiva` (`1h47` acima de uma hora, `47:05` abaixo — AC-023). `blocoVencido` já existe e passa a ser consumido de fato. Casos de borda que o teste precisa travar: exatamente no teto, um segundo depois, e muito depois (AC-024). Sem I/O — `agora` é sempre parâmetro, senão não há como testar.
+
+## T-017 — O contador nas três telas de status [pendente]
+- Refs: AC-025
+- Arquivos: src/components/features/agenda/CardStatusEquipe.tsx, src/components/features/configuracoes/WidgetDisponibilidade.tsx, src/components/features/equipe/StatusEquipeRealtime.tsx, test/ui/contador-telas.test.ts
+- Esforço: alto
+- Notas: os três já têm um relógio próprio (60s, 60s e 30s) — para o contador de segundos a cadência vai a 1s, e **só quando há bloco personalizado em curso na tela**, para não manter um `setInterval` de segundo aceso à toa. O widget precisa do `atualizado_em` do próprio usuário, que `listarStatusDisponibilidade` já traz. Teste = asserção estática de que cada arquivo consome a regra pura (ASM-005) — é o formato que teria pego a falha do AC-021. Depende de T-016.
+
+## T-018 — Diagnóstico do Realtime em produção [pendente]
+- Refs: AC-027
+- Arquivos: database/diagnostico_realtime_status.sql, test/sql/diagnostico-realtime.test.ts
+- Esforço: baixo
+- Notas: somente leitura. Checa `pg_publication_tables` (a tabela está na publicação?), `relreplident` (UPDATE entrega a linha nova?), as políticas de RLS de `status_disponibilidade` (o Realtime aplica RLS do assinante — publicação sem política de leitura entrega silêncio) e `cron.job_run_details` (o job rodou e alterou linhas?). Responde Q-002 e alimenta a decisão de Q-003. Não depende de nenhuma outra tarefa.
