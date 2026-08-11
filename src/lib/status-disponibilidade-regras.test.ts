@@ -142,6 +142,35 @@ test('@spec:AC-011 "Em atendimento" (ocupado, sistema) não é oferecido como es
   assert.ok(!selecionaveis.includes('ausente'), '"ausente" (sistema) não deveria ser selecionável')
 })
 
+test('@spec:AC-033 status removido pelo gestor sai da escolha, mas não da exibição', () => {
+  // O catálogo de exibição inclui removidos, para que blocos já registrados sob
+  // eles não percam o rótulo no Tempo Fábril. Cabe a esta regra tirá-los da
+  // lista de escolha — antes isso vinha do WHERE da consulta, fora de teste.
+  const catalogoCompleto: OpcaoStatusRegra[] = [
+    { slug: 'disponivel', sistema: true, observacao_obrigatoria: false, ativo: true },
+    { slug: 'reuniao', sistema: false, observacao_obrigatoria: true, ativo: true },
+    { slug: 'gravacao_mkt_1784656463413', sistema: false, observacao_obrigatoria: false, ativo: false },
+  ]
+
+  const selecionaveis = opcoesSelecionaveis(catalogoCompleto).map(o => o.slug)
+
+  assert.deepEqual(selecionaveis, ['disponivel', 'reuniao'])
+  assert.ok(
+    !selecionaveis.includes('gravacao_mkt_1784656463413'),
+    'um status removido não pode voltar a ser oferecido',
+  )
+})
+
+test('@spec:AC-033 opção sem o campo ativo é tratada como ativa', () => {
+  // Vários chamadores montam a opção só com o que a validação precisa. Ausência
+  // do campo não pode significar "removido", ou o widget ficaria sem escolhas.
+  const semCampo: OpcaoStatusRegra[] = [
+    { slug: 'reuniao', sistema: false, observacao_obrigatoria: false },
+  ]
+
+  assert.deepEqual(opcoesSelecionaveis(semCampo).map(o => o.slug), ['reuniao'])
+})
+
 test('@spec:AC-012 status de sistema não pode ser editado nem removido', () => {
   const deSistema = opcao({ sistema: true })
   const personalizado = opcao({ sistema: false })

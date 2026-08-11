@@ -8,6 +8,11 @@ export type OpcaoStatusRegra = {
   slug: string
   sistema: boolean
   observacao_obrigatoria: boolean
+  /**
+   * Opcional porque o catálogo de exibição inclui removidos (AC-033) e vários
+   * chamadores só se importam com validação de observação. Ausente = ativo.
+   */
+  ativo?: boolean
 }
 
 export type ResultadoValidacao =
@@ -49,9 +54,18 @@ export function ehStatusPersonalizado(opcao: OpcaoStatusRegra): boolean {
 /**
  * AC-011: status de sistema não são oferecidos como escolha, exceto 'disponivel',
  * que é o estado normal para onde o profissional sempre pode voltar.
+ *
+ * AC-033: status removido pelo gestor (`ativo = false`) também sai da escolha.
+ * Antes essa exclusão vinha de graça, porque `listarStatusOpcoes` filtrava
+ * `ativo = true` na consulta. Com o catálogo de exibição passando a incluir os
+ * removidos — para que blocos antigos não percam o rótulo no Tempo Fábril — a
+ * regra precisa valer aqui, onde é testável, e não como efeito colateral de um
+ * `WHERE` lá atrás.
  */
 export function opcoesSelecionaveis<T extends OpcaoStatusRegra>(opcoes: T[]): T[] {
-  return opcoes.filter((opcao) => !opcao.sistema || opcao.slug === 'disponivel')
+  return opcoes.filter(
+    (opcao) => opcao.ativo !== false && (!opcao.sistema || opcao.slug === 'disponivel'),
+  )
 }
 
 /** AC-012: status de sistema não pode ser editado nem removido pelo gestor. */

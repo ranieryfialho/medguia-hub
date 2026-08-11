@@ -14,7 +14,7 @@ import { obterIntervalosJornada, toHora, toMin } from '@/lib/jornada'
 import { buildMapaMensalPorProfissional, resolverJornadaDoDia } from '@/lib/jornada-planejada'
 import { StatusEquipeRealtime } from '@/components/features/equipe'
 import { listarStatusDisponibilidade } from '@/actions/status-disponibilidade'
-import { listarStatusOpcoes } from '@/actions/status-disponibilidade-config'
+import { listarStatusOpcoesParaExibicao } from '@/actions/status-disponibilidade-config'
 import type { OpcaoStatus } from '@/lib/status-disponibilidade-cores'
 import { requireModulo } from '@/lib/guard'
 import { podeGerirEquipe } from '@/lib/permissoes'
@@ -882,7 +882,7 @@ export default async function DisponibilidadePage({
   // cru, sem cor, sem ping e sem contador.
   const [initialStatuses, opcoesStatus] = await Promise.all([
     listarStatusDisponibilidade(statusIds),
-    listarStatusOpcoes(),
+    listarStatusOpcoesParaExibicao(),
   ])
 
   // Gestor sem parâmetro → redirect para visão geral

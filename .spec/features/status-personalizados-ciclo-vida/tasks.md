@@ -149,3 +149,9 @@ Ordem de execução: as tarefas de **regra pura** (T-001 a T-004) e as de **migr
 - Arquivos: src/app/(painel)/configuracoes/disponibilidade/page.tsx
 - Esforço: alto
 - Notas: cabeçalho unificado entre geral e individual; o `<select>` com botão "Ver" vira troca direta; a grade sai de 9-10px para tamanhos legíveis. **Cuidado:** são 833 linhas com duas visões e cálculo de slots no meio — não tocar em `calcularSlotsLivres`, `buildNomesExibicao` nem nas consultas. Só apresentação. Depende de T-021.
+
+## T-024 — Status removido continua legível onde já foi usado [concluida]
+- Refs: AC-033
+- Arquivos: src/actions/status-disponibilidade-config.ts, src/lib/status-disponibilidade-regras.ts, src/lib/status-disponibilidade-regras.test.ts
+- Esforço: baixo
+- Notas: `listarStatusOpcoesParaExibicao()` devolve o catálogo completo, para as quatro superfícies de EXIBIÇÃO (agenda, disponibilidade, widget via layout, Tempo Fábril). `listarStatusOpcoes()` continua filtrando `ativo` e serve a tela de gerenciamento e a escolha. Como o catálogo completo passa a chegar no widget, `opcoesSelecionaveis` ganha o filtro de `ativo` — a exclusão deixa de ser efeito colateral de um WHERE e vira regra testada.

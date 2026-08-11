@@ -33,6 +33,33 @@ export async function listarStatusOpcoes(): Promise<OpcaoStatus[]> {
   return data as OpcaoStatus[]
 }
 
+/**
+ * AC-033: o catálogo COMPLETO, incluindo o que o gestor removeu.
+ *
+ * `removerStatusOpcao` é soft delete (`ativo = false`) — a linha fica, e os
+ * blocos de tempo já registrados sob aquele status também. Sem os removidos,
+ * o Tempo Fábril e os painéis exibem o identificador cru
+ * (`gravacao_mkt_1784656463413`) no lugar do rótulo, para horas que realmente
+ * aconteceram.
+ *
+ * Use esta função para EXIBIR; use `listarStatusOpcoes` para ESCOLHER e para a
+ * tela de gerenciamento, onde um status removido não deve reaparecer.
+ * Como defesa em profundidade, `opcoesSelecionaveis` também descarta `ativo:
+ * false` — assim uma tela que use o catálogo completo para os dois fins não
+ * volta a oferecer o que foi removido.
+ */
+export async function listarStatusOpcoesParaExibicao(): Promise<OpcaoStatus[]> {
+  const { createClient } = await import('@/lib/supabase/server')
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('status_disponibilidade_opcoes')
+    .select('*')
+    .order('ordem')
+
+  if (error || !data || data.length === 0) return DEFAULT_OPCOES
+  return data as OpcaoStatus[]
+}
+
 async function assertGestor() {
   const { createClient } = await import('@/lib/supabase/server')
   const supabase = await createClient()

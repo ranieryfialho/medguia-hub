@@ -17,7 +17,7 @@ import {
   type HistoricoStatusAberto,
   type KPIsProfissional,
 } from '@/lib/relatorios/kpis-tempo-fabril'
-import { listarStatusOpcoes } from '@/actions/status-disponibilidade-config'
+import { listarStatusOpcoesParaExibicao } from '@/actions/status-disponibilidade-config'
 import { podeEntrarNaAgendaOuRelatorio } from '@/lib/profissionais'
 import { deveIncluirNoRelatorio } from '@/lib/relatorios/inclusao-profissional'
 import { requireModulo } from '@/lib/guard'
@@ -160,7 +160,7 @@ export default async function TempoFabrilPage({
       .select('id, profissional_id, status, inicio')
       .in('profissional_id', profIds)
       .is('fim', null),
-    listarStatusOpcoes(),
+    listarStatusOpcoesParaExibicao(),
   ])
 
   // Unir responsáveis + executores sem duplicar (mesmo atendimento pode aparecer nos dois)

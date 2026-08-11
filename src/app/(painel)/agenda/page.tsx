@@ -19,7 +19,7 @@ import { CardStatusEquipe, type StatusEquipeDeclaracaoRow } from '@/components/f
 import { buildSessaoEfetivaMap } from '@/lib/sessoes'
 import { listarTodasDisponibilidades } from '@/actions/disponibilidade'
 import { listarPlanosSaudeAtivos } from '@/actions/planos-saude'
-import { listarStatusOpcoes } from '@/actions/status-disponibilidade-config'
+import { listarStatusOpcoesParaExibicao } from '@/actions/status-disponibilidade-config'
 import { formatAppDateKey, formatAppTime, getAppDayRangeUTC, getAppHour, parseAppDate } from '@/lib/datetime'
 import { normalizarDisponibilidade, type DisponibilidadeDia } from '@/lib/disponibilidade'
 import { buildMapaMensalPorProfissional, resolverJornadaDoDia } from '@/lib/jornada-planejada'
@@ -537,7 +537,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
             .select('profissional_id, status, observacao, atualizado_em')
             .in('profissional_id', idsEquipeCard)
         : Promise.resolve({ data: [] as StatusEquipeDeclaracaoRow[] }),
-      listarStatusOpcoes(),
+      listarStatusOpcoesParaExibicao(),
       supabase
         .from('atendimentos')
         .select('profissional_id, fisioterapeuta_id')

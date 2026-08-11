@@ -289,6 +289,21 @@ Como gestor, quero que a tela de Disponibilidade mostre os status que eu mesmo c
 - **Quando** a tela precisa exibi-lo
 - **Então** ela o trata como status **declarado** (com contador e destaque), não como derivado do sistema — porque um identificador desconhecido é muito mais provavelmente um status novo do gestor do que um status de sistema, e a suposição contrária foi exatamente o que escondeu o defeito
 
+#### AC-033 — Status removido continua legível onde já foi usado
+
+- **Dado** um status personalizado que o gestor removeu — o que grava `ativo = false`, sem apagar linha nenhuma
+- **Quando** uma tela ou relatório precisa exibir um bloco de tempo registrado sob esse status
+- **Então** o rótulo continua disponível, e o status apenas deixa de ser oferecido como escolha
+
+> Mesmo princípio já decidido nesta feature para profissionais desligados
+> (US-005): *`ativo` governa o presente, não o passado*. Remover tira das telas
+> ao vivo e da lista de escolha; nunca reescreve o que já aconteceu.
+>
+> Não é hipótese: o catálogo de produção em 11/08 tem `gravacao_mkt_...` com
+> `ativo = false`. As horas registradas sob ele apareceriam no Tempo Fábril com
+> o identificador cru, porque `listarStatusOpcoes` filtra `ativo = true` e
+> alimenta também o relatório.
+
 #### AC-032 — O painel separa quem declarou algo de quem está livre
 
 - **Dado** a equipe com profissionais em estados diferentes

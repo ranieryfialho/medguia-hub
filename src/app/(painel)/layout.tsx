@@ -10,7 +10,7 @@ import { buildMapaMensalPorProfissional, resolverJornadaDoDia } from '@/lib/jorn
 import { podeEntrarNaAgendaOuRelatorio, podeEntrarNoWidgetDisponibilidade } from '@/lib/profissionais'
 import { WidgetDisponibilidade } from '@/components/features/configuracoes'
 import { listarStatusDisponibilidade } from '@/actions/status-disponibilidade'
-import { listarStatusOpcoes } from '@/actions/status-disponibilidade-config'
+import { listarStatusOpcoesParaExibicao } from '@/actions/status-disponibilidade-config'
 import { listarProtocolosAtendimentoAtivos } from '@/actions/protocolos-atendimento'
 import { listarTiposConsultaAtivos } from '@/actions/tipos-consulta'
 import { listarPlanosSaudeAtivos } from '@/actions/planos-saude'
@@ -176,7 +176,7 @@ export default async function DashboardLayout({
 
   const [statusDisponibilidade, statusOpcoes] = await Promise.all([
     listarStatusDisponibilidade(profissionaisWidget.map(p => p.id)),
-    listarStatusOpcoes(),
+    listarStatusOpcoesParaExibicao(),
   ])
 
   return (
