@@ -110,7 +110,7 @@ Ordem de execução: as tarefas de **regra pura** (T-001 a T-004) e as de **migr
 - Esforço: alto
 - Notas: os três já têm um relógio próprio (60s, 60s e 30s) — para o contador de segundos a cadência vai a 1s, e **só quando há bloco personalizado em curso na tela**, para não manter um `setInterval` de segundo aceso à toa. O widget precisa do `atualizado_em` do próprio usuário, que `listarStatusDisponibilidade` já traz. Teste = asserção estática de que cada arquivo consome a regra pura (ASM-005) — é o formato que teria pego a falha do AC-021. Depende de T-016.
 
-## T-018 — Diagnóstico do Realtime em produção [pendente]
+## T-018 — Diagnóstico do Realtime em produção [concluida]
 - Refs: AC-027
 - Arquivos: database/diagnostico_realtime_status.sql, test/sql/diagnostico-realtime.test.ts
 - Esforço: baixo
