@@ -98,7 +98,7 @@ Ordem de execução: as tarefas de **regra pura** (T-001 a T-004) e as de **migr
 - Esforço: medio
 - Notas: migration NOVA, que reagenda `fechar-status-esquecidos` — a de 1h **não é editada**, porque já foi aplicada em produção em 10/08 e o arquivo é o registro do que rodou. A ordem crítica de AC-006 (fechar histórico antes de resetar o status) é reproduzida integralmente: é a mesma armadilha, não some por ser a segunda vez. O teste substitui `test/sql/fallback-1h.test.ts`, que é REMOVIDO junto — deixá-lo faria a suíte exigir 1h e 2h ao mesmo tempo.
 
-## T-016 — Regra pura do contador regressivo [pendente]
+## T-016 — Regra pura do contador regressivo [concluida]
 - Refs: AC-007, AC-022, AC-023, AC-024, AC-026
 - Arquivos: src/lib/status-disponibilidade-regras.ts, src/lib/status-disponibilidade-regras.test.ts
 - Esforço: medio

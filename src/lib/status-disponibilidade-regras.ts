@@ -14,7 +14,16 @@ export type ResultadoValidacao =
   | { valido: true }
   | { valido: false; mensagem: string }
 
-const LIMITE_BLOCO_MS = 60 * 60 * 1000 // 1 hora — AC-004/AC-007
+/**
+ * Teto de vida de um bloco de status personalizado — AC-004/AC-007/AC-022.
+ *
+ * Precisa espelhar o `INTERVAL '2 hours'` de
+ * database/status_personalizados_fallback_2h_migration.sql. São duas fontes
+ * para o mesmo prazo, e é exatamente a classe de divergência que o RFC 002
+ * combate — mas aqui ela é inevitável: o cron vive no Postgres e o contador
+ * roda no navegador. Ao mudar o prazo, mude os dois no mesmo commit.
+ */
+export const LIMITE_BLOCO_MS = 2 * 60 * 60 * 1000
 
 /** AC-001, AC-002: observação só é exigida quando a opção marca observacao_obrigatoria. */
 export function validarObservacao(
@@ -86,9 +95,48 @@ export function formularioDaOpcao(
 }
 
 /**
- * AC-007: sinaliza na tela um bloco aberto há mais de 1 hora, sem depender
+ * AC-007: sinaliza na tela um bloco aberto há mais de 2 horas, sem depender
  * do aviso do banco (ASM-003) — cálculo client-side sobre o momento de abertura.
  */
 export function blocoVencido(abertoEm: Date, agora: Date = new Date()): boolean {
   return agora.getTime() - abertoEm.getTime() > LIMITE_BLOCO_MS
+}
+
+/**
+ * AC-022/AC-026: quanto falta para o bloco expirar, em milissegundos.
+ *
+ * Derivado do instante de abertura — não de um evento do banco. É o que torna
+ * o contador correto mesmo se o Realtime não propagar a escrita do `pg_cron`
+ * (a dúvida registrada em Q-002).
+ *
+ * Nunca devolve negativo: passado o teto, devolve zero. Um bloco esquecido há
+ * cinco horas tem "zero restante", não "menos três horas" — número negativo
+ * viraria contador correndo ao contrário na tela.
+ */
+export function tempoRestanteBlocoMs(abertoEm: Date, agora: Date = new Date()): number {
+  const decorrido = agora.getTime() - abertoEm.getTime()
+  return Math.max(0, LIMITE_BLOCO_MS - decorrido)
+}
+
+/**
+ * AC-023/AC-024: formata o tempo restante para exibição.
+ *
+ * A precisão cresce conforme o prazo aperta, que é quando ela importa:
+ * - acima de uma hora → `1h47`, porque segundos ali são ruído;
+ * - abaixo de uma hora → `47:05`, para dar a sensação de contagem regressiva;
+ * - zerado → `expirado`, e o contador para (AC-024). A tela não pode afirmar
+ *   que o profissional já voltou para "Disponível" antes de o banco ter feito
+ *   isso — o cron roda a cada 10 minutos, então essa janela existe de verdade.
+ */
+export function formatarContagemRegressiva(restanteMs: number): string {
+  if (restanteMs <= 0) return 'expirado'
+
+  const totalSegundos = Math.floor(restanteMs / 1000)
+  const horas = Math.floor(totalSegundos / 3600)
+  const minutos = Math.floor((totalSegundos % 3600) / 60)
+
+  if (horas > 0) return `${horas}h${String(minutos).padStart(2, '0')}`
+
+  const segundos = totalSegundos % 60
+  return `${String(minutos).padStart(2, '0')}:${String(segundos).padStart(2, '0')}`
 }
