@@ -374,12 +374,56 @@ cliente a partir de `atualizado_em` e fica correto mesmo se o Realtime estiver
 mudo. O que a resposta decide é Q-003: se o card da agenda precisa da rede de
 polling de 60s que o widget já tem em `useRealtimeDisponibilidade`.
 
-### 9.3 Deploy do app
+### 9.3 Deploy do app — **depois** da migration
 
-O contador é código de cliente e não depende da migration para não quebrar —
-mas antes do deploy da migration ele conta 2h enquanto o banco ainda expira em
-1h, e a pessoa vê "expira em 1h20" num status que já foi encerrado. **Aplique a
-migration primeiro.**
+**O push para `main` É o deploy.** O workflow
+[`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) dispara em
+push para `main`/`master`, copia os arquivos para a VPS por SCP e roda
+`docker compose build && docker compose up -d`. Não há passo manual — e não há
+como desfazer o deploy sem outro push.
+
+Por isso a ordem importa: **aplique a migration (9.1) antes de dar push.**
+
+Na ordem inversa, o contador conta 2h enquanto o banco ainda expira em 1h — a
+pessoa some do card no meio de um contador que marcava "expira em 1h20". Não
+corrompe dado nenhum, mas é exatamente o tipo de divergência tela↔banco que o
+RFC 002 existe para eliminar.
+
+Antes do push, confira localmente:
+
+```bash
+npx tsc --noEmit                                              # sem saída = limpo
+node --test --test-reporter=tap "test/**/*.test.ts" "src/**/*.test.ts"
+# esperado: # pass 76 · # fail 0
+```
+
+Depois:
+
+```bash
+git push origin main
+```
+
+Acompanhe a Action no GitHub. O passo final do workflow
+(`docker compose ps | grep medguia-hub`) falha se o contêiner não subiu — se a
+Action ficar verde, o app está no ar.
+
+### 9.5 Validação de comportamento — o que os testes não provam
+
+As asserções são sobre o **texto** do SQL e dos componentes (ASM-002, ASM-005).
+Nada disso prova o Postgres nem o que aparece na tela. Estes três só podem ser
+feitos aqui:
+
+| # | O que testar | Como | Esperado |
+|---|--------------|------|----------|
+| 1 | O contador aparece e corre | Entrar num status personalizado e abrir a agenda | Card com "expira em 1h59", descendo de segundo em segundo |
+| 2 | O teto de 2h fecha e devolve | Entrar num status e esperar ~2h10 (conta de teste) | Bloco com ~120 min, status de volta em Disponível, `origem = 'fallback'` |
+| 3 | A janela de "expirado" | Observar entre o contador zerar e o cron passar | Rótulo "expirado" em vermelho; a pessoa **não** some da lista antes de o banco devolver |
+
+O teste **2 é o mais importante** — é o comportamento inteiro da emenda, e o
+único que depende do `pg_cron` executar de fato.
+
+O teste **3 valida a decisão de desenho** do AC-024: a tela não pode antecipar o
+que o banco ainda não fez.
 
 ### 9.4 Reversão
 
