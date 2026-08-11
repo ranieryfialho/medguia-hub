@@ -289,15 +289,103 @@ o código antigo as ignora. O único efeito é que a observação deixa de ser g
 
 Combinado no RFC (Ação 12). Três pontos, em linguagem simples:
 
-1. **Status personalizado agora expira em 1 hora.** Quem precisar de mais tempo,
-   escolhe o status de novo. Não é punição: é para o quadro da equipe parar de
-   mostrar gente indisponível que já voltou.
+1. **Status personalizado expira em 2 horas** (era 1h entre 10/08 e 11/08 — ver
+   seção 9). Quem precisar de mais tempo, escolhe o status de novo. Não é
+   punição: é para o quadro da equipe parar de mostrar gente indisponível que já
+   voltou. **A tela mostra um contador com quanto falta**, então dá para
+   reafirmar antes de vencer.
 2. **Alguns status vão pedir uma justificativa curta** no momento da escolha.
    O gestor define quais.
 3. **"Ocupado" virou "Em atendimento"** e saiu da lista de escolha — ele sempre
    foi calculado pela agenda, e quem o escolhia acabava aparecendo como
    disponível, sem querer.
 
-Vale dizer também que uma reunião de 3 horas passa a contar 1 hora por bloco
+Vale dizer também que uma reunião de 3 horas passa a contar 2 horas por bloco
 reafirmado. É uma escolha consciente de rigor, e as pessoas precisam saber disso
 antes, não depois de ver o relatório.
+
+---
+
+## 9. Emenda de 11/08/2026 — o teto volta para 2 horas + contador regressivo
+
+> **PENDENTE DE APLICAÇÃO.** As seções 1–8 acima já rodaram em 10/08 e ficam
+> como registro do que foi aplicado. Esta seção é o que falta aplicar.
+
+**Por quê:** na primeira semana com o teto de 1h, o risco previsto textualmente
+na Suposição 1 do RFC 002 se confirmou — reuniões e horas administrativas de
+1h30–2h são rotina, e o teto cortava no meio delas. O prazo volta a 2h; o
+contrato (reset para "Disponível" + rede de segurança) permanece.
+
+### 9.1 Migration — único passo de banco
+
+**Aplicar:** copie o conteúdo inteiro de
+[`status_personalizados_fallback_2h_migration.sql`](status_personalizados_fallback_2h_migration.sql)
+no SQL Editor e execute.
+
+Muito mais simples que o passo 3 original: a coluna `origem` e sua constraint já
+existem, e **não há destravamento imediato a fazer**. O teto está afrouxando —
+quem foi expirado com 1h já voltou para `disponivel`, e quem está em bloco aberto
+apenas ganha mais uma hora de vida. Nenhum estado inconsistente a corrigir.
+
+**Janela:** ao contrário do passo 3, esta pode rodar em horário comercial. Não
+remove gatilho nem fecha bloco de ninguém.
+
+### Conferência
+
+```sql
+-- O job tem o teto de 2h, sem resquício do de 1h, e na ordem certa?
+SELECT jobname, schedule, active,
+       command LIKE '%2 hours%'                AS teto_2h,
+       command NOT LIKE '%1 hour%'             AS sem_teto_de_1h,
+       position('historico_status' in command)
+         < position('UPDATE status_disponibilidade sd' in command) AS ordem_correta
+FROM cron.job WHERE jobname = 'fechar-status-esquecidos';
+-- Esperado: */10 * * * * | true | true | true | true
+
+-- Ninguém travado além do teto novo. Esperado: 0 (após um ciclo do cron, até 10 min).
+SELECT COUNT(*) FROM status_disponibilidade
+WHERE status NOT IN ('disponivel','ausente','ocupado')
+  AND atualizado_em < NOW() - INTERVAL '2 hours';
+
+-- Nenhum bloco aberto além do teto. Esperado: 0.
+SELECT COUNT(*) FROM historico_status_disponibilidade
+WHERE fim IS NULL AND inicio < NOW() - INTERVAL '2 hours';
+
+-- Nenhum bloco inflado: durações acima de 2h fechadas nos últimos minutos.
+-- Esperado: 0. Se vier > 0, o gatilho fechou com a duração inteira — investigue.
+SELECT COUNT(*) FROM historico_status_disponibilidade
+WHERE duracao_minutos > 121
+  AND fim > NOW() - INTERVAL '15 minutes';
+```
+
+### 9.2 Diagnóstico do Realtime — antes ou depois, mas rode
+
+Rode [`diagnostico_realtime_status.sql`](diagnostico_realtime_status.sql) no SQL
+Editor. É **somente leitura** e responde a pergunta em aberto Q-002: as escritas
+que o `pg_cron` faz chegam às telas, ou só as feitas pela aplicação chegam?
+
+As seis seções são uma corrente — basta uma falhar para o evento não chegar ao
+navegador. A quarta (política de RLS) é a que costuma passar batido: tabela
+publicada e replicando, sem política de `SELECT` para o papel autenticado,
+entrega silêncio sem erro nenhum no console.
+
+**O resultado não bloqueia a aplicação da migration.** O contador é calculado no
+cliente a partir de `atualizado_em` e fica correto mesmo se o Realtime estiver
+mudo. O que a resposta decide é Q-003: se o card da agenda precisa da rede de
+polling de 60s que o widget já tem em `useRealtimeDisponibilidade`.
+
+### 9.3 Deploy do app
+
+O contador é código de cliente e não depende da migration para não quebrar —
+mas antes do deploy da migration ele conta 2h enquanto o banco ainda expira em
+1h, e a pessoa vê "expira em 1h20" num status que já foi encerrado. **Aplique a
+migration primeiro.**
+
+### 9.4 Reversão
+
+`SELECT cron.schedule(...)` com o corpo de
+[`status_personalizados_fallback_1h_migration.sql`](status_personalizados_fallback_1h_migration.sql)
+devolve o teto de 1h. Do lado do app, `LIMITE_BLOCO_MS` em
+[`src/lib/status-disponibilidade-regras.ts`](../src/lib/status-disponibilidade-regras.ts)
+precisa voltar junto — são duas fontes para o mesmo prazo, uma no Postgres e
+outra no navegador, e não há como uni-las.

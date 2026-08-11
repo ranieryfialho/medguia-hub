@@ -610,13 +610,69 @@ Queries prontas em [`database/diagnostico_status_personalizados.sql`](../../data
 
 ## Outcome
 
-*A ser preenchido após a decisão.*
+- **Decisão:** Opção 2 — ciclo de vida completo do status personalizado.
+- **Data:** 2026-08-10
+- **Decidido por:** @Dr. Felipe (approver)
+- **Justificativa:** único caminho que satisfaz C1 (fonte única da verdade). As
+  Opções 0 e 1 falham um must-have; a Opção 3 é um incremento sobre a 2, não uma
+  alternativa mais barata.
+- **Divergências registradas:** nenhuma no momento da decisão. A Suposição 1
+  (teto de 1h) foi revista uma semana depois — ver Emenda 1.
 
-- **Decisão:**
-- **Data:**
-- **Decidido por:**
-- **Justificativa:**
-- **Divergências registradas:**
+### Emenda 1 (2026-08-11) — o teto volta de 1h para 2h, com contador visível
+
+**O que muda:** o teto de vida do bloco volta a ser de **2 horas**. Nada mais do
+desenho muda — o reset para "Disponível" (item b), a rede de segurança para quem
+dessincronizou e o contrato dos operacionais permanecem exatamente como
+aprovados.
+
+**Por quê.** A Suposição 1 nomeou o risco com precisão antes de qualquer dado:
+
+> *"Se reuniões de 2h+ forem rotina, o atrito de reafirmar pode gerar
+> sub-registro sistemático no Tempo Fábril."*
+
+Na primeira semana em produção o gatilho de invalidação disparou: reuniões e
+horas administrativas de 1h30–2h **são** rotina, e o teto de 1h obrigava a
+reafirmar no meio delas. A suposição estava marcada com confiança **Alta** por
+ser decisão do dono — o que a tornava alta era a autoridade, não a evidência. A
+evidência chegou depois e a contradisse.
+
+**O que faltava para 2h ser seguro.** O teto de 2h de *antes* de 10/08 era
+perigoso por um motivo que não era o prazo: ele fechava só o histórico e deixava
+o profissional travado ao vivo para sempre. Esse defeito foi corrigido em 10/08 e
+**continua corrigido**. O que volta é o prazo; o contrato não.
+
+**O que entra junto — e por que não é um item novo de escopo.** Um teto que só se
+manifesta depois de vencido é uma armadilha em qualquer prazo. A entrega de 10/08
+tinha uma função `blocoVencido` testada e **nenhuma tela a consumia** — a regra
+existia e não fazia nada, a mesma classe de lacuna que o AC-021 documenta. A
+emenda liga o prazo à tela nas três superfícies de status (card da agenda, widget
+global, Configurações → Disponibilidade), com contagem regressiva e marcação de
+"expirado" na janela de até 10 minutos entre vencer e o cron passar.
+
+Isso converte a **Suposição 2** ("voltar automaticamente para Disponível é
+aceitável — não gera reclamação", confiança Média) de risco aceito em prazo
+mostrado: a pessoa passa a ver que vai expirar antes de expirar.
+
+**Efeito nas medições.** A previsão de que a contagem dupla cairia de 0,77% para
+~0,3% com o teto de 1h fica **sem efeito** — o teto voltou. A dedup permanece
+fora de escopo por materialidade, e a remedição da Ação 7 deve usar 0,77% como
+linha de base, não a projeção.
+
+**Ação 13 (revisão de +2 semanas) ganha uma pergunta:** com o contador visível,
+quantos blocos são reafirmados antes de expirar? É esse número que decide se a
+Opção 3 (duração declarada) volta à mesa — e agora há um dado que a separa de
+"as pessoas simplesmente não sabiam que ia expirar".
+
+**Pendências abertas por esta emenda:**
+
+| # | Pergunta | Como responder |
+|---|----------|----------------|
+| Q-002 | O Realtime propaga para as telas as escritas do `pg_cron`? | `database/diagnostico_realtime_status.sql` no SQL Editor. Não bloqueia: o contador é derivado do instante de abertura |
+| Q-003 | O card da agenda precisa da rede de polling de 60s que o widget já tem? | Decidir com o resultado de Q-002 |
+
+Rastreabilidade: `.spec/features/status-personalizados-ciclo-vida/spec.md`,
+critérios AC-022 a AC-027, tarefas T-015 a T-018.
 
 ---
 
