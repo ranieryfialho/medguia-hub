@@ -64,6 +64,18 @@ Como gestor, quero que o profissional registre o motivo ao assumir um status per
 > — o gate só prova o que a especificação pede, e um dado que ninguém lê é
 > invisível para ele.
 
+#### AC-036 — As exportações levam o mesmo conteúdo da tela
+
+- **Dado** o relatório de Tempo Fábril exportado em PDF ou em Markdown
+- **Quando** o gestor abre o arquivo
+- **Então** a conferência de status traz o motivo e a marca de expirado, como na tela — um relatório que se exporta pela metade é pior que nenhum, porque o arquivo é o que circula fora do sistema
+- **E** uma observação com `|` ou com quebra de linha **não destrói a tabela Markdown**, nem transborda a célula de altura fixa do PDF — é texto livre digitado pelo profissional, e o modo de falha é silencioso: colunas deslocadas que alguém lê como dado
+
+> A conferência de status só é gerada quando há **um profissional filtrado**;
+> exportar com "todos" produz resumo, ranking e comparativo, sem bloco nenhum.
+> Comportamento anterior a esta entrega, registrado aqui porque foi descoberto
+> ao escrever o teste e determina onde o gestor encontra os motivos.
+
 #### AC-035 — Bloco expirado não se confunde com bloco anômalo
 
 - **Dado** um bloco fechado pelo fallback, cuja duração é exatamente o teto

@@ -1,12 +1,30 @@
-import { formatarMinutos, type KPIsProfissional } from '@/lib/relatorios/kpis-tempo-fabril'
-import { formatAppDate, formatAppTime } from '@/lib/datetime'
-import type { OpcaoStatus } from '@/lib/status-disponibilidade-cores'
+import { formatarMinutos, type KPIsProfissional } from './kpis-tempo-fabril.ts'
+import { formatAppDate, formatAppTime } from '../datetime.ts'
+import type { OpcaoStatus } from '../status-disponibilidade-cores.ts'
+import { classificarBloco } from '../status-disponibilidade-regras.ts'
 
 export type GerarMarkdownTempoFabrilInput = {
   periodoLabel: string
   kpisEquipe: KPIsProfissional[]
   profFiltro: string
   statusOpcoes: OpcaoStatus[]
+}
+
+/**
+ * Deixa a observação segura dentro de uma célula de tabela Markdown.
+ *
+ * É texto livre digitado pelo profissional. Um `|` encerra a célula e desloca
+ * todas as colunas seguintes; uma quebra de linha encerra a linha inteira e
+ * quebra a tabela do ponto em diante. Nos dois casos o relatório sai
+ * silenciosamente errado, sem erro nenhum — só colunas desalinhadas que alguém
+ * pode ler como dado.
+ */
+function escaparPipe(valor: string | null): string {
+  if (!valor) return ''
+  return valor
+    .replace(/\|/g, '\\|')
+    .replace(/\r?\n/g, ' ')
+    .trim()
 }
 
 function slugify(value: string) {
@@ -99,14 +117,25 @@ export function gerarMarkdownTempoFabril({
     if (kpi.detalheStatus.length > 0) {
       linhas.push('### Conferência de Status')
       linhas.push('')
-      linhas.push('| Status | Início | Fim | Duração |')
-      linhas.push('|---|---|---|---|')
+      // AC-034: Motivo é o que torna a conferência auditável.
+      linhas.push('| Status | Motivo | Início | Fim | Duração |')
+      linhas.push('|---|---|---|---|---|')
+      let algumExpirado = false
       kpi.detalheStatus.forEach((s) => {
         const label = statusOpcoes.find((op) => op.slug === s.status)?.label ?? s.status
         const fim = s.aberto ? '**Em aberto**' : `${formatAppDate(s.fim!)} ${formatAppTime(s.fim!)}`
-        linhas.push(`| ${label} | ${formatAppDate(s.inicio)} ${formatAppTime(s.inicio)} | ${fim} | ${formatarMinutos(s.duracaoMinutos)} |`)
+        // AC-035: mesma marca do PDF, para que os dois relatórios sejam
+        // comparáveis linha a linha.
+        const expirado = classificarBloco(s.duracaoMinutos, s.aberto) === 'expirado'
+        if (expirado) algumExpirado = true
+        const motivo = escaparPipe(s.observacao) || '—'
+        linhas.push(`| ${label} | ${motivo} | ${formatAppDate(s.inicio)} ${formatAppTime(s.inicio)} | ${fim} | ${formatarMinutos(s.duracaoMinutos)}${expirado ? ' \\*' : ''} |`)
       })
       linhas.push('')
+      if (algumExpirado) {
+        linhas.push('\\* Fechado automaticamente no teto de 2h — a pessoa não encerrou o status.')
+        linhas.push('')
+      }
 
       const totaisPorStatus = new Map<string, number>()
       for (const s of kpi.detalheStatus) {

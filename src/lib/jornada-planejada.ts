@@ -1,5 +1,5 @@
-import { formatAppDateKey, parseAppDate } from '@/lib/datetime'
-import type { JornadaDia } from '@/lib/jornada'
+import { formatAppDateKey, parseAppDate } from './datetime.ts'
+import type { JornadaDia } from './jornada.ts'
 
 export type JornadaSemanal = {
   profissional_id: string

@@ -8,8 +8,8 @@ import {
   startOfAppMonthKey,
   endOfAppMonthKey,
   subAppMonthsKey,
-} from '@/lib/datetime'
-import { calcularMinutosJornada, obterIntervalosJornada, toHora } from '@/lib/jornada'
+} from '../datetime.ts'
+import { calcularMinutosJornada, obterIntervalosJornada, toHora } from '../jornada.ts'
 import {
   buildMapaMensalPorProfissional,
   buildMapaSemanalPorProfissional,
@@ -17,8 +17,8 @@ import {
   type JornadaMensalDiaPlanejado,
   type JornadaMensalPlanejada,
   type JornadaSemanal,
-} from '@/lib/jornada-planejada'
-import { isStatusFabril } from '@/lib/atendimento-status'
+} from '../jornada-planejada.ts'
+import { isStatusFabril } from '../atendimento-status.ts'
 
 export type Atendimento = {
   id: string

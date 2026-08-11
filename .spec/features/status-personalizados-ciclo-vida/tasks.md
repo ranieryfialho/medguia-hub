@@ -167,3 +167,9 @@ Ordem de execução: as tarefas de **regra pura** (T-001 a T-004) e as de **migr
 - Arquivos: src/lib/status-disponibilidade-regras.ts, src/lib/status-disponibilidade-regras.test.ts, src/components/features/relatorios/TabelaTempoFabril.tsx
 - Esforço: baixo
 - Notas: `classificarBloco` + `LIMITE_BLOCO_MIN` na regra pura. `LIMITE_ALERTA_MIN` sai de 110 fixo e passa a derivar do teto (`+1`): o vermelho fica reservado ao bloco fechado ACIMA do teto, que é o sinal da inversão de ordem que AC-006 impede. Bloco no teto ganha selo âmbar "expirou".
+
+## T-027 — As exportações PDF e Markdown levam motivo e marca de expirado [concluida]
+- Refs: AC-036
+- Arquivos: src/lib/relatorios/markdown-tempo-fabril.ts, src/lib/relatorios/markdown-tempo-fabril.test.ts, src/lib/relatorios/pdf-tempo-fabril.ts, src/lib/relatorios/kpis-tempo-fabril.ts, src/lib/jornada-planejada.ts, test/ui/pdf-tempo-fabril.test.ts
+- Esforço: medio
+- Notas: os dois exports já recebiam `KPIsProfissional` e `statusOpcoes` — a observação estava disponível e não era renderizada. Markdown ganhou `escaparPipe` (texto livre com `|` ou quebra de linha destruía a tabela em silêncio). PDF ganhou coluna Motivo com larguras rebalanceadas para 178mm, alinhamento por coluna e `truncarParaLargura` — `maxWidth` do jsPDF quebra o texto e transborda a linha de altura fixa. Para tornar o Markdown testável de verdade, os imports `@/` da cadeia (markdown → kpis → jornada-planejada) viraram relativos com extensão, mesmo padrão de ASM-001 já usado em `src/actions/status-disponibilidade.ts`.

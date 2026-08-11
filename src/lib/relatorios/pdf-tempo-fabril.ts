@@ -2,6 +2,7 @@ import type { jsPDF } from 'jspdf'
 import { formatarMinutos, type KPIsProfissional } from '@/lib/relatorios/kpis-tempo-fabril'
 import { formatAppDate, formatAppTime } from '@/lib/datetime'
 import type { OpcaoStatus } from '@/lib/status-disponibilidade-cores'
+import { classificarBloco } from '@/lib/status-disponibilidade-regras'
 
 type GerarPdfTempoFabrilInput = {
   periodoLabel: string
@@ -447,26 +448,44 @@ function desenharTabelaDetalheStatus(
   kpi: KPIsProfissional,
   statusOpcoes: OpcaoStatus[],
 ) {
-  const headers = ['Status', 'Início', 'Fim', 'Duração']
-  const widths = [58, 46, 46, 28]
-  let cursor = desenharLinhaTabela(doc, y, headers, widths, true)
+  // AC-034: Motivo é o que torna a conferência auditável — sem ele o gestor lê
+  // "3h de Em reunião" e não sabe qual reunião. Soma 178mm = CONTENT_WIDTH.
+  const headers = ['Status', 'Motivo', 'Início', 'Fim', 'Duração']
+  const widths = [40, 52, 34, 34, 18]
+  const aligns: ('left' | 'right')[] = ['left', 'left', 'right', 'right', 'right']
+  let cursor = desenharLinhaTabela(doc, y, headers, widths, true, aligns)
+
+  let algumExpirado = false
 
   for (const s of kpi.detalheStatus) {
     if (cursor > PAGE_HEIGHT - 22) {
       doc.addPage()
       cursor = desenharCabecalhoInterno(doc, 'Conferência de Status', `${kpi.nome} · Continuação`)
-      cursor = desenharLinhaTabela(doc, cursor + 4, headers, widths, true)
+      cursor = desenharLinhaTabela(doc, cursor + 4, headers, widths, true, aligns)
     }
 
     const label = statusOpcoes.find((op) => op.slug === s.status)?.label ?? s.status
     const fimLabel = s.aberto ? 'Em aberto' : `${formatAppDate(s.fim!)} ${formatAppTime(s.fim!)}`
 
+    // AC-035: marcado com asterisco e explicado no rodapé da tabela. Escrever
+    // "(expirou)" na célula de Fim não cabe na largura, e cortar a data para
+    // caber seria pior do que a marca.
+    const expirado = classificarBloco(s.duracaoMinutos, s.aberto) === 'expirado'
+    if (expirado) algumExpirado = true
+
     cursor = desenharLinhaTabela(doc, cursor, [
       label,
+      s.observacao ?? '—',
       `${formatAppDate(s.inicio)} ${formatAppTime(s.inicio)}`,
       fimLabel,
-      formatarMinutos(s.duracaoMinutos),
-    ], widths)
+      `${formatarMinutos(s.duracaoMinutos)}${expirado ? ' *' : ''}`,
+    ], widths, false, aligns)
+  }
+
+  if (algumExpirado) {
+    cursor = desenharBlocosTexto(doc, cursor + 3, [
+      '* Fechado automaticamente no teto de 2h — a pessoa não encerrou o status.',
+    ])
   }
 
   // Totais por status (bate com as colunas da tabela consolidada) + total geral
@@ -495,12 +514,36 @@ function desenharTabelaDetalheStatus(
   return cursor
 }
 
+/**
+ * Corta o texto para caber na largura, com reticências.
+ *
+ * A linha tem altura fixa de 8mm. Passar `maxWidth` ao jsPDF faz o texto
+ * QUEBRAR em várias linhas, que transbordam a célula e invadem a linha de
+ * baixo. Cortar é a única saída num layout de altura fixa — e passou a
+ * importar de verdade com a coluna Motivo, que é texto livre.
+ */
+function truncarParaLargura(doc: jsPDF, texto: string, larguraDisponivel: number): string {
+  if (doc.getTextWidth(texto) <= larguraDisponivel) return texto
+
+  let corte = texto
+  while (corte.length > 1 && doc.getTextWidth(`${corte}…`) > larguraDisponivel) {
+    corte = corte.slice(0, -1)
+  }
+  return `${corte.trimEnd()}…`
+}
+
 function desenharLinhaTabela(
   doc: jsPDF,
   y: number,
   values: string[],
   widths: number[],
   isHeader = false,
+  /**
+   * Alinhamento por coluna. Sem isto, o padrão histórico é "primeira à
+   * esquerda, todas as outras à direita" — o que serve para colunas numéricas,
+   * mas deixa a coluna Motivo, que é texto corrido, colada na borda direita.
+   */
+  aligns?: ('left' | 'right')[],
 ) {
   let x = MARGIN_X
   const rowHeight = 8
@@ -514,10 +557,11 @@ function desenharLinhaTabela(
     doc.setFontSize(7.5)
     doc.setTextColor(...(isHeader ? [255, 255, 255] as const : TEXT))
 
-    const alignRight = index > 0
-    doc.text(value, alignRight ? x + widths[index] - 2 : x + 2, y + 5.2, {
-      align: alignRight ? 'right' : 'left',
-      maxWidth: widths[index] - 4,
+    const align = aligns?.[index] ?? (index > 0 ? 'right' : 'left')
+    const texto = truncarParaLargura(doc, value, widths[index] - 4)
+
+    doc.text(texto, align === 'right' ? x + widths[index] - 2 : x + 2, y + 5.2, {
+      align,
     })
 
     x += widths[index]
