@@ -89,6 +89,53 @@ function buildNomesExibicao(profissionais: { id: string; nome: string }[]): Map<
   ]))
 }
 
+/**
+ * Navegação de semana, compartilhada pelas duas visões.
+ *
+ * Existia duplicada, com marcações levemente diferentes. Ganhou também o atalho
+ * "Hoje": sem ele, quem navegava três semanas à frente só voltava clicando três
+ * vezes na seta.
+ */
+function SeletorSemana({
+  semanaLabel,
+  hrefAnterior,
+  hrefProxima,
+  hrefHoje,
+}: {
+  semanaLabel: string
+  hrefAnterior: string
+  hrefProxima: string
+  hrefHoje: string
+}) {
+  return (
+    <div className="flex items-center gap-1 shrink-0">
+      <Link
+        href={hrefHoje}
+        className="px-3 py-1.5 mr-1 text-xs font-semibold rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-[#006b5a] transition-colors"
+      >
+        Hoje
+      </Link>
+      <Link
+        href={hrefAnterior}
+        aria-label="Semana anterior"
+        className="w-9 h-9 flex items-center justify-center rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors text-slate-600"
+      >
+        <ChevronLeft size={17} />
+      </Link>
+      <span className="text-sm font-bold text-slate-700 min-w-[170px] text-center capitalize px-1">
+        {semanaLabel}
+      </span>
+      <Link
+        href={hrefProxima}
+        aria-label="Próxima semana"
+        className="w-9 h-9 flex items-center justify-center rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors text-slate-600"
+      >
+        <ChevronRight size={17} />
+      </Link>
+    </div>
+  )
+}
+
 // ─── Visão Individual (fisioterapeuta ou drill-down gestor) ──────────────────
 
 async function ViewIndividual({
@@ -257,74 +304,80 @@ async function ViewIndividual({
         />
       )}
 
-      {/* Header */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h2 className="text-xl font-bold text-[#006b5a]">Disponibilidade</h2>
-            <p className="text-sm text-slate-500 mt-0.5">
-              Horários livres de <span className="font-semibold text-slate-700">{nomeProfissional}</span> — jornada menos agendamentos existentes
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
+      {/* Cabeçalho: título, troca de profissional e navegação de semana */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-4">
+        <div className="flex items-start justify-between flex-wrap gap-4">
+          <div className="min-w-0">
             {isGestor && (
               <Link
                 href="/configuracoes/disponibilidade?visao=geral"
-                className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#006b5a]/30 text-[#006b5a] hover:bg-[#006b5a]/5 transition-colors"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-[#006b5a] transition-colors mb-1.5"
               >
-                ← Visão geral
+                <ChevronLeft size={13} /> Visão geral da equipe
               </Link>
             )}
-            <Link href={buildUrl(prevData)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors text-slate-600">
-              <ChevronLeft size={18} />
-            </Link>
-            <span className="text-sm font-semibold text-slate-700 min-w-[180px] text-center capitalize">
-              {semanaLabel}
-            </span>
-            <Link href={buildUrl(nextData)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors text-slate-600">
-              <ChevronRight size={18} />
-            </Link>
+            <h2 className="text-2xl font-bold text-slate-900 leading-tight">{nomeProfissional}</h2>
+            <p className="text-sm text-slate-500 mt-1">
+              Horários livres na semana — jornada menos agendamentos e bloqueios
+            </p>
           </div>
+
+          <SeletorSemana
+            semanaLabel={semanaLabel}
+            hrefAnterior={buildUrl(prevData)}
+            hrefProxima={buildUrl(nextData)}
+            hrefHoje={buildUrl(format(new Date(), 'yyyy-MM-dd'))}
+          />
         </div>
 
-        {isGestor && profissionais.length > 0 && (
-          <div className="mt-4 max-w-xs">
-            <label className="text-xs font-semibold text-slate-500 block mb-1.5">Profissional</label>
-            <form method="GET" action="/configuracoes/disponibilidade" className="flex gap-2">
-              {dataParam && <input type="hidden" name="data" value={dataParam} />}
-              <select
-                name="profissional"
-                defaultValue={targetId}
-                className="flex-1 bg-white border border-[#bcc9c4] rounded-lg px-3 py-2 text-sm text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/50 focus:border-[#006b5a] transition-all font-medium appearance-none shadow-sm"
-              >
-                {profissionais.map(p => (
-                  <option key={p.id} value={p.id}>{p.nome}</option>
-                ))}
-              </select>
-              <button type="submit" className="px-3 py-2 bg-[#006b5a] text-white text-sm font-semibold rounded-lg hover:bg-[#005548] transition-colors">
-                Ver
-              </button>
-            </form>
+        {/* Troca direta de profissional: sem botão "Ver", o clique já navega */}
+        {isGestor && profissionais.length > 1 && (
+          <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-100">
+            <span className="w-full text-[11px] font-bold uppercase tracking-wider text-slate-400 pt-3 pb-0.5">
+              Ver outro profissional
+            </span>
+            {profissionais.map(p => {
+              const ativo = p.id === targetId
+              const href = `/configuracoes/disponibilidade?profissional=${p.id}${dataParam ? `&data=${dataParam}` : ''}`
+              return (
+                <Link
+                  key={p.id}
+                  href={href}
+                  aria-current={ativo ? 'page' : undefined}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                    ativo
+                      ? 'bg-[#006b5a] text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {p.nome.split(' ').slice(0, 2).join(' ')}
+                </Link>
+              )
+            })}
           </div>
         )}
       </div>
 
       {/* Resumo semana */}
       <div className="grid grid-cols-2 gap-4">
-        <div className="bg-[#006b5a]/5 border border-[#006b5a]/15 rounded-xl p-4 flex items-center gap-3">
-          <CheckCircle size={20} className="text-[#006b5a] shrink-0" />
+        <div className="bg-white border border-[#006b5a]/20 rounded-2xl p-4 flex items-center gap-3">
+          <span className="w-10 h-10 rounded-xl bg-[#006b5a]/10 flex items-center justify-center shrink-0">
+            <CheckCircle size={20} className="text-[#006b5a]" />
+          </span>
           <div>
-            <p className="text-xs text-slate-500 font-medium">Livre na semana</p>
-            <p className="text-lg font-bold text-[#006b5a]">
+            <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide">Livre na semana</p>
+            <p className="text-2xl font-bold text-[#006b5a] leading-tight">
               {Math.floor(totalLivreSemana / 60)}h{totalLivreSemana % 60 > 0 ? ` ${totalLivreSemana % 60}min` : ''}
             </p>
           </div>
         </div>
-        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center gap-3">
-          <XCircle size={20} className="text-slate-400 shrink-0" />
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-3">
+          <span className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
+            <XCircle size={20} className="text-slate-400" />
+          </span>
           <div>
-            <p className="text-xs text-slate-500 font-medium">Ocupado na semana</p>
-            <p className="text-lg font-bold text-slate-600">
+            <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide">Ocupado na semana</p>
+            <p className="text-2xl font-bold text-slate-600 leading-tight">
               {Math.floor(totalOcupadoSemana / 60)}h{totalOcupadoSemana % 60 > 0 ? ` ${totalOcupadoSemana % 60}min` : ''}
             </p>
           </div>
@@ -332,40 +385,49 @@ async function ViewIndividual({
       </div>
 
       {/* Grade semanal */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
         {dadosPorDia.map(({ dia, trabalha, jornadaInicio, jornadaFim, almocoInicio, almocoFim, livres, totalLivre, totalOcupado }) => {
           const isHoje = isSameDay(dia, new Date())
           return (
             <div
               key={dia.toISOString()}
-              className={`rounded-xl border flex flex-col overflow-hidden ${isHoje ? 'border-[#006b5a]/40 shadow-md' : 'border-slate-200'} ${!trabalha ? 'opacity-50' : ''}`}
+              className={`rounded-2xl border flex flex-col overflow-hidden bg-white ${
+                isHoje ? 'border-[#006b5a] shadow-md ring-1 ring-[#006b5a]/20' : 'border-slate-200'
+              } ${!trabalha ? 'opacity-60' : ''}`}
             >
-              <div className={`px-3 py-2.5 text-center ${isHoje ? 'bg-[#006b5a] text-white' : 'bg-slate-50 text-slate-700'}`}>
-                <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">{DIAS_SEMANA[dia.getDay()]}</p>
-                <p className="text-lg font-extrabold leading-none mt-0.5">{format(dia, 'd')}</p>
+              <div className={`px-3 py-2.5 flex items-baseline justify-between ${isHoje ? 'bg-[#006b5a] text-white' : 'bg-slate-50 text-slate-700'}`}>
+                <span className="text-xs font-bold uppercase tracking-wider opacity-90">
+                  {DIAS_SEMANA[dia.getDay()]}
+                </span>
+                <span className="text-xl font-extrabold leading-none">{format(dia, 'd')}</span>
               </div>
-              <div className="bg-white flex-1 p-2.5 space-y-1.5">
+
+              <div className="flex-1 p-2.5 space-y-2">
                 {!trabalha ? (
-                  <p className="text-[10px] text-slate-400 text-center py-2 italic">Não atende</p>
+                  <p className="text-xs text-slate-400 text-center py-4">Não atende</p>
                 ) : (
                   <>
-                    <div className="flex items-center gap-1 text-[9px] text-slate-400 font-medium pb-1 border-b border-slate-100">
-                      <Clock size={9} />
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium pb-2 border-b border-slate-100">
+                      <Clock size={12} />
                       <span>{jornadaInicio} – {jornadaFim}</span>
                     </div>
+
                     {almocoInicio && almocoFim && (
-                      <div className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5">
-                        <p className="text-[10px] font-bold text-amber-700 leading-none">Intervalo</p>
-                        <p className="text-[9px] text-amber-600 mt-0.5">{almocoInicio} – {almocoFim}</p>
+                      <div className="rounded-lg bg-amber-50 border border-amber-200 px-2.5 py-1.5">
+                        <p className="text-xs font-bold text-amber-800 leading-tight">Intervalo</p>
+                        <p className="text-xs text-amber-700 mt-0.5 tabular-nums">{almocoInicio} – {almocoFim}</p>
                       </div>
                     )}
+
                     {livres.length === 0 ? (
-                      <p className="text-[10px] text-slate-400 italic text-center py-2">Sem horário livre</p>
+                      <p className="text-xs text-slate-400 text-center py-3">Sem horário livre</p>
                     ) : (
                       livres.map((slot, i) => (
-                        <div key={i} className="bg-[#006b5a]/8 border border-[#006b5a]/20 rounded-lg px-2 py-1.5">
-                          <p className="text-[10px] font-bold text-[#006b5a] leading-none">{slot.inicio} – {slot.fim}</p>
-                          <p className="text-[9px] text-[#006b5a]/60 mt-0.5">
+                        <div key={i} className="rounded-lg bg-[#006b5a]/8 border border-[#006b5a]/25 px-2.5 py-1.5">
+                          <p className="text-sm font-bold text-[#006b5a] leading-tight tabular-nums">
+                            {slot.inicio} – {slot.fim}
+                          </p>
+                          <p className="text-xs text-[#006b5a]/70 mt-0.5">
                             {slot.duracaoMin >= 60
                               ? `${Math.floor(slot.duracaoMin / 60)}h${slot.duracaoMin % 60 > 0 ? `${slot.duracaoMin % 60}min` : ''}`
                               : `${slot.duracaoMin}min`} livre
@@ -373,12 +435,17 @@ async function ViewIndividual({
                         </div>
                       ))
                     )}
-                    <div className="pt-1 border-t border-slate-100 flex justify-between text-[9px] text-slate-400">
-                      <span className="text-[#006b5a] font-semibold">
-                        {totalLivre >= 60 ? `${Math.floor(totalLivre / 60)}h${totalLivre % 60 > 0 ? `${totalLivre % 60}m` : ''} livre` : totalLivre > 0 ? `${totalLivre}min livre` : 'sem livre'}
+
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                      <span className="text-[#006b5a] font-bold">
+                        {totalLivre >= 60
+                          ? `${Math.floor(totalLivre / 60)}h${totalLivre % 60 > 0 ? `${totalLivre % 60}m` : ''}`
+                          : totalLivre > 0 ? `${totalLivre}min` : '—'} livre
                       </span>
-                      <span>
-                        {totalOcupado >= 60 ? `${Math.floor(totalOcupado / 60)}h${totalOcupado % 60 > 0 ? `${totalOcupado % 60}m` : ''} ocup.` : totalOcupado > 0 ? `${totalOcupado}min ocup.` : ''}
+                      <span className="text-slate-400">
+                        {totalOcupado >= 60
+                          ? `${Math.floor(totalOcupado / 60)}h${totalOcupado % 60 > 0 ? `${totalOcupado % 60}m` : ''}`
+                          : totalOcupado > 0 ? `${totalOcupado}min` : ''} {totalOcupado > 0 ? 'ocup.' : ''}
                       </span>
                     </div>
                   </>
@@ -389,10 +456,10 @@ async function ViewIndividual({
         })}
       </div>
 
-      <div className="text-center">
+      <div className="text-center pb-2">
         <Link
           href={isGestor && paramProfId ? `/configuracoes/jornada?profissional=${paramProfId}` : '/configuracoes/jornada'}
-          className="text-sm text-[#006b5a] font-semibold hover:underline"
+          className="inline-block px-4 py-2 rounded-lg text-sm text-[#006b5a] font-semibold border border-[#006b5a]/25 hover:bg-[#006b5a]/5 transition-colors"
         >
           Editar jornada de trabalho →
         </Link>
@@ -580,41 +647,42 @@ async function ViewGeral({
         )}
       />
 
-      {/* Header */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
-        <div className="flex items-center justify-between flex-wrap gap-4">
+      {/* Cabeçalho */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+        <div className="flex items-start justify-between flex-wrap gap-4">
           <div>
-            <h2 className="text-xl font-bold text-[#006b5a]">Disponibilidade — Visão Geral</h2>
-            <p className="text-sm text-slate-500 mt-0.5">Horários livres de todos os profissionais na semana</p>
+            <h2 className="text-2xl font-bold text-slate-900 leading-tight">Disponibilidade da equipe</h2>
+            <p className="text-sm text-slate-500 mt-1">
+              Horários livres de {profissionaisComJornada.length} profissiona{profissionaisComJornada.length === 1 ? 'l' : 'is'} na semana
+            </p>
           </div>
-          <div className="flex items-center gap-3">
-            {/* Toggle agrupamento */}
-            <div className="flex bg-slate-100 p-0.5 rounded-lg text-xs font-semibold">
-              <Link
-                href={buildToggleUrl('horario')}
-                className={`px-3 py-1.5 rounded-md transition-all ${agrupamento === 'horario' ? 'bg-white shadow text-[#006b5a]' : 'text-slate-500 hover:text-slate-700'}`}
-              >
-                Por horário
-              </Link>
-              <Link
-                href={buildToggleUrl('profissional')}
-                className={`px-3 py-1.5 rounded-md transition-all ${agrupamento === 'profissional' ? 'bg-white shadow text-[#006b5a]' : 'text-slate-500 hover:text-slate-700'}`}
-              >
-                Por profissional
-              </Link>
-            </div>
-            {/* Navegação semana */}
-            <div className="flex items-center gap-1">
-              <Link href={buildNavUrl(prevData)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors text-slate-600">
-                <ChevronLeft size={18} />
-              </Link>
-              <span className="text-sm font-semibold text-slate-700 min-w-[180px] text-center capitalize">
-                {semanaLabel}
-              </span>
-              <Link href={buildNavUrl(nextData)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors text-slate-600">
-                <ChevronRight size={18} />
-              </Link>
-            </div>
+          <SeletorSemana
+            semanaLabel={semanaLabel}
+            hrefAnterior={buildNavUrl(prevData)}
+            hrefProxima={buildNavUrl(nextData)}
+            hrefHoje={buildNavUrl(format(new Date(), 'yyyy-MM-dd'))}
+          />
+        </div>
+
+        <div className="flex items-center gap-2 mt-4 pt-4 border-t border-slate-100">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Agrupar</span>
+          <div className="flex bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+            <Link
+              href={buildToggleUrl('horario')}
+              className={`px-3.5 py-1.5 rounded-lg transition-all ${
+                agrupamento === 'horario' ? 'bg-white shadow-sm text-[#006b5a]' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Por horário
+            </Link>
+            <Link
+              href={buildToggleUrl('profissional')}
+              className={`px-3.5 py-1.5 rounded-lg transition-all ${
+                agrupamento === 'profissional' ? 'bg-white shadow-sm text-[#006b5a]' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Por profissional
+            </Link>
           </div>
         </div>
       </div>
@@ -626,56 +694,58 @@ async function ViewGeral({
             const diasProf = grid.filter(g => g.profId === prof.id)
             const diasComTrabalho = diasProf.filter(d => d.trabalha)
             return (
-              <div key={prof.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+              <div key={prof.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                 {/* Nome do profissional */}
-                <div className="px-5 py-3.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                <div className="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3">
                   <p className="text-sm font-bold text-slate-800">{prof.nome}</p>
                   <Link
                     href={`/configuracoes/disponibilidade?profissional=${prof.id}`}
-                    className="text-xs text-[#006b5a] font-semibold hover:underline"
+                    className="text-xs text-[#006b5a] font-semibold hover:underline shrink-0"
                   >
                     Ver detalhe →
                   </Link>
                 </div>
-                {/* Grid de dias */}
-                <div className="grid grid-cols-7 divide-x divide-slate-100">
-                  {diasProf.map(({ dia, trabalha, almocoInicio, almocoFim, livres }) => {
-                    const isHoje = isSameDay(dia, new Date())
-                    return (
-                      <div key={dia.toISOString()} className={`p-3 min-h-[100px] ${isHoje ? 'bg-[#006b5a]/5' : ''}`}>
-                        <p className={`text-xs font-bold uppercase tracking-wide mb-2 ${isHoje ? 'text-[#006b5a]' : 'text-slate-400'}`}>
-                          {DIAS_SEMANA[dia.getDay()]} {format(dia, 'd')}
-                        </p>
-                        {!trabalha ? (
-                          <p className="text-xs text-slate-300 italic">—</p>
-                        ) : (
-                          <div className="space-y-1.5">
-                            {almocoInicio && almocoFim && (
-                              <div className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5">
-                                <p className="text-[10px] font-bold text-amber-700 leading-tight">Intervalo</p>
-                                <p className="text-[10px] text-amber-600 mt-0.5">{almocoInicio}–{almocoFim}</p>
-                              </div>
-                            )}
-                            {livres.length === 0 ? (
-                              <p className="text-xs text-slate-400 italic">Sem livre</p>
-                            ) : (
-                              livres.map((slot, i) => (
-                                <div key={i} className="bg-[#006b5a]/8 border border-[#006b5a]/20 rounded-lg px-2 py-1.5">
-                                  <p className="text-xs font-bold text-[#006b5a] leading-tight">{slot.inicio}–{slot.fim}</p>
-                                  <p className="text-[10px] text-[#006b5a]/60 mt-0.5">
-                                    {slot.duracaoMin >= 60 ? `${Math.floor(slot.duracaoMin / 60)}h${slot.duracaoMin % 60 > 0 ? `${slot.duracaoMin % 60}m` : ''}` : `${slot.duracaoMin}min`}
-                                  </p>
+                {/* Grid de dias — rola na horizontal em telas estreitas em vez de espremer */}
+                <div className="overflow-x-auto">
+                  <div className="grid grid-cols-7 divide-x divide-slate-100 min-w-[860px]">
+                    {diasProf.map(({ dia, trabalha, almocoInicio, almocoFim, livres }) => {
+                      const isHoje = isSameDay(dia, new Date())
+                      return (
+                        <div key={dia.toISOString()} className={`p-3 min-h-[110px] ${isHoje ? 'bg-[#006b5a]/5' : ''}`}>
+                          <p className={`text-xs font-bold uppercase tracking-wide mb-2 ${isHoje ? 'text-[#006b5a]' : 'text-slate-400'}`}>
+                            {DIAS_SEMANA[dia.getDay()]} {format(dia, 'd')}
+                          </p>
+                          {!trabalha ? (
+                            <p className="text-xs text-slate-300">—</p>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {almocoInicio && almocoFim && (
+                                <div className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5">
+                                  <p className="text-xs font-bold text-amber-800 leading-tight">Intervalo</p>
+                                  <p className="text-xs text-amber-700 mt-0.5 tabular-nums">{almocoInicio}–{almocoFim}</p>
                                 </div>
-                              ))
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
+                              )}
+                              {livres.length === 0 ? (
+                                <p className="text-xs text-slate-400">Sem livre</p>
+                              ) : (
+                                livres.map((slot, i) => (
+                                  <div key={i} className="bg-[#006b5a]/8 border border-[#006b5a]/25 rounded-lg px-2 py-1.5">
+                                    <p className="text-xs font-bold text-[#006b5a] leading-tight tabular-nums">{slot.inicio}–{slot.fim}</p>
+                                    <p className="text-xs text-[#006b5a]/70 mt-0.5">
+                                      {slot.duracaoMin >= 60 ? `${Math.floor(slot.duracaoMin / 60)}h${slot.duracaoMin % 60 > 0 ? `${slot.duracaoMin % 60}m` : ''}` : `${slot.duracaoMin}min`}
+                                    </p>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
                 {diasComTrabalho.length === 0 && (
-                  <div className="px-5 py-3 text-xs text-slate-400 italic">Sem jornada cadastrada</div>
+                  <div className="px-5 py-3 text-xs text-slate-400">Sem jornada cadastrada</div>
                 )}
               </div>
             )
@@ -683,7 +753,7 @@ async function ViewGeral({
         </div>
       ) : (
         // ── Por horário: cada coluna = dia, dentro lista quem está livre ──
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
           {diasDaSemana.map(dia => {
             const isHoje = isSameDay(dia, new Date())
             // Coletar todos os slots desse dia e quem está livre
@@ -710,27 +780,33 @@ async function ViewGeral({
             return (
               <div
                 key={dia.toISOString()}
-                className={`rounded-xl border flex flex-col overflow-hidden ${isHoje ? 'border-[#006b5a]/40 shadow-md' : 'border-slate-200'}`}
+                className={`rounded-2xl border flex flex-col overflow-hidden bg-white ${
+                  isHoje ? 'border-[#006b5a] shadow-md ring-1 ring-[#006b5a]/20' : 'border-slate-200'
+                }`}
               >
-                <div className={`px-3 py-3 text-center relative ${isHoje ? 'bg-[#006b5a] text-white' : 'bg-slate-50 text-slate-700'}`}>
-                  <p className="text-xs font-bold uppercase tracking-wider opacity-80">{DIAS_SEMANA[dia.getDay()]}</p>
-                  <p className="text-xl font-extrabold leading-none mt-1">{format(dia, 'd')}</p>
+                <div className={`px-3 py-2.5 flex items-center justify-between ${isHoje ? 'bg-[#006b5a] text-white' : 'bg-slate-50 text-slate-700'}`}>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wider opacity-90">
+                      {DIAS_SEMANA[dia.getDay()]}
+                    </span>
+                    <span className="text-xl font-extrabold leading-none">{format(dia, 'd')}</span>
+                  </div>
                   {horasEntries.length > 0 && (
-                    <div className="absolute top-2 right-2">
-                      <BtnCopiarDisponibilidade diaLabel={diaLabel} horas={horasEntries} />
-                    </div>
+                    <BtnCopiarDisponibilidade diaLabel={diaLabel} horas={horasEntries} />
                   )}
                 </div>
-                <div className="bg-white flex-1 p-3 space-y-2">
+                <div className="flex-1 p-3 space-y-2.5">
                   {horasEntries.length === 0 ? (
-                    <p className="text-xs text-slate-300 italic text-center py-4">Nenhum livre</p>
+                    <p className="text-xs text-slate-400 text-center py-5">Nenhum livre</p>
                   ) : (
                     horasEntries.map(({ hora: h, nomes }) => (
                       <div key={h} className="flex items-start gap-2">
-                        <span className="text-xs font-bold text-slate-400 w-9 shrink-0 pt-0.5">{h.toString().padStart(2, '0')}H</span>
+                        <span className="text-xs font-bold text-slate-500 w-9 shrink-0 pt-1 tabular-nums">
+                          {h.toString().padStart(2, '0')}h
+                        </span>
                         <div className="flex flex-wrap gap-1">
                           {nomes.map((nome, i) => (
-                            <span key={i} className="inline-flex items-center justify-center text-center text-[11px] font-bold bg-[#006b5a]/10 text-[#006b5a] px-2 py-1 rounded-full">
+                            <span key={i} className="inline-flex items-center text-xs font-bold bg-[#006b5a]/10 text-[#006b5a] px-2 py-1 rounded-lg">
                               {nome}
                             </span>
                           ))}

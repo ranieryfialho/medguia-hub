@@ -1,11 +1,11 @@
 {
   "feature": "status-personalizados-ciclo-vida",
-  "timestamp": "2026-08-11T12:58:05.327Z",
-  "gitRev": "e21442f",
+  "timestamp": "2026-08-11T13:21:55.990Z",
+  "gitRev": "530ef8a",
   "command": "node --test --test-reporter=tap",
   "reporter": "tap",
   "exitCode": 0,
-  "testsParsed": 83,
+  "testsParsed": 94,
   "results": {
     "AC-021": {
       "status": "pass",
@@ -69,7 +69,7 @@
     },
     "AC-025": {
       "status": "pass",
-      "testName": "@spec:AC-025 card da agenda importa a regra do contador",
+      "testName": "@spec:AC-025 card da agenda obtém o prazo de uma regra pura",
       "method": "tap"
     },
     "AC-026": {
@@ -150,6 +150,21 @@
     "AC-018": {
       "status": "pass",
       "testName": "@spec:AC-018 remove o gatilho legado e as funções órfãs, gatilho antes das funções",
+      "method": "tap"
+    },
+    "AC-030": {
+      "status": "pass",
+      "testName": "@spec:AC-030 status personalizado do catálogo aparece com rótulo, não com identificador",
+      "method": "tap"
+    },
+    "AC-031": {
+      "status": "pass",
+      "testName": "@spec:AC-031 status fora do catálogo é tratado como declarado, não como sistema",
+      "method": "tap"
+    },
+    "AC-032": {
+      "status": "pass",
+      "testName": "@spec:AC-032 separa declarados de livres, ausentes e em atendimento",
       "method": "tap"
     }
   },

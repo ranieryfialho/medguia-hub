@@ -144,7 +144,7 @@ Ordem de execução: as tarefas de **regra pura** (T-001 a T-004) e as de **migr
 - Esforço: alto
 - Notas: hoje é uma faixa única de chips minúsculos, sem hierarquia — quem está em reunião há 2h tem o mesmo peso visual de quem está livre. O agrupamento sai para regra pura (`agruparPainelEquipe`), testável sem JSX, como já é o padrão da feature. Depende de T-021.
 
-## T-023 — Redesenhar cabeçalho, navegação e grades das duas visões [pendente]
+## T-023 — Redesenhar cabeçalho, navegação e grades das duas visões [concluida]
 - Refs: AC-032
 - Arquivos: src/app/(painel)/configuracoes/disponibilidade/page.tsx
 - Esforço: alto
