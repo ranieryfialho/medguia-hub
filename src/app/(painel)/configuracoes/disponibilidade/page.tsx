@@ -14,6 +14,8 @@ import { obterIntervalosJornada, toHora, toMin } from '@/lib/jornada'
 import { buildMapaMensalPorProfissional, resolverJornadaDoDia } from '@/lib/jornada-planejada'
 import { StatusEquipeRealtime } from '@/components/features/equipe'
 import { listarStatusDisponibilidade } from '@/actions/status-disponibilidade'
+import { listarStatusOpcoes } from '@/actions/status-disponibilidade-config'
+import type { OpcaoStatus } from '@/lib/status-disponibilidade-cores'
 import { requireModulo } from '@/lib/guard'
 import { podeGerirEquipe } from '@/lib/permissoes'
 import { podeEntrarNaAgendaOuRelatorio } from '@/lib/profissionais'
@@ -97,6 +99,7 @@ async function ViewIndividual({
   paramProfId,
   dataParam,
   initialStatuses,
+  opcoesStatus,
 }: {
   targetId: string
   nomeProfissional: string
@@ -105,6 +108,7 @@ async function ViewIndividual({
   paramProfId: string | null
   dataParam: string | undefined
   initialStatuses: Awaited<ReturnType<typeof listarStatusDisponibilidade>>
+  opcoesStatus: OpcaoStatus[]
 }) {
   const supabase = await createClient()
 
@@ -245,6 +249,7 @@ async function ViewIndividual({
         <StatusEquipeRealtime
           profissionais={profissionais}
           initialStatuses={initialStatuses}
+          opcoes={opcoesStatus}
           disponibilidades={{ [targetId]: Object.fromEntries(jornadaMap.entries()) }}
           disponibilidadesHoje={{
             [targetId]: resolverJornadaDoDia(parseAppDate(formatAppDateKey(new Date())), jornadaMap, jornadaMensalMap) ?? null,
@@ -404,12 +409,14 @@ async function ViewGeral({
   dataParam,
   agrupamento,
   initialStatuses,
+  opcoesStatus,
 }: {
   profissionais: { id: string; nome: string }[]
   profissionaisStatus: { id: string; nome: string }[]
   dataParam: string | undefined
   agrupamento: 'horario' | 'profissional'
   initialStatuses: Awaited<ReturnType<typeof listarStatusDisponibilidade>>
+  opcoesStatus: OpcaoStatus[]
 }) {
   const supabase = await createClient()
 
@@ -554,6 +561,7 @@ async function ViewGeral({
       <StatusEquipeRealtime
         profissionais={profissionaisStatus}
         initialStatuses={initialStatuses}
+        opcoes={opcoesStatus}
         disponibilidades={Object.fromEntries(
           profissionaisStatus.map((prof) => [
             prof.id,
@@ -792,7 +800,14 @@ export default async function DisponibilidadePage({
   const agrupamento = params.agrupamento === 'profissional' ? 'profissional' : 'horario'
   const targetId = isGestor && paramProfId ? paramProfId : user.id
   const statusIds = isGestor ? profissionaisStatus.map(p => p.id) : [targetId]
-  const initialStatuses = await listarStatusDisponibilidade(statusIds)
+
+  // AC-030: o catálogo real, do banco. Sem ele o painel caía no DEFAULT_OPCOES
+  // de 4 slugs e todo status criado pelo gestor aparecia com o identificador
+  // cru, sem cor, sem ping e sem contador.
+  const [initialStatuses, opcoesStatus] = await Promise.all([
+    listarStatusDisponibilidade(statusIds),
+    listarStatusOpcoes(),
+  ])
 
   // Gestor sem parâmetro → redirect para visão geral
   if (isGestor && !visao && !paramProfId) {
@@ -809,6 +824,7 @@ export default async function DisponibilidadePage({
         dataParam={dataParam}
         agrupamento={agrupamento as 'horario' | 'profissional'}
         initialStatuses={initialStatuses}
+        opcoesStatus={opcoesStatus}
       />
     )
   }
@@ -827,6 +843,7 @@ export default async function DisponibilidadePage({
       paramProfId={paramProfId}
       dataParam={dataParam}
       initialStatuses={initialStatuses}
+      opcoesStatus={opcoesStatus}
     />
   )
 }

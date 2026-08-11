@@ -39,15 +39,30 @@ const TELAS = [
 ]
 
 for (const tela of TELAS) {
-  test(`@spec:AC-025 ${tela.nome} importa a regra do contador`, () => {
+  test(`@spec:AC-025 ${tela.nome} obtém o prazo de uma regra pura`, () => {
     const fonte = ler(tela.arquivo)
 
+    // A tela pode chamar a regra do contador diretamente, ou consumir um módulo
+    // que já a chamou — é o caso do painel de Configurações, que recebe o prazo
+    // pronto de `agruparPainelEquipe`. Exigir o import direto reprovaria a
+    // extração para regra pura, que é justamente o padrão desta feature.
+    //
+    // A garantia não se perde: `status-painel-equipe.ts` importa
+    // `tempoRestanteBlocoMs`, e seus próprios testes provam os valores do prazo.
+    // O que este teste protege é a tela não fazer a conta por conta própria — e
+    // isso continua travado pela asserção do teto, logo abaixo.
+    const chamaRegraDireto = /tempoRestanteBlocoMs/.test(fonte)
+    const consomeRegraAgrupada = /agruparPainelEquipe/.test(fonte)
+
+    assert.ok(
+      chamaRegraDireto || consomeRegraAgrupada,
+      'a tela precisa obter o prazo de uma regra pura, não calcular inline',
+    )
     assert.match(
       fonte,
-      /from '@\/lib\/status-disponibilidade-regras'/,
-      'a tela precisa importar do módulo de regras, não reimplementar a conta',
+      /from '@\/lib\/status-(disponibilidade-regras|painel-equipe)'/,
+      'o prazo precisa vir de um módulo de regra',
     )
-    assert.match(fonte, /tempoRestanteBlocoMs/)
     assert.match(fonte, /formatarContagemRegressiva/)
   })
 

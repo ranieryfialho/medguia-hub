@@ -257,6 +257,44 @@ Como engenharia, quero remover o gatilho legado que sobrescreve o status do prof
 - **Quando** a migration da feature é aplicada
 - **Então** o gatilho e as funções órfãs são removidos — seu único efeito observável hoje é encerrar em silêncio um status personalizado ativo (asserção estática no arquivo SQL)
 
+### US-008 — Status personalizado visível em Configurações → Disponibilidade
+
+Como gestor, quero que a tela de Disponibilidade mostre os status que eu mesmo criei, com o mesmo contador e a mesma legibilidade das outras telas, para não precisar abrir a agenda só para saber o que a equipe está fazendo.
+
+> **O defeito, achado em 11/08.** A página monta `StatusEquipeRealtime` **sem
+> passar `opcoes`** — nas duas visões. O componente cai em `DEFAULT_OPCOES`,
+> quatro slugs fixos no código, e um status criado pelo gestor não está lá. O
+> fallback `{ label: p.status, isManual: false }` produz **dois** estragos: o
+> rótulo vira o slug cru na tela (`hora_administrativa_1784653432533`) e
+> `isManual: false` desliga o ping, o tempo decorrido **e o contador
+> regressivo**.
+>
+> Por isso "Em reunião" aparecia certo e os personalizados não: `reuniao` está
+> no `DEFAULT_OPCOES`. A rota de agenda sempre passou o catálogo; esta nunca
+> passou.
+>
+> AC-025 dá verde nesta tela e continua correto — ele prova que o componente
+> **consome** a regra do contador. Não prova que a página **alimenta** o
+> componente com o catálogo certo. AC-030 fecha essa fronteira.
+
+#### AC-030 — A tela recebe o catálogo real, não o de emergência
+
+- **Dado** as duas visões da rota de disponibilidade (geral e individual)
+- **Quando** o painel de status da equipe é montado
+- **Então** ele recebe o catálogo vindo do banco — de modo que um status criado pelo gestor apareça com rótulo, cor e contador, e nunca com o identificador cru
+
+#### AC-031 — O catálogo de emergência não finge ser o catálogo
+
+- **Dado** um status cujo identificador não está no catálogo recebido
+- **Quando** a tela precisa exibi-lo
+- **Então** ela o trata como status **declarado** (com contador e destaque), não como derivado do sistema — porque um identificador desconhecido é muito mais provavelmente um status novo do gestor do que um status de sistema, e a suposição contrária foi exatamente o que escondeu o defeito
+
+#### AC-032 — O painel separa quem declarou algo de quem está livre
+
+- **Dado** a equipe com profissionais em estados diferentes
+- **Quando** o painel de status é montado
+- **Então** os que declararam um status personalizado vêm primeiro e com mais informação — status, motivo e prazo restante — enquanto livres e ausentes ficam agrupados de forma compacta, porque são o estado que não pede ação de ninguém
+
 ## Fora de escopo
 
 - **Deduplicar a contagem dupla** entre atendimento e status personalizado no Tempo Fábril — medida em 0,77% em 90 dias, abaixo do limiar de materialidade. Vai para backlog, a remedir depois que o teto estiver estável em produção.

@@ -127,3 +127,25 @@ Ordem de execução: as tarefas de **regra pura** (T-001 a T-004) e as de **migr
 - Arquivos: database/diagnostico_realtime_status.sql, test/sql/diagnostico-realtime.test.ts
 - Esforço: baixo
 - Notas: somente leitura. Checa `pg_publication_tables` (a tabela está na publicação?), `relreplident` (UPDATE entrega a linha nova?), as políticas de RLS de `status_disponibilidade` (o Realtime aplica RLS do assinante — publicação sem política de leitura entrega silêncio) e `cron.job_run_details` (o job rodou e alterou linhas?). Responde Q-002 e alimenta a decisão de Q-003. Não depende de nenhuma outra tarefa.
+
+---
+
+## Emenda de 11/08/2026 (2) — catálogo e redesenho da tela de disponibilidade
+
+## T-021 — Passar o catálogo de status para as duas visões [concluida]
+- Refs: AC-030, AC-031
+- Arquivos: src/app/(painel)/configuracoes/disponibilidade/page.tsx, src/components/features/equipe/StatusEquipeRealtime.tsx, test/ui/catalogo-disponibilidade.test.ts
+- Esforço: baixo
+- Notas: a página chama `listarStatusOpcoes()` e passa `opcoes` nas duas montagens de `StatusEquipeRealtime` — hoje nenhuma passa, e o componente cai no `DEFAULT_OPCOES` de 4 slugs. Junto, inverter o padrão do fallback (AC-031): slug desconhecido passa a ser tratado como declarado, não como sistema. Não depende de nenhuma outra tarefa.
+
+## T-022 — Redesenhar o painel "Status agora" [concluida]
+- Refs: AC-032
+- Arquivos: src/components/features/equipe/StatusEquipeRealtime.tsx, src/lib/status-painel-equipe.ts, src/lib/status-painel-equipe.test.ts
+- Esforço: alto
+- Notas: hoje é uma faixa única de chips minúsculos, sem hierarquia — quem está em reunião há 2h tem o mesmo peso visual de quem está livre. O agrupamento sai para regra pura (`agruparPainelEquipe`), testável sem JSX, como já é o padrão da feature. Depende de T-021.
+
+## T-023 — Redesenhar cabeçalho, navegação e grades das duas visões [pendente]
+- Refs: AC-032
+- Arquivos: src/app/(painel)/configuracoes/disponibilidade/page.tsx
+- Esforço: alto
+- Notas: cabeçalho unificado entre geral e individual; o `<select>` com botão "Ver" vira troca direta; a grade sai de 9-10px para tamanhos legíveis. **Cuidado:** são 833 linhas com duas visões e cálculo de slots no meio — não tocar em `calcularSlotsLivres`, `buildNomesExibicao` nem nas consultas. Só apresentação. Depende de T-021.
