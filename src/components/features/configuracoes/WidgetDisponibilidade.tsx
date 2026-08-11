@@ -8,7 +8,12 @@ import { usePathname } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { useSlideNovoAgendamentoAberto } from '@/components/layout/SlideNovoAgendamentoContext'
 import { getCorConfig, DEFAULT_OPCOES, type OpcaoStatus } from '@/lib/status-disponibilidade-cores'
-import { opcoesSelecionaveis, validarObservacao } from '@/lib/status-disponibilidade-regras'
+import {
+  opcoesSelecionaveis,
+  validarObservacao,
+  tempoRestanteBlocoMs,
+  formatarContagemRegressiva,
+} from '@/lib/status-disponibilidade-regras'
 
 type Profissional = { id: string; nome: string; cargo: string }
 
@@ -44,6 +49,7 @@ export function WidgetDisponibilidade({ profissionais, initialStatuses, currentU
   const [isMobile, setIsMobile] = useState(false)
   const [pendingStatus, setPendingStatus] = useState<string | null>(null)
   const [observacaoInput, setObservacaoInput] = useState('')
+  const [agora, setAgora] = useState(() => new Date())
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(max-width: 1023px)')
@@ -52,6 +58,15 @@ export function WidgetDisponibilidade({ profissionais, initialStatuses, currentU
     mediaQuery.addEventListener('change', sync)
     return () => mediaQuery.removeEventListener('change', sync)
   }, [])
+
+  // Relógio do contador regressivo (AC-022/AC-026). Só bate com o painel aberto:
+  // o FAB fica montado em todas as rotas, e um setInterval de 1s permanente
+  // atrás de um painel fechado é custo puro.
+  useEffect(() => {
+    if (!open) return
+    const id = setInterval(() => setAgora(new Date()), 1_000)
+    return () => clearInterval(id)
+  }, [open])
 
   const isTelaCadastro = pathname?.includes('/novo') || pathname?.includes('/editar') || pathname?.includes('/vendas/nova')
   if (!isMobile && isTelaCadastro) return null
@@ -141,15 +156,40 @@ export function WidgetDisponibilidade({ profissionais, initialStatuses, currentU
                 const slug = st?.status ?? 'ausente'
                 const cfg = getStatus(slug)
                 const isMe = p.id === currentUserId
+
+                // AC-022/AC-023/AC-024: o prazo só existe para status declarado
+                // pelo profissional. 'disponivel', 'ausente' e 'ocupado' são
+                // derivados do sistema e não expiram — contar as 2h neles seria
+                // prometer um vencimento que nunca vem.
+                const opcaoDoStatus = opcoes.find(o => o.slug === slug)
+                const ehDeclarado = opcaoDoStatus ? !opcaoDoStatus.sistema && slug !== 'ocupado' : false
+                const restanteMs = ehDeclarado && st?.atualizado_em
+                  ? tempoRestanteBlocoMs(new Date(st.atualizado_em), agora)
+                  : null
+
                 return (
                   <div key={p.id} className="flex items-center gap-3 px-4 py-2.5">
-                    <Dot cor={opcoes.find(o => o.slug === slug)?.cor ?? 'slate'} ping />
+                    <Dot cor={opcaoDoStatus?.cor ?? 'slate'} ping />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-slate-800 truncate">
                         {p.nome}{isMe && <span className="text-slate-400 font-normal"> (você)</span>}
                       </p>
                       <p className={`text-[10px] font-medium ${cfg.text}`}>
                         {cfg.labelCurto}
+                        {restanteMs !== null && (
+                          <span
+                            className={`ml-1.5 font-semibold tabular-nums ${
+                              restanteMs <= 0 ? 'text-rose-600' : 'text-slate-400'
+                            }`}
+                            title={
+                              restanteMs <= 0
+                                ? 'Passou das 2h — volta para Disponível no próximo ciclo (até 10 min)'
+                                : `${isMe ? 'Você volta' : 'Volta'} para Disponível quando zerar`
+                            }
+                          >
+                            {restanteMs <= 0 ? 'expirado' : formatarContagemRegressiva(restanteMs)}
+                          </span>
+                        )}
                       </p>
                     </div>
                   </div>

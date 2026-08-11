@@ -3,6 +3,7 @@
 import { useRealtimeDisponibilidade, type StatusRow } from '@/hooks/useRealtimeDisponibilidade'
 import { useEffect, useState, useMemo } from 'react'
 import { getCorConfig, DEFAULT_OPCOES, type OpcaoStatus } from '@/lib/status-disponibilidade-cores'
+import { tempoRestanteBlocoMs, formatarContagemRegressiva } from '@/lib/status-disponibilidade-regras'
 
 type Profissional = { id: string; nome: string }
 
@@ -14,8 +15,8 @@ type Props = {
   opcoes?: OpcaoStatus[]
 }
 
-function tempoDesde(atualizado_em: string): string {
-  const diff = Math.floor((Date.now() - new Date(atualizado_em).getTime()) / 1000)
+function tempoDesde(atualizado_em: string, agora: Date): string {
+  const diff = Math.floor((agora.getTime() - new Date(atualizado_em).getTime()) / 1000)
   if (diff < 60) return 'agora'
   if (diff < 3600) return `${Math.floor(diff / 60)}min`
   return `${Math.floor(diff / 3600)}h`
@@ -59,11 +60,13 @@ export function StatusEquipeRealtime({ profissionais, initialStatuses, opcoes: o
   const opcoes = opcoesProp ?? DEFAULT_OPCOES
   const profissionalIds = useMemo(() => profissionais.map(p => p.id), [profissionais])
   const statuses = useRealtimeDisponibilidade(initialStatuses, profissionalIds)
-  const [, setTick] = useState(0)
+  const [agora, setAgora] = useState(() => new Date())
   const nomesExibicao = buildNomesExibicao(profissionais)
 
+  // Passa de 30s para 1s: o contador regressivo (AC-022) mostra segundos na
+  // última hora, e um relógio de 30s faria o número pular de 47:05 para 46:35.
   useEffect(() => {
-    const id = setInterval(() => setTick((value) => value + 1), 30_000)
+    const id = setInterval(() => setAgora(new Date()), 1_000)
     return () => clearInterval(id)
   }, [])
 
@@ -125,7 +128,27 @@ export function StatusEquipeRealtime({ profissionais, initialStatuses, opcoes: o
               </span>
               <span>{nomesExibicao.get(p.id) ?? p.nome.split(' ')[0]}</span>
               {isManual && p.atualizado_em && (
-                <span className="opacity-60 font-normal">{tempoDesde(p.atualizado_em)}</span>
+                <>
+                  <span className="opacity-60 font-normal">{tempoDesde(p.atualizado_em, agora)}</span>
+                  {/* AC-022/AC-023/AC-024: quanto falta até o teto de 2h. Só em
+                      status declarado — `isManual` já exclui os derivados do
+                      sistema, que não expiram. */}
+                  {(() => {
+                    const restanteMs = tempoRestanteBlocoMs(new Date(p.atualizado_em), agora)
+                    return (
+                      <span
+                        className={`font-bold tabular-nums ${restanteMs <= 0 ? 'text-rose-600' : 'opacity-80'}`}
+                        title={
+                          restanteMs <= 0
+                            ? 'Passou das 2h — volta para Disponível no próximo ciclo (até 10 min)'
+                            : 'Tempo restante até o status expirar'
+                        }
+                      >
+                        {restanteMs <= 0 ? 'expirado' : `↓ ${formatarContagemRegressiva(restanteMs)}`}
+                      </span>
+                    )
+                  })()}
+                </>
               )}
             </div>
           )

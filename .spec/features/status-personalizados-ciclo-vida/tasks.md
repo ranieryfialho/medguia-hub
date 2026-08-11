@@ -104,7 +104,7 @@ Ordem de execução: as tarefas de **regra pura** (T-001 a T-004) e as de **migr
 - Esforço: medio
 - Notas: `LIMITE_BLOCO_MS` passa a 2h e vira exportado; entram `tempoRestanteBlocoMs` (nunca negativo — AC-022) e `formatarContagemRegressiva` (`1h47` acima de uma hora, `47:05` abaixo — AC-023). `blocoVencido` já existe e passa a ser consumido de fato. Casos de borda que o teste precisa travar: exatamente no teto, um segundo depois, e muito depois (AC-024). Sem I/O — `agora` é sempre parâmetro, senão não há como testar.
 
-## T-017 — O contador nas três telas de status [pendente]
+## T-017 — O contador nas três telas de status [concluida]
 - Refs: AC-025
 - Arquivos: src/components/features/agenda/CardStatusEquipe.tsx, src/components/features/configuracoes/WidgetDisponibilidade.tsx, src/components/features/equipe/StatusEquipeRealtime.tsx, test/ui/contador-telas.test.ts
 - Esforço: alto

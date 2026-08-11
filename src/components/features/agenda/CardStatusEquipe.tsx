@@ -10,6 +10,7 @@ import {
   type DeclaracaoStatusInput,
   type OpcaoCatalogoInput,
 } from '@/lib/status-card-agenda'
+import { tempoRestanteBlocoMs, formatarContagemRegressiva } from '@/lib/status-disponibilidade-regras'
 
 export type StatusEquipeDeclaracaoRow = {
   profissional_id: string
@@ -58,12 +59,6 @@ export function CardStatusEquipe({
   useEffect(() => {
     setEmAtendimentoIds(new Set(emAtendimentoIdsIniciais))
   }, [emAtendimentoIdsIniciais])
-
-  // Recalcula o tempo decorrido (AC-008/AC-009) sem depender de um novo evento.
-  useEffect(() => {
-    const id = setInterval(() => setAgora(new Date()), 60_000)
-    return () => clearInterval(id)
-  }, [])
 
   useEffect(() => {
     const supabase = createClient()
@@ -122,6 +117,17 @@ export function CardStatusEquipe({
       }))
   }, [declaracoesRows, slugsDeSistema])
 
+  // Relógio do contador regressivo (AC-022/AC-026). Bate de segundo em segundo,
+  // e só enquanto houver bloco em curso na tela — a agenda fica aberta o dia
+  // inteiro, e um setInterval de 1s aceso sem nada para contar é desperdício.
+  // O tempo decorrido (AC-008) vem do mesmo `agora`.
+  const temBlocoEmCurso = declaracoes.length > 0
+  useEffect(() => {
+    if (!temBlocoEmCurso) return
+    const id = setInterval(() => setAgora(new Date()), 1_000)
+    return () => clearInterval(id)
+  }, [temBlocoEmCurso])
+
   const cards = montarCardsStatus(profissionais, declaracoes, emAtendimentoIds, opcoes, agora)
 
   if (cards.length === 0) return null
@@ -135,6 +141,12 @@ export function CardStatusEquipe({
       <div className="space-y-2 max-h-56 overflow-y-auto">
         {cards.map((card) => {
           const cor = getCorConfig(card.statusPrincipal.cor)
+          // AC-022/AC-023/AC-024: quanto falta até o teto de 2h. Zerado, o
+          // rótulo vira "expirado" e para — o profissional só volta mesmo para
+          // "Disponível" no próximo ciclo do cron, em até 10 minutos, e a tela
+          // não pode antecipar isso.
+          const restanteMs = tempoRestanteBlocoMs(card.iniciadoEm, agora)
+          const expirado = restanteMs <= 0
           return (
             <div key={card.profissionalId} className="flex items-start gap-2.5 px-2.5 py-2 rounded-xl bg-[#f9fbfb]">
               <span className={`mt-1 w-2 h-2 rounded-full shrink-0 ${cor.dot}`} />
@@ -159,9 +171,24 @@ export function CardStatusEquipe({
                 {card.observacao && (
                   <p className="text-[11px] text-[#3d4945] truncate mt-0.5">{card.observacao}</p>
                 )}
-                <p className="text-[10px] text-[#6d7a75] mt-0.5">
-                  {formatarTempoDecorrido(card.tempoDecorridoMin)}
-                </p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-[10px] text-[#6d7a75]">
+                    {formatarTempoDecorrido(card.tempoDecorridoMin)}
+                  </span>
+                  <span className="text-[10px] text-[#bcc9c4]">·</span>
+                  <span
+                    className={`text-[10px] font-semibold tabular-nums ${
+                      expirado ? 'text-[#b4544a]' : 'text-[#6d7a75]'
+                    }`}
+                    title={
+                      expirado
+                        ? 'Passou das 2h — volta para Disponível no próximo ciclo (até 10 min)'
+                        : 'Tempo restante até o status expirar'
+                    }
+                  >
+                    {expirado ? 'expirado' : `expira em ${formatarContagemRegressiva(restanteMs)}`}
+                  </span>
+                </div>
               </div>
             </div>
           )
