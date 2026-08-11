@@ -116,6 +116,31 @@ export function blocoVencido(abertoEm: Date, agora: Date = new Date()): boolean 
   return agora.getTime() - abertoEm.getTime() > LIMITE_BLOCO_MS
 }
 
+/** Teto do bloco em minutos — o mesmo prazo, na unidade que o relatório usa. */
+export const LIMITE_BLOCO_MIN = LIMITE_BLOCO_MS / 60_000
+
+export type ClassificacaoBloco = 'normal' | 'expirado' | 'aberto'
+
+/**
+ * AC-035: separa o bloco que o fallback fechou do bloco que merece investigação.
+ *
+ * Um bloco fechado exatamente no teto não foi encerrado pela pessoa — foi capado
+ * pelo cron. Isso é um fato esperado do desenho, não um defeito: significa que
+ * ela esqueceu de sair do status. Merece um rótulo próprio, não o vermelho de
+ * anomalia.
+ *
+ * A tolerância de 1 minuto absorve o arredondamento de `duracao_minutos`, que é
+ * coluna gerada a partir de um intervalo com segundos.
+ */
+export function classificarBloco(
+  duracaoMinutos: number,
+  aberto: boolean,
+): ClassificacaoBloco {
+  if (aberto) return 'aberto'
+  if (duracaoMinutos >= LIMITE_BLOCO_MIN - 1) return 'expirado'
+  return 'normal'
+}
+
 /**
  * AC-022/AC-026: quanto falta para o bloco expirar, em milissegundos.
  *

@@ -19,6 +19,7 @@ type AtendimentoDetalheKPI = {
 type StatusDetalheKPI = {
   id: string
   status: string
+  observacao: string | null
   inicio: string
   fim: string | null
   duracaoMinutos: number

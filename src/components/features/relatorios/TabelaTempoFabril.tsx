@@ -6,6 +6,7 @@ import { ChevronUp, ChevronDown, Eye, ChevronRight } from 'lucide-react'
 import { Tooltip } from '../shared'
 import { getCorConfig, type OpcaoStatus } from '@/lib/status-disponibilidade-cores'
 import { formatAppDate, formatAppTime } from '@/lib/datetime'
+import { classificarBloco, LIMITE_BLOCO_MIN } from '@/lib/status-disponibilidade-regras'
 
 type AtendimentoDetalheKPI = {
   id: string
@@ -18,6 +19,7 @@ type AtendimentoDetalheKPI = {
 type StatusDetalheKPI = {
   id: string
   status: string
+  observacao: string | null
   inicio: string
   fim: string | null
   duracaoMinutos: number
@@ -42,7 +44,22 @@ type KPIsProfissional = {
 
 // Mesmo cap do fallback automático (job "fechar-status-esquecidos") — usado só
 // pra destacar visualmente entradas suspeitas, não afeta nenhum cálculo.
-const LIMITE_ALERTA_MIN = 110
+/**
+ * Acima disto, o bloco é anômalo de verdade — não apenas esquecido (AC-035).
+ *
+ * O valor era 110 fixo, calibrado quando o teto era 2h e qualquer bloco perto
+ * dele merecia olhar. Depois o teto foi a 1h (10/08) e o alerta virou inalcançável
+ * para blocos novos; com o teto de volta a 2h (11/08), 110 passaria a pintar de
+ * vermelho TODO bloco capado pelo cron — que agora tem rótulo próprio, "expirou".
+ *
+ * O que sobra como anomalia é o bloco fechado ACIMA do teto. Isso não deveria
+ * existir: o cron capa em `inicio + 2h`. Um bloco de 3h fechado significa ou que
+ * o cron não rodou por muito tempo, ou que o gatilho fechou com `fim = NOW()` —
+ * a inversão de ordem que AC-006 existe para impedir e que inflaria o Tempo
+ * Fábril. É o mesmo `duracao_minutos > 121` da conferência do roteiro de
+ * aplicação, e merece o vermelho.
+ */
+const LIMITE_ALERTA_MIN = LIMITE_BLOCO_MIN + 1
 
 type TabelaTempoFabrilProps = {
   kpis: KPIsProfissional[]
@@ -490,6 +507,7 @@ function DetalheStatus({
           <thead className="bg-white sticky top-0">
             <tr className="text-left text-xs font-semibold text-[#6d7a75] uppercase">
               <th className="px-3 py-2">Status</th>
+              <th className="px-3 py-2">Motivo</th>
               <th className="px-3 py-2">Início</th>
               <th className="px-3 py-2">Fim</th>
               <th className="px-3 py-2 text-right">Duração</th>
@@ -499,7 +517,12 @@ function DetalheStatus({
             {statusDetalhe.map((s) => {
               const opcao = statusOpcoes.find((o) => o.slug === s.status)
               const cfg = getCorConfig(opcao?.cor ?? 'slate')
-              const suspeito = s.aberto || s.duracaoMinutos >= LIMITE_ALERTA_MIN
+              // AC-035: expirado é fato esperado do desenho (a pessoa esqueceu de
+              // encerrar), não anomalia. Só o que passa do teto sem explicação
+              // fica em vermelho — com o teto em 2h, pintar todo bloco capado de
+              // vermelho deixaria o relatório inteiro vermelho.
+              const classificacao = classificarBloco(s.duracaoMinutos, s.aberto)
+              const anomalo = !s.aberto && s.duracaoMinutos >= LIMITE_ALERTA_MIN
               return (
                 <tr key={s.id}>
                   <td className="px-3 py-2 text-[#171d1c] font-medium">
@@ -507,6 +530,13 @@ function DetalheStatus({
                       <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
                       {opcao?.label ?? s.status}
                     </span>
+                  </td>
+                  <td className="px-3 py-2 text-[#3d4945] max-w-[280px]">
+                    {s.observacao ? (
+                      <span className="block break-words">{s.observacao}</span>
+                    ) : (
+                      <span className="text-[#6d7a75]/60">—</span>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-[#3d4945] whitespace-nowrap">
                     {formatAppDate(s.inicio)} {formatAppTime(s.inicio)}
@@ -516,12 +546,22 @@ function DetalheStatus({
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-300">
                         Em aberto
                       </span>
+                    ) : classificacao === 'expirado' ? (
+                      <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                        {formatAppDate(s.fim!)} {formatAppTime(s.fim!)}
+                        <span
+                          title="Fechado automaticamente no teto de 2h — a pessoa não encerrou o status"
+                          className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200"
+                        >
+                          expirou
+                        </span>
+                      </span>
                     ) : (
                       <>{formatAppDate(s.fim!)} {formatAppTime(s.fim!)}</>
                     )}
                   </td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">
-                    <span className={suspeito ? 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-50 text-red-700 border border-red-300' : 'text-[#3d4945]'}>
+                    <span className={anomalo ? 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-50 text-red-700 border border-red-300' : 'text-[#3d4945]'}>
                       {formatarMinutos(s.duracaoMinutos)}
                     </span>
                   </td>

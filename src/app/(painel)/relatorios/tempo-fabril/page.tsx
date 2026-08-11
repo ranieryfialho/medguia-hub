@@ -150,14 +150,17 @@ export default async function TempoFabrilPage({
       .not('fim', 'is', null),
     supabase
       .from('historico_status_disponibilidade')
-      .select('id, profissional_id, status, inicio, fim, duracao_minutos')
+      // AC-034: `observacao` é o motivo declarado no ato da troca. Sem ela, a
+      // conferência mostra "3h de Em reunião" e não diz qual reunião — a queixa
+      // que abre o PRD 002.
+      .select('id, profissional_id, status, observacao, inicio, fim, duracao_minutos')
       .in('profissional_id', profIds)
       .gte('inicio', utcInicio)
       .lte('inicio', utcFim)
       .not('fim', 'is', null),
     supabase
       .from('historico_status_disponibilidade')
-      .select('id, profissional_id, status, inicio')
+      .select('id, profissional_id, status, observacao, inicio')
       .in('profissional_id', profIds)
       .is('fim', null),
     listarStatusOpcoesParaExibicao(),

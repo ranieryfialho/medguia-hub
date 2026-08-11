@@ -155,3 +155,15 @@ Ordem de execução: as tarefas de **regra pura** (T-001 a T-004) e as de **migr
 - Arquivos: src/actions/status-disponibilidade-config.ts, src/lib/status-disponibilidade-regras.ts, src/lib/status-disponibilidade-regras.test.ts
 - Esforço: baixo
 - Notas: `listarStatusOpcoesParaExibicao()` devolve o catálogo completo, para as quatro superfícies de EXIBIÇÃO (agenda, disponibilidade, widget via layout, Tempo Fábril). `listarStatusOpcoes()` continua filtrando `ativo` e serve a tela de gerenciamento e a escolha. Como o catálogo completo passa a chegar no widget, `opcoesSelecionaveis` ganha o filtro de `ativo` — a exclusão deixa de ser efeito colateral de um WHERE e vira regra testada.
+
+## T-025 — A observação chega ao Tempo Fábril [concluida]
+- Refs: AC-034
+- Arquivos: src/app/(painel)/relatorios/tempo-fabril/page.tsx, src/lib/relatorios/kpis-tempo-fabril.ts, src/components/features/relatorios/TabelaTempoFabril.tsx, src/components/features/relatorios/ConteudoRelatorio.tsx, test/ui/observacao-tempo-fabril.test.ts
+- Esforço: baixo
+- Notas: a observação atravessa cinco arquivos entre o banco e a tela — consulta (dois recortes: fechados e abertos), tipo do histórico, tipo do detalhe, montagem, coluna. O dado já existia em produção desde 10/08; faltava só ler. O teste trava cada elo, porque o modo de falha é sumiço silencioso.
+
+## T-026 — Bloco expirado não se confunde com anômalo [concluida]
+- Refs: AC-035
+- Arquivos: src/lib/status-disponibilidade-regras.ts, src/lib/status-disponibilidade-regras.test.ts, src/components/features/relatorios/TabelaTempoFabril.tsx
+- Esforço: baixo
+- Notas: `classificarBloco` + `LIMITE_BLOCO_MIN` na regra pura. `LIMITE_ALERTA_MIN` sai de 110 fixo e passa a derivar do teto (`+1`): o vermelho fica reservado ao bloco fechado ACIMA do teto, que é o sinal da inversão de ordem que AC-006 impede. Bloco no teto ganha selo âmbar "expirou".

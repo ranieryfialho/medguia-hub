@@ -8,6 +8,9 @@ import {
   blocoVencido,
   tempoRestanteBlocoMs,
   formatarContagemRegressiva,
+  classificarBloco,
+  LIMITE_BLOCO_MIN,
+  LIMITE_BLOCO_MS,
   formularioDaOpcao,
   FORMULARIO_OPCAO_VAZIO,
   type OpcaoStatusRegra,
@@ -124,6 +127,30 @@ test('@spec:AC-026 o contador é derivado da abertura, sem depender de evento no
     formatarContagemRegressiva(tempoRestanteBlocoMs(abertura, new Date('2026-08-10T11:15:00Z'))),
     '45:00',
   )
+})
+
+test('@spec:AC-035 bloco fechado no teto é "expirado", não anomalia', () => {
+  // 120 min = capado pelo cron. Com o teto de volta em 2h, TODO bloco esquecido
+  // tem essa duração — pintá-los de vermelho deixaria o relatório inteiro
+  // vermelho e o vermelho pararia de significar alguma coisa.
+  assert.equal(classificarBloco(120, false), 'expirado')
+  assert.equal(classificarBloco(119, false), 'expirado') // tolerância de arredondamento
+  assert.equal(classificarBloco(118, false), 'normal')
+  assert.equal(classificarBloco(45, false), 'normal')
+})
+
+test('@spec:AC-035 bloco ainda aberto tem classificação própria', () => {
+  // Aberto é o único estado que realmente pede ação: ou a pessoa está no status
+  // agora, ou o cron não passou. Duração não importa aqui.
+  assert.equal(classificarBloco(5, true), 'aberto')
+  assert.equal(classificarBloco(500, true), 'aberto')
+})
+
+test('@spec:AC-035 o teto em minutos acompanha o teto em milissegundos', () => {
+  // Duas unidades do mesmo prazo. Se alguém mudar uma e esquecer a outra, o
+  // relatório passa a classificar por um teto e a tela a contar por outro.
+  assert.equal(LIMITE_BLOCO_MIN, LIMITE_BLOCO_MS / 60_000)
+  assert.equal(LIMITE_BLOCO_MIN, 120)
 })
 
 test('@spec:AC-011 "Em atendimento" (ocupado, sistema) não é oferecido como escolha', () => {

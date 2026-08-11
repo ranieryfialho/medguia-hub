@@ -54,6 +54,7 @@ export type HistoricoStatus = {
   id: string
   profissional_id: string
   status: string
+  observacao: string | null
   inicio: string
   fim: string
   duracao_minutos: number
@@ -65,12 +66,15 @@ export type HistoricoStatusAberto = {
   id: string
   profissional_id: string
   status: string
+  observacao: string | null
   inicio: string
 }
 
 export type StatusDetalheKPI = {
   id: string
   status: string
+  /** AC-034: o motivo declarado no ato da troca, copiado para o bloco pelo gatilho. */
+  observacao: string | null
   inicio: string
   fim: string | null
   duracaoMinutos: number
@@ -435,6 +439,7 @@ export function calcularKPIs(
       .map((h) => ({
         id: h.id,
         status: h.status,
+        observacao: h.observacao,
         inicio: h.inicio,
         fim: h.fim,
         duracaoMinutos: h.duracao_minutos,
@@ -444,6 +449,7 @@ export function calcularKPIs(
     const detalheStatusAbertos: StatusDetalheKPI[] = historicoAbertoProfissional.map((h) => ({
       id: h.id,
       status: h.status,
+      observacao: h.observacao,
       inicio: h.inicio,
       fim: null,
       duracaoMinutos: Math.max(0, Math.round((Date.now() - new Date(h.inicio).getTime()) / 60_000)),

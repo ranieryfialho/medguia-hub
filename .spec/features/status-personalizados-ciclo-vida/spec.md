@@ -47,6 +47,34 @@ Como gestor, quero que o profissional registre o motivo ao assumir um status per
 - **Quando** o profissional o assume sem escrever nada
 - **Então** a troca é aceita normalmente
 
+#### AC-034 — A observação chega ao Tempo Fábril
+
+- **Dado** um bloco de status personalizado com observação gravada no histórico
+- **Quando** o gestor abre a conferência de status no relatório de Tempo Fábril
+- **Então** ele lê a observação ao lado do bloco — que é o lugar onde o item 1 do PRD cobra a auditoria: *"o gestor vê 3h de 'Em reunião' e não tem como saber qual reunião"*
+
+> AC-003 provou que a migration **grava** a observação no bloco. Nenhum critério
+> cobria **lê-la** — e por isso a coluna existe em produção desde 10/08, o
+> gatilho a preenche, e o relatório nunca a selecionou. Metade da escrita, zero
+> da leitura.
+>
+> É a terceira vez que a lacuna tem esta forma nesta feature (AC-021: regra sem
+> tela; AC-030: componente sem catálogo). A regra que emerge: **quando um
+> critério cobre gravar um dado, procurar o critério irmão que cobre consumi-lo**
+> — o gate só prova o que a especificação pede, e um dado que ninguém lê é
+> invisível para ele.
+
+#### AC-035 — Bloco expirado não se confunde com bloco anômalo
+
+- **Dado** um bloco fechado pelo fallback, cuja duração é exatamente o teto
+- **Quando** ele aparece na conferência do relatório
+- **Então** é sinalizado como **expirado**, visualmente distinto do alerta de anomalia — porque expirar é um fato conhecido e esperado do desenho (a pessoa esqueceu de encerrar), não um defeito a investigar
+
+> Com o teto em 1h o alerta fixo de 110 min nunca disparava para blocos novos.
+> Com o teto de volta em 2h, **todo** bloco capado tem 120 min e cairia no
+> vermelho — e um relatório inteiro em vermelho deixa de chamar atenção para o
+> que é de fato anormal.
+
 #### AC-003 — A observação fica gravada no bloco do histórico
 
 - **Dado** a função de log que abre um bloco em `historico_status_disponibilidade`

@@ -1,11 +1,11 @@
 {
   "feature": "status-personalizados-ciclo-vida",
-  "timestamp": "2026-08-11T13:30:41.938Z",
-  "gitRev": "f815eed",
+  "timestamp": "2026-08-11T13:53:44.293Z",
+  "gitRev": "bc01163",
   "command": "node --test --test-reporter=tap",
   "reporter": "tap",
   "exitCode": 0,
-  "testsParsed": 96,
+  "testsParsed": 104,
   "results": {
     "AC-021": {
       "status": "pass",
@@ -20,6 +20,16 @@
     "AC-002": {
       "status": "pass",
       "testName": "@spec:AC-002 aceita a troca sem observação quando o status não exige justificativa",
+      "method": "tap"
+    },
+    "AC-034": {
+      "status": "pass",
+      "testName": "@spec:AC-034 a consulta do relatório traz a observação — nos dois recortes",
+      "method": "tap"
+    },
+    "AC-035": {
+      "status": "pass",
+      "testName": "@spec:AC-035 bloco fechado no teto é \"expirado\", não anomalia",
       "method": "tap"
     },
     "AC-003": {
