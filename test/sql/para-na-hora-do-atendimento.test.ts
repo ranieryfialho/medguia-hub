@@ -31,7 +31,11 @@ const comandoDoCron = sql.slice(sql.indexOf('$cron$'), sql.lastIndexOf('$cron$')
  */
 const comandoSemComentarios = comandoDoCron
   .split('\n')
-  .map((linha) => linha.replace(/--.*$/, ''))
+  // Sem `$` de propósito: o repositório grava CRLF, e `$` (fora de multiline)
+  // não casa antes do `\r` que sobra no fim da linha — os comentários passavam
+  // intactos e as asserções de ausência acusavam a própria documentação. Só
+  // apareceu depois do primeiro commit, quando o git converteu as quebras.
+  .map((linha) => linha.replace(/--.*/, ''))
   .join('\n')
 
 test('@spec:AC-037 o bloco aberto é cruzado com os atendimentos do profissional', () => {

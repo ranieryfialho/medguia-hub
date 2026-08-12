@@ -1,11 +1,11 @@
 {
   "feature": "status-personalizados-ciclo-vida",
-  "timestamp": "2026-08-12T15:25:31.938Z",
-  "gitRev": "b57c2a0",
+  "timestamp": "2026-08-12T17:57:16.294Z",
+  "gitRev": "0eb7a2f",
   "command": "node --test --test-reporter=tap",
   "reporter": "tap",
   "exitCode": 0,
-  "testsParsed": 157,
+  "testsParsed": 168,
   "results": {
     "AC-021": {
       "status": "pass",
@@ -219,7 +219,7 @@
     },
     "AC-041": {
       "status": "pass",
-      "testName": "@spec:AC-041 a exportação mostra a duração já descontada, não a bruta",
+      "testName": "@spec:AC-041 o desconto aplicado chega ao detalhe da conferência",
       "method": "tap"
     }
   },

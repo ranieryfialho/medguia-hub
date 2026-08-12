@@ -3267,6 +3267,15 @@
       "primeiraVez": "2026-08-12T15:16:42.547Z",
       "ultimaVez": "2026-08-12T15:16:42.548Z",
       "gitRev": "b57c2a0"
+    },
+    "VERIFY_FALHOU::status-personalizados-ciclo-vida::AC-037": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "status-personalizados-ciclo-vida",
+      "ref": "AC-037",
+      "ocorrencias": 2,
+      "primeiraVez": "2026-08-12T17:51:26.056Z",
+      "ultimaVez": "2026-08-12T17:52:49.622Z",
+      "gitRev": "0eb7a2f"
     }
   }
 }
