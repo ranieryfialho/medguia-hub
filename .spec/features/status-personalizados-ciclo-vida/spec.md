@@ -461,6 +461,16 @@ Como dono da empresa, quero que o status personalizado pare quando chega a hora 
 > **não provam** que a regra funciona — provam que não havia caso. A prova de
 > comportamento veio da simulação retroativa somente-leitura sobre 30 dias, que
 > aplicou o mesmo `JOIN` e os mesmos filtros a dado real. Ver ASM-009.
+>
+> **Ensaio executado no Postgres de produção em 12/08 — seis de seis OK**
+> (`database/ensaio_para_na_hora_do_atendimento.sql`, T-032). Rodou o comando
+> exato do job sobre cenário montado e desfeito no mesmo bloco. Provado por
+> execução, não por leitura de texto: o `fim` gravado é a hora marcada
+> (`17:00:00`) e não `NOW()`; o `MIN` pega o atendimento mais cedo mesmo tendo
+> sido inserido por último; o atendimento cancelado, ainda mais cedo, não
+> encerra bloco; a declaração é apagada com `origem = 'agenda'`; o gatilho de
+> log não sobrescreve o `fim`, confirmando a ordem do statement; e AC-042 não
+> grava fim anterior ao início.
 
 #### AC-039 — A interseção conta uma vez, para o atendimento
 
@@ -529,7 +539,7 @@ Como dono da empresa, quero que o status personalizado pare quando chega a hora 
 | ID | Suposição | Status | Resolução |
 |---|---|---|---|
 | ASM-001 | Node 24 remove tipos nativamente, então `node --test` roda `.ts` sem transpilador; os testes usam import relativo porque o alias `@/` não é resolvido | confirmada | Verificado: Node v24.16.0. Decisão do runner tomada com o dono em 10/08 |
-| ASM-002 | Asserção estática sobre o texto do `.sql` previne a regressão de ordem e de intervalo, mas **não prova** o comportamento do Postgres | confirmada | Limitação aceita conscientemente: sem Docker/psql no ambiente. Rotulada como verificação estática em AC-003/004/005/006/013/017/018 |
+| ASM-002 | Asserção estática sobre o texto do `.sql` previne a regressão de ordem e de intervalo, mas **não prova** o comportamento do Postgres | confirmada | Limitação aceita conscientemente: sem Docker/psql no ambiente. Rotulada como verificação estática em AC-003/004/005/006/013/017/018. **Contornada para AC-037/038/042 em 12/08**, sem deixar de ser verdadeira: o ensaio de T-032 roda o comando no Postgres de produção dentro de um bloco `DO` que termina em `RAISE EXCEPTION`, e a exceção é ao mesmo tempo a saída (o SQL Editor só mostra linhas e erros — `RAISE NOTICE` não aparece) e o desfazimento. Executado em 12/08 com seis conferências OK. O caminho existe e é reaplicável aos demais critérios de SQL quando alguém quiser |
 | ASM-003 | O Realtime propaga para a tela os updates feitos pelo `pg_cron`, não só os feitos pela aplicação | confirmada | **Deixou de ser carregadora.** Resolvida por desenho, não por verificação: AC-007 detecta o vencimento no cliente a partir do horário de abertura do bloco, sem depender de aviso do banco. Se o Realtime não propagar, a tela ainda marca o bloco como vencido. A suposição deixou de sustentar qualquer critério |
 | ASM-004 | Tornar `profiles.ativo` obrigatório não quebra nenhum fluxo que cria usuário sem preencher esse campo | confirmada | Auditado em 10/08: o único ponto de criação é o gatilho `handle_new_user`, que insere `(id, full_name, role)` e não toca em `ativo` — o padrão `true` da coluna cobre. Nenhum código da aplicação insere em `profiles` |
 | ASM-005 | Asserção estática sobre o texto de um componente `.tsx` prova que ele **consome** a regra pura, mas não prova o que o usuário vê na tela | confirmada | Mesma limitação e mesma escolha consciente da ASM-002, agora no front: não há runner de componente neste projeto. O que a asserção trava é a regressão que já aconteceu uma vez aqui (AC-021: regra existente, tela que nunca a chamava). O comportamento visual é validado à mão |
