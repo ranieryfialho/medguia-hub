@@ -73,26 +73,32 @@ BEGIN
   -- O mais cedo é inserido POR ÚLTIMO de propósito: se o comando pegasse a ordem
   -- de inserção em vez do MIN, a conferência 2 acusaria.
   INSERT INTO atendimentos
-  SELECT * FROM jsonb_populate_record(NULL::atendimentos,
+  SELECT r.*
+  FROM atendimentos a
+  CROSS JOIN LATERAL jsonb_populate_record(NULL::atendimentos,
     to_jsonb(a) || jsonb_build_object(
       'id', gen_random_uuid(), 'profissional_id', v_prof, 'fisioterapeuta_id', NULL,
-      'data_agendamento', v_marcada + INTERVAL '1 hour', 'status', 'Confirmado'))
-  FROM atendimentos a WHERE a.id = v_base;
+      'data_agendamento', v_marcada + INTERVAL '1 hour', 'status', 'Confirmado')) AS r
+  WHERE a.id = v_base;
 
   INSERT INTO atendimentos
-  SELECT * FROM jsonb_populate_record(NULL::atendimentos,
+  SELECT r.*
+  FROM atendimentos a
+  CROSS JOIN LATERAL jsonb_populate_record(NULL::atendimentos,
     to_jsonb(a) || jsonb_build_object(
       'id', gen_random_uuid(), 'profissional_id', v_prof, 'fisioterapeuta_id', NULL,
-      'data_agendamento', v_marcada, 'status', 'Aguardando'))
-  FROM atendimentos a WHERE a.id = v_base;
+      'data_agendamento', v_marcada, 'status', 'Aguardando')) AS r
+  WHERE a.id = v_base;
 
   -- Cancelado, e ainda mais cedo. Não pode ser escolhido (AC-037).
   INSERT INTO atendimentos
-  SELECT * FROM jsonb_populate_record(NULL::atendimentos,
+  SELECT r.*
+  FROM atendimentos a
+  CROSS JOIN LATERAL jsonb_populate_record(NULL::atendimentos,
     to_jsonb(a) || jsonb_build_object(
       'id', gen_random_uuid(), 'profissional_id', v_prof, 'fisioterapeuta_id', NULL,
-      'data_agendamento', v_marcada - INTERVAL '15 minutes', 'status', 'Cancelado'))
-  FROM atendimentos a WHERE a.id = v_base;
+      'data_agendamento', v_marcada - INTERVAL '15 minutes', 'status', 'Cancelado')) AS r
+  WHERE a.id = v_base;
 
   -- ─── Bloco aberto, criado pelo gatilho de verdade ──────────────────────────
   -- Trocar o status faz `fn_log_mudanca_status_disponibilidade` abrir o bloco,
