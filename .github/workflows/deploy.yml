@@ -3,6 +3,32 @@ name: Deploy Medguia Hub para VPS
 on:
   push:
     branches: [ "main", "master" ]
+    # O build roda DENTRO da VPS, na mesma máquina que hospeda o Supabase, e o
+    # limite de memória do docker-compose não vale para `docker compose build`.
+    # Cada deploy é, portanto, um risco real de derrubar o banco — foi o que
+    # quase aconteceu em 11/08/2026. Não gastar esse risco com arquivo que o
+    # Next.js nem lê: em 12/08, três dos cinco deploys do dia foram para mudar
+    # spec, migration e documentação.
+    #
+    # `database/` entra aqui porque as migrations são aplicadas à mão no SQL
+    # Editor do Studio, nunca pelo deploy.
+    paths-ignore:
+      - '.spec/**'
+      - 'docs/**'
+      - 'database/**'
+      - '**.md'
+  # Escape hatch: com o paths-ignore acima, mudar só documentação deixa de
+  # publicar. Quando for preciso republicar sem alterar código, dispare à mão
+  # pela aba Actions.
+  workflow_dispatch:
+
+# Duas execuções simultâneas brigam por três recursos: a memória da VPS, o mesmo
+# diretório de destino do SCP e o `docker compose up`. O terceiro é o pior —
+# sem ordem garantida, a run MAIS ANTIGA pode terminar por último e deixar a VPS
+# no commit anterior, em silêncio. Aconteceu em 12/08/2026.
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: true
 
 jobs:
   deploy:
