@@ -38,6 +38,7 @@ DECLARE
   v_status        TEXT;
   v_origem        TEXT;
   v_saida         TEXT;
+  v_nulos         JSONB;
 BEGIN
   -- ─── Escolha do cenário ────────────────────────────────────────────────────
   -- Profissional ativo, com linha em status_disponibilidade (para o gatilho de
@@ -70,13 +71,29 @@ BEGIN
   -- evita depender de conhecer as colunas obrigatórias de `atendimentos`, que
   -- não estão versionadas neste repositório.
   --
-  -- O mais cedo é inserido POR ÚLTIMO de propósito: se o comando pegasse a ordem
-  -- de inserção em vez do MIN, a conferência 2 acusaria.
+  -- Copiar tudo, porém, copia também o que é ÚNICO — `token_confirmacao` foi o
+  -- primeiro a estourar. Em vez de listar os tokens conhecidos à mão e descobrir
+  -- o próximo no erro seguinte, o catálogo diz quais colunas participam de
+  -- índice único, e todas elas entram nulas.
+  SELECT COALESCE(jsonb_object_agg(att.attname, 'null'::jsonb), '{}'::jsonb)
+  INTO v_nulos
+  FROM pg_index i
+  JOIN pg_attribute att
+    ON att.attrelid = i.indrelid AND att.attnum = ANY (i.indkey)
+  WHERE i.indrelid = 'public.atendimentos'::regclass
+    AND i.indisunique
+    AND att.attname <> 'id';
+
+  -- Ordem da mesclagem: a linha real, depois os únicos zerados, depois o que
+  -- este ensaio define. O último vence, então nada que importa é perdido.
+  --
+  -- O atendimento mais cedo é inserido POR ÚLTIMO de propósito: se o comando
+  -- pegasse a ordem de inserção em vez do MIN, a conferência 2 acusaria.
   INSERT INTO atendimentos
   SELECT r.*
   FROM atendimentos a
   CROSS JOIN LATERAL jsonb_populate_record(NULL::atendimentos,
-    to_jsonb(a) || jsonb_build_object(
+    to_jsonb(a) || v_nulos || jsonb_build_object(
       'id', gen_random_uuid(), 'profissional_id', v_prof, 'fisioterapeuta_id', NULL,
       'data_agendamento', v_marcada + INTERVAL '1 hour', 'status', 'Confirmado')) AS r
   WHERE a.id = v_base;
@@ -85,7 +102,7 @@ BEGIN
   SELECT r.*
   FROM atendimentos a
   CROSS JOIN LATERAL jsonb_populate_record(NULL::atendimentos,
-    to_jsonb(a) || jsonb_build_object(
+    to_jsonb(a) || v_nulos || jsonb_build_object(
       'id', gen_random_uuid(), 'profissional_id', v_prof, 'fisioterapeuta_id', NULL,
       'data_agendamento', v_marcada, 'status', 'Aguardando')) AS r
   WHERE a.id = v_base;
@@ -95,7 +112,7 @@ BEGIN
   SELECT r.*
   FROM atendimentos a
   CROSS JOIN LATERAL jsonb_populate_record(NULL::atendimentos,
-    to_jsonb(a) || jsonb_build_object(
+    to_jsonb(a) || v_nulos || jsonb_build_object(
       'id', gen_random_uuid(), 'profissional_id', v_prof, 'fisioterapeuta_id', NULL,
       'data_agendamento', v_marcada - INTERVAL '15 minutes', 'status', 'Cancelado')) AS r
   WHERE a.id = v_base;
