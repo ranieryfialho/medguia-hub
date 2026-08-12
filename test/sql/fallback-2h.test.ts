@@ -18,8 +18,21 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ler = (arquivo: string) =>
   readFileSync(path.join(__dirname, '../../database/', arquivo), 'utf-8')
 
-/** A migration vigente: reagenda o job com o teto de 2h. */
-const sql = ler('status_personalizados_fallback_2h_migration.sql')
+/**
+ * A migration VIGENTE do job `fechar-status-esquecidos`.
+ *
+ * Deixou de ser `status_personalizados_fallback_2h_migration.sql` em 12/08:
+ * `cron.schedule` substitui o comando INTEIRO do job, então a migration que faz
+ * o bloco parar na hora marcada do atendimento (T-028) precisou carregar junto
+ * os comandos do teto e da rede de destravamento. Apontar estas asserções para
+ * o arquivo de 11/08 as manteria verdes sobre um texto que não roda mais — a
+ * deriva exata que esta feature existe para impedir.
+ *
+ * Mesmo movimento que o cabeçalho do arquivo de 2h descreve para o de 1h: o
+ * arquivo antigo não é editado, é registro do que rodou; quem prova o presente
+ * é o vigente.
+ */
+const sql = ler('status_para_na_hora_do_atendimento_migration.sql')
 
 /**
  * A migration de 10/08, que criou a coluna `origem` e sua constraint. Continua
@@ -50,9 +63,13 @@ test('@spec:AC-005 o job devolve status_disponibilidade para disponivel com orig
 })
 
 test("@spec:AC-005 'fallback' é um valor aceito para origem", () => {
+  // O domínio da constraint foi ampliado em 12/08 para receber 'agenda'
+  // (AC-037). Quem manda é o arquivo vigente: assertar o domínio de três
+  // valores contra `sqlOrigemDaColuna` continuaria verde e descreveria um banco
+  // que não existe mais.
   assert.match(
-    sqlOrigemDaColuna,
-    /CHECK\s*\(origem IN \('manual', 'automatico', 'fallback'\)\)/,
+    sql,
+    /CHECK \(origem IN \('manual', 'automatico', 'fallback', 'agenda'\)\)/,
   )
 })
 
@@ -67,8 +84,15 @@ test('@spec:AC-005 a coluna origem é criada antes da constraint que a restringe
 })
 
 test('@spec:AC-006 o histórico é fechado antes do status ser resetado', () => {
-  const indiceFechamentoHistorico = sql.search(/UPDATE\s+historico_status_disponibilidade/i)
-  const indiceResetStatus = sql.search(/UPDATE\s+status_disponibilidade\s+sd/i)
+  // Recortado no comando do teto. Desde 12/08 o job tem TRÊS comandos, e cada
+  // um faz seu próprio par histórico→status; buscar no arquivo inteiro acharia
+  // o par da agenda (AC-038) e daria verde sem olhar o teto.
+  const comandoDoTeto = sql.slice(sql.search(/WITH\s+fechados\s+AS\s*\(/i))
+
+  const indiceFechamentoHistorico = comandoDoTeto.search(
+    /UPDATE\s+historico_status_disponibilidade/i,
+  )
+  const indiceResetStatus = comandoDoTeto.search(/UPDATE\s+status_disponibilidade\s+sd/i)
 
   assert.notEqual(indiceFechamentoHistorico, -1, 'deveria fechar o histórico')
   assert.notEqual(indiceResetStatus, -1, 'deveria resetar o status')
