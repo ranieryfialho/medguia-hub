@@ -1,44 +1,31 @@
 # Plano de execução — status-personalizados-ciclo-vida
 
-> gerado por `onp-spec plano` em 2026-08-11 12:12 — NÃO edite à mão;
+> gerado por `onp-spec plano` em 2026-08-12 14:16 — NÃO edite à mão;
 > mudou tasks.md ou a config? Regenere: `onp-spec plano status-personalizados-ciclo-vida`
 
 ## Resumo — o que vai acontecer
 
-- **4 tarefa(s) pendente(s)**: 4 em 4 faixa(s) paralela(s) + 0 sequencial(is) (14 já concluída(s): T-001, T-002, T-003, T-004, T-005, T-006, T-007, T-008, T-009, T-010, T-011, T-012, T-013, T-014)
+- **3 tarefa(s) pendente(s)**: 3 em 2 faixa(s) paralela(s) + 0 sequencial(is) (27 já concluída(s): T-001, T-002, T-003, T-004, T-005, T-006, T-007, T-008, T-009, T-010, T-011, T-012, T-013, T-014, T-015, T-016, T-017, T-019, T-020, T-018, T-021, T-022, T-023, T-024, T-025, T-026, T-027)
 - **1 faixa = 1 worktree + 1 branch + 1 janela de contexto limpa** — faixas não compartilham nenhum arquivo entre si
 - prefere outra seleção ou uma após a outra? Regenere com `onp-spec plano status-personalizados-ciclo-vida --paralelizar T-xxx,T-yyy` ou `--sequencial`
 - tudo acontece na branch de trabalho `spec/status-personalizados-ciclo-vida`; levar para a main é decisão sua
 
 ## Faixas e ondas
 
-### Onda 1 — faixa-1 ∥ faixa-2 ∥ faixa-3
+### Onda 1 — faixa-1 ∥ faixa-2
 
 #### faixa-1 — branch `spec/status-personalizados-ciclo-vida-faixa-1` — worktree `../onp-worktrees/medguia-hub-status-personalizados-ciclo-vida-faixa-1`
 
 | tarefa | título | modelo | esforço | arquivos |
 |---|---|---|---|---|
-| T-015 | Migration: o teto do bloco volta para 2 horas | `claude-sonnet-5` | medium | `database/status_personalizados_fallback_2h_migration.sql`, `test/sql/fallback-2h.test.ts` |
+| T-028 | O status declarado para quando o atendimento começa | `claude-sonnet-5` | medium | `database/status_para_ao_iniciar_atendimento_migration.sql`, `test/sql/para-ao-iniciar-atendimento.test.ts` |
 
 #### faixa-2 — branch `spec/status-personalizados-ciclo-vida-faixa-2` — worktree `../onp-worktrees/medguia-hub-status-personalizados-ciclo-vida-faixa-2`
 
 | tarefa | título | modelo | esforço | arquivos |
 |---|---|---|---|---|
-| T-016 | Regra pura do contador regressivo | `claude-sonnet-5` | medium | `src/lib/status-disponibilidade-regras.ts`, `src/lib/status-disponibilidade-regras.test.ts` |
-
-#### faixa-3 — branch `spec/status-personalizados-ciclo-vida-faixa-3` — worktree `../onp-worktrees/medguia-hub-status-personalizados-ciclo-vida-faixa-3`
-
-| tarefa | título | modelo | esforço | arquivos |
-|---|---|---|---|---|
-| T-017 | O contador nas três telas de status | `claude-sonnet-5` | high | `src/components/features/agenda/CardStatusEquipe.tsx`, `src/components/features/configuracoes/WidgetDisponibilidade.tsx`, `src/components/features/equipe/StatusEquipeRealtime.tsx`, `test/ui/contador-telas.test.ts` |
-
-### Onda 2 — faixa-4
-
-#### faixa-4 — branch `spec/status-personalizados-ciclo-vida-faixa-4` — worktree `../onp-worktrees/medguia-hub-status-personalizados-ciclo-vida-faixa-4`
-
-| tarefa | título | modelo | esforço | arquivos |
-|---|---|---|---|---|
-| T-018 | Diagnóstico do Realtime em produção | `claude-sonnet-5` | low | `database/diagnostico_realtime_status.sql`, `test/sql/diagnostico-realtime.test.ts` |
+| T-029 | A interseção conta uma vez só, para o atendimento | `claude-sonnet-5` | high | `src/lib/relatorios/kpis-tempo-fabril.ts`, `src/lib/relatorios/dedup-status-atendimento.ts`, `src/lib/relatorios/dedup-status-atendimento.test.ts` |
+| T-030 | A conferência mostra o desconto | `claude-sonnet-5` | medium | `src/lib/relatorios/kpis-tempo-fabril.ts`, `src/components/features/relatorios/TabelaTempoFabril.tsx`, `src/lib/relatorios/markdown-tempo-fabril.ts`, `src/lib/relatorios/pdf-tempo-fabril.ts`, `test/ui/dedup-visivel.test.ts` |
 
 ## Gestão de branches e commits
 

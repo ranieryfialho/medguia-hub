@@ -64,6 +64,7 @@ test('@spec:AC-034 a exportação Markdown traz o motivo declarado', () => {
       fim: '2026-08-11T13:00:00Z',
       duracaoMinutos: 60,
       aberto: false,
+      descontadoMinutos: 0,
     },
   ])
 
@@ -81,6 +82,7 @@ test('@spec:AC-034 bloco sem observação não quebra a tabela', () => {
       fim: '2026-08-11T13:00:00Z',
       duracaoMinutos: 60,
       aberto: false,
+      descontadoMinutos: 0,
     },
   ])
 
@@ -103,6 +105,7 @@ test('@spec:AC-036 observação com barra vertical não destrói a tabela', () =
       fim: '2026-08-11T13:00:00Z',
       duracaoMinutos: 60,
       aberto: false,
+      descontadoMinutos: 0,
     },
   ])
 
@@ -123,6 +126,7 @@ test('@spec:AC-036 observação com quebra de linha vira espaço', () => {
       fim: '2026-08-11T13:00:00Z',
       duracaoMinutos: 60,
       aberto: false,
+      descontadoMinutos: 0,
     },
   ])
 
@@ -141,6 +145,7 @@ test('@spec:AC-035 bloco no teto é marcado e explicado no rodapé', () => {
       fim: '2026-08-11T14:00:00Z',
       duracaoMinutos: 120,
       aberto: false,
+      descontadoMinutos: 0,
     },
   ])
 
@@ -158,6 +163,7 @@ test('@spec:AC-035 bloco normal não recebe a marca nem o rodapé', () => {
       fim: '2026-08-11T12:40:00Z',
       duracaoMinutos: 40,
       aberto: false,
+      descontadoMinutos: 0,
     },
   ])
 
@@ -176,6 +182,7 @@ test('@spec:AC-034 status removido pelo gestor mantém o rótulo na exportação
       fim: '2026-08-11T13:00:00Z',
       duracaoMinutos: 60,
       aberto: false,
+      descontadoMinutos: 0,
     },
   ])
 

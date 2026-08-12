@@ -24,6 +24,8 @@ type StatusDetalheKPI = {
   fim: string | null
   duracaoMinutos: number
   aberto: boolean
+  /** AC-041: minutos tirados por também terem sido contados como atendimento. */
+  descontadoMinutos: number
 }
 
 type KPIsProfissional = {

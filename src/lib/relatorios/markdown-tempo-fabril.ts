@@ -121,6 +121,12 @@ export function gerarMarkdownTempoFabril({
       linhas.push('| Status | Motivo | Início | Fim | Duração |')
       linhas.push('|---|---|---|---|---|')
       let algumExpirado = false
+      let algumDescontado = false
+      // AC-041: o mesmo tempo líquido da tela. Exportar o bruto faria o arquivo
+      // que circula fora do sistema discordar do relatório que o gerou.
+      const liquidoDoBloco = (s: (typeof kpi.detalheStatus)[number]) =>
+        Math.max(0, s.duracaoMinutos - s.descontadoMinutos)
+
       kpi.detalheStatus.forEach((s) => {
         const label = statusOpcoes.find((op) => op.slug === s.status)?.label ?? s.status
         const fim = s.aberto ? '**Em aberto**' : `${formatAppDate(s.fim!)} ${formatAppTime(s.fim!)}`
@@ -129,19 +135,30 @@ export function gerarMarkdownTempoFabril({
         const expirado = classificarBloco(s.duracaoMinutos, s.aberto) === 'expirado'
         if (expirado) algumExpirado = true
         const motivo = escaparPipe(s.observacao) || '—'
-        linhas.push(`| ${label} | ${motivo} | ${formatAppDate(s.inicio)} ${formatAppTime(s.inicio)} | ${fim} | ${formatarMinutos(s.duracaoMinutos)}${expirado ? ' \\*' : ''} |`)
+        const descontado = s.descontadoMinutos > 0
+        if (descontado) algumDescontado = true
+        const marcas = `${expirado ? ' \\*' : ''}${descontado ? ' †' : ''}`
+        linhas.push(`| ${label} | ${motivo} | ${formatAppDate(s.inicio)} ${formatAppTime(s.inicio)} | ${fim} | ${formatarMinutos(liquidoDoBloco(s))}${marcas} |`)
       })
       linhas.push('')
       if (algumExpirado) {
         linhas.push('\\* Fechado automaticamente no teto de 2h — a pessoa não encerrou o status.')
         linhas.push('')
       }
+      if (algumDescontado) {
+        const descontadoTotal = kpi.detalheStatus.reduce((acc, s) => acc + s.descontadoMinutos, 0)
+        linhas.push(
+          `† Parte do bloco aconteceu durante atendimento. ${formatarMinutos(descontadoTotal)} ` +
+            'não entram nestes números — o tempo sobreposto conta uma vez, do lado do atendimento.',
+        )
+        linhas.push('')
+      }
 
       const totaisPorStatus = new Map<string, number>()
       for (const s of kpi.detalheStatus) {
-        totaisPorStatus.set(s.status, (totaisPorStatus.get(s.status) ?? 0) + s.duracaoMinutos)
+        totaisPorStatus.set(s.status, (totaisPorStatus.get(s.status) ?? 0) + liquidoDoBloco(s))
       }
-      const totalGeral = kpi.detalheStatus.reduce((acc, s) => acc + s.duracaoMinutos, 0)
+      const totalGeral = kpi.detalheStatus.reduce((acc, s) => acc + liquidoDoBloco(s), 0)
       const totaisTexto = [...totaisPorStatus.entries()]
         .sort((a, b) => b[1] - a[1])
         .map(([slug, min]) => {

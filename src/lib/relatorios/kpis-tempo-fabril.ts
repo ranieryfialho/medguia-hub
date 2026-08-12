@@ -19,6 +19,14 @@ import {
   type JornadaSemanal,
 } from '../jornada-planejada.ts'
 import { isStatusFabril } from '../atendimento-status.ts'
+import {
+  descontar,
+  descontoSeAplica,
+  intervalosDeAtendimentos,
+  minutosSobrepostos,
+  unirIntervalos,
+  type Intervalo,
+} from './dedup-status-atendimento.ts'
 
 export type Atendimento = {
   id: string
@@ -79,6 +87,15 @@ export type StatusDetalheKPI = {
   fim: string | null
   duracaoMinutos: number
   aberto: boolean
+  /**
+   * AC-041: minutos tirados deste bloco por também terem sido contados como
+   * atendimento. Zero quando não houve sobreposição — que passa a ser o caso
+   * comum a partir de 12/08, com o bloco parando na hora marcada (AC-037).
+   *
+   * Existe para o total não encolher em silêncio: um número que muda sem
+   * explicação é pior de auditar do que um número inflado que se sabe inflado.
+   */
+  descontadoMinutos: number
 }
 
 export type AtendimentoDetalheKPI = {
@@ -159,15 +176,25 @@ function calcularMinutosStatusNaJornada(
 }
 
 // Soma o tempo de status personalizados (reunião, hora administrativa, etc.) que caiu
-// dentro de um intervalo específico, já capado pela jornada real do profissional.
+// dentro de um intervalo específico, já capado pela jornada real do profissional
+// e já descontado do que também foi contado como atendimento (AC-039).
+//
+// `ocupados` precisa vir de `unirIntervalos`. Recebe a lista pronta em vez de
+// montá-la aqui porque o chamador a reutiliza a cada semana do laço — e porque
+// unir duas vezes o mesmo conjunto é a forma mais fácil de descontar o mesmo
+// minuto duas vezes.
 function somarTempoStatusNoIntervalo(
   historico: HistoricoStatus[],
   jornadaSemanalMap: Map<number, JornadaSemanal>,
   jornadaMensalMap: Map<string, JornadaMensalDiaPlanejado> | undefined,
   inicio: Date,
   fim: Date,
+  ocupados: Intervalo[] = [],
 ): number {
   let total = 0
+
+  const medirNaJornada = (de: Date, ate: Date) =>
+    calcularMinutosStatusNaJornada(de, ate, jornadaSemanalMap, jornadaMensalMap)
 
   for (const h of historico) {
     const ini = new Date(h.inicio)
@@ -177,7 +204,24 @@ function somarTempoStatusNoIntervalo(
     const inicioEfetivo = ini < inicio ? inicio : ini
     const fimEfetivo = hFim > fim ? fim : hFim
 
-    total += calcularMinutosStatusNaJornada(inicioEfetivo, fimEfetivo, jornadaSemanalMap, jornadaMensalMap)
+    const bruto = calcularMinutosStatusNaJornada(inicioEfetivo, fimEfetivo, jornadaSemanalMap, jornadaMensalMap)
+
+    // AC-043: a checagem usa o início REAL do bloco (`ini`), não o recortado
+    // pela janela do relatório. Um bloco de julho visto num relatório de julho
+    // tem `inicioEfetivo` igual à borda do período — usá-lo aqui faria a data de
+    // corte depender do filtro escolhido na tela.
+    if (!descontoSeAplica(ini)) {
+      total += bruto
+      continue
+    }
+
+    const sobreposto = minutosSobrepostos(
+      { inicio: inicioEfetivo, fim: fimEfetivo },
+      ocupados,
+      medirNaJornada,
+    )
+
+    total += descontar(bruto, sobreposto)
   }
 
   return total
@@ -232,16 +276,21 @@ export function agruparPorSemana(
       return dataKeyAtt >= inicioEfetivoStr && dataKeyAtt <= fimEfetivoStr
     })
 
-    const fabrilAtendimentosMin = atsSemana
-      .filter((a) => isStatusFabril(a.status))
+    const atsFabrisSemana = atsSemana.filter((a) => isStatusFabril(a.status))
+
+    const fabrilAtendimentosMin = atsFabrisSemana
       .reduce((acc, a) => acc + (a.duracao_minutos ?? 0), 0)
 
+    // AC-039: o semanal desconta pela mesma regra do total. Sem isto, a soma das
+    // semanas deixaria de bater com o número do topo — e a divergência apareceria
+    // justamente nas semanas com sobreposição, que são as que interessam.
     const statusPersonalizadoMin = somarTempoStatusNoIntervalo(
       historicoProfissional,
       jornadaSemanalMap,
       jornadaMensalMap,
       inicioEfetivo,
       fimEfetivo,
+      unirIntervalos(intervalosDeAtendimentos(atsFabrisSemana)),
     )
 
     const legadoReuniaoMin = reuniaoProfissional
@@ -312,9 +361,24 @@ export function calcularKPIs(
     const historicoProfissional = historico.filter((h) => h.profissional_id === prof.id)
     const reuniaoProfissional = reunioes.filter((r) => r.profissional_id === prof.id)
 
-    // Agrega tempo por status a partir do histórico automático,
-    // capando cada registro pela interseção real com a jornada do profissional.
+    // Os intervalos de relógio já contados como atendimento fabril. Unidos uma
+    // vez por profissional: dois atendimentos sobrepostos entre si — sessões
+    // simultâneas, ou o mesmo registro chegando pelos dois papéis — descontariam
+    // o mesmo minuto duas vezes se fossem tratados soltos (AC-040).
+    const ocupadosPorAtendimento = unirIntervalos(
+      intervalosDeAtendimentos(atsProfissional.filter((a) => isStatusFabril(a.status))),
+    )
+
+    const medirNaJornada = (de: Date, ate: Date) =>
+      calcularMinutosStatusNaJornada(de, ate, jornadaSemanalMap, jornadaMensalMap)
+
+    // Agrega tempo por status a partir do histórico automático, capando cada
+    // registro pela interseção real com a jornada do profissional e descontando
+    // o que também foi contado como atendimento (AC-039).
     const tempoStatusMin: Record<string, number> = {}
+    /** Minutos efetivamente tirados de cada bloco — o que AC-041 exibe. */
+    const descontoPorBloco = new Map<string, number>()
+
     for (const h of historicoProfissional) {
       const ini = new Date(h.inicio)
       const fim = new Date(h.fim)
@@ -330,8 +394,29 @@ export function calcularKPIs(
         jornadaSemanalMap,
         jornadaMensalMap,
       )
-      if (minNaJornada > 0) {
-        tempoStatusMin[h.status] = (tempoStatusMin[h.status] ?? 0) + minNaJornada
+
+      // AC-043: bloco anterior à data de corte é passado, e passado não se
+      // reescreve — entra pelo bruto, exatamente como entrava antes desta
+      // entrega. Usa `ini`, o início real, não o recortado pela janela do
+      // relatório, senão a data de corte passaria a depender do filtro da tela.
+      const sobreposto = descontoSeAplica(ini)
+        ? minutosSobrepostos(
+            { inicio: inicioEfetivo, fim: fimEfetivo },
+            ocupadosPorAtendimento,
+            medirNaJornada,
+          )
+        : 0
+      const minLiquido = descontar(minNaJornada, sobreposto)
+
+      // O desconto REAL, não o bruto: `descontar` tem piso em zero, então quando
+      // a sobreposição passa do tempo do bloco o que saiu foi só o tempo do
+      // bloco. Exibir o bruto mostraria um desconto maior do que o aplicado.
+      if (minNaJornada > minLiquido) {
+        descontoPorBloco.set(h.id, minNaJornada - minLiquido)
+      }
+
+      if (minLiquido > 0) {
+        tempoStatusMin[h.status] = (tempoStatusMin[h.status] ?? 0) + minLiquido
       }
     }
 
@@ -444,6 +529,7 @@ export function calcularKPIs(
         fim: h.fim,
         duracaoMinutos: h.duracao_minutos,
         aberto: false,
+        descontadoMinutos: descontoPorBloco.get(h.id) ?? 0,
       }))
 
     const detalheStatusAbertos: StatusDetalheKPI[] = historicoAbertoProfissional.map((h) => ({
@@ -454,6 +540,9 @@ export function calcularKPIs(
       fim: null,
       duracaoMinutos: Math.max(0, Math.round((Date.now() - new Date(h.inicio).getTime()) / 60_000)),
       aberto: true,
+      // Bloco aberto não entra nos agregados, então não há desconto aplicado a
+      // exibir. O que ele mostra é tempo corrido, não tempo contado.
+      descontadoMinutos: 0,
     }))
 
     const detalheStatus = [...detalheStatusAbertos, ...detalheStatusFechados]

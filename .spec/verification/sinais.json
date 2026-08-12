@@ -3258,6 +3258,15 @@
       "primeiraVez": "2026-08-10T18:03:45.839Z",
       "ultimaVez": "2026-08-10T18:03:45.840Z",
       "gitRev": "c046bad"
+    },
+    "ASM_STATUS_INVALIDO::status-personalizados-ciclo-vida::ASM-009": {
+      "codigo": "ASM_STATUS_INVALIDO",
+      "feature": "status-personalizados-ciclo-vida",
+      "ref": "ASM-009",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-12T15:16:42.547Z",
+      "ultimaVez": "2026-08-12T15:16:42.548Z",
+      "gitRev": "b57c2a0"
     }
   }
 }

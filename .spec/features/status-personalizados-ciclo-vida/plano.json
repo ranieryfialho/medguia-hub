@@ -1,12 +1,12 @@
 {
-  "runId": "medguia-hub-status-personalizados-ciclo-vida-msomfgnq",
+  "runId": "medguia-hub-status-personalizados-ciclo-vida-msq69r2r",
   "feature": "status-personalizados-ciclo-vida",
   "agent": "claude",
   "modo": "paralelo",
   "paralelizar": null,
   "modeloForcado": null,
   "esforcoForcado": null,
-  "geradoEm": "2026-08-11 12:12",
+  "geradoEm": "2026-08-12 14:16",
   "branchTrabalho": "spec/status-personalizados-ciclo-vida",
   "baseDir": ".spec/features/status-personalizados-ciclo-vida",
   "specDir": ".spec",
@@ -15,11 +15,7 @@
   "ondas": [
     [
       "faixa-1",
-      "faixa-2",
-      "faixa-3"
-    ],
-    [
-      "faixa-4"
+      "faixa-2"
     ]
   ],
   "faixas": [
@@ -29,19 +25,17 @@
       "worktree": "../onp-worktrees/medguia-hub-status-personalizados-ciclo-vida-faixa-1",
       "tarefas": [
         {
-          "id": "T-015",
-          "titulo": "Migration: o teto do bloco volta para 2 horas",
+          "id": "T-028",
+          "titulo": "O status declarado para quando o atendimento começa",
           "modelo": "claude-sonnet-5",
           "esforco": "medium",
           "arquivos": [
-            "database/status_personalizados_fallback_2h_migration.sql",
-            "test/sql/fallback-2h.test.ts"
+            "database/status_para_ao_iniciar_atendimento_migration.sql",
+            "test/sql/para-ao-iniciar-atendimento.test.ts"
           ],
           "refs": [
-            "AC-004",
-            "AC-005",
-            "AC-006",
-            "AC-019"
+            "AC-037",
+            "AC-038"
           ]
         }
       ]
@@ -52,62 +46,34 @@
       "worktree": "../onp-worktrees/medguia-hub-status-personalizados-ciclo-vida-faixa-2",
       "tarefas": [
         {
-          "id": "T-016",
-          "titulo": "Regra pura do contador regressivo",
-          "modelo": "claude-sonnet-5",
-          "esforco": "medium",
-          "arquivos": [
-            "src/lib/status-disponibilidade-regras.ts",
-            "src/lib/status-disponibilidade-regras.test.ts"
-          ],
-          "refs": [
-            "AC-007",
-            "AC-022",
-            "AC-023",
-            "AC-024",
-            "AC-026"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "faixa-3",
-      "branch": "spec/status-personalizados-ciclo-vida-faixa-3",
-      "worktree": "../onp-worktrees/medguia-hub-status-personalizados-ciclo-vida-faixa-3",
-      "tarefas": [
-        {
-          "id": "T-017",
-          "titulo": "O contador nas três telas de status",
+          "id": "T-029",
+          "titulo": "A interseção conta uma vez só, para o atendimento",
           "modelo": "claude-sonnet-5",
           "esforco": "high",
           "arquivos": [
-            "src/components/features/agenda/CardStatusEquipe.tsx",
-            "src/components/features/configuracoes/WidgetDisponibilidade.tsx",
-            "src/components/features/equipe/StatusEquipeRealtime.tsx",
-            "test/ui/contador-telas.test.ts"
+            "src/lib/relatorios/kpis-tempo-fabril.ts",
+            "src/lib/relatorios/dedup-status-atendimento.ts",
+            "src/lib/relatorios/dedup-status-atendimento.test.ts"
           ],
           "refs": [
-            "AC-025"
+            "AC-039",
+            "AC-040"
           ]
-        }
-      ]
-    },
-    {
-      "id": "faixa-4",
-      "branch": "spec/status-personalizados-ciclo-vida-faixa-4",
-      "worktree": "../onp-worktrees/medguia-hub-status-personalizados-ciclo-vida-faixa-4",
-      "tarefas": [
+        },
         {
-          "id": "T-018",
-          "titulo": "Diagnóstico do Realtime em produção",
+          "id": "T-030",
+          "titulo": "A conferência mostra o desconto",
           "modelo": "claude-sonnet-5",
-          "esforco": "low",
+          "esforco": "medium",
           "arquivos": [
-            "database/diagnostico_realtime_status.sql",
-            "test/sql/diagnostico-realtime.test.ts"
+            "src/lib/relatorios/kpis-tempo-fabril.ts",
+            "src/components/features/relatorios/TabelaTempoFabril.tsx",
+            "src/lib/relatorios/markdown-tempo-fabril.ts",
+            "src/lib/relatorios/pdf-tempo-fabril.ts",
+            "test/ui/dedup-visivel.test.ts"
           ],
           "refs": [
-            "AC-027"
+            "AC-041"
           ]
         }
       ]
@@ -128,7 +94,20 @@
     "T-011",
     "T-012",
     "T-013",
-    "T-014"
+    "T-014",
+    "T-015",
+    "T-016",
+    "T-017",
+    "T-019",
+    "T-020",
+    "T-018",
+    "T-021",
+    "T-022",
+    "T-023",
+    "T-024",
+    "T-025",
+    "T-026",
+    "T-027"
   ],
   "avisos": []
 }

@@ -38,10 +38,10 @@
 </style>
 <main>
   <h1>Plano de execução — status-personalizados-ciclo-vida</h1>
-  <p class="sub">gerado por <code>onp-spec plano</code> em 2026-08-11 12:12 · regenere após mudar tasks.md</p>
+  <p class="sub">gerado por <code>onp-spec plano</code> em 2026-08-12 14:16 · regenere após mudar tasks.md</p>
   <div class="resumo">
-    <div><b>4</b> tarefa(s) em paralelo</div>
-    <div><b>4</b> faixa(s) · <b>2</b> onda(s)</div>
+    <div><b>3</b> tarefa(s) em paralelo</div>
+    <div><b>2</b> faixa(s) · <b>1</b> onda(s)</div>
     <div><b>0</b> sequencial(is)</div>
     <div>branch <code>spec/status-personalizados-ciclo-vida</code></div>
   </div>
@@ -58,50 +58,32 @@
   </div>
   
     <section class="onda">
-      <h3>Onda 1 <small>faixa-1 ∥ faixa-2 ∥ faixa-3 — em paralelo, janelas limpas</small></h3>
+      <h3>Onda 1 <small>faixa-1 ∥ faixa-2 — em paralelo, janelas limpas</small></h3>
       <div class="grade">
       <div class="faixa">
         <h4>faixa-1 <small>branch <code>spec/status-personalizados-ciclo-vida-faixa-1</code> · worktree <code>../onp-worktrees/medguia-hub-status-personalizados-ciclo-vida-faixa-1</code></small></h4>
         
         <div class="tarefa">
-          <span class="tid">T-015</span>
-          <span class="ttitulo">Migration: o teto do bloco volta para 2 horas</span>
+          <span class="tid">T-028</span>
+          <span class="ttitulo">O status declarado para quando o atendimento começa</span>
           <span class="meta"><code>claude-sonnet-5</code> · esforço <b>medium</b></span>
-          <span class="arquivos"><code>database/status_personalizados_fallback_2h_migration.sql</code> <code>test/sql/fallback-2h.test.ts</code></span>
+          <span class="arquivos"><code>database/status_para_ao_iniciar_atendimento_migration.sql</code> <code>test/sql/para-ao-iniciar-atendimento.test.ts</code></span>
         </div>
       </div>
       <div class="faixa">
         <h4>faixa-2 <small>branch <code>spec/status-personalizados-ciclo-vida-faixa-2</code> · worktree <code>../onp-worktrees/medguia-hub-status-personalizados-ciclo-vida-faixa-2</code></small></h4>
         
         <div class="tarefa">
-          <span class="tid">T-016</span>
-          <span class="ttitulo">Regra pura do contador regressivo</span>
-          <span class="meta"><code>claude-sonnet-5</code> · esforço <b>medium</b></span>
-          <span class="arquivos"><code>src/lib/status-disponibilidade-regras.ts</code> <code>src/lib/status-disponibilidade-regras.test.ts</code></span>
-        </div>
-      </div>
-      <div class="faixa">
-        <h4>faixa-3 <small>branch <code>spec/status-personalizados-ciclo-vida-faixa-3</code> · worktree <code>../onp-worktrees/medguia-hub-status-personalizados-ciclo-vida-faixa-3</code></small></h4>
-        
-        <div class="tarefa">
-          <span class="tid">T-017</span>
-          <span class="ttitulo">O contador nas três telas de status</span>
+          <span class="tid">T-029</span>
+          <span class="ttitulo">A interseção conta uma vez só, para o atendimento</span>
           <span class="meta"><code>claude-sonnet-5</code> · esforço <b>high</b></span>
-          <span class="arquivos"><code>src/components/features/agenda/CardStatusEquipe.tsx</code> <code>src/components/features/configuracoes/WidgetDisponibilidade.tsx</code> <code>src/components/features/equipe/StatusEquipeRealtime.tsx</code> <code>test/ui/contador-telas.test.ts</code></span>
+          <span class="arquivos"><code>src/lib/relatorios/kpis-tempo-fabril.ts</code> <code>src/lib/relatorios/dedup-status-atendimento.ts</code> <code>src/lib/relatorios/dedup-status-atendimento.test.ts</code></span>
         </div>
-      </div></div>
-    </section>
-    <section class="onda">
-      <h3>Onda 2 <small>faixa-4 — em paralelo, janelas limpas</small></h3>
-      <div class="grade">
-      <div class="faixa">
-        <h4>faixa-4 <small>branch <code>spec/status-personalizados-ciclo-vida-faixa-4</code> · worktree <code>../onp-worktrees/medguia-hub-status-personalizados-ciclo-vida-faixa-4</code></small></h4>
-        
         <div class="tarefa">
-          <span class="tid">T-018</span>
-          <span class="ttitulo">Diagnóstico do Realtime em produção</span>
-          <span class="meta"><code>claude-sonnet-5</code> · esforço <b>low</b></span>
-          <span class="arquivos"><code>database/diagnostico_realtime_status.sql</code> <code>test/sql/diagnostico-realtime.test.ts</code></span>
+          <span class="tid">T-030</span>
+          <span class="ttitulo">A conferência mostra o desconto</span>
+          <span class="meta"><code>claude-sonnet-5</code> · esforço <b>medium</b></span>
+          <span class="arquivos"><code>src/lib/relatorios/kpis-tempo-fabril.ts</code> <code>src/components/features/relatorios/TabelaTempoFabril.tsx</code> <code>src/lib/relatorios/markdown-tempo-fabril.ts</code> <code>src/lib/relatorios/pdf-tempo-fabril.ts</code> <code>test/ui/dedup-visivel.test.ts</code></span>
         </div>
       </div></div>
     </section>

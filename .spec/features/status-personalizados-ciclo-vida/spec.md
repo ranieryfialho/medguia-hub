@@ -350,9 +350,175 @@ Como gestor, quero que a tela de Disponibilidade mostre os status que eu mesmo c
 - **Quando** o painel de status é montado
 - **Então** os que declararam um status personalizado vêm primeiro e com mais informação — status, motivo e prazo restante — enquanto livres e ausentes ficam agrupados de forma compacta, porque são o estado que não pede ação de ninguém
 
+### US-009 — Havendo atendimento marcado, o status para e vira "Em atendimento"
+
+Como dono da empresa, quero que o status personalizado pare quando chega a hora de um atendimento marcado, e que o profissional passe a constar "Em atendimento", para que o mesmo minuto de relógio nunca seja contado duas vezes no Tempo Fábril — **sem depender de ninguém clicar em nada**.
+
+> **O que motivou, em 12/08/2026.** Uma fisioterapeuta declarou "Hora
+> administrativa" tendo atendimento agendado na mesma janela. A pergunta
+> "o que vai ser contabilizado?" não tinha resposta defensável: a tela mostra
+> **um** estado (o atendimento vence, decisão de 10/08) e o relatório soma **os
+> dois** — `tempoFabril = horasAgendamento + tempoStatusPersonalizado`, em
+> `kpis-tempo-fabril.ts`, sem nenhuma subtração de interseção. É a última
+> violação de C1 (fonte única da verdade) que o RFC 002 deixou de pé, deixada
+> em backlog por materialidade (0,77% em 90 dias, 960 min em 26 pares).
+>
+> **A decisão do dono vai além da dedup:** o bloco não deve apenas ser
+> descontado na conta — deve **parar** na hora marcada do atendimento. Com isso
+> a sobreposição futura deixa de existir por construção; a dedup fica valendo
+> para o passado já gravado e para a sobreposição residual que a regra da hora
+> marcada não alcança (AC-042).
+>
+> **O gancho é a hora marcada, não o clique.** A primeira versão desta história
+> usava a transição para "Em Atendimento" como gatilho, e estava errada por um
+> motivo que só quem opera a clínica sabe: **os fisioterapeutas nem sempre
+> marcam "Em Atendimento"**. Amarrar a regra a esse clique faria o bloco
+> continuar correndo justamente nos casos em que ninguém mexe no sistema — que
+> são os mesmos casos em que a pessoa também esquece de sair do status. A regra
+> passa a depender só do relógio e da agenda, que existem independentemente de
+> alguém clicar.
+>
+> **A contabilização do atendimento não muda.** `isStatusFabril` continua sendo
+> `Concluído` | `Em Atendimento`: o atendimento entra no Tempo Fábril quando for
+> concluído, como já é hoje. Ou seja, o bloco para às 10:00 e o atendimento só
+> passa a contar quando alguém o concluir. Se ele nunca for concluído, aqueles
+> minutos não contam para ninguém — o que é honesto, porque de fato não se sabe
+> o que aconteceu ali, e é exatamente o comportamento atual.
+>
+> **Tensão com AC-018, que precisa ficar registrada.** Esta feature *removeu* o
+> gatilho `trg_concluir_atendimento` justamente porque "seu único efeito
+> observável hoje é encerrar em silêncio um status personalizado ativo". A regra
+> nova faz algo que se parece com isso — e a diferença é o que a torna legítima:
+> a antiga agia na **conclusão**, encerrando a declaração num momento em que ela
+> ainda podia ser verdadeira, e o fazia sem que nada na especificação previsse.
+> A nova age na **hora marcada**, que é o instante a partir do qual a declaração
+> deixou de poder ser verdadeira, e é regra escrita aqui — não efeito colateral
+> de migração esquecida.
+
+#### AC-037 — O bloco para e o profissional passa a constar "Em atendimento"
+
+- **Dado** um profissional com status personalizado ao vivo e um atendimento marcado para dentro desse bloco, em que ele é responsável **ou** executor, e que não foi cancelado, não virou falta e não foi reagendado
+- **Quando** a hora marcada do atendimento chega
+- **Então** o bloco é fechado e o profissional passa a constar **"Em atendimento"**, sem depender de ninguém marcar "Em Atendimento" na agenda (asserção estática no arquivo SQL)
+
+> **Como "Em atendimento" acontece — e por que o job não o escreve.** `ocupado`
+> é status **derivado**: a regra 1 da `fn_status_equipe_agora` já devolve "Em
+> atendimento" para quem tem atendimento na janela, com prioridade sobre
+> qualquer declaração. E AC-011 o marcou como status de sistema justamente para
+> que ninguém o grave à mão — gravar `'ocupado'` em `status_disponibilidade` foi
+> o que o cron legado fazia, e é a Divergência 1 que o RFC 002 fechou.
+>
+> Então o job faz a única coisa que lhe cabe: **apaga a declaração** (grava
+> `disponivel`, `origem = 'agenda'`). A derivação assume dali em diante e mostra
+> "Em atendimento" enquanto durar a janela do atendimento; terminada a janela,
+> cai para "Disponível" ou "Ausente", conforme a jornada. Escrever `disponivel`
+> é o mecanismo; "Em atendimento" é o efeito, e é o que a equipe vê.
+>
+> Age sobre os dois papéis porque a tela e o relatório já tratam responsável e
+> executor como ocupados durante o atendimento (ASM-007). O filtro de status do
+> atendimento é positivo, não negativo: `Confirmado`, `Aguardando`, `Aguardando
+> Consulta`, `Em Atendimento` e `Concluído`. Uma lista negativa erraria em
+> silêncio, porque `Reagendado` tem variantes de grafia (`Reposição`,
+> `reposicao`) em `STATUS_RAW_VALUES_BY_KEY` — e o erro seria encerrar o bloco
+> de alguém por causa de um atendimento que não aconteceu.
+
+#### AC-038 — Fecha na hora marcada, não na hora em que o job roda
+
+- **Dado** que o job de expiração roda a cada 10 minutos e pode encontrar o bloco até 10 minutos depois da hora marcada
+- **Quando** ele fecha o bloco
+- **Então** o `fim` gravado é a **hora marcada do atendimento** — e, havendo mais de um atendimento elegível na janela, a hora do **mais cedo** deles — nunca o instante em que o job rodou; e o fechamento do histórico precede o reset do status, pelo mesmo motivo de AC-006 (asserção estática no arquivo SQL)
+
+> Duas armadilhas num comando só. A primeira é a ordem: se o reset do status
+> viesse antes, `fn_log_mudanca_status_disponibilidade` fecharia o bloco com
+> `fim = NOW()` — até 10 minutos a mais de tempo fabril que não existiu. A
+> segunda é o `MIN`: sem ele, um `UPDATE ... FROM` com dois atendimentos
+> elegíveis deixa o Postgres escolher **qualquer** um dos dois, e o bloco fecha
+> na hora errada de forma não determinística — o pior tipo de defeito para
+> auditar depois.
+
+#### AC-042 — Não fecha bloco em hora anterior ao próprio início
+
+- **Dado** um status declarado **no meio** de um atendimento que já estava correndo — a hora marcada do atendimento é anterior ao início do bloco
+- **Quando** o job roda
+- **Então** esse bloco não é fechado por essa regra, porque gravar um `fim` anterior ao `inicio` produziria bloco de duração zero ou negativa; a sobreposição que sobra é tratada pelo desconto de AC-039 (asserção estática no arquivo SQL)
+
+> É a divisão de trabalho entre as duas metades desta história: a hora marcada
+> resolve o caso comum e o faz no banco, de forma definitiva; o desconto resolve
+> o resíduo e o passado, e o faz no cálculo. Nenhuma das duas sozinha fecha C1.
+>
+> **Validado em produção em 12/08**, com o `AC-042` flagrado num caso que
+> ninguém tinha construído: a Luana tinha bloco iniciado às 12:19 e agendamento
+> às 12:00 marcado como `Falta`. Duas razões independentes o excluíram — a hora
+> marcada é anterior ao início do bloco, e `falta` não está no filtro positivo
+> de AC-037. O bloco foi cortado pelo agendamento seguinte, das 13:00.
+
+> **Medição de aplicação (12/08).** Migration aplicada; `para_na_agenda = true`,
+> `teto_2h = true`, `resquicio_1h = false`; cinco ciclos do `pg_cron`
+> consecutivos com `status = succeeded`; `pg_get_constraintdef` confirma os
+> quatro valores de `origem`, incluindo `'agenda'`.
+>
+> Sobre a leitura desses sinais: `UPDATE 0` e as consultas de conferência vazias
+> **não provam** que a regra funciona — provam que não havia caso. A prova de
+> comportamento veio da simulação retroativa somente-leitura sobre 30 dias, que
+> aplicou o mesmo `JOIN` e os mesmos filtros a dado real. Ver ASM-009.
+
+#### AC-039 — A interseção conta uma vez, para o atendimento
+
+- **Dado** um bloco de status personalizado **iniciado a partir da data de corte** que se sobrepõe no relógio a um atendimento fabril do mesmo profissional
+- **Quando** o Tempo Fábril é calculado
+- **Então** os minutos sobrepostos contam **uma vez**, como atendimento, e são descontados do tempo de status — o lado que vence é o mesmo da tela (decisão de 10/08), para que o gestor não precise de duas explicações para a mesma regra
+
+> O desconto continua necessário mesmo com a regra da hora marcada em produção,
+> porque ela não alcança o caso do AC-042: status declarado **no meio** de um
+> atendimento já em curso. Aí a hora marcada é anterior ao bloco, o job não
+> toca nele, e a sobreposição nasce mesmo assim.
+
+#### AC-043 — O passado não é reescrito
+
+- **Dado** um bloco iniciado **antes** da data de corte — inclusive os 960 minutos em 26 pares medidos em 10/08
+- **Quando** o Tempo Fábril de um período antigo é calculado
+- **Então** nenhum desconto é aplicado, e o relatório devolve exatamente o mesmo número que devolvia antes desta entrega
+
+> **Decisão do dono, 12/08:** *"o que já passou não devemos mexer. foi um erro
+> na nossa regra de negócio, então já passou. precisamos focar no daqui para
+> frente."*
+>
+> A versão anterior desta feature descontava tudo, retroativamente. O efeito
+> seria mudar números de períodos **já fechados e já usados em decisão de
+> gestão** — reunião de equipe, avaliação de ocupação — sem que nada na tela
+> explicasse por que o mês passado encolheu. É a mesma classe de dano que esta
+> feature já rejeitou uma vez, na seção Profissional Inativo do RFC 002:
+> *`ativo` governa o presente, não o passado*. O princípio vale aqui igual.
+>
+> A contagem dupla do passado passa a ser **erro conhecido e datado**, não
+> defeito em aberto: 0,77% em 90 dias, documentado no RFC 002 e nesta
+> especificação. Quem for auditar um período anterior ao corte sabe o que
+> procurar e de quanto é.
+>
+> Este critério existe por si porque a regressão contrária é silenciosa —
+> alguém remove a checagem de data por parecer supérflua, e meses de relatório
+> mudam de valor sem erro nenhum aparecer.
+
+#### AC-040 — Descontar não inventa nem destrói tempo
+
+- **Dado** um bloco que não se sobrepõe a atendimento nenhum, e um atendimento que cobre um bloco inteiro e ainda sobra
+- **Quando** o desconto é aplicado
+- **Então** o primeiro fica intacto e o segundo vai a zero, **nunca abaixo de zero** — e dois atendimentos que se sobrepõem entre si não descontam o mesmo minuto duas vezes do bloco
+
+#### AC-041 — O bloco descontado não encolhe em silêncio
+
+- **Dado** um bloco cujo tempo foi reduzido pela dedup
+- **Quando** o gestor abre a conferência de status
+- **Então** ele lê quanto foi descontado e por quê — porque um total que muda sem explicação é pior para a auditoria do que um total inflado que se sabe inflado, e a conferência é onde o item 1 do PRD cobra a justificativa linha a linha
+
+> Terceira aplicação da mesma lição já registrada nesta feature (AC-021,
+> AC-034): **um critério que muda um número precisa do critério irmão que torna
+> a mudança legível**. Aqui o risco é concreto — as horas da Luana caem 2,4h no
+> acumulado de 90 dias sem que nada na tela diga por quê.
+
 ## Fora de escopo
 
-- **Deduplicar a contagem dupla** entre atendimento e status personalizado no Tempo Fábril — medida em 0,77% em 90 dias, abaixo do limiar de materialidade. Vai para backlog, a remedir depois que o teto estiver estável em produção.
+- **Corrigir a contagem dupla do passado** — decisão do dono em 12/08. Blocos anteriores à data de corte ficam como estão; os números de períodos já fechados não mudam. Ver AC-043.
 - **Inverter a precedência** entre atendimento e status declarado — decisão de 10/08 foi manter a agenda vencendo.
 - **Editar a observação** com o status já em andamento — ela é escrita no ato da escolha e não é alterada depois.
 - **Duração declarada na entrada** (Opção 3 do RFC) — reavaliar 2 semanas após o go-live.
@@ -367,6 +533,10 @@ Como gestor, quero que a tela de Disponibilidade mostre os status que eu mesmo c
 | ASM-003 | O Realtime propaga para a tela os updates feitos pelo `pg_cron`, não só os feitos pela aplicação | confirmada | **Deixou de ser carregadora.** Resolvida por desenho, não por verificação: AC-007 detecta o vencimento no cliente a partir do horário de abertura do bloco, sem depender de aviso do banco. Se o Realtime não propagar, a tela ainda marca o bloco como vencido. A suposição deixou de sustentar qualquer critério |
 | ASM-004 | Tornar `profiles.ativo` obrigatório não quebra nenhum fluxo que cria usuário sem preencher esse campo | confirmada | Auditado em 10/08: o único ponto de criação é o gatilho `handle_new_user`, que insere `(id, full_name, role)` e não toca em `ativo` — o padrão `true` da coluna cobre. Nenhum código da aplicação insere em `profiles` |
 | ASM-005 | Asserção estática sobre o texto de um componente `.tsx` prova que ele **consome** a regra pura, mas não prova o que o usuário vê na tela | confirmada | Mesma limitação e mesma escolha consciente da ASM-002, agora no front: não há runner de componente neste projeto. O que a asserção trava é a regressão que já aconteceu uma vez aqui (AC-021: regra existente, tela que nunca a chamava). O comportamento visual é validado à mão |
+| ASM-007 | Encerrar o bloco do **responsável** junto com o do executor não gera reclamação de quem só assina o agendamento sem entrar na sala | aberta | Decisão do dono em 12/08, tomada com o trade-off na mesa: ganha coerência com a tela e com o relatório, que já marcam os dois como ocupados. O risco é o inverso do AC-018 — se um coordenador que assina muitos agendamentos tiver a reunião encerrada por atendimento que outra pessoa executou, a queixa aparece rápido e é visível (ele volta a constar "Disponível" no meio da reunião). Reavaliar junto da Ação 13 do RFC |
+| ASM-009 | Encerrar o bloco na hora marcada é aceitável mesmo quando o atendimento nunca vira fabril — o tempo cortado é, na esmagadora maioria, substituído por atendimento real | confirmada | **Medido em produção em 12/08, 30 dias retroativos.** A regra alcançaria 22 blocos; em **19 deles (86%)** o agendamento que dispara o corte virou `Concluído`/`Em Atendimento`, e o instante do corte é **idêntico** nas duas medições — o filtro amplo não antecipa o corte em nenhum caso confirmado. Total cortado: 1.285 min no filtro amplo, 1.010 min no filtro só-fabril. A diferença de **275 min** vem inteira de 3 blocos da Luana, de 11–12/08, cujos agendamentos seguem em `Aguardando` — não marcados, não cancelados. **Restringir o filtro a só-fabril foi avaliado e recusado:** faria a regra depender do clique que o dono excluiu como gancho (os fisios nem sempre marcam) e a tornaria impossível de aplicar na hora, já que às 10:00 não se sabe se o atendimento será concluído. Nota que corrige a conta: agendamento parado em `Aguardando` **já contribui zero** ao Tempo Fábril hoje (`isStatusFabril`), então os 275 min não são perda nova — o que muda é o bloco deixar de inflar para cobri-los. Ver também ASM-010 |
+| ASM-010 | O `pg_cron` roda a cada 10 minutos, então o corte pode ser observado com até 10 min de atraso — mas o `fim` gravado é sempre a hora marcada | confirmada | Resolvida por desenho (AC-038): o job grava `fim = MIN(data_agendamento)`, não `NOW()`. O atraso afeta **quando** a tela reflete a mudança, nunca **quanto** foi contado. É a mesma janela de até 10 minutos que AC-024 já cobre marcando o bloco como expirado antes de o banco agir |
+| ASM-008 | O desconto precisa ser medido na mesma moeda em que o tempo foi somado — interseção de relógio **capada pela jornada**, não interseção crua | confirmada | **Resolvida por desenho.** O bloco entra no relatório já capado por `calcularMinutosStatusNaJornada`; o atendimento entra pela duração cheia, sem cap. Descontar a interseção crua tiraria do bloco minutos que ele nunca somou — um atendimento fabril fora da jornada cadastrada zeraria um bloco legítimo. A dedup aplica a mesma função de cap sobre o intervalo de interseção, de modo que só saia o que entrou duas vezes |
 | ASM-006 | O contador tornar o prazo visível é suficiente para a reafirmação ser consciente — não é preciso notificar ativamente quem está prestes a expirar | aberta | Decisão do dono ainda não tomada. Se na revisão de 2 semanas (Ação 13 do RFC) muitos blocos ainda expirarem sem reafirmação, a notificação volta à mesa |
 
 ## Perguntas em aberto
@@ -376,4 +546,5 @@ Como gestor, quero que a tela de Disponibilidade mostre os status que eu mesmo c
 | Q-001 | O card da agenda deve mostrar também as horas acumuladas no dia, além do tempo do bloco atual? | respondida | Não (dono, 10/08). O card mostra só o tempo do bloco atual, com o dado que a tela já carrega. O acumulado do dia permanece no relatório de Tempo Fábril, onde é analisado com calma |
 | Q-002 | O Realtime propaga de fato para as telas os updates que o `pg_cron` faz em `status_disponibilidade`? | respondida | **NÃO — medido em produção em 11/08.** E a causa é mais básica do que a pergunta supunha: a tabela **não está na publicação `supabase_realtime`**, então nenhum update propaga — nem os do cron, nem os da aplicação. Os outros três elos estão sadios: `pubupdate = true`, replica identity `d`, política `"Leitura autenticados"` com `SELECT true` para `authenticated`. Ver AC-028 |
 | Q-004 | Qual versão de `fn_status_equipe_agora` está em produção? A de 09/07 preserva o timestamp só para `'reuniao'` e devolve `now()` para os demais — nela o contador ficaria travado em 2h00 para status personalizados | respondida | **A de 13/07 (`status_disponibilidade_opcoes_migration.sql`)**, medida em 11/08: `versao_13_07 = true`, `preserva_timestamp = true`. A contraprova direta fecha por evidência, não por leitura de código: dois profissionais em `hora_administrativa_...`, `status_resolvido` igual ao declarado e `timestamp_preservado = true` nos dois. O contador funciona nas três telas |
+| Q-005 | O profissional deve ser **avisado** ao declarar um status personalizado tendo atendimento agendado na janela? | respondida | **Não agora (dono, 12/08).** O ajuste escolhido ataca a consequência (a conta) e o fato (o bloco para no início do atendimento), não a intenção. Declarar hora administrativa tendo agendamento não é necessariamente erro — o RFC 002 mediu que quase todos os 26 pares têm `fim = inicio + 2h exatas`, ou seja, são status **esquecidos**, e o esquecimento já é tratado pelo teto e pelo contador. Reavaliar na Ação 13 se sobrarem pares que não sejam esquecimento |
 | Q-003 | O card da agenda deve ganhar a rede de polling de 60s que o widget já tem? | respondida | **Sim (dono, 11/08), junto com a correção da publicação.** O argumento decisivo veio do próprio achado: a falha ficou invisível por ~2 meses porque o widget tinha rede e o card não. Corrigir só a publicação devolve o card ao ar e deixa a próxima falha igualmente silenciosa. Ver AC-029 |

@@ -24,6 +24,8 @@ type StatusDetalheKPI = {
   fim: string | null
   duracaoMinutos: number
   aberto: boolean
+  /** AC-041: minutos tirados por também terem sido contados como atendimento. */
+  descontadoMinutos: number
 }
 
 type KPIsProfissional = {
@@ -493,10 +495,18 @@ function DetalheStatus({
     return <p className="text-sm text-[#6d7a75] italic">Nenhum status personalizado registrado no período.</p>
   }
 
-  const totalGeralMin = statusDetalhe.reduce((acc, s) => acc + s.duracaoMinutos, 0)
+  // AC-041: os totais da conferência somam o tempo LÍQUIDO, que é o que entrou
+  // no Tempo Fábril. Somar o bruto faria esta tabela discordar das colunas da
+  // tabela principal justamente nos profissionais com sobreposição — e a
+  // conferência existe para explicar aqueles números, não para contradizê-los.
+  const liquidoDoBloco = (s: StatusDetalheKPI) =>
+    Math.max(0, s.duracaoMinutos - s.descontadoMinutos)
+
+  const totalGeralMin = statusDetalhe.reduce((acc, s) => acc + liquidoDoBloco(s), 0)
+  const totalDescontadoMin = statusDetalhe.reduce((acc, s) => acc + s.descontadoMinutos, 0)
   const totaisPorStatus = new Map<string, number>()
   for (const s of statusDetalhe) {
-    totaisPorStatus.set(s.status, (totaisPorStatus.get(s.status) ?? 0) + s.duracaoMinutos)
+    totaisPorStatus.set(s.status, (totaisPorStatus.get(s.status) ?? 0) + liquidoDoBloco(s))
   }
   const statusOrdenados = [...totaisPorStatus.entries()].sort((a, b) => b[1] - a[1])
 
@@ -562,8 +572,19 @@ function DetalheStatus({
                   </td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">
                     <span className={anomalo ? 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-50 text-red-700 border border-red-300' : 'text-[#3d4945]'}>
-                      {formatarMinutos(s.duracaoMinutos)}
+                      {formatarMinutos(liquidoDoBloco(s))}
                     </span>
+                    {/* AC-041: o bloco não encolhe em silêncio. Sem esta linha o
+                        gestor veria a duração menor que a diferença entre início
+                        e fim, sem nada explicando a subtração. */}
+                    {s.descontadoMinutos > 0 && (
+                      <span
+                        title={`${formatarMinutos(s.descontadoMinutos)} deste bloco também foram contados como atendimento e entram uma vez só, do lado do atendimento`}
+                        className="block text-[10px] font-semibold text-[#6d7a75] mt-0.5"
+                      >
+                        −{formatarMinutos(s.descontadoMinutos)} em atendimento
+                      </span>
+                    )}
                   </td>
                 </tr>
               )
@@ -587,6 +608,16 @@ function DetalheStatus({
         <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#006b5a] ml-auto">
           Total: <span className="font-bold">{formatarMinutos(totalGeralMin)}</span>
         </span>
+        {/* AC-041: o rodapé diz de onde veio a diferença. Sem ele, o gestor que
+            somasse as durações à mão chegaria a um número maior que o total e
+            não teria como saber por quê. */}
+        {totalDescontadoMin > 0 && (
+          <span className="w-full text-[11px] text-[#6d7a75]">
+            {formatarMinutos(totalDescontadoMin)} não entram neste total por
+            terem acontecido durante atendimento — contam uma vez, do lado do
+            atendimento.
+          </span>
+        )}
       </div>
     </div>
   )

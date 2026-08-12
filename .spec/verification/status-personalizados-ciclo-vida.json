@@ -1,11 +1,11 @@
 {
   "feature": "status-personalizados-ciclo-vida",
-  "timestamp": "2026-08-11T14:11:51.985Z",
-  "gitRev": "e7af5e2",
+  "timestamp": "2026-08-12T15:25:31.938Z",
+  "gitRev": "b57c2a0",
   "command": "node --test --test-reporter=tap",
   "reporter": "tap",
   "exitCode": 0,
-  "testsParsed": 116,
+  "testsParsed": 157,
   "results": {
     "AC-021": {
       "status": "pass",
@@ -185,6 +185,41 @@
     "AC-032": {
       "status": "pass",
       "testName": "@spec:AC-032 separa declarados de livres, ausentes e em atendimento",
+      "method": "tap"
+    },
+    "AC-037": {
+      "status": "pass",
+      "testName": "@spec:AC-037 o bloco aberto é cruzado com os atendimentos do profissional",
+      "method": "tap"
+    },
+    "AC-038": {
+      "status": "pass",
+      "testName": "@spec:AC-038 o fim gravado é a hora marcada do atendimento, não NOW()",
+      "method": "tap"
+    },
+    "AC-042": {
+      "status": "pass",
+      "testName": "@spec:AC-042 não fecha bloco em hora anterior ao próprio início",
+      "method": "tap"
+    },
+    "AC-039": {
+      "status": "pass",
+      "testName": "@spec:AC-039 o tempo sobreposto ao atendimento é descontado do bloco",
+      "method": "tap"
+    },
+    "AC-043": {
+      "status": "pass",
+      "testName": "@spec:AC-043 bloco anterior à data de corte não é descontado",
+      "method": "tap"
+    },
+    "AC-040": {
+      "status": "pass",
+      "testName": "@spec:AC-040 o desconto nunca leva o bloco abaixo de zero",
+      "method": "tap"
+    },
+    "AC-041": {
+      "status": "pass",
+      "testName": "@spec:AC-041 a exportação mostra a duração já descontada, não a bruta",
       "method": "tap"
     }
   },

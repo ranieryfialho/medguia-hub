@@ -456,6 +456,13 @@ function desenharTabelaDetalheStatus(
   let cursor = desenharLinhaTabela(doc, y, headers, widths, true, aligns)
 
   let algumExpirado = false
+  let algumDescontado = false
+
+  // AC-041: o PDF leva o mesmo tempo líquido da tela e do Markdown. Um relatório
+  // que se exporta com outro número é pior que nenhum, porque o arquivo é o que
+  // circula fora do sistema.
+  const liquidoDoBloco = (s: (typeof kpi.detalheStatus)[number]) =>
+    Math.max(0, s.duracaoMinutos - s.descontadoMinutos)
 
   for (const s of kpi.detalheStatus) {
     if (cursor > PAGE_HEIGHT - 22) {
@@ -473,12 +480,18 @@ function desenharTabelaDetalheStatus(
     const expirado = classificarBloco(s.duracaoMinutos, s.aberto) === 'expirado'
     if (expirado) algumExpirado = true
 
+    // AC-041: a marca vai na coluna de Duração, junto do asterisco de expirado.
+    // Mesma restrição do AC-035 — as larguras já foram rebalanceadas para
+    // 178mm e não há espaço para uma coluna nova; a explicação vai no rodapé.
+    const descontado = s.descontadoMinutos > 0
+    if (descontado) algumDescontado = true
+
     cursor = desenharLinhaTabela(doc, cursor, [
       label,
       s.observacao ?? '—',
       `${formatAppDate(s.inicio)} ${formatAppTime(s.inicio)}`,
       fimLabel,
-      `${formatarMinutos(s.duracaoMinutos)}${expirado ? ' *' : ''}`,
+      `${formatarMinutos(liquidoDoBloco(s))}${expirado ? ' *' : ''}${descontado ? ' +' : ''}`,
     ], widths, false, aligns)
   }
 
@@ -488,12 +501,19 @@ function desenharTabelaDetalheStatus(
     ])
   }
 
+  if (algumDescontado) {
+    const descontadoTotal = kpi.detalheStatus.reduce((acc, s) => acc + s.descontadoMinutos, 0)
+    cursor = desenharBlocosTexto(doc, cursor + 3, [
+      `+ Parte do bloco aconteceu durante atendimento. ${formatarMinutos(descontadoTotal)} não entram nestes números — o tempo sobreposto conta uma vez, do lado do atendimento.`,
+    ])
+  }
+
   // Totais por status (bate com as colunas da tabela consolidada) + total geral
   const totaisPorStatus = new Map<string, number>()
   for (const s of kpi.detalheStatus) {
-    totaisPorStatus.set(s.status, (totaisPorStatus.get(s.status) ?? 0) + s.duracaoMinutos)
+    totaisPorStatus.set(s.status, (totaisPorStatus.get(s.status) ?? 0) + liquidoDoBloco(s))
   }
-  const totalGeral = kpi.detalheStatus.reduce((acc, s) => acc + s.duracaoMinutos, 0)
+  const totalGeral = kpi.detalheStatus.reduce((acc, s) => acc + liquidoDoBloco(s), 0)
 
   if (cursor > PAGE_HEIGHT - 30) {
     doc.addPage()
