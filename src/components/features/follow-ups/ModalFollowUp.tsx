@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { X, Plus, ChevronLeft, User, FileText } from 'lucide-react'
 import toast from 'react-hot-toast'
 import {
+  buscarResponsavelPadrao,
   criarFollowUp,
   listarTemplatesPorTipo,
   type FollowUpTipo,
@@ -44,8 +45,21 @@ export function ModalFollowUp({
   const [templateId, setTemplateId] = useState('')
   const [descricao, setDescricao] = useState('')
   const [responsavelId, setResponsavelId] = useState('')
+  const [usuarioLogado, setUsuarioLogado] = useState<{ id: string; full_name: string } | null>(null)
   const [isPending, startTransition] = useTransition()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const buscouUsuario = useRef(false)
+
+  // Ao abrir, ja sugere quem esta logado como responsavel
+  useEffect(() => {
+    if (!isOpen || buscouUsuario.current) return
+    buscouUsuario.current = true
+    buscarResponsavelPadrao().then(u => {
+      if (!u) return
+      setUsuarioLogado(u)
+      setResponsavelId(prev => prev || u.id)
+    })
+  }, [isOpen])
 
   function abrir() {
     if (!isControlled) setIsOpenLocal(true)
@@ -63,8 +77,13 @@ export function ModalFollowUp({
     setTemplates([])
     setTemplateId('')
     setDescricao('')
-    setResponsavelId('')
+    setResponsavelId(usuarioLogado?.id ?? '')
   }
+
+  // Garante que quem esta logado apareca na lista mesmo se nao vier em profissionais
+  const opcoesResponsavel = usuarioLogado && !profissionais.some(p => p.id === usuarioLogado.id)
+    ? [usuarioLogado, ...profissionais]
+    : profissionais
 
   function selecionarTipo(tipo: FollowUpTipo) {
     setTipoSelecionado(tipo)
@@ -248,9 +267,11 @@ export function ModalFollowUp({
                       onChange={e => setResponsavelId(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#33A68F]/50 focus:border-[#33A68F] transition-all"
                     >
-                      <option value="">-- Nenhum --</option>
-                      {profissionais.map(p => (
-                        <option key={p.id} value={p.id}>{p.full_name}</option>
+                      {!responsavelId && <option value="">Carregando...</option>}
+                      {opcoesResponsavel.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.full_name}{usuarioLogado?.id === p.id ? ' (você)' : ''}
+                        </option>
                       ))}
                     </select>
                   </div>

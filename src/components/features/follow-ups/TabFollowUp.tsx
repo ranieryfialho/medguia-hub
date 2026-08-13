@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from 'react'
 import { CheckCircle, ChevronLeft, FileText, Plus, User } from 'lucide-react'
 import toast from 'react-hot-toast'
 import {
+  buscarResponsavelPadrao,
   criarFollowUp,
   listarTemplatesPorTipo,
   listarTipos,
@@ -28,6 +29,7 @@ export function TabFollowUp({ pacienteId, atendimentoId, profissionais, isActive
   const [templateId, setTemplateId] = useState('')
   const [descricao, setDescricao] = useState('')
   const [responsavelId, setResponsavelId] = useState('')
+  const [usuarioLogado, setUsuarioLogado] = useState<{ id: string; full_name: string } | null>(null)
   const [isPending, startTransition] = useTransition()
   const [concluido, setConcluido] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -38,6 +40,11 @@ export function TabFollowUp({ pacienteId, atendimentoId, profissionais, isActive
     carregou.current = true
     setLoadingTipos(true)
     listarTipos().then(t => { setTipos(t); setLoadingTipos(false) })
+    buscarResponsavelPadrao().then(u => {
+      if (!u) return
+      setUsuarioLogado(u)
+      setResponsavelId(prev => prev || u.id)
+    })
   }, [isActive])
 
   function resetar() {
@@ -46,9 +53,14 @@ export function TabFollowUp({ pacienteId, atendimentoId, profissionais, isActive
     setTemplates([])
     setTemplateId('')
     setDescricao('')
-    setResponsavelId('')
+    setResponsavelId(usuarioLogado?.id ?? '')
     setConcluido(false)
   }
+
+  // Garante que quem esta logado apareca na lista mesmo se nao vier em profissionais
+  const opcoesResponsavel = usuarioLogado && !profissionais.some(p => p.id === usuarioLogado.id)
+    ? [usuarioLogado, ...profissionais]
+    : profissionais
 
   function selecionarTipo(tipo: FollowUpTipo) {
     setTipoSelecionado(tipo)
@@ -194,9 +206,11 @@ export function TabFollowUp({ pacienteId, atendimentoId, profissionais, isActive
           onChange={e => setResponsavelId(e.target.value)}
           className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#33A68F]/50 focus:border-[#33A68F] transition-all"
         >
-          <option value="">-- Nenhum --</option>
-          {profissionais.map(p => (
-            <option key={p.id} value={p.id}>{p.full_name}</option>
+          {!responsavelId && <option value="">Carregando...</option>}
+          {opcoesResponsavel.map(p => (
+            <option key={p.id} value={p.id}>
+              {p.full_name}{usuarioLogado?.id === p.id ? ' (você)' : ''}
+            </option>
           ))}
         </select>
       </div>

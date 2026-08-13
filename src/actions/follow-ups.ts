@@ -219,6 +219,22 @@ export async function listarFollowUps(params?: {
   return (data ?? []) as FollowUp[]
 }
 
+// Responsavel sugerido ao abrir o formulario: quem esta logado
+export async function buscarResponsavelPadrao(): Promise<{ id: string; full_name: string } | null> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const { data } = await supabase
+    .from('profiles')
+    .select('id, full_name')
+    .eq('id', user.id)
+    .single()
+
+  if (!data) return null
+  return { id: data.id, full_name: data.full_name || 'Você' }
+}
+
 export async function criarFollowUp(input: {
   paciente_id: string
   atendimento_id?: string | null
@@ -237,7 +253,8 @@ export async function criarFollowUp(input: {
       atendimento_id: input.atendimento_id ?? null,
       tipo_id: input.tipo_id,
       descricao: input.descricao?.trim() || null,
-      responsavel_id: input.responsavel_id ?? null,
+      // Sem escolha explicita, o follow-up fica com quem o registrou
+      responsavel_id: input.responsavel_id || user.id,
       criado_por: user.id,
     })
     .select('id')
