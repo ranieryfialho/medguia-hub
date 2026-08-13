@@ -85,6 +85,13 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
   const opcoesRef = useRef<HTMLDivElement>(null)
   const statusRef = useRef<HTMLDivElement>(null)
   const statusMenuRef = useRef<HTMLDivElement>(null)
+  const tabsRef = useRef<HTMLDivElement>(null)
+
+  // Mantem a aba ativa visivel quando a barra rola horizontalmente no celular
+  useEffect(() => {
+    const botao = tabsRef.current?.querySelector<HTMLButtonElement>(`[data-tab="${activeTab}"]`)
+    botao?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+  }, [activeTab])
 
   const isRecorrente = !!(agendamento.agendamento_id && (agendamento.total_sessoes ?? 0) > 1)
   const isConcluido = getAtendimentoStatusKey(status) === 'concluido'
@@ -459,7 +466,7 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
           {/* RIGHT PANEL */}
           <div className="flex flex-col flex-1 min-h-0 min-w-0 border-t lg:border-t-0 border-[#bcc9c4]/30">
           {/* Tabs */}
-          <div className="flex shrink-0 border-b border-[#bcc9c4]/30 bg-[#f5faf9]">
+          <div ref={tabsRef} className="hide-scrollbar flex shrink-0 overflow-x-auto overscroll-x-contain border-b border-[#bcc9c4]/30 bg-[#f5faf9]">
             {[
               { key: 'detalhes', label: 'Detalhes', icon: null },
               { key: 'evolucao', label: 'Evolucao', icon: <ClipboardList size={13} /> },
@@ -470,8 +477,9 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
               <button
                 key={key}
                 type="button"
+                data-tab={key}
                 onClick={() => setActiveTab(key as typeof activeTab)}
-                className={`flex flex-1 items-center justify-center gap-1.5 py-2.5 text-xs font-bold transition-colors ${
+                className={`flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap px-4 py-2.5 text-xs font-bold transition-colors sm:flex-1 sm:px-2 ${
                   activeTab === key
                     ? 'border-b-2 border-[#006b5a] bg-white text-[#006b5a]'
                     : 'text-[#6d7a75] hover:text-[#3d4945]'

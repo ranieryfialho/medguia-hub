@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { format } from 'date-fns'
 import { buscarHistoricoPacienteResumo } from '@/actions/agenda'
 import type { HistoricoPacienteResumo } from '@/actions/agenda'
 import { buscarAuditoriaAtendimento } from '@/actions/confirmacoes-auditoria'
+import { listarFollowUps, type FollowUp } from '@/actions/follow-ups'
 import { AuditoriaTimelineAsync } from '@/components/features/confirmacoes/AuditoriaTimeline'
 import { normalizeAtendimentoStatus } from '@/lib/atendimento-status'
 import {
@@ -23,6 +24,14 @@ export function TabHistorico({ pacienteId, agendamentoId, podeVerComercial, isAc
   const [historicoResumo, setHistoricoResumo] = useState<HistoricoPacienteResumo | null>(null)
   const [loadingHistorico, setLoadingHistorico] = useState(false)
   const [falhaHistorico, setFalhaHistorico] = useState<string | null>(null)
+  const [followUps, setFollowUps] = useState<FollowUp[] | null>(null)
+  const followUpsPedidos = useRef(false)
+
+  useEffect(() => {
+    if (!isActive || followUpsPedidos.current) return
+    followUpsPedidos.current = true
+    listarFollowUps({ paciente_id: pacienteId, limit: 5 }).then(setFollowUps)
+  }, [isActive, pacienteId])
 
   useEffect(() => {
     if (!isActive || historicoResumo || loadingHistorico) return
@@ -194,6 +203,69 @@ export function TabHistorico({ pacienteId, agendamentoId, podeVerComercial, isAc
             ) : (
               <div className="rounded-xl bg-[#f0f5f4] px-4 py-3 text-sm text-[#6d7a75]">
                 Nenhuma evolução encontrada em atendimentos concluídos.
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-[#6d7a75]">Últimos follow-ups</h4>
+              {followUps && followUps.length > 0 && (
+                <span className="text-[11px] text-[#6d7a75]">
+                  {followUps.length} mais recente{followUps.length !== 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+            {followUps === null ? (
+              <div className="rounded-xl bg-[#f0f5f4] px-4 py-3 text-sm text-[#6d7a75]">
+                Carregando follow-ups...
+              </div>
+            ) : followUps.length > 0 ? (
+              <div className="space-y-2">
+                {followUps.map((fu) => {
+                  const pendente = fu.status === 'pendente'
+                  return (
+                    <div
+                      key={fu.id}
+                      className={`rounded-xl border px-3 py-3 ${pendente ? 'border-amber-200 bg-amber-50/50' : 'border-emerald-100 bg-emerald-50/40'}`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {fu.tipo && (
+                              <span
+                                className="rounded-full px-2 py-0.5 text-[10px] font-bold"
+                                style={fu.tipo.cor
+                                  ? { backgroundColor: `${fu.tipo.cor}20`, color: fu.tipo.cor }
+                                  : { backgroundColor: 'rgb(0 107 90 / 0.1)', color: '#006b5a' }}
+                              >
+                                {fu.tipo.nome}
+                              </span>
+                            )}
+                            <span className="text-[11px] text-[#6d7a75]">
+                              {format(new Date(fu.created_at), "dd/MM/yyyy 'às' HH:mm")}
+                            </span>
+                          </div>
+                          {fu.descricao && (
+                            <p className="mt-1 text-[11px] leading-relaxed text-[#3d4945]">{fu.descricao}</p>
+                          )}
+                          {fu.responsavel && (
+                            <p className="mt-1 text-[10px] text-[#6d7a75]">Responsável: {fu.responsavel.full_name}</p>
+                          )}
+                        </div>
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${pendente ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}
+                        >
+                          {pendente ? 'Pendente' : 'Concluído'}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="rounded-xl bg-[#f0f5f4] px-4 py-3 text-sm text-[#6d7a75]">
+                Nenhum follow-up registrado para este paciente.
               </div>
             )}
           </div>
