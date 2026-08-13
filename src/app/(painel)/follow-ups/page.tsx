@@ -17,6 +17,7 @@ function iniciais(nome: string) {
 
 const LIMITE = 25
 const BACKLOG_DIAS = 7
+const SEM_RESPONSAVEL = 'sem_responsavel'
 
 export default async function FollowUpsPage({
   searchParams,
@@ -33,7 +34,10 @@ export default async function FollowUpsPage({
   const busca = ((params.busca as string) || '').trim()
   const tipoFiltro = (params.tipo_id as string) || ''
   // Não-gestor só pode ver os próprios follow-ups, independente do que vier na URL
-  const responsavelFiltro = isGestorOuMaster ? ((params.responsavel_id as string) || '') : user.id
+  const responsavelParam = isGestorOuMaster ? ((params.responsavel_id as string) || '') : user.id
+  // Valor sentinela do select: pega só o que ficou sem ninguém atribuído
+  const semResponsavel = responsavelParam === SEM_RESPONSAVEL
+  const responsavelFiltro = semResponsavel ? '' : responsavelParam
   const de = (params.de as string) || ''
   const ate = (params.ate as string) || ''
   const pagina = Math.max(1, parseInt((params.pagina as string) || '1'))
@@ -77,6 +81,7 @@ export default async function FollowUpsPage({
 
   if (tipoFiltro) query = query.eq('tipo_id', tipoFiltro)
   if (responsavelFiltro) query = query.eq('responsavel_id', responsavelFiltro)
+  if (semResponsavel) query = query.is('responsavel_id', null)
   if (pacienteIdsBusca.length > 0) query = query.in('paciente_id', pacienteIdsBusca)
   if (de) query = query.gte('created_at', getAppDayRangeUTC(de).start)
   if (ate) query = query.lte('created_at', getAppDayRangeUTC(ate).end)
@@ -91,6 +96,7 @@ export default async function FollowUpsPage({
     .lt('created_at', cutoffBacklogIso)
   if (tipoFiltro) pendentesAntigosCountQuery = pendentesAntigosCountQuery.eq('tipo_id', tipoFiltro)
   if (responsavelFiltro) pendentesAntigosCountQuery = pendentesAntigosCountQuery.eq('responsavel_id', responsavelFiltro)
+  if (semResponsavel) pendentesAntigosCountQuery = pendentesAntigosCountQuery.is('responsavel_id', null)
   if (pacienteIdsBusca.length > 0) pendentesAntigosCountQuery = pendentesAntigosCountQuery.in('paciente_id', pacienteIdsBusca)
 
   let pendentesAntigosListaQuery = supabase
@@ -107,6 +113,7 @@ export default async function FollowUpsPage({
     .limit(20)
   if (tipoFiltro) pendentesAntigosListaQuery = pendentesAntigosListaQuery.eq('tipo_id', tipoFiltro)
   if (responsavelFiltro) pendentesAntigosListaQuery = pendentesAntigosListaQuery.eq('responsavel_id', responsavelFiltro)
+  if (semResponsavel) pendentesAntigosListaQuery = pendentesAntigosListaQuery.is('responsavel_id', null)
   if (pacienteIdsBusca.length > 0) pendentesAntigosListaQuery = pendentesAntigosListaQuery.in('paciente_id', pacienteIdsBusca)
 
   // ─── Dashboard: conjunto filtrado (tipo/responsável/busca + período), pendente e concluído ───
@@ -121,6 +128,7 @@ export default async function FollowUpsPage({
     .limit(3000)
   if (tipoFiltro) periodoQuery = periodoQuery.eq('tipo_id', tipoFiltro)
   if (responsavelFiltro) periodoQuery = periodoQuery.eq('responsavel_id', responsavelFiltro)
+  if (semResponsavel) periodoQuery = periodoQuery.is('responsavel_id', null)
   if (pacienteIdsBusca.length > 0) periodoQuery = periodoQuery.in('paciente_id', pacienteIdsBusca)
   if (de) periodoQuery = periodoQuery.gte('created_at', getAppDayRangeUTC(de).start)
   if (ate) periodoQuery = periodoQuery.lte('created_at', getAppDayRangeUTC(ate).end)
@@ -204,7 +212,9 @@ export default async function FollowUpsPage({
     const tipoNome = tipos.find(t => t.id === tipoFiltro)?.nome
     if (tipoNome) partesFiltro.push(`Tipo: ${tipoNome}`)
   }
-  if (isGestorOuMaster && responsavelFiltro) {
+  if (isGestorOuMaster && semResponsavel) {
+    partesFiltro.push('Responsável: sem responsável atribuído')
+  } else if (isGestorOuMaster && responsavelFiltro) {
     const respNome = profissionais.find(p => p.id === responsavelFiltro)?.full_name
     if (respNome) partesFiltro.push(`Responsável: ${respNome}`)
   } else if (!isGestorOuMaster) {
@@ -235,7 +245,7 @@ export default async function FollowUpsPage({
     sp.set('aba', abaAlvo ?? aba)
     if (busca) sp.set('busca', busca)
     if (tipoFiltro) sp.set('tipo_id', tipoFiltro)
-    if (isGestorOuMaster && responsavelFiltro) sp.set('responsavel_id', responsavelFiltro)
+    if (isGestorOuMaster && responsavelParam) sp.set('responsavel_id', responsavelParam)
     if (de) sp.set('de', de)
     if (ate) sp.set('ate', ate)
     if (p > 1) sp.set('pagina', String(p))
@@ -334,10 +344,11 @@ export default async function FollowUpsPage({
         {isGestorOuMaster && (
           <select
             name="responsavel_id"
-            defaultValue={responsavelFiltro}
+            defaultValue={responsavelParam}
             className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#006b5a]/50 shadow-sm"
           >
             <option value="">Todos os responsáveis</option>
+            <option value={SEM_RESPONSAVEL}>Sem responsável</option>
             {profissionais.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
           </select>
         )}
@@ -362,7 +373,7 @@ export default async function FollowUpsPage({
         <button type="submit" className="px-4 py-2 bg-[#006b5a] hover:bg-[#005a4b] text-white rounded-lg text-sm font-medium transition-colors">
           Filtrar
         </button>
-        {(busca || tipoFiltro || (isGestorOuMaster && responsavelFiltro) || de || ate) && (
+        {(busca || tipoFiltro || (isGestorOuMaster && responsavelParam) || de || ate) && (
           <Link href={`/follow-ups?aba=${aba}`} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-sm transition-colors">
             Limpar
           </Link>
