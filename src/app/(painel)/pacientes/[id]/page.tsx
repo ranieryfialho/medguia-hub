@@ -12,6 +12,7 @@ import { buscarProntuariosPorPaciente } from '@/actions/prontuarios'
 import { listarFollowUpsPaciente, listarTipos } from '@/actions/follow-ups'
 import { SecaoFollowUpsPaciente } from '@/components/features/follow-ups/SecaoFollowUpsPaciente'
 import { PacienteTabsClient } from '@/components/features/pacientes/PacienteTabsClient'
+import { CardContatosPaciente } from '@/components/features/pacientes/CardContatosPaciente'
 import { extrairMetadataInativacao } from '@/lib/paciente-inativacao'
 import { buildSessaoEfetivaMap } from '@/lib/sessoes'
 import {
@@ -397,6 +398,15 @@ export default async function PacienteDetailsPage({
               </div>
             </div>
           </div>
+
+          <CardContatosPaciente
+            telefone={paciente.telefone}
+            telefoneSecundario={paciente.telefone_secundario}
+            email={paciente.email}
+            endereco={paciente.endereco}
+            complemento={paciente.complemento}
+            enderecoSemNumero={paciente.endereco_sem_numero}
+          />
 
           <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-100">
             <div className="flex items-center gap-2 mb-4 text-[#006b5a]">
