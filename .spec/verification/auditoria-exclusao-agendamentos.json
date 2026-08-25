@@ -1,0 +1,97 @@
+{
+  "feature": "auditoria-exclusao-agendamentos",
+  "timestamp": "2026-08-25T13:24:35.495Z",
+  "gitRev": "dee5479",
+  "command": "node --test --test-reporter=tap",
+  "reporter": "tap",
+  "exitCode": 0,
+  "testsParsed": 253,
+  "results": {
+    "AC-044": {
+      "status": "pass",
+      "testName": "@spec:AC-044 @spec:AC-057 as 4 Server Actions de exclusão exigem um parâmetro motivo (MotivoExclusao), não opcional",
+      "method": "tap"
+    },
+    "AC-045": {
+      "status": "pass",
+      "testName": "@spec:AC-045 categoria \"Outros\" (exige_observacao) só libera o botão com observação preenchida (sem só espaços)",
+      "method": "tap"
+    },
+    "AC-046": {
+      "status": "pass",
+      "testName": "@spec:AC-046 deletarAgendamento delega a exclusão avulsa para fn_excluir_atendimentos com acao exclusao_avulso",
+      "method": "tap"
+    },
+    "AC-047": {
+      "status": "pass",
+      "testName": "@spec:AC-047 deletarAtendimentoPontualDaRecorrencia delega para fn_excluir_atendimentos com acao exclusao_sessao_recorrente",
+      "method": "tap"
+    },
+    "AC-048": {
+      "status": "pass",
+      "testName": "@spec:AC-048 deletarTodasRecorrencias delega para fn_excluir_atendimentos com acao exclusao_serie_completa, cobrindo todos os ids da série",
+      "method": "tap"
+    },
+    "AC-049": {
+      "status": "pass",
+      "testName": "@spec:AC-049 @spec:AC-052 nenhuma Server Action de exclusão faz DELETE direto em atendimentos — só a RPC pode remover",
+      "method": "tap"
+    },
+    "AC-050": {
+      "status": "pass",
+      "testName": "@spec:AC-050 @spec:AC-051 deletarAtendimentosSelecionados delega o lote inteiro para fn_excluir_atendimentos com acao exclusao_lote",
+      "method": "tap"
+    },
+    "AC-051": {
+      "status": "pass",
+      "testName": "@spec:AC-050 @spec:AC-051 deletarAtendimentosSelecionados delega o lote inteiro para fn_excluir_atendimentos com acao exclusao_lote",
+      "method": "tap"
+    },
+    "AC-052": {
+      "status": "pass",
+      "testName": "@spec:AC-049 @spec:AC-052 nenhuma Server Action de exclusão faz DELETE direto em atendimentos — só a RPC pode remover",
+      "method": "tap"
+    },
+    "AC-053": {
+      "status": "pass",
+      "testName": "@spec:AC-053 a tabela guarda um snapshot JSONB obrigatório do atendimento",
+      "method": "tap"
+    },
+    "AC-054": {
+      "status": "pass",
+      "testName": "@spec:AC-054 a função não tem bloco EXCEPTION que capture RAISE — qualquer falha desfaz log e delete juntos",
+      "method": "tap"
+    },
+    "AC-055": {
+      "status": "pass",
+      "testName": "@spec:AC-055 existe um trigger BEFORE UPDATE OR DELETE que recusa a alteração",
+      "method": "tap"
+    },
+    "AC-056": {
+      "status": "pass",
+      "testName": "@spec:AC-056 usuario_id enviado à RPC vem sempre do contexto autenticado (ctx.userId), nunca de parâmetro do cliente",
+      "method": "tap"
+    },
+    "AC-057": {
+      "status": "pass",
+      "testName": "@spec:AC-044 @spec:AC-057 as 4 Server Actions de exclusão exigem um parâmetro motivo (MotivoExclusao), não opcional",
+      "method": "tap"
+    },
+    "AC-058": {
+      "status": "pass",
+      "testName": "@spec:AC-058 buscarLogsExclusaoPaciente busca em agendamentos_auditoria filtrando pelo paciente",
+      "method": "tap"
+    },
+    "AC-059": {
+      "status": "pass",
+      "testName": "@spec:AC-059 o painel nega acesso a quem não é gestor do sistema",
+      "method": "tap"
+    },
+    "AC-060": {
+      "status": "pass",
+      "testName": "@spec:AC-060 buscarLogsAuditoriaExclusoes consulta agendamentos_auditoria",
+      "method": "tap"
+    }
+  },
+  "principles": {}
+}

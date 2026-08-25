@@ -411,6 +411,51 @@ export async function buscarMedicosPorNome(termo: string): Promise<{ id: string;
   return (data ?? []).map(p => ({ id: p.id, nome: p.full_name ?? '', detalhe: p.especialidade ?? undefined }))
 }
 
+export type LogExclusaoPaciente = {
+  id: string
+  criado_em: string
+  acao: string
+  motivo_categoria: string
+  motivo_categoria_label: string
+  motivo_observacao: string | null
+  usuario_nome: string | null
+  dados_agendamento: {
+    data_agendamento: string | null
+    duracao_minutos: number | null
+    status: string | null
+    tipo: string | null
+    numero_sessao: number | null
+    total_sessoes: number | null
+    observacoes: string | null
+  }
+}
+
+// AC-058: lista as exclusões de agendamento do paciente, mais recente primeiro.
+export async function buscarLogsExclusaoPaciente(pacienteId: string): Promise<LogExclusaoPaciente[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('agendamentos_auditoria')
+    .select('id, criado_em, acao, motivo_categoria, motivo_observacao, usuario_nome, dados_agendamento')
+    .eq('paciente_id', pacienteId)
+    .order('criado_em', { ascending: false })
+
+  if (!data?.length) return []
+
+  const categorias = [...new Set(data.map((log) => log.motivo_categoria))]
+  const { data: motivos } = await supabase
+    .from('motivos_exclusao_agendamento')
+    .select('slug, label')
+    .in('slug', categorias)
+
+  const labelPorSlug = new Map((motivos ?? []).map((m) => [m.slug, m.label]))
+
+  return data.map((log) => ({
+    ...log,
+    motivo_categoria_label: labelPorSlug.get(log.motivo_categoria) ?? log.motivo_categoria,
+    dados_agendamento: log.dados_agendamento as LogExclusaoPaciente['dados_agendamento'],
+  }))
+}
+
 export async function arquivarPaciente(id: string) {
   const supabase = await createClient()
 
