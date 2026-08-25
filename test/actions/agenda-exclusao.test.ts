@@ -108,7 +108,7 @@ test('@spec:AC-048 deletarTodasRecorrencias não apaga a linha de agendamentos e
 test('@spec:AC-050 @spec:AC-051 deletarAtendimentosSelecionados delega o lote inteiro para fn_excluir_atendimentos com acao exclusao_lote', () => {
   assert.match(deletarAtendimentosSelecionados, /executarExclusaoTransacional\(supabaseAdmin, \{/)
   assert.match(deletarAtendimentosSelecionados, /acao:\s*['"]exclusao_lote['"]/)
-  assert.match(deletarAtendimentosSelecionados, /\bids,\n/, 'todos os ids selecionados pelo operador precisam ir no mesmo lote (shorthand ids,), sem filtragem em TS')
+  assert.match(deletarAtendimentosSelecionados, /\bids,\r?\n/, 'todos os ids selecionados pelo operador precisam ir no mesmo lote (shorthand ids,), sem filtragem em TS')
 })
 
 test('@spec:AC-056 usuario_id enviado à RPC vem sempre do contexto autenticado (ctx.userId), nunca de parâmetro do cliente', () => {

@@ -3704,10 +3704,37 @@
       "codigo": "VERIFY_OBSOLETO",
       "feature": "status-personalizados-ciclo-vida",
       "ref": "—",
-      "ocorrencias": 1,
+      "ocorrencias": 2,
       "primeiraVez": "2026-08-25T13:24:35.898Z",
-      "ultimaVez": "2026-08-25T13:24:35.899Z",
-      "gitRev": "dee5479"
+      "ultimaVez": "2026-08-25T13:55:48.789Z",
+      "gitRev": "0ca74a4"
+    },
+    "VERIFY_OBSOLETO::auditoria-exclusao-agendamentos::—": {
+      "codigo": "VERIFY_OBSOLETO",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "—",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-25T13:55:48.789Z",
+      "ultimaVez": "2026-08-25T13:55:48.789Z",
+      "gitRev": "0ca74a4"
+    },
+    "VERIFY_FALHOU::auditoria-exclusao-agendamentos::AC-050": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-050",
+      "ocorrencias": 2,
+      "primeiraVez": "2026-08-25T13:55:57.811Z",
+      "ultimaVez": "2026-08-25T13:56:08.714Z",
+      "gitRev": "0ca74a4"
+    },
+    "VERIFY_FALHOU::auditoria-exclusao-agendamentos::AC-051": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-051",
+      "ocorrencias": 2,
+      "primeiraVez": "2026-08-25T13:55:57.811Z",
+      "ultimaVez": "2026-08-25T13:56:08.714Z",
+      "gitRev": "0ca74a4"
     }
   }
 }

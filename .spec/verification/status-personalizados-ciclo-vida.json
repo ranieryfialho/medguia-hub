@@ -1,7 +1,7 @@
 {
   "feature": "status-personalizados-ciclo-vida",
-  "timestamp": "2026-08-25T13:24:57.180Z",
-  "gitRev": "51242ba",
+  "timestamp": "2026-08-25T13:57:21.382Z",
+  "gitRev": "0ca74a4",
   "command": "node --test --test-reporter=tap",
   "reporter": "tap",
   "exitCode": 0,

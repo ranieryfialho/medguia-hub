@@ -1,7 +1,7 @@
 {
   "feature": "auditoria-exclusao-agendamentos",
-  "timestamp": "2026-08-25T13:24:35.495Z",
-  "gitRev": "dee5479",
+  "timestamp": "2026-08-25T13:57:18.248Z",
+  "gitRev": "0ca74a4",
   "command": "node --test --test-reporter=tap",
   "reporter": "tap",
   "exitCode": 0,
