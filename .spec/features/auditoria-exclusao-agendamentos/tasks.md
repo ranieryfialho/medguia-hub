@@ -60,8 +60,7 @@
 - Notas: mesmo padrão de motivo do T-038, aplicado ao lote selecionado. Depende de T-037.
 - Esforço: baixo
 
-## T-040 — Aba "Logs" em `/pacientes/[id]` [pendente]
-
+## T-040 — Aba "Logs" em `/pacientes/[id]` [concluida]
 - Refs: US-018, AC-058
 - Arquivos: src/actions/pacientes.ts, src/components/features/pacientes/TabLogsPaciente.tsx, src/components/features/pacientes/PacienteTabsClient.tsx
 - Notas: nova query `buscarLogsExclusaoPaciente(pacienteId)`; nova entrada em `TABS` sem `modulo` (visível a todo usuário com acesso ao paciente, ASM-012); lista quem excluiu · quando · escopo · motivo · dados da sessão apagada, mais recente primeiro; nota fixa de que logs são imutáveis. Depende de T-033, T-037 (precisa de logs já sendo gravados para validar em produção, mas pode ser implementada em paralelo usando dados de teste).
