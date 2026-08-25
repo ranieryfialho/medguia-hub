@@ -54,8 +54,7 @@
 - Notas: botões de categoria + campo de observação condicional; confirmação desabilitada sem motivo válido; aviso reforçado de contagem de sessões para série completa. Depende de T-037.
 - Esforço: medio
 
-## T-039 — Passo de motivo no `ModalSelecaoExclusao` (lote) [pendente]
-
+## T-039 — Passo de motivo no `ModalSelecaoExclusao` (lote) [concluida]
 - Refs: US-013, AC-044, AC-045, AC-050, AC-051
 - Arquivos: src/components/features/agenda/ModalSelecaoExclusao.tsx
 - Notas: mesmo padrão de motivo do T-038, aplicado ao lote selecionado. Depende de T-037.
