@@ -18,8 +18,7 @@
     (atalho: `onp-spec tarefa <feature> <T-xxx> <status>`)
 -->
 
-## T-033 — Migration: tabela `agendamentos_auditoria` (append-only) + índices + trigger + RLS de SELECT [pendente]
-
+## T-033 — Migration: tabela `agendamentos_auditoria` (append-only) + índices + trigger + RLS de SELECT [concluida]
 - Refs: US-015, US-018, AC-053, AC-055, AC-058
 - Arquivos: database/agendamentos_auditoria_migration.sql
 - Notas: sem `REFERENCES` para `atendimentos`/`pacientes`/`profiles` (ver design.md). Trigger `BEFORE UPDATE OR DELETE` → `RAISE`. RLS de SELECT liberada para qualquer usuário autenticado (ASM-012). Aplicada via SQL Editor do Studio. Bloqueia T-035.
