@@ -66,8 +66,7 @@
 - Notas: nova query `buscarLogsExclusaoPaciente(pacienteId)`; nova entrada em `TABS` sem `modulo` (visível a todo usuário com acesso ao paciente, ASM-012); lista quem excluiu · quando · escopo · motivo · dados da sessão apagada, mais recente primeiro; nota fixa de que logs são imutáveis. Depende de T-033, T-037 (precisa de logs já sendo gravados para validar em produção, mas pode ser implementada em paralelo usando dados de teste).
 - Esforço: medio
 
-## T-041 — Painel `/relatorios/auditoria-exclusoes` com os 4 filtros [pendente]
-
+## T-041 — Painel `/relatorios/auditoria-exclusoes` com os 4 filtros [concluida]
 - Refs: US-019, AC-059, AC-060
 - Arquivos: src/app/(painel)/relatorios/auditoria-exclusoes/page.tsx, src/actions/relatorios-auditoria.ts
 - Notas: gate `isGestorSistema`; filtros de período, profissional, operador e motivo combinados; paginação server-side sobre os índices de T-033. Depende de T-033, T-037.
