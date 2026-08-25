@@ -9,6 +9,7 @@ import {
   Layers, Loader2, Mail, MessageCircle, Pencil, Phone, Timer, Trash2, User, UserCheck, UserPlus, X,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { createClient } from '@/lib/supabase/client'
 import {
   buscarAtendimentosPendentesRecorrencia,
   buscarDetalhesAgendamento,
@@ -19,6 +20,7 @@ import {
   mudarStatusAgendamento,
   listarFisioterapeutas,
   atribuirFisioterapeutaAtendimento,
+  type MotivoExclusao,
 } from '@/actions/agenda'
 import { adicionarSessaoReposicao, criarAtendimentoReagendado, obterProximaData, registrarContato } from '@/actions/confirmacoes'
 import { format } from 'date-fns'
@@ -39,6 +41,15 @@ import {
 } from './agendamento-item-utils'
 import { useTempoEspera } from '@/hooks/useTempoEspera'
 
+// Categorias de motivo (US-010 a US-012): catálogo lido direto de
+// motivos_exclusao_agendamento (RLS libera SELECT para authenticated, T-034).
+// A validação de fato — categoria existe/ativa, "outros" com observação —
+// acontece de novo no servidor por fn_excluir_atendimentos (AC-045, AC-057);
+// aqui é só o que bloqueia o botão de confirmar antes de chamar a Server Action.
+type MotivoCatalogoItem = { slug: string; label: string; exige_observacao: boolean }
+
+type EscopoExclusao = 'avulso' | 'unico' | 'todos'
+
 type AgendamentoModalProps = {
   agendamento: AgendamentoDetalhe
   onClose: () => void
@@ -57,6 +68,12 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
   const [showOpcoes, setShowOpcoes] = useState(false)
   const [loading, setLoading] = useState(false)
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false)
+  const [passoMotivo, setPassoMotivo] = useState<EscopoExclusao | null>(null)
+  const [motivosCatalogo, setMotivosCatalogo] = useState<MotivoCatalogoItem[] | null>(null)
+  const [carregandoMotivos, setCarregandoMotivos] = useState(false)
+  const [motivoCategoria, setMotivoCategoria] = useState<string | null>(null)
+  const [motivoObservacao, setMotivoObservacao] = useState('')
+  const [excluindo, setExcluindo] = useState(false)
   const [confirmacaoFalta, setConfirmacaoFalta] = useState(false)
   const [modalSelecao, setModalSelecao] = useState(false)
   const [modalEdicaoSerie, setModalEdicaoSerie] = useState(false)
@@ -94,6 +111,10 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
   }, [activeTab])
 
   const isRecorrente = !!(agendamento.agendamento_id && (agendamento.total_sessoes ?? 0) > 1)
+  const categoriaSelecionada = motivosCatalogo?.find((m) => m.slug === motivoCategoria) ?? null
+  // AC-044: sem categoria, botão fica desabilitado. AC-045: "Outros" (exige_observacao)
+  // também exige texto não-vazio (trim cobre "só espaços").
+  const motivoValido = !!motivoCategoria && (!categoriaSelecionada?.exige_observacao || motivoObservacao.trim().length > 0)
   const isConcluido = getAtendimentoStatusKey(status) === 'concluido'
   const nomePaciente = agendamento.pacientes?.nome || 'Paciente'
   const inicial = nomePaciente.charAt(0).toUpperCase()
@@ -162,6 +183,7 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
       if (opcoesRef.current && !opcoesRef.current.contains(e.target as Node)) {
         setShowOpcoes(false)
         setConfirmandoExclusao(false)
+        cancelarPassoMotivo()
       }
       if (
         statusRef.current && !statusRef.current.contains(e.target as Node) &&
@@ -236,21 +258,57 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
     }
   }
 
-  async function handleExcluir(escopo?: 'unico' | 'todos') {
-    if (!confirmandoExclusao) { setConfirmandoExclusao(true); return }
-    if (isRecorrente && !escopo) return
-
-    setLoading(true)
-    let resultado: { error?: string } | undefined
-    if (escopo === 'todos' && agendamento.agendamento_id) {
-      resultado = await deletarTodasRecorrencias(agendamento.agendamento_id)
-    } else if (isRecorrente && escopo === 'unico') {
-      resultado = await deletarAtendimentoPontualDaRecorrencia(agendamento.id)
-    } else {
-      resultado = await deletarAgendamento(agendamento.id)
+  async function carregarMotivosCatalogo() {
+    if (motivosCatalogo || carregandoMotivos) return
+    setCarregandoMotivos(true)
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('motivos_exclusao_agendamento')
+      .select('slug, label, exige_observacao')
+      .eq('ativo', true)
+      .order('ordem', { ascending: true })
+    setCarregandoMotivos(false)
+    if (error) {
+      toast.error('Não foi possível carregar os motivos de exclusão.')
+      setMotivosCatalogo([])
+      return
     }
-    setLoading(false)
-    if (resultado?.error) { toast.error(resultado.error); setConfirmandoExclusao(false); return }
+    setMotivosCatalogo(data ?? [])
+  }
+
+  function abrirPassoMotivo(escopo: EscopoExclusao) {
+    setConfirmandoExclusao(false)
+    setPassoMotivo(escopo)
+    setMotivoCategoria(null)
+    setMotivoObservacao('')
+    void carregarMotivosCatalogo()
+  }
+
+  function cancelarPassoMotivo() {
+    setPassoMotivo(null)
+    setMotivoCategoria(null)
+    setMotivoObservacao('')
+  }
+
+  async function handleConfirmarExclusaoComMotivo() {
+    if (!passoMotivo || !motivoValido || !motivoCategoria) return
+
+    const motivo: MotivoExclusao = {
+      categoria: motivoCategoria,
+      observacao: motivoObservacao.trim() ? motivoObservacao.trim() : undefined,
+    }
+
+    setExcluindo(true)
+    let resultado: { error?: string } | undefined
+    if (passoMotivo === 'todos' && agendamento.agendamento_id) {
+      resultado = await deletarTodasRecorrencias(agendamento.agendamento_id, motivo)
+    } else if (passoMotivo === 'unico') {
+      resultado = await deletarAtendimentoPontualDaRecorrencia(agendamento.id, motivo)
+    } else {
+      resultado = await deletarAgendamento(agendamento.id, motivo)
+    }
+    setExcluindo(false)
+    if (resultado?.error) { toast.error(resultado.error); return }
     router.refresh()
     onClose()
   }
@@ -284,6 +342,7 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
     if (!agendamento.agendamento_id) return
     setShowOpcoes(false)
     setConfirmandoExclusao(false)
+    cancelarPassoMotivo()
     setModalSelecao(true)
   }
 
@@ -376,7 +435,7 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
               <div className="relative flex-1" ref={opcoesRef}>
                 <button
                   type="button"
-                  onClick={() => { setShowOpcoes((prev) => !prev); setConfirmandoExclusao(false) }}
+                  onClick={() => { setShowOpcoes((prev) => !prev); setConfirmandoExclusao(false); cancelarPassoMotivo() }}
                   className="flex w-full items-center justify-center gap-1 rounded-xl border border-[#bcc9c4] px-3 py-2.5 text-[11px] sm:text-xs font-semibold text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
                 >
                   Opções
@@ -384,76 +443,149 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
                 </button>
 
                 {showOpcoes && (
-                  <div className="absolute right-0 top-full z-30 mt-1 w-64 overflow-hidden rounded-xl border border-[#bcc9c4]/40 bg-white py-1.5 shadow-lg">
-                    <button
-                      type="button"
-                      onClick={() => { setShowOpcoes(false); onEditar() }}
-                      className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-[#171d1c] hover:bg-[#f0f5f4] transition-colors"
-                    >
-                      <Pencil size={15} className="text-[#3d4945]" />
-                      Editar
-                    </button>
-                    {isRecorrente && agendamento.agendamento_id && (
-                      <button
-                        type="button"
-                        onClick={() => { setShowOpcoes(false); setModalEdicaoSerie(true) }}
-                        className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-[#171d1c] hover:bg-[#f0f5f4] transition-colors"
-                      >
-                        <Layers size={15} className="text-[#3d4945]" />
-                        Editar série
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => { router.push(`/pacientes/${agendamento.paciente_id}`); setShowOpcoes(false) }}
-                      className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-[#171d1c] hover:bg-[#f0f5f4] transition-colors"
-                    >
-                      <User size={15} className="text-[#3d4945]" />
-                      Ver jornada do paciente
-                    </button>
-                    <div className="my-1 h-px bg-[#bcc9c4]/30" />
-                    {isConcluido ? (
-                      <div className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-slate-400 cursor-not-allowed select-none">
-                        <Trash2 size={15} />
-                        Concluído — não pode excluir
-                      </div>
-                    ) : confirmandoExclusao && isRecorrente ? (
-                      <div className="space-y-1 px-3 py-2">
-                        <p className="px-1 pb-1 text-[11px] font-bold text-slate-400">Excluir:</p>
+                  <div className="absolute right-0 top-full z-30 mt-1 w-72 overflow-hidden rounded-xl border border-[#bcc9c4]/40 bg-white py-1.5 shadow-lg">
+                    {passoMotivo ? (
+                      <div className="space-y-3 px-4 py-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-bold text-[#6d7a75]">Motivo da exclusão</p>
+                          <button
+                            type="button"
+                            onClick={cancelarPassoMotivo}
+                            className="text-slate-400 hover:text-slate-600 transition-colors"
+                            aria-label="Cancelar exclusão"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+
+                        {passoMotivo === 'todos' && (
+                          <p className="rounded-lg bg-[#fbeaea] px-3 py-2 text-xs font-semibold text-[#ba1a1a]">
+                            Isso vai excluir as {agendamento.total_sessoes ?? 0} sessões desta série inteira.
+                            Se alguma sessão já estiver concluída, a exclusão inteira é recusada — nenhuma sessão é removida.
+                          </p>
+                        )}
+
+                        {carregandoMotivos ? (
+                          <p className="text-xs text-slate-400">Carregando motivos...</p>
+                        ) : (
+                          <div className="space-y-1">
+                            {(motivosCatalogo ?? []).map((m) => (
+                              <button
+                                key={m.slug}
+                                type="button"
+                                onClick={() => setMotivoCategoria(m.slug)}
+                                className={`w-full rounded-lg px-3 py-2 text-left text-xs font-medium transition-colors ${
+                                  motivoCategoria === m.slug
+                                    ? 'bg-[#006b5a]/10 text-[#006b5a]'
+                                    : 'text-[#3d4945] hover:bg-[#f0f5f4]'
+                                }`}
+                              >
+                                {m.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        {categoriaSelecionada?.exige_observacao && (
+                          <textarea
+                            value={motivoObservacao}
+                            onChange={(e) => setMotivoObservacao(e.target.value)}
+                            placeholder="Descreva o motivo..."
+                            rows={3}
+                            className="w-full rounded-lg border border-[#bcc9c4] px-3 py-2 text-xs text-[#3d4945] focus:outline-none focus:ring-1 focus:ring-[#006b5a]"
+                          />
+                        )}
+
                         <button
                           type="button"
-                          onClick={() => void handleExcluir('unico')}
-                          disabled={loading}
-                          className="w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium text-[#ba1a1a] hover:bg-[#fbeaea] transition-colors disabled:opacity-50"
+                          onClick={() => void handleConfirmarExclusaoComMotivo()}
+                          disabled={!motivoValido || excluindo}
+                          className="w-full rounded-lg bg-[#ba1a1a] py-2.5 text-xs font-bold text-white disabled:opacity-40 transition-opacity"
                         >
-                          Apenas este agendamento
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleAbrirSelecao}
-                          disabled={loading}
-                          className="w-full rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-[#ba1a1a] hover:bg-[#fbeaea] transition-colors disabled:opacity-50"
-                        >
-                          Selecionar atendimentos
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setConfirmandoExclusao(false)}
-                          className="w-full py-1.5 text-center text-xs text-slate-400 hover:text-slate-600 transition-colors"
-                        >
-                          Cancelar
+                          {excluindo ? 'Excluindo...' : 'Confirmar exclusão'}
                         </button>
                       </div>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => void handleExcluir()}
-                        disabled={loading}
-                        className="flex w-full items-center gap-3 px-4 py-2.5 text-sm font-semibold text-[#ba1a1a] hover:bg-[#fbeaea] transition-colors disabled:opacity-50"
-                      >
-                        <Trash2 size={15} />
-                        {confirmandoExclusao ? 'Clique para confirmar' : 'Excluir agendamento'}
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => { setShowOpcoes(false); onEditar() }}
+                          className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-[#171d1c] hover:bg-[#f0f5f4] transition-colors"
+                        >
+                          <Pencil size={15} className="text-[#3d4945]" />
+                          Editar
+                        </button>
+                        {isRecorrente && agendamento.agendamento_id && (
+                          <button
+                            type="button"
+                            onClick={() => { setShowOpcoes(false); setModalEdicaoSerie(true) }}
+                            className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-[#171d1c] hover:bg-[#f0f5f4] transition-colors"
+                          >
+                            <Layers size={15} className="text-[#3d4945]" />
+                            Editar série
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => { router.push(`/pacientes/${agendamento.paciente_id}`); setShowOpcoes(false) }}
+                          className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-[#171d1c] hover:bg-[#f0f5f4] transition-colors"
+                        >
+                          <User size={15} className="text-[#3d4945]" />
+                          Ver jornada do paciente
+                        </button>
+                        <div className="my-1 h-px bg-[#bcc9c4]/30" />
+                        {isConcluido ? (
+                          <div className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-slate-400 cursor-not-allowed select-none">
+                            <Trash2 size={15} />
+                            Concluído — não pode excluir
+                          </div>
+                        ) : confirmandoExclusao && isRecorrente ? (
+                          <div className="space-y-1 px-3 py-2">
+                            <p className="px-1 pb-1 text-[11px] font-bold text-slate-400">Excluir:</p>
+                            <button
+                              type="button"
+                              onClick={() => abrirPassoMotivo('unico')}
+                              disabled={loading}
+                              className="w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium text-[#ba1a1a] hover:bg-[#fbeaea] transition-colors disabled:opacity-50"
+                            >
+                              Apenas este agendamento
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => abrirPassoMotivo('todos')}
+                              disabled={loading}
+                              className="w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium text-[#ba1a1a] hover:bg-[#fbeaea] transition-colors disabled:opacity-50"
+                            >
+                              Excluir toda a série ({agendamento.total_sessoes ?? 0} sessões)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleAbrirSelecao}
+                              disabled={loading}
+                              className="w-full rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-[#ba1a1a] hover:bg-[#fbeaea] transition-colors disabled:opacity-50"
+                            >
+                              Selecionar atendimentos
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmandoExclusao(false)}
+                              className="w-full py-1.5 text-center text-xs text-slate-400 hover:text-slate-600 transition-colors"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => { if (isRecorrente) setConfirmandoExclusao(true); else abrirPassoMotivo('avulso') }}
+                            disabled={loading}
+                            className="flex w-full items-center gap-3 px-4 py-2.5 text-sm font-semibold text-[#ba1a1a] hover:bg-[#fbeaea] transition-colors disabled:opacity-50"
+                          >
+                            <Trash2 size={15} />
+                            Excluir agendamento
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
