@@ -36,8 +36,7 @@
 - Notas: `SECURITY DEFINER` + `SET search_path = public, pg_temp` (obrigatório). `INSERT` do log **antes** do `DELETE`, dentro da mesma transação. Bloqueio de "Concluído" é absoluto (ASM-011) — qualquer alvo concluído aborta a operação inteira. Depende de T-033, T-034. Bloqueia T-037.
 - Esforço: alto
 
-## T-036 — Testes estáticos de SQL (forma e ordem da migration/função) [pendente]
-
+## T-036 — Testes estáticos de SQL (forma e ordem da migration/função) [concluida]
 - Refs: AC-053, AC-054, AC-055
 - Arquivos: test/sql/auditoria-exclusao.test.ts
 - Notas: assere ausência de `REFERENCES` na tabela de auditoria, presença do trigger `BEFORE UPDATE OR DELETE`, `SET search_path` na função, e que o `INSERT` no log aparece antes do `DELETE` no corpo da função (mesma técnica de `test/sql/` já usada no projeto — não executa Postgres). Depende de T-033, T-034, T-035.
