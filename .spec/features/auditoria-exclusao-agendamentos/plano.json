@@ -1,0 +1,206 @@
+{
+  "runId": "medguia-hub-auditoria-exclusao-agendamentos-mt8nzfj0",
+  "feature": "auditoria-exclusao-agendamentos",
+  "agent": "claude",
+  "modo": "sequencial",
+  "paralelizar": null,
+  "modeloForcado": null,
+  "esforcoForcado": null,
+  "geradoEm": "2026-08-25 12:51",
+  "branchTrabalho": "spec/auditoria-exclusao-agendamentos",
+  "baseDir": ".spec/features/auditoria-exclusao-agendamentos",
+  "specDir": ".spec",
+  "repoName": "medguia-hub",
+  "logsDir": "../onp-worktrees/medguia-hub-auditoria-exclusao-agendamentos-logs",
+  "ondas": [],
+  "faixas": [],
+  "sequenciais": [
+    {
+      "id": "T-033",
+      "titulo": "Migration: tabela `agendamentos_auditoria` (append-only) + índices + trigger + RLS de SELECT",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "database/agendamentos_auditoria_migration.sql"
+      ],
+      "refs": [
+        "US-015",
+        "US-018",
+        "AC-053",
+        "AC-055",
+        "AC-058"
+      ]
+    },
+    {
+      "id": "T-034",
+      "titulo": "Migration: catálogo `motivos_exclusao_agendamento` + seed do PRD",
+      "modelo": "claude-sonnet-5",
+      "esforco": "low",
+      "arquivos": [
+        "database/motivos_exclusao_agendamento_migration.sql"
+      ],
+      "refs": [
+        "US-010",
+        "AC-044",
+        "AC-045",
+        "AC-057"
+      ]
+    },
+    {
+      "id": "T-035",
+      "titulo": "`fn_excluir_atendimentos`: validações, bloqueio de concluídos, snapshot, delete, limpeza de série",
+      "modelo": "claude-sonnet-5",
+      "esforco": "high",
+      "arquivos": [
+        "database/fn_excluir_atendimentos_migration.sql"
+      ],
+      "refs": [
+        "US-014",
+        "US-015",
+        "US-016",
+        "US-017",
+        "AC-046",
+        "AC-047",
+        "AC-048",
+        "AC-049",
+        "AC-050",
+        "AC-051",
+        "AC-052",
+        "AC-053",
+        "AC-054",
+        "AC-056",
+        "AC-057"
+      ]
+    },
+    {
+      "id": "T-036",
+      "titulo": "Testes estáticos de SQL (forma e ordem da migration/função)",
+      "modelo": "claude-sonnet-5",
+      "esforco": "low",
+      "arquivos": [
+        "test/sql/auditoria-exclusao.test.ts"
+      ],
+      "refs": [
+        "AC-053",
+        "AC-054",
+        "AC-055"
+      ]
+    },
+    {
+      "id": "T-037",
+      "titulo": "Refatorar as 4 Server Actions de exclusão para casca fina sobre a RPC",
+      "modelo": "claude-sonnet-5",
+      "esforco": "high",
+      "arquivos": [
+        "src/actions/agenda.ts"
+      ],
+      "refs": [
+        "US-010",
+        "US-011",
+        "US-012",
+        "US-013",
+        "US-016",
+        "AC-044",
+        "AC-046",
+        "AC-047",
+        "AC-048",
+        "AC-049",
+        "AC-050",
+        "AC-051",
+        "AC-052",
+        "AC-056",
+        "AC-057"
+      ]
+    },
+    {
+      "id": "T-038",
+      "titulo": "Passo de motivo no `AgendamentoModal` (avulso, pontual, série completa)",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "src/components/features/agenda/AgendamentoModal.tsx"
+      ],
+      "refs": [
+        "US-010",
+        "US-011",
+        "US-012",
+        "AC-044",
+        "AC-045",
+        "AC-046",
+        "AC-047",
+        "AC-048",
+        "AC-049"
+      ]
+    },
+    {
+      "id": "T-039",
+      "titulo": "Passo de motivo no `ModalSelecaoExclusao` (lote)",
+      "modelo": "claude-sonnet-5",
+      "esforco": "low",
+      "arquivos": [
+        "src/components/features/agenda/ModalSelecaoExclusao.tsx"
+      ],
+      "refs": [
+        "US-013",
+        "AC-044",
+        "AC-045",
+        "AC-050",
+        "AC-051"
+      ]
+    },
+    {
+      "id": "T-040",
+      "titulo": "Aba \"Logs\" em `/pacientes/[id]`",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "src/actions/pacientes.ts",
+        "src/components/features/pacientes/TabLogsPaciente.tsx",
+        "src/components/features/pacientes/PacienteTabsClient.tsx"
+      ],
+      "refs": [
+        "US-018",
+        "AC-058"
+      ]
+    },
+    {
+      "id": "T-041",
+      "titulo": "Painel `/relatorios/auditoria-exclusoes` com os 4 filtros",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "src/app/(painel)/relatorios/auditoria-exclusoes/page.tsx",
+        "src/actions/relatorios-auditoria.ts"
+      ],
+      "refs": [
+        "US-019",
+        "AC-059",
+        "AC-060"
+      ]
+    },
+    {
+      "id": "T-042",
+      "titulo": "Roteiro de aplicação em produção + validação manual dos 4 escopos e das 2 recusas de trigger",
+      "modelo": "claude-sonnet-5",
+      "esforco": "low",
+      "arquivos": [
+        "docs/ROTEIRO_APLICACAO_auditoria_exclusao.md"
+      ],
+      "refs": [
+        "US-014",
+        "US-015",
+        "US-016",
+        "US-017",
+        "AC-049",
+        "AC-050",
+        "AC-052",
+        "AC-054",
+        "AC-055",
+        "AC-056",
+        "AC-057"
+      ]
+    }
+  ],
+  "concluidas": [],
+  "avisos": []
+}

@@ -3276,6 +3276,429 @@
       "primeiraVez": "2026-08-12T17:51:26.056Z",
       "ultimaVez": "2026-08-12T17:52:49.622Z",
       "gitRev": "0eb7a2f"
+    },
+    "ID_DUPLICADO::status-personalizados-ciclo-vida::ASM-001": {
+      "codigo": "ID_DUPLICADO",
+      "feature": "status-personalizados-ciclo-vida",
+      "ref": "ASM-001",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-25T12:45:02.031Z",
+      "ultimaVez": "2026-08-25T12:45:02.041Z",
+      "gitRev": "868703f"
+    },
+    "ID_DUPLICADO::status-personalizados-ciclo-vida::ASM-002": {
+      "codigo": "ID_DUPLICADO",
+      "feature": "status-personalizados-ciclo-vida",
+      "ref": "ASM-002",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:45:02.042Z",
+      "gitRev": "868703f"
+    },
+    "ID_DUPLICADO::status-personalizados-ciclo-vida::ASM-003": {
+      "codigo": "ID_DUPLICADO",
+      "feature": "status-personalizados-ciclo-vida",
+      "ref": "ASM-003",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:45:02.042Z",
+      "gitRev": "868703f"
+    },
+    "ID_DUPLICADO::status-personalizados-ciclo-vida::ASM-004": {
+      "codigo": "ID_DUPLICADO",
+      "feature": "status-personalizados-ciclo-vida",
+      "ref": "ASM-004",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:45:02.042Z",
+      "gitRev": "868703f"
+    },
+    "ID_DUPLICADO::status-personalizados-ciclo-vida::ASM-005": {
+      "codigo": "ID_DUPLICADO",
+      "feature": "status-personalizados-ciclo-vida",
+      "ref": "ASM-005",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:45:02.042Z",
+      "gitRev": "868703f"
+    },
+    "ID_DUPLICADO::status-personalizados-ciclo-vida::Q-001": {
+      "codigo": "ID_DUPLICADO",
+      "feature": "status-personalizados-ciclo-vida",
+      "ref": "Q-001",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:45:02.042Z",
+      "gitRev": "868703f"
+    },
+    "ID_DUPLICADO::status-personalizados-ciclo-vida::Q-002": {
+      "codigo": "ID_DUPLICADO",
+      "feature": "status-personalizados-ciclo-vida",
+      "ref": "Q-002",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:45:02.042Z",
+      "gitRev": "868703f"
+    },
+    "ID_DUPLICADO::status-personalizados-ciclo-vida::Q-003": {
+      "codigo": "ID_DUPLICADO",
+      "feature": "status-personalizados-ciclo-vida",
+      "ref": "Q-003",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:45:02.042Z",
+      "gitRev": "868703f"
+    },
+    "ARQUIVO_INEXISTENTE::auditoria-exclusao-agendamentos::T-001": {
+      "codigo": "ARQUIVO_INEXISTENTE",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "T-001",
+      "ocorrencias": 2,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:45:56.485Z",
+      "gitRev": "868703f"
+    },
+    "AC_SEM_TASK::auditoria-exclusao-agendamentos::AC-047": {
+      "codigo": "AC_SEM_TASK",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-047",
+      "ocorrencias": 2,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:45:56.486Z",
+      "gitRev": "868703f"
+    },
+    "AC_SEM_TASK::auditoria-exclusao-agendamentos::AC-048": {
+      "codigo": "AC_SEM_TASK",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-048",
+      "ocorrencias": 2,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:45:56.486Z",
+      "gitRev": "868703f"
+    },
+    "AC_SEM_TASK::auditoria-exclusao-agendamentos::AC-049": {
+      "codigo": "AC_SEM_TASK",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-049",
+      "ocorrencias": 2,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:45:56.486Z",
+      "gitRev": "868703f"
+    },
+    "AC_SEM_TASK::auditoria-exclusao-agendamentos::AC-050": {
+      "codigo": "AC_SEM_TASK",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-050",
+      "ocorrencias": 2,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:45:56.486Z",
+      "gitRev": "868703f"
+    },
+    "AC_SEM_TASK::auditoria-exclusao-agendamentos::AC-051": {
+      "codigo": "AC_SEM_TASK",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-051",
+      "ocorrencias": 2,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:45:56.486Z",
+      "gitRev": "868703f"
+    },
+    "AC_SEM_TASK::auditoria-exclusao-agendamentos::AC-052": {
+      "codigo": "AC_SEM_TASK",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-052",
+      "ocorrencias": 2,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:45:56.486Z",
+      "gitRev": "868703f"
+    },
+    "AC_SEM_TASK::auditoria-exclusao-agendamentos::AC-053": {
+      "codigo": "AC_SEM_TASK",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-053",
+      "ocorrencias": 2,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:45:56.486Z",
+      "gitRev": "868703f"
+    },
+    "AC_SEM_TASK::auditoria-exclusao-agendamentos::AC-054": {
+      "codigo": "AC_SEM_TASK",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-054",
+      "ocorrencias": 2,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:45:56.486Z",
+      "gitRev": "868703f"
+    },
+    "AC_SEM_TASK::auditoria-exclusao-agendamentos::AC-055": {
+      "codigo": "AC_SEM_TASK",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-055",
+      "ocorrencias": 2,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:45:56.486Z",
+      "gitRev": "868703f"
+    },
+    "AC_SEM_TASK::auditoria-exclusao-agendamentos::AC-056": {
+      "codigo": "AC_SEM_TASK",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-056",
+      "ocorrencias": 2,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:45:56.486Z",
+      "gitRev": "868703f"
+    },
+    "AC_SEM_TASK::auditoria-exclusao-agendamentos::AC-057": {
+      "codigo": "AC_SEM_TASK",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-057",
+      "ocorrencias": 2,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:45:56.486Z",
+      "gitRev": "868703f"
+    },
+    "AC_SEM_TASK::auditoria-exclusao-agendamentos::AC-058": {
+      "codigo": "AC_SEM_TASK",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-058",
+      "ocorrencias": 2,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:45:56.486Z",
+      "gitRev": "868703f"
+    },
+    "AC_SEM_TASK::auditoria-exclusao-agendamentos::AC-059": {
+      "codigo": "AC_SEM_TASK",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-059",
+      "ocorrencias": 2,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:45:56.486Z",
+      "gitRev": "868703f"
+    },
+    "AC_SEM_TASK::auditoria-exclusao-agendamentos::AC-060": {
+      "codigo": "AC_SEM_TASK",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-060",
+      "ocorrencias": 2,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:45:56.486Z",
+      "gitRev": "868703f"
+    },
+    "AC_SEM_TESTE::auditoria-exclusao-agendamentos::AC-044": {
+      "codigo": "AC_SEM_TESTE",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-044",
+      "ocorrencias": 3,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:48:01.318Z",
+      "gitRev": "868703f"
+    },
+    "AC_SEM_TESTE::auditoria-exclusao-agendamentos::AC-045": {
+      "codigo": "AC_SEM_TESTE",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-045",
+      "ocorrencias": 3,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:48:01.318Z",
+      "gitRev": "868703f"
+    },
+    "AC_SEM_TESTE::auditoria-exclusao-agendamentos::AC-046": {
+      "codigo": "AC_SEM_TESTE",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-046",
+      "ocorrencias": 3,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:48:01.318Z",
+      "gitRev": "868703f"
+    },
+    "AC_SEM_TESTE::auditoria-exclusao-agendamentos::AC-047": {
+      "codigo": "AC_SEM_TESTE",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-047",
+      "ocorrencias": 3,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:48:01.318Z",
+      "gitRev": "868703f"
+    },
+    "AC_SEM_TESTE::auditoria-exclusao-agendamentos::AC-048": {
+      "codigo": "AC_SEM_TESTE",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-048",
+      "ocorrencias": 3,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:48:01.318Z",
+      "gitRev": "868703f"
+    },
+    "AC_SEM_TESTE::auditoria-exclusao-agendamentos::AC-049": {
+      "codigo": "AC_SEM_TESTE",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-049",
+      "ocorrencias": 3,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:48:01.318Z",
+      "gitRev": "868703f"
+    },
+    "AC_SEM_TESTE::auditoria-exclusao-agendamentos::AC-050": {
+      "codigo": "AC_SEM_TESTE",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-050",
+      "ocorrencias": 3,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:48:01.318Z",
+      "gitRev": "868703f"
+    },
+    "AC_SEM_TESTE::auditoria-exclusao-agendamentos::AC-051": {
+      "codigo": "AC_SEM_TESTE",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-051",
+      "ocorrencias": 3,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:48:01.318Z",
+      "gitRev": "868703f"
+    },
+    "AC_SEM_TESTE::auditoria-exclusao-agendamentos::AC-052": {
+      "codigo": "AC_SEM_TESTE",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-052",
+      "ocorrencias": 3,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:48:01.318Z",
+      "gitRev": "868703f"
+    },
+    "AC_SEM_TESTE::auditoria-exclusao-agendamentos::AC-053": {
+      "codigo": "AC_SEM_TESTE",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-053",
+      "ocorrencias": 3,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:48:01.318Z",
+      "gitRev": "868703f"
+    },
+    "AC_SEM_TESTE::auditoria-exclusao-agendamentos::AC-054": {
+      "codigo": "AC_SEM_TESTE",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-054",
+      "ocorrencias": 3,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:48:01.318Z",
+      "gitRev": "868703f"
+    },
+    "AC_SEM_TESTE::auditoria-exclusao-agendamentos::AC-055": {
+      "codigo": "AC_SEM_TESTE",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-055",
+      "ocorrencias": 3,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:48:01.318Z",
+      "gitRev": "868703f"
+    },
+    "AC_SEM_TESTE::auditoria-exclusao-agendamentos::AC-056": {
+      "codigo": "AC_SEM_TESTE",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-056",
+      "ocorrencias": 3,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:48:01.318Z",
+      "gitRev": "868703f"
+    },
+    "AC_SEM_TESTE::auditoria-exclusao-agendamentos::AC-057": {
+      "codigo": "AC_SEM_TESTE",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-057",
+      "ocorrencias": 3,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:48:01.318Z",
+      "gitRev": "868703f"
+    },
+    "AC_SEM_TESTE::auditoria-exclusao-agendamentos::AC-058": {
+      "codigo": "AC_SEM_TESTE",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-058",
+      "ocorrencias": 3,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:48:01.318Z",
+      "gitRev": "868703f"
+    },
+    "AC_SEM_TESTE::auditoria-exclusao-agendamentos::AC-059": {
+      "codigo": "AC_SEM_TESTE",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-059",
+      "ocorrencias": 3,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:48:01.318Z",
+      "gitRev": "868703f"
+    },
+    "AC_SEM_TESTE::auditoria-exclusao-agendamentos::AC-060": {
+      "codigo": "AC_SEM_TESTE",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "AC-060",
+      "ocorrencias": 3,
+      "primeiraVez": "2026-08-25T12:45:02.042Z",
+      "ultimaVez": "2026-08-25T12:48:01.318Z",
+      "gitRev": "868703f"
+    },
+    "ARQUIVO_INEXISTENTE::auditoria-exclusao-agendamentos::T-033": {
+      "codigo": "ARQUIVO_INEXISTENTE",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "T-033",
+      "ocorrencias": 2,
+      "primeiraVez": "2026-08-25T12:48:01.317Z",
+      "ultimaVez": "2026-08-25T12:48:01.318Z",
+      "gitRev": "868703f"
+    },
+    "ARQUIVO_INEXISTENTE::auditoria-exclusao-agendamentos::T-034": {
+      "codigo": "ARQUIVO_INEXISTENTE",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "T-034",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-25T12:48:01.318Z",
+      "ultimaVez": "2026-08-25T12:48:01.318Z",
+      "gitRev": "868703f"
+    },
+    "ARQUIVO_INEXISTENTE::auditoria-exclusao-agendamentos::T-035": {
+      "codigo": "ARQUIVO_INEXISTENTE",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "T-035",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-25T12:48:01.318Z",
+      "ultimaVez": "2026-08-25T12:48:01.318Z",
+      "gitRev": "868703f"
+    },
+    "ARQUIVO_INEXISTENTE::auditoria-exclusao-agendamentos::T-036": {
+      "codigo": "ARQUIVO_INEXISTENTE",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "T-036",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-25T12:48:01.318Z",
+      "ultimaVez": "2026-08-25T12:48:01.318Z",
+      "gitRev": "868703f"
+    },
+    "ARQUIVO_INEXISTENTE::auditoria-exclusao-agendamentos::T-040": {
+      "codigo": "ARQUIVO_INEXISTENTE",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "T-040",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-25T12:48:01.318Z",
+      "ultimaVez": "2026-08-25T12:48:01.318Z",
+      "gitRev": "868703f"
+    },
+    "ARQUIVO_INEXISTENTE::auditoria-exclusao-agendamentos::T-041": {
+      "codigo": "ARQUIVO_INEXISTENTE",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "T-041",
+      "ocorrencias": 2,
+      "primeiraVez": "2026-08-25T12:48:01.318Z",
+      "ultimaVez": "2026-08-25T12:48:01.318Z",
+      "gitRev": "868703f"
+    },
+    "ARQUIVO_INEXISTENTE::auditoria-exclusao-agendamentos::T-042": {
+      "codigo": "ARQUIVO_INEXISTENTE",
+      "feature": "auditoria-exclusao-agendamentos",
+      "ref": "T-042",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-25T12:48:01.318Z",
+      "ultimaVez": "2026-08-25T12:48:01.318Z",
+      "gitRev": "868703f"
     }
   }
 }

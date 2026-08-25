@@ -139,7 +139,11 @@ if [ "$WEEKDAY" = "7" ]; then
 fi
 
 # ── 6. Poda de diários antigos ───────────────────────────────────────────────
-find "$DAILY_DIR" -maxdepth 1 -mindepth 1 -type d -mtime "+$RETENTION_DAILY_DAYS" -exec rm -rf {} \;
+# Poda por contagem (não por mtime): as pastas já são nomeadas YYYY-MM-DD, então
+# ordenar por nome e manter as N mais recentes evita atrasos de 1 dia causados
+# pelo arredondamento do `find -mtime` quando um backup roda fora do horário
+# fixo do cron (ex: uma rodada manual de teste).
+ls -1d "$DAILY_DIR"/*/ 2>/dev/null | sort -r | tail -n +$((RETENTION_DAILY_DAYS + 1)) | xargs -r rm -rf
 
 # ── 7. Sincronizar com Google Drive ─────────────────────────────────────────
 if command -v rclone >/dev/null 2>&1; then
