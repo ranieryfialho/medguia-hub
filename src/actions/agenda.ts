@@ -93,7 +93,12 @@ async function requirePermissaoAgendaAdmin() {
 // em qualquer escopo (AC-049, AC-050, AC-052) e grava o log na mesma
 // transação da exclusão (AC-046, AC-047, AC-048, AC-051).
 async function executarExclusaoTransacional(
-  supabaseAdmin: ReturnType<typeof createSupabaseAdminClient>,
+  // `any`: `ReturnType<typeof createSupabaseAdminClient>` fixa uma instância
+  // genérica do client que não bate estruturalmente com a instância já
+  // criada em requirePermissaoAgendaAdmin() (mesma função de fábrica,
+  // instanciações genéricas diferentes) — sem arquivo de tipos gerado para
+  // Database neste projeto, não há generic comum a fixar aqui.
+  supabaseAdmin: any,
   params: {
     ids: string[]
     acao: string
@@ -102,14 +107,22 @@ async function executarExclusaoTransacional(
     usuarioNome: string | null
   },
 ): Promise<{ error?: string; excluidos?: number; serieRemovida?: boolean }> {
-  const { data, error } = await supabaseAdmin.rpc('fn_excluir_atendimentos', {
+  // O cliente admin (createSupabaseAdminClient, sem generic de Database) não
+  // conhece fn_excluir_atendimentos — não há arquivo de tipos gerado neste
+  // projeto para RPCs criadas via SQL Editor. `as never` é o mesmo workaround
+  // documentado pelo supabase-js para chamar uma função não presente nos
+  // tipos; o retorno é retipado explicitamente logo abaixo.
+  const { data, error } = (await supabaseAdmin.rpc('fn_excluir_atendimentos' as never, {
     p_ids: params.ids,
     p_acao: params.acao,
     p_motivo_categoria: params.motivo.categoria,
     p_motivo_observacao: params.motivo.observacao ?? null,
     p_usuario_id: params.usuarioId,
     p_usuario_nome: params.usuarioNome,
-  })
+  } as never)) as {
+    data: Array<{ excluidos: number; serie_removida: boolean }> | null
+    error: { code: string; message: string; details?: string } | null
+  }
 
   if (error) {
     console.error(`[fn_excluir_atendimentos] erro (${params.acao}) ids=${params.ids.join(', ')}: [${error.code}] ${error.message}`, error.details ?? '')

@@ -1,8 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-
-export const AUDITORIA_EXCLUSOES_PAGE_SIZE = 20
+import { AUDITORIA_EXCLUSOES_PAGE_SIZE } from '@/lib/relatorios/auditoria-exclusoes'
 
 export type FiltrosAuditoriaExclusoes = {
   dataInicio?: string

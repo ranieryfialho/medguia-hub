@@ -3,10 +3,10 @@ import { ShieldAlert, Trash2 } from 'lucide-react'
 import { getUsuarioComPermissoes } from '@/lib/guard'
 import { isGestorSistema } from '@/lib/permissoes'
 import { formatAppDate, formatAppTime, getAppDayRangeUTC } from '@/lib/datetime'
+import { AUDITORIA_EXCLUSOES_PAGE_SIZE } from '@/lib/relatorios/auditoria-exclusoes'
 import {
   buscarLogsAuditoriaExclusoes,
   listarOpcoesFiltroAuditoria,
-  AUDITORIA_EXCLUSOES_PAGE_SIZE,
 } from '@/actions/relatorios-auditoria'
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>

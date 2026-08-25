@@ -34,12 +34,14 @@ import {
   Cake,
   MessageSquare,
   CircleDot,
+  ShieldAlert,
 } from 'lucide-react'
 import { ProntuariosBadge } from './ProntuariosBadge'
 import { FollowUpsBadge } from './FollowUpsBadge'
 import { GrupoProntuariosBadge } from './GrupoProntuariosBadge'
 import { temAcesso, temAcessoGrupo } from '@/lib/modulos'
 import type { ModuloChave } from '@/lib/modulos'
+import { isGestorSistema } from '@/lib/permissoes'
 
 
 export function Sidebar({
@@ -48,12 +50,14 @@ export function Sidebar({
   modulosLiberados: modulosLiberadosProp,
   prontuariosPendentes: prontuariosPendentesProp,
   followUpsPendentes: followUpsPendentesProp,
+  userNivelAcesso,
 }: {
   onMobileClose?: () => void
   onOpenNovoAgendamento?: () => void
   modulosLiberados?: string[]
   prontuariosPendentes?: number
   followUpsPendentes?: number
+  userNivelAcesso?: string
 }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -61,7 +65,7 @@ export function Sidebar({
   const [confirmacoesOpen, setConfirmacoesOpen] = useState(() => pathname?.startsWith('/confirmacoes') ?? false)
   const [contatosOpen, setContatosOpen] = useState(() => pathname?.startsWith('/contatos') ?? false)
   const [configOpen, setConfigOpen] = useState(() => pathname?.startsWith('/configuracoes') ?? false)
-  const [equipeOpen, setEquipeOpen] = useState(() => (pathname?.startsWith('/equipe') || pathname?.startsWith('/relatorios/tempo-fabril') || pathname?.startsWith('/relatorios/conferencia-agendamentos') || pathname?.startsWith('/configuracoes/jornada') || pathname?.startsWith('/configuracoes/disponibilidade') || pathname?.startsWith('/configuracoes/status-disponibilidade')) ?? false)
+  const [equipeOpen, setEquipeOpen] = useState(() => (pathname?.startsWith('/equipe') || pathname?.startsWith('/relatorios/tempo-fabril') || pathname?.startsWith('/relatorios/conferencia-agendamentos') || pathname?.startsWith('/relatorios/auditoria-exclusoes') || pathname?.startsWith('/configuracoes/jornada') || pathname?.startsWith('/configuracoes/disponibilidade') || pathname?.startsWith('/configuracoes/status-disponibilidade')) ?? false)
   const [comercialOpen, setComercialOpen] = useState(() => (pathname?.startsWith('/vendas') || pathname?.startsWith('/produtos') || pathname?.startsWith('/relatorios/vendas') || pathname?.startsWith('/vendas/protocolos')) ?? false)
   const [pacientesOpen, setPacientesOpen] = useState(() => pathname?.startsWith('/pacientes') ?? false)
   const [prontuariosOpen, setProntuariosOpen] = useState(() => (pathname?.startsWith('/prontuarios') || pathname?.startsWith('/follow-ups')) ?? false)
@@ -78,6 +82,7 @@ export function Sidebar({
   const handleNavClick = () => onMobileClose?.()
   const pv = (chave: ModuloChave) => temAcesso(modulos, chave)
   const pvGrupo = (chave_grupo: string) => temAcessoGrupo(modulos, chave_grupo)
+  const isGestor = isGestorSistema(userNivelAcesso)
 
   const linkCls = (active: boolean) =>
     `flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${
@@ -314,7 +319,7 @@ export function Sidebar({
           {pvGrupo('equipe') ? (
             <button
               onClick={() => setEquipeOpen(v => !v)}
-              className={groupCls(!!isActive('/equipe') || !!isActive('/relatorios/tempo-fabril') || !!isActive('/relatorios/conferencia-agendamentos'))}
+              className={groupCls(!!isActive('/equipe') || !!isActive('/relatorios/tempo-fabril') || !!isActive('/relatorios/conferencia-agendamentos') || !!isActive('/relatorios/auditoria-exclusoes'))}
             >
               <Briefcase size={20} />
               <span className="flex-1 text-left">Equipe</span>
@@ -354,6 +359,12 @@ export function Sidebar({
                 <Link href="/equipe/acessos" onClick={handleNavClick} className={subLinkCls(!!isActive('/equipe/acessos'))}>
                   <ShieldCheck size={14} />
                   Gestão de Acessos
+                </Link>
+              )}
+              {isGestor && (
+                <Link href="/relatorios/auditoria-exclusoes" onClick={handleNavClick} className={subLinkCls(!!isActive('/relatorios/auditoria-exclusoes'))}>
+                  <ShieldAlert size={14} />
+                  Auditoria de Exclusões
                 </Link>
               )}
               {pv('configuracoes:jornada') && (
