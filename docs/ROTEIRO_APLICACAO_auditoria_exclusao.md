@@ -94,7 +94,7 @@ abaixo.
 ```sql
 -- crie um atendimento avulso pendente de teste
 INSERT INTO atendimentos (paciente_id, profissional_id, data_agendamento, duracao_minutos, status, tipo)
-VALUES ('<v_paciente_id>', '<v_profissional_id>', now() + interval '1 day', 50, 'Pendente', 'Avulso')
+VALUES ('<v_paciente_id>', '<v_profissional_id>', now() + interval '1 day', 50, 'Aguardando', 'Avulso')
 RETURNING id;
 ```
 
@@ -102,7 +102,7 @@ RETURNING id;
 SELECT * FROM fn_excluir_atendimentos(
   ARRAY['<id_retornado>']::UUID[],
   'exclusao_avulso',
-  'paciente_faltou',
+  'desistencia_paciente',
   NULL,
   '<v_usuario_id>',
   'Teste Roteiro T-042'
@@ -151,7 +151,7 @@ UPDATE atendimentos SET status = 'Concluído' WHERE id = '<uma_sessao_da_serie>'
 
 SELECT * FROM fn_excluir_atendimentos(
   ARRAY(SELECT id FROM atendimentos WHERE agendamento_id = '<agendamento_id_da_serie>'),
-  'exclusao_serie_completa', 'paciente_faltou', NULL, '<v_usuario_id>', 'Teste Roteiro T-042'
+  'exclusao_serie_completa', 'desistencia_paciente', NULL, '<v_usuario_id>', 'Teste Roteiro T-042'
 );
 ```
 
@@ -189,13 +189,13 @@ a operação tivesse sido parcial.
 ```sql
 -- operador nulo
 SELECT * FROM fn_excluir_atendimentos(
-  ARRAY['<id_pendente_qualquer>']::UUID[], 'exclusao_avulso', 'paciente_faltou', NULL, NULL, NULL
+  ARRAY['<id_pendente_qualquer>']::UUID[], 'exclusao_avulso', 'desistencia_paciente', NULL, NULL, NULL
 );
 -- esperado: 'Operador não identificado: exclusão recusada.'
 
 -- operador inexistente
 SELECT * FROM fn_excluir_atendimentos(
-  ARRAY['<id_pendente_qualquer>']::UUID[], 'exclusao_avulso', 'paciente_faltou', NULL,
+  ARRAY['<id_pendente_qualquer>']::UUID[], 'exclusao_avulso', 'desistencia_paciente', NULL,
   '00000000-0000-0000-0000-000000000000', 'Fantasma'
 );
 -- esperado: 'Operador não encontrado: exclusão recusada.'
@@ -215,16 +215,16 @@ SELECT * FROM fn_excluir_atendimentos(
 -- esperado: 'Categoria de motivo inválida ou inativa: categoria_que_nao_existe'
 
 -- categoria inativa
-UPDATE motivos_exclusao_agendamento SET ativo = false WHERE slug = 'paciente_faltou';
+UPDATE motivos_exclusao_agendamento SET ativo = false WHERE slug = 'desistencia_paciente';
 
 SELECT * FROM fn_excluir_atendimentos(
-  ARRAY['<id_pendente_qualquer>']::UUID[], 'exclusao_avulso', 'paciente_faltou', NULL,
+  ARRAY['<id_pendente_qualquer>']::UUID[], 'exclusao_avulso', 'desistencia_paciente', NULL,
   '<v_usuario_id>', 'Teste Roteiro T-042'
 );
 -- esperado: mesmo erro de categoria inválida ou inativa
 
 -- reative a categoria ao final do teste
-UPDATE motivos_exclusao_agendamento SET ativo = true WHERE slug = 'paciente_faltou';
+UPDATE motivos_exclusao_agendamento SET ativo = true WHERE slug = 'desistencia_paciente';
 ```
 
 ## Fase 5 — Validar as 2 recusas do trigger de append-only
@@ -282,17 +282,30 @@ nem a aba "Logs" de pacientes reais.
 
 | Cenário | AC | Resultado (`PASS`/`FAIL`) | Executado por | Data |
 |---|---|---|---|---|
-| Avulso — caminho feliz | AC-046 | | | |
-| Pontual de recorrência — caminho feliz | AC-047 | | | |
-| Série completa sem concluídos | AC-048 | | | |
-| Lote totalmente pendente | AC-051 | | | |
-| Série com sessão concluída é recusada por inteiro | AC-049 | | | |
-| Lote com sessão concluída é recusado por inteiro | AC-050 | | | |
-| Bloqueio de concluído nos 4 escopos | AC-052 | | | |
-| Falha em qualquer etapa desfaz log e exclusão (tudo ou nada) | AC-054 | | | |
-| Operador nulo ou inexistente bloqueia a exclusão | AC-056 | | | |
-| Categoria de motivo inexistente ou inativa é recusada | AC-057 | | | |
-| Trigger recusa UPDATE no log | AC-055 | | | |
-| Trigger recusa DELETE no log | AC-055 | | | |
+| Avulso — caminho feliz | AC-046 | PASS | Raniery (via Claude) | 2026-08-25 |
+| Pontual de recorrência — caminho feliz | AC-047 | PASS | Raniery (via Claude) | 2026-08-25 |
+| Série completa sem concluídos | AC-048 | PASS | Raniery (via Claude) | 2026-08-25 |
+| Lote totalmente pendente | AC-051 | PASS | Raniery (via Claude) | 2026-08-25 |
+| Série com sessão concluída é recusada por inteiro | AC-049 | PASS | Raniery (via Claude) | 2026-08-25 |
+| Lote com sessão concluída é recusado por inteiro | AC-050 | PASS | Raniery (via Claude) | 2026-08-25 |
+| Bloqueio de concluído nos 4 escopos | AC-052 | PASS | Raniery (via Claude) | 2026-08-25 |
+| Falha em qualquer etapa desfaz log e exclusão (tudo ou nada) | AC-054 | PASS | Raniery (via Claude) | 2026-08-25 |
+| Operador nulo ou inexistente bloqueia a exclusão | AC-056 | PASS | Raniery (via Claude) | 2026-08-25 |
+| Categoria de motivo inexistente ou inativa é recusada | AC-057 | PASS | Raniery (via Claude) | 2026-08-25 |
+| Trigger recusa UPDATE no log | AC-055 | PASS | Raniery (via Claude) | 2026-08-25 |
+| Trigger recusa DELETE no log | AC-055 | PASS | Raniery (via Claude) | 2026-08-25 |
 
-Assinado por: ______________________  Data: ______________
+Executado em produção (`supabase.medguia.cloud`) em 2026-08-25, usando o
+paciente de teste "RANIERY FIALHO ARRUDA" (`feb13e50-aa1d-4ad5-9a6c-85576bb6ea5e`)
+— dados fictícios de agenda removidos na Fase 6; os registros de log dos
+testes (append-only, não removíveis) permanecem associados a esse paciente.
+
+Duas correções feitas neste roteiro durante a execução:
+- o slug de motivo `paciente_faltou`, usado nos exemplos originais, não
+  existe no catálogo semeado por T-034 — trocado por `desistencia_paciente`
+  em todas as ocorrências.
+- o status `Pendente` usado no INSERT de exemplo viola
+  `atendimentos_status_check` — trocado por `Aguardando` (valor real
+  confirmado via `pg_get_constraintdef`).
+
+Assinado por: Raniery  Data: 2026-08-25
