@@ -24,8 +24,7 @@
 - Notas: sem `REFERENCES` para `atendimentos`/`pacientes`/`profiles` (ver design.md). Trigger `BEFORE UPDATE OR DELETE` → `RAISE`. RLS de SELECT liberada para qualquer usuário autenticado (ASM-012). Aplicada via SQL Editor do Studio. Bloqueia T-035.
 - Esforço: medio
 
-## T-034 — Migration: catálogo `motivos_exclusao_agendamento` + seed do PRD [pendente]
-
+## T-034 — Migration: catálogo `motivos_exclusao_agendamento` + seed do PRD [concluida]
 - Refs: US-010, AC-044, AC-045, AC-057
 - Arquivos: database/motivos_exclusao_agendamento_migration.sql
 - Notas: seed com as 6 categorias do PRD; `outros` com `exige_observacao = true`. Bloqueia T-035.
