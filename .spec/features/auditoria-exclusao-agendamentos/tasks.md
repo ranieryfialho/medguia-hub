@@ -48,8 +48,7 @@
 - Notas: `deletarAgendamento`, `deletarAtendimentoPontualDaRecorrencia`, `deletarTodasRecorrencias`, `deletarAtendimentosSelecionados` ganham parâmetro `motivo`. `usuario_id`/`usuario_nome` resolvidos do contexto de `requirePermissaoAgendaAdmin()`, nunca do cliente. Reposição da sessão pontual continua best-effort, depois da RPC confirmar. Depende de T-035.
 - Esforço: alto
 
-## T-038 — Passo de motivo no `AgendamentoModal` (avulso, pontual, série completa) [pendente]
-
+## T-038 — Passo de motivo no `AgendamentoModal` (avulso, pontual, série completa) [concluida]
 - Refs: US-010, US-011, US-012, AC-044, AC-045, AC-046, AC-047, AC-048, AC-049
 - Arquivos: src/components/features/agenda/AgendamentoModal.tsx
 - Notas: botões de categoria + campo de observação condicional; confirmação desabilitada sem motivo válido; aviso reforçado de contagem de sessões para série completa. Depende de T-037.
