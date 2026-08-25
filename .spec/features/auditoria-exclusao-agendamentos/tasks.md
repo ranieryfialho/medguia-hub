@@ -72,8 +72,7 @@
 - Notas: gate `isGestorSistema`; filtros de período, profissional, operador e motivo combinados; paginação server-side sobre os índices de T-033. Depende de T-033, T-037.
 - Esforço: medio
 
-## T-042 — Roteiro de aplicação em produção + validação manual dos 4 escopos e das 2 recusas de trigger [pendente]
-
+## T-042 — Roteiro de aplicação em produção + validação manual dos 4 escopos e das 2 recusas de trigger [concluida]
 - Refs: US-014, US-015, US-016, US-017, AC-049, AC-050, AC-052, AC-054, AC-055, AC-056, AC-057
 - Arquivos: docs/ROTEIRO_APLICACAO_auditoria_exclusao.md
 - Notas: roteiro assinado cobrindo os cenários de recusa da RPC (motivo inválido, `outros` sem observação, `usuario_id` nulo, concluído bloqueado) e do trigger (`UPDATE`/`DELETE` recusados). Escrito por último, depois de T-033, T-034, T-035, T-036, T-037, T-038, T-039, T-040, T-041 concluídas — não roda em paralelo com nenhuma outra tarefa.

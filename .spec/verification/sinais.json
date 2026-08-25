@@ -3699,6 +3699,15 @@
       "primeiraVez": "2026-08-25T12:48:01.318Z",
       "ultimaVez": "2026-08-25T12:48:01.318Z",
       "gitRev": "868703f"
+    },
+    "VERIFY_OBSOLETO::status-personalizados-ciclo-vida::—": {
+      "codigo": "VERIFY_OBSOLETO",
+      "feature": "status-personalizados-ciclo-vida",
+      "ref": "—",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-25T13:24:35.898Z",
+      "ultimaVez": "2026-08-25T13:24:35.899Z",
+      "gitRev": "dee5479"
     }
   }
 }
