@@ -42,8 +42,7 @@
 - Notas: assere ausência de `REFERENCES` na tabela de auditoria, presença do trigger `BEFORE UPDATE OR DELETE`, `SET search_path` na função, e que o `INSERT` no log aparece antes do `DELETE` no corpo da função (mesma técnica de `test/sql/` já usada no projeto — não executa Postgres). Depende de T-033, T-034, T-035.
 - Esforço: baixo
 
-## T-037 — Refatorar as 4 Server Actions de exclusão para casca fina sobre a RPC [pendente]
-
+## T-037 — Refatorar as 4 Server Actions de exclusão para casca fina sobre a RPC [concluida]
 - Refs: US-010, US-011, US-012, US-013, US-016, AC-044, AC-046, AC-047, AC-048, AC-049, AC-050, AC-051, AC-052, AC-056, AC-057
 - Arquivos: src/actions/agenda.ts
 - Notas: `deletarAgendamento`, `deletarAtendimentoPontualDaRecorrencia`, `deletarTodasRecorrencias`, `deletarAtendimentosSelecionados` ganham parâmetro `motivo`. `usuario_id`/`usuario_nome` resolvidos do contexto de `requirePermissaoAgendaAdmin()`, nunca do cliente. Reposição da sessão pontual continua best-effort, depois da RPC confirmar. Depende de T-035.
