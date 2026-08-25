@@ -37,6 +37,15 @@ function extractTimePart(dateTime: string) {
 
 type ResultadoExclusao = { success?: true; error?: string }
 
+// Motivo de exclusão obrigatório em todo escopo (US-010 a US-013). A
+// categoria e a exigência de observação são validadas no servidor por
+// fn_excluir_atendimentos (AC-045, AC-057) — este tipo só descreve o que a
+// Server Action repassa para a RPC.
+export type MotivoExclusao = {
+  categoria: string
+  observacao?: string
+}
+
 async function requirePermissaoAgendaAdmin() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -47,7 +56,7 @@ async function requirePermissaoAgendaAdmin() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('ativo, nivel_acesso, modulos_liberados')
+    .select('ativo, nivel_acesso, modulos_liberados, full_name')
     .eq('id', user.id)
     .maybeSingle()
 
@@ -73,7 +82,45 @@ async function requirePermissaoAgendaAdmin() {
     supabase,
     supabaseAdmin,
     userId: user.id,
+    userNome: profile.full_name ?? null,
     podeGerirAgendaEquipe,
+  }
+}
+
+// Casca fina sobre fn_excluir_atendimentos (T-035): usuario_id/usuario_nome
+// vêm sempre do contexto autenticado, nunca de parâmetro do cliente (RFC
+// 003, C3 — AC-056). A função no banco valida motivo, bloqueia "Concluído"
+// em qualquer escopo (AC-049, AC-050, AC-052) e grava o log na mesma
+// transação da exclusão (AC-046, AC-047, AC-048, AC-051).
+async function executarExclusaoTransacional(
+  supabaseAdmin: ReturnType<typeof createSupabaseAdminClient>,
+  params: {
+    ids: string[]
+    acao: string
+    motivo: MotivoExclusao
+    usuarioId: string
+    usuarioNome: string | null
+  },
+): Promise<{ error?: string; excluidos?: number; serieRemovida?: boolean }> {
+  const { data, error } = await supabaseAdmin.rpc('fn_excluir_atendimentos', {
+    p_ids: params.ids,
+    p_acao: params.acao,
+    p_motivo_categoria: params.motivo.categoria,
+    p_motivo_observacao: params.motivo.observacao ?? null,
+    p_usuario_id: params.usuarioId,
+    p_usuario_nome: params.usuarioNome,
+  })
+
+  if (error) {
+    console.error(`[fn_excluir_atendimentos] erro (${params.acao}) ids=${params.ids.join(', ')}: [${error.code}] ${error.message}`, error.details ?? '')
+    return { error: error.message }
+  }
+
+  const resultado = Array.isArray(data) ? data[0] : data
+
+  return {
+    excluidos: resultado?.excluidos ?? 0,
+    serieRemovida: resultado?.serie_removida ?? false,
   }
 }
 
@@ -874,41 +921,21 @@ export async function buscarHistoricoPacienteResumo(pacienteId: string): Promise
   }
 }
 
-export async function deletarAgendamento(id: string): Promise<ResultadoExclusao> {
+export async function deletarAgendamento(id: string, motivo: MotivoExclusao): Promise<ResultadoExclusao> {
   const ctx = await requirePermissaoAgendaAdmin()
   if ('error' in ctx) return { error: ctx.error }
-  const { supabaseAdmin } = ctx
+  const { supabaseAdmin, userId, userNome } = ctx
 
-  const { data: atendimento } = await supabaseAdmin
-    .from('atendimentos')
-    .select('agendamento_id')
-    .eq('id', id)
-    .maybeSingle()
+  const resultado = await executarExclusaoTransacional(supabaseAdmin, {
+    ids: [id],
+    acao: 'exclusao_avulso',
+    motivo,
+    usuarioId: userId,
+    usuarioNome: userNome,
+  })
 
-  const { data: deletedRows, error } = await supabaseAdmin
-    .from('atendimentos')
-    .delete()
-    .eq('id', id)
-    .select('id')
-
-  if (error) {
-    console.error(`[deletarAgendamento] erro ao deletar atendimento ${id}: [${error.code}] ${error.message}`, error.details ?? '')
-    return { error: 'Não foi possível excluir o agendamento.' }
-  }
-
-  if (!deletedRows || deletedRows.length === 0) {
-    return { error: 'O agendamento não foi removido. Verifique as permissões ou tente atualizar a agenda.' }
-  }
-
-  if (atendimento?.agendamento_id) {
-    const { count } = await supabaseAdmin
-      .from('atendimentos')
-      .select('id', { count: 'exact', head: true })
-      .eq('agendamento_id', atendimento.agendamento_id)
-
-    if (count === 0) {
-      await supabaseAdmin.from('agendamentos').delete().eq('id', atendimento.agendamento_id)
-    }
+  if (resultado.error) {
+    return { error: resultado.error }
   }
 
   revalidatePath('/agenda')
@@ -951,10 +978,10 @@ function calcularProximaDataAgenda(
   return null
 }
 
-export async function deletarAtendimentoPontualDaRecorrencia(id: string): Promise<ResultadoExclusao> {
+export async function deletarAtendimentoPontualDaRecorrencia(id: string, motivo: MotivoExclusao): Promise<ResultadoExclusao> {
   const ctx = await requirePermissaoAgendaAdmin()
   if ('error' in ctx) return { error: ctx.error }
-  const { supabaseAdmin } = ctx
+  const { supabaseAdmin, userId, userNome } = ctx
 
   const { data: atual } = await supabaseAdmin
     .from('atendimentos')
@@ -962,43 +989,32 @@ export async function deletarAtendimentoPontualDaRecorrencia(id: string): Promis
     .eq('id', id)
     .single()
 
-  if (!atual?.agendamento_id) {
-    const { data: deletedRows, error } = await supabaseAdmin
-      .from('atendimentos')
-      .delete()
-      .eq('id', id)
-      .select('id')
-    if (error) {
-      console.error(`[deletarAtendimentoPontual] erro ao deletar ${id}: [${error.code}] ${error.message}`, error.details ?? '')
-      return { error: 'Não foi possível excluir o agendamento.' }
-    }
-    if (!deletedRows || deletedRows.length === 0) {
-      return { error: 'O agendamento não foi removido. Verifique as permissões ou tente atualizar a agenda.' }
-    }
-    revalidatePath('/agenda')
-    return { success: true }
+  const agendamento = atual?.agendamento_id
+    ? (
+        await supabaseAdmin
+          .from('agendamentos')
+          .select('frequencia, dias_semana, data_inicio, duracao_minutos, paciente_id, profissional_id, tipo, observacoes, gerou_venda, marcou_retorno, is_recorrente')
+          .eq('id', atual.agendamento_id)
+          .single()
+      ).data
+    : null
+
+  const resultado = await executarExclusaoTransacional(supabaseAdmin, {
+    ids: [id],
+    acao: 'exclusao_sessao_recorrente',
+    motivo,
+    usuarioId: userId,
+    usuarioNome: userNome,
+  })
+
+  if (resultado.error) {
+    return { error: resultado.error }
   }
 
-  const { data: agendamento } = await supabaseAdmin
-    .from('agendamentos')
-    .select('frequencia, dias_semana, data_inicio, duracao_minutos, paciente_id, profissional_id, tipo, observacoes, gerou_venda, marcou_retorno, is_recorrente')
-    .eq('id', atual.agendamento_id)
-    .single()
-
-  const { data: deletedRows, error: deleteError } = await supabaseAdmin
-    .from('atendimentos')
-    .delete()
-    .eq('id', id)
-    .select('id')
-  if (deleteError) {
-    console.error(`[deletarAtendimentoPontual] erro ao deletar recorrente ${id}: [${deleteError.code}] ${deleteError.message}`, deleteError.details ?? '')
-    return { error: 'Não foi possível excluir o agendamento.' }
-  }
-  if (!deletedRows || deletedRows.length === 0) {
-    return { error: 'O agendamento não foi removido. Verifique as permissões ou tente atualizar a agenda.' }
-  }
-
-  if (agendamento?.is_recorrente && agendamento?.frequencia && agendamento.frequencia !== 'livre') {
+  // Reposição da sessão pontual: best-effort, fora da transação da RPC,
+  // rodando só depois de a exclusão já estar confirmada (design.md,
+  // "Reposição de sessão pontual" — falha aqui não desfaz a exclusão).
+  if (atual?.agendamento_id && agendamento?.is_recorrente && agendamento?.frequencia && agendamento.frequencia !== 'livre') {
     const { data: ultimaSessao } = await supabaseAdmin
       .from('atendimentos')
       .select('data_agendamento, numero_sessao, total_sessoes')
@@ -1053,22 +1069,39 @@ export async function deletarAtendimentoPontualDaRecorrencia(id: string): Promis
   return { success: true }
 }
 
-export async function deletarTodasRecorrencias(agendamentoId: string): Promise<ResultadoExclusao> {
+export async function deletarTodasRecorrencias(agendamentoId: string, motivo: MotivoExclusao): Promise<ResultadoExclusao> {
   const ctx = await requirePermissaoAgendaAdmin()
   if ('error' in ctx) return { error: ctx.error }
-  const { supabaseAdmin } = ctx
+  const { supabaseAdmin, userId, userNome } = ctx
 
-  const { error } = await supabaseAdmin
+  const { data: atendimentos, error: erroBusca } = await supabaseAdmin
     .from('atendimentos')
-    .delete()
+    .select('id')
     .eq('agendamento_id', agendamentoId)
 
-  if (error) {
-    console.error(`[deletarTodasRecorrencias] erro ao deletar agendamento ${agendamentoId}: [${error.code}] ${error.message}`, error.details ?? '')
+  if (erroBusca) {
+    console.error(`[deletarTodasRecorrencias] erro ao buscar atendimentos da série ${agendamentoId}: [${erroBusca.code}] ${erroBusca.message}`, erroBusca.details ?? '')
     return { error: 'Não foi possível excluir os agendamentos.' }
   }
 
-  await supabaseAdmin.from('agendamentos').delete().eq('id', agendamentoId)
+  const ids = (atendimentos ?? []).map((a) => a.id)
+  if (ids.length === 0) {
+    return { error: 'Nenhum agendamento encontrado nessa série.' }
+  }
+
+  // Bloqueio de sessões "Concluído" (AC-049, AC-052) e limpeza da linha
+  // órfã de `agendamentos` (AC-048) acontecem dentro da própria RPC.
+  const resultado = await executarExclusaoTransacional(supabaseAdmin, {
+    ids,
+    acao: 'exclusao_serie_completa',
+    motivo,
+    usuarioId: userId,
+    usuarioNome: userNome,
+  })
+
+  if (resultado.error) {
+    return { error: resultado.error }
+  }
 
   revalidatePath('/agenda')
   revalidatePath('/confirmacoes')
@@ -1087,30 +1120,27 @@ export async function buscarAtendimentosPendentesRecorrencia(agendamentoId: stri
   return { data: data ?? [] }
 }
 
-export async function deletarAtendimentosSelecionados(ids: string[], agendamentoId: string): Promise<ResultadoExclusao> {
+export async function deletarAtendimentosSelecionados(ids: string[], agendamentoId: string, motivo: MotivoExclusao): Promise<ResultadoExclusao> {
   const ctx = await requirePermissaoAgendaAdmin()
   if ('error' in ctx) return { error: ctx.error }
-  const { supabaseAdmin } = ctx
+  const { supabaseAdmin, userId, userNome } = ctx
 
-  const { data: deletedRows, error } = await supabaseAdmin
-    .from('atendimentos')
-    .delete()
-    .in('id', ids)
-    .select('id')
-  if (error) {
-    console.error(`[deletarAtendimentosSelecionados] erro ao deletar ${ids.join(', ')}: [${error.code}] ${error.message}`, error.details ?? '')
-    return { error: 'Não foi possível excluir os agendamentos.' }
+  void agendamentoId // linha órfã de `agendamentos` já é limpa dentro da RPC (v_agendamento_ids)
+
+  // Bloqueio de sessões "Concluído" no lote (AC-050) e exclusão do lote
+  // pendente com log do escopo (AC-051) acontecem dentro da própria RPC.
+  const resultado = await executarExclusaoTransacional(supabaseAdmin, {
+    ids,
+    acao: 'exclusao_lote',
+    motivo,
+    usuarioId: userId,
+    usuarioNome: userNome,
+  })
+
+  if (resultado.error) {
+    return { error: resultado.error }
   }
-  if (!deletedRows || deletedRows.length === 0) {
-    return { error: 'Nenhum atendimento foi removido. Verifique as permissões ou tente atualizar a agenda.' }
-  }
-  const { count } = await supabaseAdmin
-    .from('atendimentos')
-    .select('id', { count: 'exact', head: true })
-    .eq('agendamento_id', agendamentoId)
-  if (count === 0) {
-    await supabaseAdmin.from('agendamentos').delete().eq('id', agendamentoId)
-  }
+
   revalidatePath('/agenda')
   revalidatePath('/confirmacoes')
   return { success: true }
