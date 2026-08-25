@@ -1,14 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { CalendarDays, ShoppingBag, Images, MessageSquare, CheckCircle2, ClipboardList, StickyNote } from 'lucide-react'
+import { CalendarDays, ShoppingBag, Images, MessageSquare, CheckCircle2, ClipboardList, StickyNote, History } from 'lucide-react'
 import { TabMidiasPaciente } from './TabMidiasPaciente'
 import { TabContatosPaciente } from './TabContatosPaciente'
 import { TabConfirmacoesPaciente } from './TabConfirmacoesPaciente'
 import { TabObservacoesPaciente } from './TabObservacoesPaciente'
+import { TabLogsPaciente } from './TabLogsPaciente'
 import { ObservacoesTagSection } from './ObservacoesTagSection'
 
-type Tab = 'agendamentos' | 'comercial' | 'midias' | 'observacoes' | 'contatos' | 'confirmacoes' | 'followups'
+type Tab = 'agendamentos' | 'comercial' | 'midias' | 'observacoes' | 'contatos' | 'confirmacoes' | 'followups' | 'logs'
 
 // Aliases de valores antigos/alternativos usados em links (?aba=follow-ups)
 const ALIAS_ABA: Record<string, Tab> = { 'follow-ups': 'followups' }
@@ -21,6 +22,7 @@ const TABS: { id: Tab; label: string; icon: React.ElementType; modulo?: string }
   { id: 'followups',     label: 'Follow-ups',   icon: ClipboardList, modulo: 'follow_ups'       },
   { id: 'midias',        label: 'Mídias',       icon: Images                                   },
   { id: 'observacoes',   label: 'Observações',  icon: StickyNote                               },
+  { id: 'logs',          label: 'Logs',         icon: History                                  },
 ]
 
 type Props = {
@@ -77,6 +79,7 @@ export function PacienteTabsClient({ pacienteId, nomePaciente, modulosLiberados,
         {tab === 'contatos'      && <TabContatosPaciente pacienteId={pacienteId} />}
         {tab === 'confirmacoes'  && <TabConfirmacoesPaciente pacienteId={pacienteId} />}
         {tab === 'followups'     && <>{followUpsSlot}<ObservacoesTagSection pacienteId={pacienteId} tag="followups" /></>}
+        {tab === 'logs'          && <TabLogsPaciente pacienteId={pacienteId} />}
       </div>
     </div>
   )
