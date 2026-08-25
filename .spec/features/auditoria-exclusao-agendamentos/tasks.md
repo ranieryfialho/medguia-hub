@@ -30,8 +30,7 @@
 - Notas: seed com as 6 categorias do PRD; `outros` com `exige_observacao = true`. Bloqueia T-035.
 - Esforço: baixo
 
-## T-035 — `fn_excluir_atendimentos`: validações, bloqueio de concluídos, snapshot, delete, limpeza de série [pendente]
-
+## T-035 — `fn_excluir_atendimentos`: validações, bloqueio de concluídos, snapshot, delete, limpeza de série [concluida]
 - Refs: US-014, US-015, US-016, US-017, AC-046, AC-047, AC-048, AC-049, AC-050, AC-051, AC-052, AC-053, AC-054, AC-056, AC-057
 - Arquivos: database/fn_excluir_atendimentos_migration.sql
 - Notas: `SECURITY DEFINER` + `SET search_path = public, pg_temp` (obrigatório). `INSERT` do log **antes** do `DELETE`, dentro da mesma transação. Bloqueio de "Concluído" é absoluto (ASM-011) — qualquer alvo concluído aborta a operação inteira. Depende de T-033, T-034. Bloqueia T-037.
