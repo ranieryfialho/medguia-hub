@@ -103,6 +103,24 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
   const statusRef = useRef<HTMLDivElement>(null)
   const statusMenuRef = useRef<HTMLDivElement>(null)
   const tabsRef = useRef<HTMLDivElement>(null)
+  const [evolucaoDirty, setEvolucaoDirty] = useState(false)
+
+  function podeSairDaEvolucao() {
+    return !evolucaoDirty || window.confirm('A evolução ainda não foi salva. Sair mesmo assim?')
+  }
+
+  function fecharComGuarda() {
+    if (!podeSairDaEvolucao()) return
+    onClose()
+  }
+
+  function trocarAba(aba: typeof activeTab) {
+    if (activeTab === 'evolucao' && aba !== 'evolucao') {
+      if (!podeSairDaEvolucao()) return
+      setEvolucaoDirty(false)
+    }
+    setActiveTab(aba)
+  }
 
   // Mantem a aba ativa visivel quando a barra rola horizontalmente no celular
   useEffect(() => {
@@ -351,7 +369,7 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
       <button
         type="button"
         aria-label="Fechar detalhes do agendamento"
-        onClick={onClose}
+        onClick={fecharComGuarda}
         className="absolute inset-0 bg-black/40 backdrop-blur-sm pointer-events-auto"
       />
       <div
@@ -425,7 +443,7 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
             <div className="mt-5 flex items-center gap-2 sm:gap-3">
               <button
                 type="button"
-                onClick={() => { router.push('/confirmacoes/cards'); onClose() }}
+                onClick={() => { if (!podeSairDaEvolucao()) return; router.push('/confirmacoes/cards'); onClose() }}
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#bcc9c4] px-3 py-2.5 text-[11px] sm:text-xs font-semibold text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
               >
                 <MessageCircle size={14} className="text-[#25d366]" />
@@ -610,7 +628,7 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
                 key={key}
                 type="button"
                 data-tab={key}
-                onClick={() => setActiveTab(key as typeof activeTab)}
+                onClick={() => trocarAba(key as typeof activeTab)}
                 className={`flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap px-4 py-2.5 text-xs font-bold transition-colors sm:flex-1 sm:px-2 ${
                   activeTab === key
                     ? 'border-b-2 border-[#006b5a] bg-white text-[#006b5a]'
@@ -636,7 +654,11 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
             />
 
             {activeTab === 'evolucao' && (
-              <ProntuarioEvolucao atendimentoId={agendamento.id} pacienteId={agendamento.paciente_id} />
+              <ProntuarioEvolucao
+                atendimentoId={agendamento.id}
+                pacienteId={agendamento.paciente_id}
+                onDirtyChange={setEvolucaoDirty}
+              />
             )}
 
             <TabHistorico
@@ -790,7 +812,7 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
           >
             <button
               type="button"
-              onClick={onClose}
+              onClick={fecharComGuarda}
               className="min-w-32 rounded-xl border border-[#bcc9c4] bg-white px-5 py-2.5 text-sm font-bold text-[#3d4945] hover:bg-[#dee3e3] transition-colors"
             >
               Fechar

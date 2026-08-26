@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
-import { BtnVoltar } from '@/components/features/shared'
-import { ProntuarioFormWrapper } from '@/components/features/prontuarios'
+import { ProntuarioFormWrapper, ProntuarioDirtyGuardProvider, BtnVoltarComGuarda } from '@/components/features/prontuarios'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { CalendarDays, ClipboardList, User } from 'lucide-react'
@@ -64,11 +63,12 @@ export default async function ProntuarioFormPage({
   const nomeExibido = paciente?.nome ?? 'Paciente'
 
   return (
+    <ProntuarioDirtyGuardProvider>
     <div className="w-full flex flex-col gap-4 pb-8">
 
       {/* Top bar — sticky */}
       <div className="sticky top-0 z-20 flex items-center gap-3 bg-white px-4 py-3 rounded-xl shadow-sm border border-slate-100">
-        <BtnVoltar href={voltarHref} />
+        <BtnVoltarComGuarda href={voltarHref} />
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <ClipboardList size={18} className="text-[#006b5a] shrink-0" />
           <div className="min-w-0">
@@ -155,5 +155,6 @@ export default async function ProntuarioFormPage({
 
       </div>
     </div>
+    </ProntuarioDirtyGuardProvider>
   )
 }

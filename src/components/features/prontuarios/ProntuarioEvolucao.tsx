@@ -12,6 +12,7 @@ interface Props {
   atendimentoId: string
   pacienteId: string
   onSuccess?: () => void
+  onDirtyChange?: (dirty: boolean) => void
 }
 
 const PAIN_ACTIVE: Record<number, string> = {
@@ -89,7 +90,7 @@ function temCampoAbertoPreenchido(campos: string[]) {
   return campos.some((campo) => campo.trim().length > 0)
 }
 
-export function ProntuarioEvolucao({ atendimentoId, pacienteId, onSuccess }: Props) {
+export function ProntuarioEvolucao({ atendimentoId, pacienteId, onSuccess, onDirtyChange }: Props) {
   const [loading, setLoading]                 = useState(true)
   const [saving, setSaving]                   = useState(false)
   const [autoSaving, setAutoSaving]           = useState(false)
@@ -100,10 +101,15 @@ export function ProntuarioEvolucao({ atendimentoId, pacienteId, onSuccess }: Pro
   const [procedimentos, setProcedimentos]     = useState('')
   const [observacoes, setObservacoes]         = useState('')
 
-  const isDirty        = useRef(false)
-  const autoSaveTimer  = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const onSuccessRef   = useRef(onSuccess)
-  onSuccessRef.current = onSuccess
+  const isDirty          = useRef(false)
+  const autoSaveTimer    = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const onDirtyChangeRef = useRef(onDirtyChange)
+  onDirtyChangeRef.current = onDirtyChange
+
+  function marcarSujo() {
+    isDirty.current = true
+    onDirtyChangeRef.current?.(true)
+  }
 
   useEffect(() => {
     buscarProntuarioPorAtendimento(atendimentoId).then(data => {
@@ -137,10 +143,11 @@ export function ProntuarioEvolucao({ atendimentoId, pacienteId, onSuccess }: Pro
       })
       setAutoSaving(false)
       if (!result.error) {
+        isDirty.current = false
+        onDirtyChangeRef.current?.(false)
         const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
         setLastSavedAt(hora)
         toast.success(`Evolução salva automaticamente às ${hora}`, { duration: 2000 })
-        onSuccessRef.current?.()
       }
     }, 3000)
 
@@ -176,6 +183,8 @@ export function ProntuarioEvolucao({ atendimentoId, pacienteId, onSuccess }: Pro
     if (result.error) {
       toast.error(`Erro ao salvar: ${result.error}`)
     } else {
+      isDirty.current = false
+      onDirtyChangeRef.current?.(false)
       setLastSavedAt(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }))
       toast.success('Evolução salva com sucesso')
       if (result.warning) {
@@ -218,7 +227,7 @@ export function ProntuarioEvolucao({ atendimentoId, pacienteId, onSuccess }: Pro
             <button
               key={i}
               type="button"
-              onClick={() => { isDirty.current = true; setEscalaDor(prev => prev === i ? null : i) }}
+              onClick={() => { marcarSujo(); setEscalaDor(prev => prev === i ? null : i) }}
               className={`aspect-square w-full rounded-lg border text-xs font-bold active:scale-90 transition-all ${
                 escalaDor === i
                   ? `${PAIN_ACTIVE[i]} shadow-md`
@@ -248,7 +257,7 @@ export function ProntuarioEvolucao({ atendimentoId, pacienteId, onSuccess }: Pro
         <SectionLabel icon={MessageSquare} label="Queixa Principal" />
         <AutoResizeTextarea
           value={queixaPrincipal}
-          onChange={e => { isDirty.current = true; setQueixaPrincipal(e.target.value) }}
+          onChange={e => { marcarSujo(); setQueixaPrincipal(e.target.value) }}
           placeholder="Descreva a queixa do paciente nesta sessão..."
           rows={3}
           className={FIELD_CLASS}
@@ -260,7 +269,7 @@ export function ProntuarioEvolucao({ atendimentoId, pacienteId, onSuccess }: Pro
         <SectionLabel icon={Activity} label="Evolução da Sessão" />
         <AutoResizeTextarea
           value={evolucao}
-          onChange={e => { isDirty.current = true; setEvolucao(e.target.value) }}
+          onChange={e => { marcarSujo(); setEvolucao(e.target.value) }}
           placeholder="Como foi a sessão? Resposta do paciente ao tratamento..."
           rows={5}
           className={FIELD_CLASS}
@@ -272,7 +281,7 @@ export function ProntuarioEvolucao({ atendimentoId, pacienteId, onSuccess }: Pro
         <SectionLabel icon={Layers} label="Procedimentos Realizados" />
         <AutoResizeTextarea
           value={procedimentos}
-          onChange={e => { isDirty.current = true; setProcedimentos(e.target.value) }}
+          onChange={e => { marcarSujo(); setProcedimentos(e.target.value) }}
           placeholder="Técnicas e procedimentos aplicados..."
           rows={3}
           className={FIELD_CLASS}
@@ -284,7 +293,7 @@ export function ProntuarioEvolucao({ atendimentoId, pacienteId, onSuccess }: Pro
         <SectionLabel icon={StickyNote} label="Observações" />
         <AutoResizeTextarea
           value={observacoes}
-          onChange={e => { isDirty.current = true; setObservacoes(e.target.value) }}
+          onChange={e => { marcarSujo(); setObservacoes(e.target.value) }}
           placeholder="Outras observações relevantes..."
           rows={3}
           className={FIELD_CLASS}
