@@ -3,13 +3,7 @@ name: Deploy Medguia Hub para VPS
 on:
   push:
     branches: [ "main", "master" ]
-    # O build roda DENTRO da VPS, na mesma máquina que hospeda o Supabase, e o
-    # limite de memória do docker-compose não vale para `docker compose build`.
-    # Cada deploy é, portanto, um risco real de derrubar o banco — foi o que
-    # quase aconteceu em 11/08/2026. Não gastar esse risco com arquivo que o
-    # Next.js nem lê: em 12/08, três dos cinco deploys do dia foram para mudar
-    # spec, migration e documentação.
-    #
+    # Mudanças em docs/spec/migration não geram imagem nova nem deploy.
     # `database/` entra aqui porque as migrations são aplicadas à mão no SQL
     # Editor do Studio, nunca pelo deploy.
     paths-ignore:
@@ -22,43 +16,112 @@ on:
   # pela aba Actions.
   workflow_dispatch:
 
-# Duas execuções simultâneas brigam por três recursos: a memória da VPS, o mesmo
-# diretório de destino do SCP e o `docker compose up`. O terceiro é o pior —
-# sem ordem garantida, a run MAIS ANTIGA pode terminar por último e deixar a VPS
-# no commit anterior, em silêncio. Aconteceu em 12/08/2026.
+# Duas execuções simultâneas brigam pelo mesmo `docker compose up` na VPS —
+# sem ordem garantida, a run MAIS ANTIGA pode terminar por último e deixar a
+# VPS no commit anterior, em silêncio. Aconteceu em 12/08/2026.
 concurrency:
   group: deploy-vps
   cancel-in-progress: true
 
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/medguia-hub
+
 jobs:
-  deploy:
+  build:
+    # O build roda aqui, no runner do GitHub, e NUNCA na VPS — é o runner que
+    # compila o Next.js e sobe a imagem pronta pro GHCR. A VPS só baixa a
+    # imagem no job de deploy. Antes disso, o `docker compose build` rodava
+    # na própria VPS (mesma máquina do Supabase em produção) e quase a
+    # derrubou em 11/08/2026 e de novo em 27/08/2026.
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout do código
         uses: actions/checkout@v4
 
-      - name: Copiar arquivos para a VPS
+      - name: Login no GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # O .env da VPS é a única fonte da verdade para essas variáveis — em vez
+      # de duplicá-las como secret do GitHub (e arriscar os dois ficarem
+      # dessincronizados), o runner busca o valor atual direto na VPS antes
+      # de buildar.
+      - name: Buscar variáveis de build no .env da VPS
+        env:
+          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          set -e
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+          ENV_CONTENT=$(ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "$VPS_USER@$VPS_HOST" "cat ~/medguia-hub/.env")
+          rm -f ~/.ssh/deploy_key
+
+          for VAR in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY NEXT_PUBLIC_APP_URL; do
+            VALUE=$(printf '%s\n' "$ENV_CONTENT" | grep "^$VAR=" | head -n1 | cut -d '=' -f2-)
+            if [ -z "$VALUE" ]; then
+              echo "Variável $VAR não encontrada no .env da VPS" >&2
+              exit 1
+            fi
+            echo "::add-mask::$VALUE"
+            echo "$VAR=$VALUE" >> "$GITHUB_ENV"
+          done
+
+      - name: Build e push da imagem
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ env.IMAGE }}:latest
+          build-args: |
+            NEXT_PUBLIC_SUPABASE_URL=${{ env.NEXT_PUBLIC_SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ env.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+            NEXT_PUBLIC_APP_URL=${{ env.NEXT_PUBLIC_APP_URL }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Copiar docker-compose.yml para a VPS
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          source: ".,!.git,!.github,!.next,!node_modules"
+          source: "docker-compose.yml"
           target: "~/medguia-hub"
           timeout: 60s
-          command_timeout: 10m
 
-      - name: Construir e Ligar o Docker
+      - name: Puxar imagem pronta e subir o container
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          command_timeout: 30m
+          command_timeout: 10m
           script: |
             set -e
             cd ~/medguia-hub
-            docker compose build
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker compose pull
             docker compose up -d --remove-orphans
             docker image prune -f
             docker compose ps --filter "status=running" | grep medguia-hub
