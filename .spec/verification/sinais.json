@@ -3704,19 +3704,19 @@
       "codigo": "VERIFY_OBSOLETO",
       "feature": "status-personalizados-ciclo-vida",
       "ref": "—",
-      "ocorrencias": 9,
+      "ocorrencias": 11,
       "primeiraVez": "2026-08-25T13:24:35.898Z",
-      "ultimaVez": "2026-08-28T02:14:04.834Z",
-      "gitRev": "2518521"
+      "ultimaVez": "2026-08-28T02:34:24.473Z",
+      "gitRev": "0dd59ea"
     },
     "VERIFY_OBSOLETO::auditoria-exclusao-agendamentos::—": {
       "codigo": "VERIFY_OBSOLETO",
       "feature": "auditoria-exclusao-agendamentos",
       "ref": "—",
-      "ocorrencias": 8,
+      "ocorrencias": 10,
       "primeiraVez": "2026-08-25T13:55:48.789Z",
-      "ultimaVez": "2026-08-28T02:14:04.833Z",
-      "gitRev": "2518521"
+      "ultimaVez": "2026-08-28T02:34:24.472Z",
+      "gitRev": "0dd59ea"
     },
     "VERIFY_FALHOU::auditoria-exclusao-agendamentos::AC-050": {
       "codigo": "VERIFY_FALHOU",
@@ -4608,6 +4608,15 @@
       "primeiraVez": "2026-08-28T01:52:06.007Z",
       "ultimaVez": "2026-08-28T01:55:18.267Z",
       "gitRev": "ae4d883"
+    },
+    "VERIFY_OBSOLETO::venda-consultorio-vendas-historicas::—": {
+      "codigo": "VERIFY_OBSOLETO",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "—",
+      "ocorrencias": 2,
+      "primeiraVez": "2026-08-28T02:34:20.018Z",
+      "ultimaVez": "2026-08-28T02:34:24.473Z",
+      "gitRev": "0dd59ea"
     }
   }
 }
