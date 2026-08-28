@@ -1,7 +1,7 @@
 {
   "feature": "venda-consultorio-vendas-historicas",
-  "timestamp": "2026-08-28T02:15:17.725Z",
-  "gitRev": "d322769",
+  "timestamp": "2026-08-28T02:27:34.703Z",
+  "gitRev": "0aaded9",
   "command": "node --test --test-reporter=tap",
   "reporter": "tap",
   "exitCode": 0,

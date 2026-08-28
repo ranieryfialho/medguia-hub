@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { LineChart } from 'lucide-react'
 import { requireModulo } from '@/lib/guard'
 import { derivarCardsExecutivos, montarTabelaHistorico, type LinhaMensal } from '@/lib/relatorios/vendas-historicas'
-import { VendasHistoricasClient } from '@/components/features/relatorios'
+import { VendasHistoricasClient, FiltroPeriodoVendasHistoricas } from '@/components/features/relatorios'
 
 const ORIGENS = [
   { value: 'medico', label: 'Médico' },
@@ -155,42 +155,11 @@ export default async function RelatorioVendasHistoricasPage({
       <form method="get" className="bg-surface rounded-lg border border-border p-4">
         <h2 className="text-sm font-semibold text-text-primary mb-3">Filtros</h2>
         <div className="flex items-end gap-4 flex-wrap">
-          <div>
-            <label className="block text-xs text-text-secondary uppercase mb-1">Período</label>
-            <select
-              name="periodo"
-              defaultValue={periodo}
-              className="px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
-            >
-              <option value="6m">Últimos 6 meses</option>
-              <option value="12m">Últimos 12 meses</option>
-              <option value="24m">Últimos 24 meses</option>
-              <option value="ytd">Ano vigente (YTD)</option>
-              <option value="personalizado">Personalizado</option>
-            </select>
-          </div>
-          {periodo === 'personalizado' && (
-            <>
-              <div>
-                <label className="block text-xs text-text-secondary uppercase mb-1">Data Início</label>
-                <input
-                  type="date"
-                  name="data_inicio"
-                  defaultValue={data_inicio}
-                  className="px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-text-secondary uppercase mb-1">Data Fim</label>
-                <input
-                  type="date"
-                  name="data_fim"
-                  defaultValue={data_fim}
-                  className="px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
-                />
-              </div>
-            </>
-          )}
+          <FiltroPeriodoVendasHistoricas
+            defaultPeriodo={periodo}
+            defaultDataInicio={data_inicio}
+            defaultDataFim={data_fim}
+          />
           <div>
             <label className="block text-xs text-text-secondary uppercase mb-1">Profissional</label>
             <select
