@@ -82,8 +82,7 @@
 - Arquivos: src/lib/relatorios/pdf-vendas-historicas.ts, src/lib/relatorios/xlsx-vendas-historicas.ts
 - Notas: `jspdf` já em uso no projeto (`pdf-vendas.ts` como referência). `xlsx` está instalado mas nunca foi usado — validar cedo que bundle e download funcionam no ambiente do projeto. Ambos consomem os dados já calculados em tela (cards + tabela mês a mês). Depende de T-014.
 
-## T-017 — Verificação de controle de acesso da rota histórica [pendente]
-
+## T-017 — Verificação de controle de acesso da rota histórica [concluida]
 - Refs: AC-086
 - Arquivos: src/app/(painel)/relatorios/vendas-historicas/page.test.ts
 - Notas: Teste (ou verificação documentada, se o guard de acesso não for testável por `node --test` isoladamente) confirmando que o mesmo mecanismo de controle de acesso de `/relatorios/vendas` está aplicado à rota nova. Depende de T-014.
