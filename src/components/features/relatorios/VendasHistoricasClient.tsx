@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, Fragment } from 'react'
-import { ChevronDown, ChevronUp, FileDown, Sheet } from 'lucide-react'
+import { ChevronDown, ChevronUp, Printer, FileSpreadsheet } from 'lucide-react'
 import {
   ComposedChart, Bar, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -108,19 +108,21 @@ export function VendasHistoricasClient({ linhas, filtros, cards, periodoLabel, f
           type="button"
           onClick={exportarPdf}
           disabled={exportando !== null}
-          className="flex items-center gap-2 px-4 py-2 bg-[#006b5a] text-white rounded-md text-sm font-medium hover:bg-[#005548] transition-colors disabled:opacity-60"
+          title="Exportar PDF"
+          className="flex items-center gap-2 px-4 py-2.5 bg-[#006b5a] text-white rounded-xl font-bold hover:bg-[#005548] transition-colors disabled:opacity-50"
         >
-          <FileDown size={16} />
-          {exportando === 'pdf' ? 'Gerando PDF...' : 'Exportar PDF'}
+          <Printer size={17} />
+          {exportando === 'pdf' ? 'Gerando...' : 'PDF'}
         </button>
         <button
           type="button"
           onClick={exportarXlsx}
           disabled={exportando !== null}
-          className="flex items-center gap-2 px-4 py-2 bg-page border border-border text-text-primary rounded-md text-sm font-medium hover:bg-border transition-colors disabled:opacity-60"
+          title="Exportar Excel"
+          className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-colors disabled:opacity-50"
         >
-          <Sheet size={16} />
-          {exportando === 'xlsx' ? 'Gerando planilha...' : 'Exportar Excel'}
+          <FileSpreadsheet size={17} />
+          {exportando === 'xlsx' ? 'Exportando...' : 'Excel'}
         </button>
       </div>
 
