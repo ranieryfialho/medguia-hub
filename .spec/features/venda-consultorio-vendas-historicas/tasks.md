@@ -67,14 +67,12 @@
 - Arquivos: src/components/layout/Sidebar.tsx
 - Notas: Entrada no grupo Comercial, ao lado do link existente para `/relatorios/vendas`.
 
-## T-014 — Rota /relatorios/vendas-historicas: cards, gráfico, tabela, filtros [pendente]
-
+## T-014 — Rota /relatorios/vendas-historicas: cards, gráfico, tabela, filtros [concluida]
 - Refs: AC-078, AC-079, AC-080, AC-082, AC-083, AC-086
 - Arquivos: src/app/(painel)/relatorios/vendas-historicas/page.tsx
 - Notas: Server Component seguindo o padrão das rotas de relatório existentes; `searchParams` viram parâmetros de `fn_vendas_resumo_mensal`. Cards executivos derivados das linhas mensais via funções de T-012 (sem chamada extra). Gráfico com `recharts`, seletores de período (6/12/24 meses, YTD, personalizado) refazendo a consulta, alternância de métrica resolvida no cliente sobre o mesmo dataset. Tabela mês a mês em ordem cronológica decrescente com MoM. Filtros globais: profissional, médico referenciador (por id, com `medico_nome` aceito como fallback resolvido para id), origem, categoria. Responsivo: `overflow-x: auto` e redução adaptativa de rótulos de mês (AC-083). Controle de acesso idêntico ao de `/relatorios/vendas` (AC-086 — mesmo guard/verificação de perfil, nunca mais permissivo). Depende de T-006, T-012, T-013.
 
-## T-015 — Drill-down expansível por linha da tabela histórica [pendente]
-
+## T-015 — Drill-down expansível por linha da tabela histórica [concluida]
 - Refs: AC-081
 - Arquivos: src/app/(painel)/relatorios/vendas-historicas/DrillDownMes.tsx
 - Notas: Componente cliente que chama `fn_vendas_detalhe_mes` ao expandir a linha (não no carregamento inicial). Exibe quebra por origem, quebra por categoria, ranking de médicos referenciadores e ranking de fisioterapeutas do mês. Depende de T-007, T-014.
