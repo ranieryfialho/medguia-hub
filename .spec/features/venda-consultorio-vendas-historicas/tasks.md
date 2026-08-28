@@ -12,8 +12,7 @@
 - Arquivos: src/components/features/vendas/FormNovaVenda.tsx
 - Notas: Toggle switch abaixo do campo de médico referenciador, visível só quando `origem === 'medico'`. Default `false` (desligado). Ao trocar origem para outro valor, limpar o valor do campo local (vira `null` no submit). Textos de rótulo e ajuda conforme PRD 1.1. Depende de T-001 (mas não bloqueia — só a persistência real depende da coluna existir).
 
-## T-003 — Toggle no formulário de edição de venda [pendente]
-
+## T-003 — Toggle no formulário de edição de venda [concluida]
 - Refs: AC-061, AC-062
 - Arquivos: src/components/features/vendas/FormEditarVenda.tsx
 - Notas: Mesmo comportamento de T-002, adaptado ao formulário de edição (carregar valor existente da venda, incluindo `null`).
