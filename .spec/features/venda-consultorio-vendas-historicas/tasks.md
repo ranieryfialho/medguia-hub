@@ -2,8 +2,7 @@
 
 > feature: venda-consultorio-vendas-historicas
 
-## T-001 — Migration: coluna venda_em_consultorio, CHECK e índices [pendente]
-
+## T-001 — Migration: coluna venda_em_consultorio, CHECK e índices [concluida]
 - Refs: AC-063, AC-064, AC-070
 - Arquivos: database/vendas_venda_em_consultorio_migration.sql
 - Notas: `ALTER TABLE vendas ADD COLUMN IF NOT EXISTS venda_em_consultorio BOOLEAN` (nullable, sem DEFAULT). `ADD CONSTRAINT vendas_consultorio_apenas_origem_medico CHECK (venda_em_consultorio IS NULL OR origem = 'medico')`. Índices `idx_vendas_data_status (data_venda, status)` e `idx_vendas_medico_ref_id (medico_referenciador_id) WHERE medico_referenciador_id IS NOT NULL`. Aditiva, aplicada pelo SQL Editor do Studio — mesmo padrão de `database/vendas_*_migration.sql`. Bloqueia T-002, T-003, T-004.
