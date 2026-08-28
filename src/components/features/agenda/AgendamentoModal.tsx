@@ -93,6 +93,7 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
   const [reagendamentoHora, setReagendamentoHora] = useState<string | undefined>()
   const [contagem, setContagem] = useState<{ total: number; cancelados: number } | null>(null)
   const [statusMenuPos, setStatusMenuPos] = useState<{ top: number; left: number; width: number } | null>(null)
+  const [opcoesPos, setOpcoesPos] = useState<{ top: number; left: number; width: number } | null>(null)
   const [detalhesPorAgendamento, setDetalhesPorAgendamento] = useState<Record<string, {
     telefone?: string | null; email?: string | null; full_name?: string | null; role?: string | null
     criador_nome?: string | null; created_at?: string | null; plano_saude?: string | null
@@ -100,6 +101,7 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
   }>>({})
   const [falhasDetalhes, setFalhasDetalhes] = useState<Record<string, true>>({})
   const opcoesRef = useRef<HTMLDivElement>(null)
+  const opcoesMenuRef = useRef<HTMLDivElement>(null)
   const statusRef = useRef<HTMLDivElement>(null)
   const statusMenuRef = useRef<HTMLDivElement>(null)
   const tabsRef = useRef<HTMLDivElement>(null)
@@ -196,9 +198,18 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
     return () => { active = false }
   }, [agendamento.id, loadingDetalhes])
 
+  function cancelarPassoMotivo() {
+    setPassoMotivo(null)
+    setMotivoCategoria(null)
+    setMotivoObservacao('')
+  }
+
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (opcoesRef.current && !opcoesRef.current.contains(e.target as Node)) {
+      if (
+        opcoesRef.current && !opcoesRef.current.contains(e.target as Node) &&
+        opcoesMenuRef.current && !opcoesMenuRef.current.contains(e.target as Node)
+      ) {
         setShowOpcoes(false)
         setConfirmandoExclusao(false)
         cancelarPassoMotivo()
@@ -300,12 +311,6 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
     setMotivoCategoria(null)
     setMotivoObservacao('')
     void carregarMotivosCatalogo()
-  }
-
-  function cancelarPassoMotivo() {
-    setPassoMotivo(null)
-    setMotivoCategoria(null)
-    setMotivoObservacao('')
   }
 
   async function handleConfirmarExclusaoComMotivo() {
@@ -453,160 +458,21 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
               <div className="relative flex-1" ref={opcoesRef}>
                 <button
                   type="button"
-                  onClick={() => { setShowOpcoes((prev) => !prev); setConfirmandoExclusao(false); cancelarPassoMotivo() }}
+                  onClick={() => {
+                    if (!showOpcoes && opcoesRef.current) {
+                      const rect = opcoesRef.current.getBoundingClientRect()
+                      setOpcoesPos({ top: rect.bottom + 4, left: rect.right - 288, width: rect.width })
+                    }
+                    setShowOpcoes((prev) => !prev)
+                    setConfirmandoExclusao(false)
+                    cancelarPassoMotivo()
+                  }}
                   className="flex w-full items-center justify-center gap-1 rounded-xl border border-[#bcc9c4] px-3 py-2.5 text-[11px] sm:text-xs font-semibold text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
                 >
                   Opções
                   <ChevronDown size={14} />
                 </button>
 
-                {showOpcoes && (
-                  <div className="absolute right-0 top-full z-30 mt-1 w-72 overflow-hidden rounded-xl border border-[#bcc9c4]/40 bg-white py-1.5 shadow-lg">
-                    {passoMotivo ? (
-                      <div className="space-y-3 px-4 py-3">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-bold text-[#6d7a75]">Motivo da exclusão</p>
-                          <button
-                            type="button"
-                            onClick={cancelarPassoMotivo}
-                            className="text-slate-400 hover:text-slate-600 transition-colors"
-                            aria-label="Cancelar exclusão"
-                          >
-                            <X size={14} />
-                          </button>
-                        </div>
-
-                        {passoMotivo === 'todos' && (
-                          <p className="rounded-lg bg-[#fbeaea] px-3 py-2 text-xs font-semibold text-[#ba1a1a]">
-                            Isso vai excluir as {agendamento.total_sessoes ?? 0} sessões desta série inteira.
-                            Se alguma sessão já estiver concluída, a exclusão inteira é recusada — nenhuma sessão é removida.
-                          </p>
-                        )}
-
-                        {carregandoMotivos ? (
-                          <p className="text-xs text-slate-400">Carregando motivos...</p>
-                        ) : (
-                          <div className="space-y-1">
-                            {(motivosCatalogo ?? []).map((m) => (
-                              <button
-                                key={m.slug}
-                                type="button"
-                                onClick={() => setMotivoCategoria(m.slug)}
-                                className={`w-full rounded-lg px-3 py-2 text-left text-xs font-medium transition-colors ${
-                                  motivoCategoria === m.slug
-                                    ? 'bg-[#006b5a]/10 text-[#006b5a]'
-                                    : 'text-[#3d4945] hover:bg-[#f0f5f4]'
-                                }`}
-                              >
-                                {m.label}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-
-                        {categoriaSelecionada?.exige_observacao && (
-                          <textarea
-                            value={motivoObservacao}
-                            onChange={(e) => setMotivoObservacao(e.target.value)}
-                            placeholder="Descreva o motivo..."
-                            rows={3}
-                            className="w-full rounded-lg border border-[#bcc9c4] px-3 py-2 text-xs text-[#3d4945] focus:outline-none focus:ring-1 focus:ring-[#006b5a]"
-                          />
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={() => void handleConfirmarExclusaoComMotivo()}
-                          disabled={!motivoValido || excluindo}
-                          className="w-full rounded-lg bg-[#ba1a1a] py-2.5 text-xs font-bold text-white disabled:opacity-40 transition-opacity"
-                        >
-                          {excluindo ? 'Excluindo...' : 'Confirmar exclusão'}
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => { setShowOpcoes(false); onEditar() }}
-                          className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-[#171d1c] hover:bg-[#f0f5f4] transition-colors"
-                        >
-                          <Pencil size={15} className="text-[#3d4945]" />
-                          Editar
-                        </button>
-                        {isRecorrente && agendamento.agendamento_id && (
-                          <button
-                            type="button"
-                            onClick={() => { setShowOpcoes(false); setModalEdicaoSerie(true) }}
-                            className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-[#171d1c] hover:bg-[#f0f5f4] transition-colors"
-                          >
-                            <Layers size={15} className="text-[#3d4945]" />
-                            Editar série
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => { router.push(`/pacientes/${agendamento.paciente_id}`); setShowOpcoes(false) }}
-                          className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-[#171d1c] hover:bg-[#f0f5f4] transition-colors"
-                        >
-                          <User size={15} className="text-[#3d4945]" />
-                          Ver jornada do paciente
-                        </button>
-                        <div className="my-1 h-px bg-[#bcc9c4]/30" />
-                        {isConcluido ? (
-                          <div className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-slate-400 cursor-not-allowed select-none">
-                            <Trash2 size={15} />
-                            Concluído — não pode excluir
-                          </div>
-                        ) : confirmandoExclusao && isRecorrente ? (
-                          <div className="space-y-1 px-3 py-2">
-                            <p className="px-1 pb-1 text-[11px] font-bold text-slate-400">Excluir:</p>
-                            <button
-                              type="button"
-                              onClick={() => abrirPassoMotivo('unico')}
-                              disabled={loading}
-                              className="w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium text-[#ba1a1a] hover:bg-[#fbeaea] transition-colors disabled:opacity-50"
-                            >
-                              Apenas este agendamento
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => abrirPassoMotivo('todos')}
-                              disabled={loading}
-                              className="w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium text-[#ba1a1a] hover:bg-[#fbeaea] transition-colors disabled:opacity-50"
-                            >
-                              Excluir toda a série ({agendamento.total_sessoes ?? 0} sessões)
-                            </button>
-                            <button
-                              type="button"
-                              onClick={handleAbrirSelecao}
-                              disabled={loading}
-                              className="w-full rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-[#ba1a1a] hover:bg-[#fbeaea] transition-colors disabled:opacity-50"
-                            >
-                              Selecionar atendimentos
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setConfirmandoExclusao(false)}
-                              className="w-full py-1.5 text-center text-xs text-slate-400 hover:text-slate-600 transition-colors"
-                            >
-                              Cancelar
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => { if (isRecorrente) setConfirmandoExclusao(true); else abrirPassoMotivo('avulso') }}
-                            disabled={loading}
-                            className="flex w-full items-center gap-3 px-4 py-2.5 text-sm font-semibold text-[#ba1a1a] hover:bg-[#fbeaea] transition-colors disabled:opacity-50"
-                          >
-                            <Trash2 size={15} />
-                            Excluir agendamento
-                          </button>
-                        )}
-                      </>
-                    )}
-                  </div>
-                )}
               </div>
             </div>
           </div>
@@ -920,6 +786,159 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
               </button>
             )
           })}
+        </div>,
+        document.body
+      )}
+
+      {typeof document !== 'undefined' && showOpcoes && opcoesPos && createPortal(
+        <div
+          ref={opcoesMenuRef}
+          style={{ position: 'fixed', top: opcoesPos.top, left: opcoesPos.left, width: 288, zIndex: 9999 }}
+          className="overflow-hidden rounded-xl border border-[#bcc9c4]/40 bg-white py-1.5 shadow-lg"
+        >
+          {passoMotivo ? (
+            <div className="space-y-3 px-4 py-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-[#6d7a75]">Motivo da exclusão</p>
+                <button
+                  type="button"
+                  onClick={cancelarPassoMotivo}
+                  className="text-slate-400 hover:text-slate-600 transition-colors"
+                  aria-label="Cancelar exclusão"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+
+              {passoMotivo === 'todos' && (
+                <p className="rounded-lg bg-[#fbeaea] px-3 py-2 text-xs font-semibold text-[#ba1a1a]">
+                  Isso vai excluir as {agendamento.total_sessoes ?? 0} sessões desta série inteira.
+                  Se alguma sessão já estiver concluída, a exclusão inteira é recusada — nenhuma sessão é removida.
+                </p>
+              )}
+
+              {carregandoMotivos ? (
+                <p className="text-xs text-slate-400">Carregando motivos...</p>
+              ) : (
+                <div className="space-y-1">
+                  {(motivosCatalogo ?? []).map((m) => (
+                    <button
+                      key={m.slug}
+                      type="button"
+                      onClick={() => setMotivoCategoria(m.slug)}
+                      className={`w-full rounded-lg px-3 py-2 text-left text-xs font-medium transition-colors ${
+                        motivoCategoria === m.slug
+                          ? 'bg-[#006b5a]/10 text-[#006b5a]'
+                          : 'text-[#3d4945] hover:bg-[#f0f5f4]'
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {categoriaSelecionada?.exige_observacao && (
+                <textarea
+                  value={motivoObservacao}
+                  onChange={(e) => setMotivoObservacao(e.target.value)}
+                  placeholder="Descreva o motivo..."
+                  rows={3}
+                  className="w-full rounded-lg border border-[#bcc9c4] px-3 py-2 text-xs text-[#3d4945] focus:outline-none focus:ring-1 focus:ring-[#006b5a]"
+                />
+              )}
+
+              <button
+                type="button"
+                onClick={() => void handleConfirmarExclusaoComMotivo()}
+                disabled={!motivoValido || excluindo}
+                className="w-full rounded-lg bg-[#ba1a1a] py-2.5 text-xs font-bold text-white disabled:opacity-40 transition-opacity"
+              >
+                {excluindo ? 'Excluindo...' : 'Confirmar exclusão'}
+              </button>
+            </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => { setShowOpcoes(false); onEditar() }}
+                className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-[#171d1c] hover:bg-[#f0f5f4] transition-colors"
+              >
+                <Pencil size={15} className="text-[#3d4945]" />
+                Editar
+              </button>
+              {isRecorrente && agendamento.agendamento_id && (
+                <button
+                  type="button"
+                  onClick={() => { setShowOpcoes(false); setModalEdicaoSerie(true) }}
+                  className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-[#171d1c] hover:bg-[#f0f5f4] transition-colors"
+                >
+                  <Layers size={15} className="text-[#3d4945]" />
+                  Editar série
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => { router.push(`/pacientes/${agendamento.paciente_id}`); setShowOpcoes(false) }}
+                className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-[#171d1c] hover:bg-[#f0f5f4] transition-colors"
+              >
+                <User size={15} className="text-[#3d4945]" />
+                Ver jornada do paciente
+              </button>
+              <div className="my-1 h-px bg-[#bcc9c4]/30" />
+              {isConcluido ? (
+                <div className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-slate-400 cursor-not-allowed select-none">
+                  <Trash2 size={15} />
+                  Concluído — não pode excluir
+                </div>
+              ) : confirmandoExclusao && isRecorrente ? (
+                <div className="space-y-1 px-3 py-2">
+                  <p className="px-1 pb-1 text-[11px] font-bold text-slate-400">Excluir:</p>
+                  <button
+                    type="button"
+                    onClick={() => abrirPassoMotivo('unico')}
+                    disabled={loading}
+                    className="w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium text-[#ba1a1a] hover:bg-[#fbeaea] transition-colors disabled:opacity-50"
+                  >
+                    Apenas este agendamento
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => abrirPassoMotivo('todos')}
+                    disabled={loading}
+                    className="w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium text-[#ba1a1a] hover:bg-[#fbeaea] transition-colors disabled:opacity-50"
+                  >
+                    Excluir toda a série ({agendamento.total_sessoes ?? 0} sessões)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAbrirSelecao}
+                    disabled={loading}
+                    className="w-full rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-[#ba1a1a] hover:bg-[#fbeaea] transition-colors disabled:opacity-50"
+                  >
+                    Selecionar atendimentos
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmandoExclusao(false)}
+                    className="w-full py-1.5 text-center text-xs text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => { if (isRecorrente) setConfirmandoExclusao(true); else abrirPassoMotivo('avulso') }}
+                  disabled={loading}
+                  className="flex w-full items-center gap-3 px-4 py-2.5 text-sm font-semibold text-[#ba1a1a] hover:bg-[#fbeaea] transition-colors disabled:opacity-50"
+                >
+                  <Trash2 size={15} />
+                  Excluir agendamento
+                </button>
+              )}
+            </>
+          )}
         </div>,
         document.body
       )}
