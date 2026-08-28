@@ -22,8 +22,7 @@
 - Arquivos: src/actions/vendas.ts
 - Notas: `criarVenda` e `editarVenda` passam a receber `venda_em_consultorio` do FormData. Validar: se `origem !== 'medico'`, forçar `null` antes de gravar (defesa em profundidade — o `CHECK` do banco é a garantia real). Mensagem de erro amigável se o banco rejeitar. Depende de T-001.
 
-## T-005 — Testes unitários do toggle nas actions [pendente]
-
+## T-005 — Testes unitários do toggle nas actions [concluida]
 - Refs: AC-063, AC-064
 - Arquivos: src/actions/vendas.test.ts
 - Notas: `node --test` com FormData montado — cobre AC-063 (persistência correta com origem médica) e AC-064 (limpeza para `null` quando origem não é médica / venda legada). Depende de T-004.
