@@ -17,8 +17,7 @@
 - Arquivos: src/components/features/vendas/FormEditarVenda.tsx
 - Notas: Mesmo comportamento de T-002, adaptado ao formulário de edição (carregar valor existente da venda, incluindo `null`).
 
-## T-004 — Validação do toggle nas Server Actions [pendente]
-
+## T-004 — Validação do toggle nas Server Actions [concluida]
 - Refs: AC-063, AC-064
 - Arquivos: src/actions/vendas.ts
 - Notas: `criarVenda` e `editarVenda` passam a receber `venda_em_consultorio` do FormData. Validar: se `origem !== 'medico'`, forçar `null` antes de gravar (defesa em profundidade — o `CHECK` do banco é a garantia real). Mensagem de erro amigável se o banco rejeitar. Depende de T-001.
