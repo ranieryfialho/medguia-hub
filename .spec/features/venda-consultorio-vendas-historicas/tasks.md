@@ -74,8 +74,8 @@
 
 ## T-015 — Drill-down expansível por linha da tabela histórica [concluida]
 - Refs: AC-081
-- Arquivos: src/app/(painel)/relatorios/vendas-historicas/DrillDownMes.tsx
-- Notas: Componente cliente que chama `fn_vendas_detalhe_mes` ao expandir a linha (não no carregamento inicial). Exibe quebra por origem, quebra por categoria, ranking de médicos referenciadores e ranking de fisioterapeutas do mês. Depende de T-007, T-014.
+- Arquivos: src/actions/vendas-historicas.ts, src/components/features/relatorios/VendasHistoricasClient.tsx
+- Notas: Implementado inline em VendasHistoricasClient.tsx (não em componente separado) — a Server Action buscarDrillDownMes (src/actions/vendas-historicas.ts) chama `fn_vendas_detalhe_mes` ao expandir a linha (não no carregamento inicial). Exibe quebra por origem, quebra por categoria, ranking de médicos referenciadores e ranking de fisioterapeutas do mês. Depende de T-007, T-014.
 
 ## T-016 — Exportação PDF e XLSX do relatório histórico [concluida]
 - Refs: AC-084

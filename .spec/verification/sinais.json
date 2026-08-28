@@ -3704,19 +3704,19 @@
       "codigo": "VERIFY_OBSOLETO",
       "feature": "status-personalizados-ciclo-vida",
       "ref": "—",
-      "ocorrencias": 4,
+      "ocorrencias": 7,
       "primeiraVez": "2026-08-25T13:24:35.898Z",
-      "ultimaVez": "2026-08-28T00:59:10.849Z",
-      "gitRev": "d973355"
+      "ultimaVez": "2026-08-28T01:56:51.853Z",
+      "gitRev": "ae4d883"
     },
     "VERIFY_OBSOLETO::auditoria-exclusao-agendamentos::—": {
       "codigo": "VERIFY_OBSOLETO",
       "feature": "auditoria-exclusao-agendamentos",
       "ref": "—",
-      "ocorrencias": 3,
+      "ocorrencias": 6,
       "primeiraVez": "2026-08-25T13:55:48.789Z",
-      "ultimaVez": "2026-08-28T00:59:10.848Z",
-      "gitRev": "d973355"
+      "ultimaVez": "2026-08-28T01:56:51.852Z",
+      "gitRev": "ae4d883"
     },
     "VERIFY_FALHOU::auditoria-exclusao-agendamentos::AC-050": {
       "codigo": "VERIFY_FALHOU",
@@ -4037,19 +4037,19 @@
       "codigo": "AC_SEM_TESTE",
       "feature": "venda-consultorio-vendas-historicas",
       "ref": "AC-065",
-      "ocorrencias": 2,
+      "ocorrencias": 3,
       "primeiraVez": "2026-08-28T00:58:01.631Z",
-      "ultimaVez": "2026-08-28T00:59:10.849Z",
-      "gitRev": "d973355"
+      "ultimaVez": "2026-08-28T01:52:06.007Z",
+      "gitRev": "ae4d883"
     },
     "AC_SEM_TESTE::venda-consultorio-vendas-historicas::AC-066": {
       "codigo": "AC_SEM_TESTE",
       "feature": "venda-consultorio-vendas-historicas",
       "ref": "AC-066",
-      "ocorrencias": 2,
+      "ocorrencias": 3,
       "primeiraVez": "2026-08-28T00:58:01.631Z",
-      "ultimaVez": "2026-08-28T00:59:10.849Z",
-      "gitRev": "d973355"
+      "ultimaVez": "2026-08-28T01:52:06.007Z",
+      "gitRev": "ae4d883"
     },
     "AC_SEM_TESTE::venda-consultorio-vendas-historicas::AC-067": {
       "codigo": "AC_SEM_TESTE",
@@ -4064,73 +4064,73 @@
       "codigo": "AC_SEM_TESTE",
       "feature": "venda-consultorio-vendas-historicas",
       "ref": "AC-068",
-      "ocorrencias": 2,
+      "ocorrencias": 3,
       "primeiraVez": "2026-08-28T00:58:01.631Z",
-      "ultimaVez": "2026-08-28T00:59:10.849Z",
-      "gitRev": "d973355"
+      "ultimaVez": "2026-08-28T01:52:06.007Z",
+      "gitRev": "ae4d883"
     },
     "AC_SEM_TESTE::venda-consultorio-vendas-historicas::AC-069": {
       "codigo": "AC_SEM_TESTE",
       "feature": "venda-consultorio-vendas-historicas",
       "ref": "AC-069",
-      "ocorrencias": 2,
+      "ocorrencias": 3,
       "primeiraVez": "2026-08-28T00:58:01.631Z",
-      "ultimaVez": "2026-08-28T00:59:10.849Z",
-      "gitRev": "d973355"
+      "ultimaVez": "2026-08-28T01:52:06.007Z",
+      "gitRev": "ae4d883"
     },
     "AC_SEM_TESTE::venda-consultorio-vendas-historicas::AC-070": {
       "codigo": "AC_SEM_TESTE",
       "feature": "venda-consultorio-vendas-historicas",
       "ref": "AC-070",
-      "ocorrencias": 2,
+      "ocorrencias": 3,
       "primeiraVez": "2026-08-28T00:58:01.631Z",
-      "ultimaVez": "2026-08-28T00:59:10.849Z",
-      "gitRev": "d973355"
+      "ultimaVez": "2026-08-28T01:52:06.008Z",
+      "gitRev": "ae4d883"
     },
     "AC_SEM_TESTE::venda-consultorio-vendas-historicas::AC-071": {
       "codigo": "AC_SEM_TESTE",
       "feature": "venda-consultorio-vendas-historicas",
       "ref": "AC-071",
-      "ocorrencias": 2,
+      "ocorrencias": 4,
       "primeiraVez": "2026-08-28T00:58:01.631Z",
-      "ultimaVez": "2026-08-28T00:59:10.849Z",
-      "gitRev": "d973355"
+      "ultimaVez": "2026-08-28T01:55:18.267Z",
+      "gitRev": "ae4d883"
     },
     "AC_SEM_TESTE::venda-consultorio-vendas-historicas::AC-072": {
       "codigo": "AC_SEM_TESTE",
       "feature": "venda-consultorio-vendas-historicas",
       "ref": "AC-072",
-      "ocorrencias": 2,
+      "ocorrencias": 4,
       "primeiraVez": "2026-08-28T00:58:01.631Z",
-      "ultimaVez": "2026-08-28T00:59:10.849Z",
-      "gitRev": "d973355"
+      "ultimaVez": "2026-08-28T01:55:18.267Z",
+      "gitRev": "ae4d883"
     },
     "AC_SEM_TESTE::venda-consultorio-vendas-historicas::AC-073": {
       "codigo": "AC_SEM_TESTE",
       "feature": "venda-consultorio-vendas-historicas",
       "ref": "AC-073",
-      "ocorrencias": 2,
+      "ocorrencias": 4,
       "primeiraVez": "2026-08-28T00:58:01.631Z",
-      "ultimaVez": "2026-08-28T00:59:10.849Z",
-      "gitRev": "d973355"
+      "ultimaVez": "2026-08-28T01:55:18.267Z",
+      "gitRev": "ae4d883"
     },
     "AC_SEM_TESTE::venda-consultorio-vendas-historicas::AC-074": {
       "codigo": "AC_SEM_TESTE",
       "feature": "venda-consultorio-vendas-historicas",
       "ref": "AC-074",
-      "ocorrencias": 2,
+      "ocorrencias": 4,
       "primeiraVez": "2026-08-28T00:58:01.631Z",
-      "ultimaVez": "2026-08-28T00:59:10.849Z",
-      "gitRev": "d973355"
+      "ultimaVez": "2026-08-28T01:55:18.267Z",
+      "gitRev": "ae4d883"
     },
     "AC_SEM_TESTE::venda-consultorio-vendas-historicas::AC-075": {
       "codigo": "AC_SEM_TESTE",
       "feature": "venda-consultorio-vendas-historicas",
       "ref": "AC-075",
-      "ocorrencias": 2,
+      "ocorrencias": 4,
       "primeiraVez": "2026-08-28T00:58:01.631Z",
-      "ultimaVez": "2026-08-28T00:59:10.849Z",
-      "gitRev": "d973355"
+      "ultimaVez": "2026-08-28T01:55:18.267Z",
+      "gitRev": "ae4d883"
     },
     "AC_SEM_TESTE::venda-consultorio-vendas-historicas::AC-076": {
       "codigo": "AC_SEM_TESTE",
@@ -4145,10 +4145,10 @@
       "codigo": "AC_SEM_TESTE",
       "feature": "venda-consultorio-vendas-historicas",
       "ref": "AC-077",
-      "ocorrencias": 2,
+      "ocorrencias": 4,
       "primeiraVez": "2026-08-28T00:58:01.631Z",
-      "ultimaVez": "2026-08-28T00:59:10.849Z",
-      "gitRev": "d973355"
+      "ultimaVez": "2026-08-28T01:55:18.267Z",
+      "gitRev": "ae4d883"
     },
     "AC_SEM_TESTE::venda-consultorio-vendas-historicas::AC-078": {
       "codigo": "AC_SEM_TESTE",
@@ -4163,10 +4163,10 @@
       "codigo": "AC_SEM_TESTE",
       "feature": "venda-consultorio-vendas-historicas",
       "ref": "AC-079",
-      "ocorrencias": 2,
+      "ocorrencias": 4,
       "primeiraVez": "2026-08-28T00:58:01.631Z",
-      "ultimaVez": "2026-08-28T00:59:10.849Z",
-      "gitRev": "d973355"
+      "ultimaVez": "2026-08-28T01:55:18.267Z",
+      "gitRev": "ae4d883"
     },
     "AC_SEM_TESTE::venda-consultorio-vendas-historicas::AC-080": {
       "codigo": "AC_SEM_TESTE",
@@ -4181,46 +4181,46 @@
       "codigo": "AC_SEM_TESTE",
       "feature": "venda-consultorio-vendas-historicas",
       "ref": "AC-081",
-      "ocorrencias": 2,
+      "ocorrencias": 4,
       "primeiraVez": "2026-08-28T00:58:01.631Z",
-      "ultimaVez": "2026-08-28T00:59:10.849Z",
-      "gitRev": "d973355"
+      "ultimaVez": "2026-08-28T01:55:18.268Z",
+      "gitRev": "ae4d883"
     },
     "AC_SEM_TESTE::venda-consultorio-vendas-historicas::AC-082": {
       "codigo": "AC_SEM_TESTE",
       "feature": "venda-consultorio-vendas-historicas",
       "ref": "AC-082",
-      "ocorrencias": 2,
+      "ocorrencias": 4,
       "primeiraVez": "2026-08-28T00:58:01.631Z",
-      "ultimaVez": "2026-08-28T00:59:10.849Z",
-      "gitRev": "d973355"
+      "ultimaVez": "2026-08-28T01:55:18.268Z",
+      "gitRev": "ae4d883"
     },
     "AC_SEM_TESTE::venda-consultorio-vendas-historicas::AC-083": {
       "codigo": "AC_SEM_TESTE",
       "feature": "venda-consultorio-vendas-historicas",
       "ref": "AC-083",
-      "ocorrencias": 2,
+      "ocorrencias": 4,
       "primeiraVez": "2026-08-28T00:58:01.631Z",
-      "ultimaVez": "2026-08-28T00:59:10.849Z",
-      "gitRev": "d973355"
+      "ultimaVez": "2026-08-28T01:55:18.268Z",
+      "gitRev": "ae4d883"
     },
     "AC_SEM_TESTE::venda-consultorio-vendas-historicas::AC-084": {
       "codigo": "AC_SEM_TESTE",
       "feature": "venda-consultorio-vendas-historicas",
       "ref": "AC-084",
-      "ocorrencias": 2,
+      "ocorrencias": 4,
       "primeiraVez": "2026-08-28T00:58:01.631Z",
-      "ultimaVez": "2026-08-28T00:59:10.849Z",
-      "gitRev": "d973355"
+      "ultimaVez": "2026-08-28T01:55:18.268Z",
+      "gitRev": "ae4d883"
     },
     "AC_SEM_TESTE::venda-consultorio-vendas-historicas::AC-085": {
       "codigo": "AC_SEM_TESTE",
       "feature": "venda-consultorio-vendas-historicas",
       "ref": "AC-085",
-      "ocorrencias": 2,
+      "ocorrencias": 4,
       "primeiraVez": "2026-08-28T00:58:01.631Z",
-      "ultimaVez": "2026-08-28T00:59:10.849Z",
-      "gitRev": "d973355"
+      "ultimaVez": "2026-08-28T01:55:18.268Z",
+      "gitRev": "ae4d883"
     },
     "AC_SEM_TESTE::venda-consultorio-vendas-historicas::AC-086": {
       "codigo": "AC_SEM_TESTE",
@@ -4289,10 +4289,10 @@
       "codigo": "ARQUIVO_INEXISTENTE",
       "feature": "venda-consultorio-vendas-historicas",
       "ref": "T-015",
-      "ocorrencias": 1,
+      "ocorrencias": 3,
       "primeiraVez": "2026-08-28T00:59:10.849Z",
-      "ultimaVez": "2026-08-28T00:59:10.849Z",
-      "gitRev": "d973355"
+      "ultimaVez": "2026-08-28T01:55:18.267Z",
+      "gitRev": "ae4d883"
     },
     "ARQUIVO_INEXISTENTE::venda-consultorio-vendas-historicas::T-016": {
       "codigo": "ARQUIVO_INEXISTENTE",
@@ -4311,6 +4311,303 @@
       "primeiraVez": "2026-08-28T00:59:10.849Z",
       "ultimaVez": "2026-08-28T00:59:10.849Z",
       "gitRev": "d973355"
+    },
+    "VERIFY_FALHOU::venda-consultorio-vendas-historicas::AC-061": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "AC-061",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-28T01:51:41.929Z",
+      "ultimaVez": "2026-08-28T01:51:41.929Z",
+      "gitRev": "ae4d883"
+    },
+    "VERIFY_FALHOU::venda-consultorio-vendas-historicas::AC-062": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "AC-062",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-28T01:51:41.929Z",
+      "ultimaVez": "2026-08-28T01:51:41.929Z",
+      "gitRev": "ae4d883"
+    },
+    "VERIFY_FALHOU::venda-consultorio-vendas-historicas::AC-063": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "AC-063",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-28T01:51:41.929Z",
+      "ultimaVez": "2026-08-28T01:51:41.929Z",
+      "gitRev": "ae4d883"
+    },
+    "VERIFY_FALHOU::venda-consultorio-vendas-historicas::AC-064": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "AC-064",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-28T01:51:41.929Z",
+      "ultimaVez": "2026-08-28T01:51:41.929Z",
+      "gitRev": "ae4d883"
+    },
+    "VERIFY_FALHOU::venda-consultorio-vendas-historicas::AC-065": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "AC-065",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-28T01:51:41.930Z",
+      "ultimaVez": "2026-08-28T01:51:41.930Z",
+      "gitRev": "ae4d883"
+    },
+    "VERIFY_FALHOU::venda-consultorio-vendas-historicas::AC-066": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "AC-066",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-28T01:51:41.930Z",
+      "ultimaVez": "2026-08-28T01:51:41.930Z",
+      "gitRev": "ae4d883"
+    },
+    "VERIFY_FALHOU::venda-consultorio-vendas-historicas::AC-067": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "AC-067",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-28T01:51:41.930Z",
+      "ultimaVez": "2026-08-28T01:51:41.930Z",
+      "gitRev": "ae4d883"
+    },
+    "VERIFY_FALHOU::venda-consultorio-vendas-historicas::AC-068": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "AC-068",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-28T01:51:41.930Z",
+      "ultimaVez": "2026-08-28T01:51:41.930Z",
+      "gitRev": "ae4d883"
+    },
+    "VERIFY_FALHOU::venda-consultorio-vendas-historicas::AC-069": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "AC-069",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-28T01:51:41.930Z",
+      "ultimaVez": "2026-08-28T01:51:41.930Z",
+      "gitRev": "ae4d883"
+    },
+    "VERIFY_FALHOU::venda-consultorio-vendas-historicas::AC-070": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "AC-070",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-28T01:51:41.930Z",
+      "ultimaVez": "2026-08-28T01:51:41.930Z",
+      "gitRev": "ae4d883"
+    },
+    "VERIFY_FALHOU::venda-consultorio-vendas-historicas::AC-071": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "AC-071",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-28T01:51:41.930Z",
+      "ultimaVez": "2026-08-28T01:51:41.930Z",
+      "gitRev": "ae4d883"
+    },
+    "VERIFY_FALHOU::venda-consultorio-vendas-historicas::AC-072": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "AC-072",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-28T01:51:41.930Z",
+      "ultimaVez": "2026-08-28T01:51:41.930Z",
+      "gitRev": "ae4d883"
+    },
+    "VERIFY_FALHOU::venda-consultorio-vendas-historicas::AC-073": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "AC-073",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-28T01:51:41.930Z",
+      "ultimaVez": "2026-08-28T01:51:41.930Z",
+      "gitRev": "ae4d883"
+    },
+    "VERIFY_FALHOU::venda-consultorio-vendas-historicas::AC-074": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "AC-074",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-28T01:51:41.930Z",
+      "ultimaVez": "2026-08-28T01:51:41.930Z",
+      "gitRev": "ae4d883"
+    },
+    "VERIFY_FALHOU::venda-consultorio-vendas-historicas::AC-075": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "AC-075",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-28T01:51:41.930Z",
+      "ultimaVez": "2026-08-28T01:51:41.930Z",
+      "gitRev": "ae4d883"
+    },
+    "VERIFY_FALHOU::venda-consultorio-vendas-historicas::AC-076": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "AC-076",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-28T01:51:41.930Z",
+      "ultimaVez": "2026-08-28T01:51:41.930Z",
+      "gitRev": "ae4d883"
+    },
+    "VERIFY_FALHOU::venda-consultorio-vendas-historicas::AC-077": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "AC-077",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-28T01:51:41.930Z",
+      "ultimaVez": "2026-08-28T01:51:41.930Z",
+      "gitRev": "ae4d883"
+    },
+    "VERIFY_FALHOU::venda-consultorio-vendas-historicas::AC-078": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "AC-078",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-28T01:51:41.930Z",
+      "ultimaVez": "2026-08-28T01:51:41.930Z",
+      "gitRev": "ae4d883"
+    },
+    "VERIFY_FALHOU::venda-consultorio-vendas-historicas::AC-079": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "AC-079",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-28T01:51:41.930Z",
+      "ultimaVez": "2026-08-28T01:51:41.930Z",
+      "gitRev": "ae4d883"
+    },
+    "VERIFY_FALHOU::venda-consultorio-vendas-historicas::AC-080": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "AC-080",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-28T01:51:41.930Z",
+      "ultimaVez": "2026-08-28T01:51:41.930Z",
+      "gitRev": "ae4d883"
+    },
+    "VERIFY_FALHOU::venda-consultorio-vendas-historicas::AC-081": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "AC-081",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-28T01:51:41.930Z",
+      "ultimaVez": "2026-08-28T01:51:41.930Z",
+      "gitRev": "ae4d883"
+    },
+    "VERIFY_FALHOU::venda-consultorio-vendas-historicas::AC-082": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "AC-082",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-28T01:51:41.930Z",
+      "ultimaVez": "2026-08-28T01:51:41.930Z",
+      "gitRev": "ae4d883"
+    },
+    "VERIFY_FALHOU::venda-consultorio-vendas-historicas::AC-083": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "AC-083",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-28T01:51:41.930Z",
+      "ultimaVez": "2026-08-28T01:51:41.930Z",
+      "gitRev": "ae4d883"
+    },
+    "VERIFY_FALHOU::venda-consultorio-vendas-historicas::AC-084": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "AC-084",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-28T01:51:41.930Z",
+      "ultimaVez": "2026-08-28T01:51:41.930Z",
+      "gitRev": "ae4d883"
+    },
+    "VERIFY_FALHOU::venda-consultorio-vendas-historicas::AC-085": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "AC-085",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-28T01:51:41.930Z",
+      "ultimaVez": "2026-08-28T01:51:41.930Z",
+      "gitRev": "ae4d883"
+    },
+    "VERIFY_FALHOU::venda-consultorio-vendas-historicas::AC-086": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "AC-086",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-08-28T01:51:41.930Z",
+      "ultimaVez": "2026-08-28T01:51:41.930Z",
+      "gitRev": "ae4d883"
+    },
+    "TASK_CONCLUIDA_SEM_PROVA::venda-consultorio-vendas-historicas::T-009": {
+      "codigo": "TASK_CONCLUIDA_SEM_PROVA",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "T-009",
+      "ocorrencias": 8,
+      "primeiraVez": "2026-08-28T01:52:06.007Z",
+      "ultimaVez": "2026-08-28T01:55:18.267Z",
+      "gitRev": "ae4d883"
+    },
+    "TASK_CONCLUIDA_SEM_PROVA::venda-consultorio-vendas-historicas::T-010": {
+      "codigo": "TASK_CONCLUIDA_SEM_PROVA",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "T-010",
+      "ocorrencias": 2,
+      "primeiraVez": "2026-08-28T01:52:06.007Z",
+      "ultimaVez": "2026-08-28T01:55:18.267Z",
+      "gitRev": "ae4d883"
+    },
+    "TASK_CONCLUIDA_SEM_PROVA::venda-consultorio-vendas-historicas::T-011": {
+      "codigo": "TASK_CONCLUIDA_SEM_PROVA",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "T-011",
+      "ocorrencias": 2,
+      "primeiraVez": "2026-08-28T01:52:06.007Z",
+      "ultimaVez": "2026-08-28T01:55:18.267Z",
+      "gitRev": "ae4d883"
+    },
+    "TASK_CONCLUIDA_SEM_PROVA::venda-consultorio-vendas-historicas::T-013": {
+      "codigo": "TASK_CONCLUIDA_SEM_PROVA",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "T-013",
+      "ocorrencias": 2,
+      "primeiraVez": "2026-08-28T01:52:06.007Z",
+      "ultimaVez": "2026-08-28T01:55:18.267Z",
+      "gitRev": "ae4d883"
+    },
+    "TASK_CONCLUIDA_SEM_PROVA::venda-consultorio-vendas-historicas::T-014": {
+      "codigo": "TASK_CONCLUIDA_SEM_PROVA",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "T-014",
+      "ocorrencias": 6,
+      "primeiraVez": "2026-08-28T01:52:06.007Z",
+      "ultimaVez": "2026-08-28T01:55:18.267Z",
+      "gitRev": "ae4d883"
+    },
+    "TASK_CONCLUIDA_SEM_PROVA::venda-consultorio-vendas-historicas::T-015": {
+      "codigo": "TASK_CONCLUIDA_SEM_PROVA",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "T-015",
+      "ocorrencias": 2,
+      "primeiraVez": "2026-08-28T01:52:06.007Z",
+      "ultimaVez": "2026-08-28T01:55:18.267Z",
+      "gitRev": "ae4d883"
+    },
+    "TASK_CONCLUIDA_SEM_PROVA::venda-consultorio-vendas-historicas::T-016": {
+      "codigo": "TASK_CONCLUIDA_SEM_PROVA",
+      "feature": "venda-consultorio-vendas-historicas",
+      "ref": "T-016",
+      "ocorrencias": 2,
+      "primeiraVez": "2026-08-28T01:52:06.007Z",
+      "ultimaVez": "2026-08-28T01:55:18.267Z",
+      "gitRev": "ae4d883"
     }
   }
 }

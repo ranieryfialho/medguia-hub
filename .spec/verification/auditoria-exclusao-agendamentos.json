@@ -1,11 +1,11 @@
 {
   "feature": "auditoria-exclusao-agendamentos",
-  "timestamp": "2026-08-25T14:20:33.637Z",
-  "gitRev": "11a5ae3",
+  "timestamp": "2026-08-28T01:57:00.958Z",
+  "gitRev": "ae4d883",
   "command": "node --test --test-reporter=tap",
   "reporter": "tap",
   "exitCode": 0,
-  "testsParsed": 253,
+  "testsParsed": 305,
   "results": {
     "AC-044": {
       "status": "pass",
