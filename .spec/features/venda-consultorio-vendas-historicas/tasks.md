@@ -62,8 +62,7 @@
 - Arquivos: src/lib/relatorios/vendas-historicas.ts, src/lib/relatorios/vendas-historicas.test.ts
 - Notas: Extrair para funções puras testáveis por `node --test`: cálculo de MoM sobre linhas adjacentes (divisão por zero → `—`, nunca `-100%`), derivação dos cards executivos (total, volume, ticket médio consolidado, melhor mês, crescimento médio MoM) a partir do array de linhas mensais. Essas funções são consumidas tanto pela rota nova (T-014) quanto pela validação lado a lado de T-011.
 
-## T-013 — Menu lateral: link para /relatorios/vendas-historicas [pendente]
-
+## T-013 — Menu lateral: link para /relatorios/vendas-historicas [concluida]
 - Refs: AC-085
 - Arquivos: src/components/layout/Sidebar.tsx
 - Notas: Entrada no grupo Comercial, ao lado do link existente para `/relatorios/vendas`.

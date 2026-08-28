@@ -35,6 +35,7 @@ import {
   MessageSquare,
   CircleDot,
   ShieldAlert,
+  TrendingUp,
 } from 'lucide-react'
 import { ProntuariosBadge } from './ProntuariosBadge'
 import { FollowUpsBadge } from './FollowUpsBadge'
@@ -305,9 +306,15 @@ export function Sidebar({
                   </Link>
                 )}
                 {pv('comercial:relatorio_vendas') && (
-                  <Link href="/relatorios/vendas" onClick={handleNavClick} className={subLinkCls(!!isActive('/relatorios/vendas'))}>
+                  <Link href="/relatorios/vendas" onClick={handleNavClick} className={subLinkCls(pathname === '/relatorios/vendas')}>
                     <BarChart3 size={14} />
                     Relatório de Vendas
+                  </Link>
+                )}
+                {pv('comercial:relatorio_vendas') && (
+                  <Link href="/relatorios/vendas-historicas" onClick={handleNavClick} className={subLinkCls(!!isActive('/relatorios/vendas-historicas'))}>
+                    <TrendingUp size={14} />
+                    Vendas Históricas
                   </Link>
                 )}
               </div>
