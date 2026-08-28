@@ -125,7 +125,8 @@ export default async function RelatorioVendasPage({
     return qs ? `/relatorios/vendas?${qs}` : '/relatorios/vendas'
   }
 
-  // Query única com join em profissional e itens+produto
+  // Query única com join em profissional e itens+produto. count: 'exact'
+  // sustenta a checagem de truncamento abaixo (AC-077).
   let query = supabase
     .from('vendas')
     .select(`
@@ -133,7 +134,7 @@ export default async function RelatorioVendasPage({
       pacientes:paciente_id ( nome, origem ),
       profiles:profissional_id ( full_name, role ),
       itens_venda ( quantidade, preco_unitario, produtos:produto_id ( id, nome, categoria ) )
-    `)
+    `, { count: 'exact' })
 
   if (data_inicio) query = query.gte('data_venda', getAppDayRangeUTC(data_inicio).start)
   if (data_fim) query = query.lte('data_venda', getAppDayRangeUTC(data_fim).end)
@@ -150,21 +151,43 @@ export default async function RelatorioVendasPage({
   if (modalidade === 'consultorio') query = query.eq('venda_em_consultorio', true)
   if (modalidade === 'fisio') query = query.eq('venda_em_consultorio', false)
 
-  // Buscar vendas e dados auxiliares em paralelo
+  // Buscar vendas e dados auxiliares em paralelo. A listagem detalhada usa
+  // .range() explícito (AC-077) — fecha o truncamento silencioso do
+  // PostgREST sem limite. fn_vendas_resumo_mensal roda em paralelo só para
+  // validação lado a lado dos KPIs (T-011); não filtra por status_filter,
+  // forma_pagamento, nome_protocolo ou produto_id pois esses parâmetros não
+  // existem na função canônica — a comparação só é válida quando nenhum
+  // desses filtros extras está ativo.
   const [
-    { data: vendasRaw },
+    { data: vendasRaw, count: vendasCount },
     { data: profissionaisRaw },
     { data: produtosRaw },
     { data: protocolosRaw },
     { data: medicosRaw },
+    resumoCanonico,
   ] = await Promise.all([
-    query,
+    query.range(0, 9999),
     supabase.from('profiles').select('id, full_name, role').in('role', ['fisioterapeuta', 'gestor']).order('full_name'),
     supabase.from('produtos').select('id, nome').eq('ativo', true).order('nome'),
     supabase.from('protocolos').select('nome').eq('ativo', true).order('nome'),
     supabase.from('profiles').select('id, full_name').eq('role', 'medico').eq('ativo', true).order('full_name'),
+    data_inicio && data_fim
+      ? supabase.rpc('fn_vendas_resumo_mensal', {
+          p_data_inicio: data_inicio,
+          p_data_fim: data_fim,
+          p_profissional_id: profissional_id || null,
+          p_origem: origem || null,
+          p_modalidade: modalidade || null,
+        })
+      : Promise.resolve({ data: null, error: null }),
   ])
   const vendas = (vendasRaw ?? []) as unknown as VendaRow[]
+
+  if (vendasCount !== null && vendasCount > vendas.length) {
+    console.error(
+      `[relatorios/vendas] truncamento: ${vendasCount} vendas no período, apenas ${vendas.length} carregadas — aumentar o range().`
+    )
+  }
 
   const profissionaisFiltro = (profissionaisRaw || []).map((p: { id: string; full_name: string | null; role: string | null }) => ({
     id: p.id,
@@ -372,6 +395,27 @@ export default async function RelatorioVendasPage({
   const totalFaturado = Object.values(porOrigem).reduce((s, o) => s + o.faturamento, 0)
   const totalVendas = orcamentoConvertidoCount
   const vendaMedia = totalVendas > 0 ? totalFaturado / totalVendas : 0
+
+  // Validação lado a lado (T-011, protocolo do TDD): compara os KPIs do
+  // laço em memória com fn_vendas_resumo_mensal somada sobre o mesmo
+  // intervalo. Só é válida quando nenhum filtro extra (não suportado pela
+  // função) está ativo — nesses casos a comparação é pulada silenciosamente.
+  // Divergência aqui não bloqueia a página: fica só como log para
+  // acompanhamento antes do corte (fase 5 do TDD, "remover o caminho antigo
+  // só depois da comparação bater").
+  if (resumoCanonico?.data && !forma_pagamento && !nome_protocolo && !status_filter && produtoIds.length === 0 && medicoNomes.length === 0) {
+    const linhas = resumoCanonico.data as Array<{ faturamento: number; qtd_vendas: number }>
+    const faturamentoCanonico = linhas.reduce((s, l) => s + Number(l.faturamento), 0)
+    const qtdCanonica = linhas.reduce((s, l) => s + l.qtd_vendas, 0)
+    if (Math.abs(faturamentoCanonico - totalFaturado) > 0.01 || qtdCanonica !== totalVendas) {
+      console.warn(
+        `[relatorios/vendas] divergência KPIs vs. fn_vendas_resumo_mensal — ` +
+        `faturamento: ${totalFaturado} (atual) vs. ${faturamentoCanonico} (canônico); ` +
+        `qtd_vendas: ${totalVendas} (atual) vs. ${qtdCanonica} (canônico). ` +
+        `período: ${data_inicio}..${data_fim}, origem: ${origem || 'todas'}, profissional: ${profissional_id || 'todos'}, modalidade: ${modalidade || 'todas'}`
+      )
+    }
+  }
 
   const totalOrcamentos = orcamentoPendenteCount + orcamentoRecusadoCount + orcamentoConvertidoCount
   const taxaConversao = totalOrcamentos > 0 ? (orcamentoConvertidoCount / totalOrcamentos) * 100 : null

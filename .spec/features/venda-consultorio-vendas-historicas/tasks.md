@@ -52,8 +52,7 @@
 - Arquivos: src/lib/relatorios/pdf-vendas.ts
 - Notas: Bloco separando faturamento fechado em consultório vs. convertido pelo fisio, alimentado pelos mesmos totais calculados em T-009.
 
-## T-011 — Migrar KPIs de /relatorios/vendas para fn_vendas_resumo_mensal + paginação da listagem [pendente]
-
+## T-011 — Migrar KPIs de /relatorios/vendas para fn_vendas_resumo_mensal + paginação da listagem [concluida]
 - Refs: AC-076, AC-077
 - Arquivos: src/app/(painel)/relatorios/vendas/page.tsx
 - Notas: Item de maior risco (TDD). KPIs de topo (faturamento, volume, ticket médio) passam a vir de `fn_vendas_resumo_mensal` somada sobre o intervalo filtrado. Query de listagem detalhada ganha `.range()` explícito. Protocolo de corte do TDD: manter o cálculo antigo em paralelo até validação lado a lado fechar (comparar mês corrente, mês anterior, trimestre, ano, filtro por profissional, filtro por médico — divergência só esperada no ticket médio pela regra de venda-sem-itens, que a medição do TDD já mostrou ser zero na base). Remover o caminho antigo só depois da comparação bater. Depende de T-006, T-009.
