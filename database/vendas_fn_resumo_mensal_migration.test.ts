@@ -90,7 +90,7 @@ test('@spec:AC-068 orçamentos pendente/recusado ficam fora de faturamento e qtd
   )
   assert.match(
     sql,
-    /orcamentos_mes AS \([\s\S]*?COUNT\(\*\) FILTER \(WHERE status = 'orcamento_pendente'\) AS qtd_orcamento_pendente[\s\S]*?COUNT\(\*\) FILTER \(WHERE status = 'orcamento_recusado'\) AS qtd_orcamento_recusado/,
+    /orcamentos_mes AS \([\s\S]*?COUNT\(\*\) FILTER \(WHERE vf\.status = 'orcamento_pendente'\) AS qtd_orcamento_pendente[\s\S]*?COUNT\(\*\) FILTER \(WHERE vf\.status = 'orcamento_recusado'\) AS qtd_orcamento_recusado/,
     'orçamentos devem ser contados separadamente, sem entrar em faturamento/qtd_vendas'
   )
 })

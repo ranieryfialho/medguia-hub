@@ -130,44 +130,44 @@ BEGIN
   ),
   resumo_mes AS (
     SELECT
-      mes,
-      SUM(total_venda) AS faturamento,
+      vc.mes,
+      SUM(vc.total_venda) AS faturamento,
       COUNT(*) AS qtd_vendas,
-      SUM(total_venda) FILTER (WHERE venda_em_consultorio = true) AS faturamento_consultorio,
-      COUNT(*) FILTER (WHERE venda_em_consultorio = true) AS qtd_consultorio,
-      SUM(total_venda) FILTER (WHERE venda_em_consultorio = false) AS faturamento_fisio,
-      COUNT(*) FILTER (WHERE venda_em_consultorio = false) AS qtd_fisio,
-      COUNT(*) FILTER (WHERE venda_em_consultorio IS NULL) AS qtd_nao_classificada
-    FROM vendas_confirmadas
-    GROUP BY mes
+      SUM(vc.total_venda) FILTER (WHERE vc.venda_em_consultorio = true) AS faturamento_consultorio,
+      COUNT(*) FILTER (WHERE vc.venda_em_consultorio = true) AS qtd_consultorio,
+      SUM(vc.total_venda) FILTER (WHERE vc.venda_em_consultorio = false) AS faturamento_fisio,
+      COUNT(*) FILTER (WHERE vc.venda_em_consultorio = false) AS qtd_fisio,
+      COUNT(*) FILTER (WHERE vc.venda_em_consultorio IS NULL) AS qtd_nao_classificada
+    FROM vendas_confirmadas vc
+    GROUP BY vc.mes
   ),
   -- Orçamentos nunca somam em faturamento/qtd_vendas (AC-068) — contados à parte.
   orcamentos_mes AS (
     SELECT
-      mes,
-      COUNT(*) FILTER (WHERE status = 'orcamento_pendente') AS qtd_orcamento_pendente,
-      COUNT(*) FILTER (WHERE status = 'orcamento_recusado') AS qtd_orcamento_recusado
-    FROM vendas_filtradas
-    WHERE status IN ('orcamento_pendente', 'orcamento_recusado')
-    GROUP BY mes
+      vf.mes,
+      COUNT(*) FILTER (WHERE vf.status = 'orcamento_pendente') AS qtd_orcamento_pendente,
+      COUNT(*) FILTER (WHERE vf.status = 'orcamento_recusado') AS qtd_orcamento_recusado
+    FROM vendas_filtradas vf
+    WHERE vf.status IN ('orcamento_pendente', 'orcamento_recusado')
+    GROUP BY vf.mes
   ),
   produto_top AS (
-    SELECT DISTINCT ON (mes) mes, produto_nome
+    SELECT DISTINCT ON (por_produto.mes) por_produto.mes, por_produto.produto_nome
     FROM (
-      SELECT mes, produto_nome, SUM(quantidade * preco_unitario) AS total
-      FROM itens_contaveis
-      WHERE produto_nome IS NOT NULL
-      GROUP BY mes, produto_nome
+      SELECT ic.mes, ic.produto_nome, SUM(ic.quantidade * ic.preco_unitario) AS total
+      FROM itens_contaveis ic
+      WHERE ic.produto_nome IS NOT NULL
+      GROUP BY ic.mes, ic.produto_nome
     ) por_produto
-    ORDER BY mes, total DESC, produto_nome ASC
+    ORDER BY por_produto.mes, total DESC, por_produto.produto_nome ASC
   ),
   profissional_top AS (
     SELECT DISTINCT ON (por_profissional.mes) por_profissional.mes, pr.full_name AS profissional_nome
     FROM (
-      SELECT mes, profissional_id, SUM(total_venda) AS total
-      FROM vendas_confirmadas
-      WHERE profissional_id IS NOT NULL
-      GROUP BY mes, profissional_id
+      SELECT vc.mes, vc.profissional_id, SUM(vc.total_venda) AS total
+      FROM vendas_confirmadas vc
+      WHERE vc.profissional_id IS NOT NULL
+      GROUP BY vc.mes, vc.profissional_id
     ) por_profissional
     LEFT JOIN public.profiles pr ON pr.id = por_profissional.profissional_id
     ORDER BY por_profissional.mes, por_profissional.total DESC, pr.full_name ASC
