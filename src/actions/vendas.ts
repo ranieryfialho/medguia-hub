@@ -105,6 +105,25 @@ function normalizeVendaDate(value: string | null | undefined) {
   return parseAppDate(dateKey).toISOString()
 }
 
+// @spec:AC-063 @spec:AC-064 — defesa em profundidade: origem diferente de
+// 'medico' sempre grava NULL, mesmo que o formulário envie outro valor.
+// O CHECK do banco (vendas_consultorio_apenas_origem_medico) é a garantia real.
+export async function resolverVendaEmConsultorio(origem: string, formData: FormData): Promise<boolean | null> {
+  if (origem !== 'medico') {
+    return null
+  }
+
+  const raw = formData.get('venda_em_consultorio')
+  if (raw === 'true') return true
+  if (raw === 'false') return false
+  return null
+}
+
+export async function isCheckConstraintError(message: string | undefined): Promise<boolean> {
+  const normalized = (message || '').toLowerCase()
+  return normalized.includes('vendas_consultorio_apenas_origem_medico')
+}
+
 export async function criarVenda(_prevState: unknown, formData: FormData) {
   const supabase = await createClient()
 
@@ -186,12 +205,15 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
     }
   }
 
+  const venda_em_consultorio = await resolverVendaEmConsultorio(origem, formData)
+
   const dadosVenda = {
     paciente_id,
     profissional_id: profissional_id || null,
     origem,
     forma_pagamento,
     medico_referenciador_nome,
+    venda_em_consultorio,
     data_venda: normalizeVendaDate(data_venda),
     observacoes: observacoes || null,
     nome,
@@ -225,6 +247,10 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
 
     vendaInserida = tentativaSemProtocolo.data
     erroVenda = tentativaSemProtocolo.error
+  }
+
+  if (erroVenda && (await isCheckConstraintError(erroVenda.message))) {
+    return { error: 'Venda em consultório só pode ser marcada para origem "Médico".' }
   }
 
   if (erroVenda || !vendaInserida) {
@@ -335,11 +361,14 @@ export async function editarVenda(_prevState: unknown, formData: FormData) {
     }
   }
 
+  const venda_em_consultorio = await resolverVendaEmConsultorio(origem, formData)
+
   const dadosVenda = {
     paciente_id,
     origem,
     forma_pagamento,
     medico_referenciador_nome,
+    venda_em_consultorio,
     data_venda: normalizeVendaDate(data_venda),
     observacoes: observacoes || null,
     nome,
@@ -369,6 +398,10 @@ export async function editarVenda(_prevState: unknown, formData: FormData) {
       .eq('id', id)
 
     erroVenda = tentativaSemProtocolo.error
+  }
+
+  if (erroVenda && (await isCheckConstraintError(erroVenda.message))) {
+    return { error: 'Venda em consultório só pode ser marcada para origem "Médico".' }
   }
 
   if (erroVenda) {
