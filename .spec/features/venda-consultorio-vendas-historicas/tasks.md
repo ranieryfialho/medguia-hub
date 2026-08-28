@@ -7,8 +7,7 @@
 - Arquivos: database/vendas_venda_em_consultorio_migration.sql
 - Notas: `ALTER TABLE vendas ADD COLUMN IF NOT EXISTS venda_em_consultorio BOOLEAN` (nullable, sem DEFAULT). `ADD CONSTRAINT vendas_consultorio_apenas_origem_medico CHECK (venda_em_consultorio IS NULL OR origem = 'medico')`. Índices `idx_vendas_data_status (data_venda, status)` e `idx_vendas_medico_ref_id (medico_referenciador_id) WHERE medico_referenciador_id IS NOT NULL`. Aditiva, aplicada pelo SQL Editor do Studio — mesmo padrão de `database/vendas_*_migration.sql`. Bloqueia T-002, T-003, T-004.
 
-## T-002 — Toggle no formulário de nova venda [pendente]
-
+## T-002 — Toggle no formulário de nova venda [concluida]
 - Refs: AC-061, AC-062
 - Arquivos: src/components/features/vendas/FormNovaVenda.tsx
 - Notas: Toggle switch abaixo do campo de médico referenciador, visível só quando `origem === 'medico'`. Default `false` (desligado). Ao trocar origem para outro valor, limpar o valor do campo local (vira `null` no submit). Textos de rótulo e ajuda conforme PRD 1.1. Depende de T-001 (mas não bloqueia — só a persistência real depende da coluna existir).
