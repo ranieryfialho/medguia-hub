@@ -1,0 +1,142 @@
+{
+  "feature": "venda-consultorio-vendas-historicas",
+  "timestamp": "2026-08-28T02:31:43.572Z",
+  "gitRev": "2d3354b",
+  "command": "node --test --test-reporter=tap",
+  "reporter": "tap",
+  "exitCode": 0,
+  "testsParsed": 305,
+  "results": {
+    "AC-061": {
+      "status": "pass",
+      "testName": "@spec:AC-061 valor do toggle só é enviado quando a origem é medico",
+      "method": "tap"
+    },
+    "AC-062": {
+      "status": "pass",
+      "testName": "@spec:AC-062 troca de origem para não-medico limpa o valor enviado para null",
+      "method": "tap"
+    },
+    "AC-063": {
+      "status": "pass",
+      "testName": "@spec:AC-063 coluna venda_em_consultorio é gravável e o CHECK só permite valor não nulo com origem = medico",
+      "method": "tap"
+    },
+    "AC-064": {
+      "status": "pass",
+      "testName": "@spec:AC-064 coluna não tem DEFAULT, então vendas legadas e não-médicas ficam NULL (não classificadas)",
+      "method": "tap"
+    },
+    "AC-065": {
+      "status": "pass",
+      "testName": "@spec:AC-065 função existe com todos os parâmetros de filtro e colunas de retorno documentadas",
+      "method": "tap"
+    },
+    "AC-066": {
+      "status": "pass",
+      "testName": "@spec:AC-066 venda confirmada sem itens soma 0 ao faturamento e 1 a qtd_vendas",
+      "method": "tap"
+    },
+    "AC-067": {
+      "status": "pass",
+      "testName": "@spec:AC-067 mês sem vendas aparece com zeros e ticket médio nunca quebra por divisão por zero",
+      "method": "tap"
+    },
+    "AC-068": {
+      "status": "pass",
+      "testName": "@spec:AC-068 orçamentos pendente/recusado ficam fora de faturamento e qtd_vendas",
+      "method": "tap"
+    },
+    "AC-069": {
+      "status": "pass",
+      "testName": "@spec:AC-069 função existe com os mesmos filtros de fn_vendas_resumo_mensal trocando o período por p_mes",
+      "method": "tap"
+    },
+    "AC-070": {
+      "status": "pass",
+      "testName": "@spec:AC-070 função é SECURITY DEFINER com search_path fixo",
+      "method": "tap"
+    },
+    "AC-071": {
+      "status": "pass",
+      "testName": "@spec:AC-071 filtro de modalidade (consultório/fisio) existe e é aplicado à query",
+      "method": "tap"
+    },
+    "AC-072": {
+      "status": "pass",
+      "testName": "@spec:AC-072 cards de faturamento consultório/fisio e taxa de conversão da equipe existem",
+      "method": "tap"
+    },
+    "AC-073": {
+      "status": "pass",
+      "testName": "@spec:AC-073 tabela de médico referenciador tem colunas de consultório e conversão fisio",
+      "method": "tap"
+    },
+    "AC-074": {
+      "status": "pass",
+      "testName": "@spec:AC-074 listagem detalhada exibe a tag de modalidade para vendas médicas",
+      "method": "tap"
+    },
+    "AC-075": {
+      "status": "pass",
+      "testName": "@spec:AC-075 PDF de vendas inclui o bloco de resumo do canal médico",
+      "method": "tap"
+    },
+    "AC-076": {
+      "status": "pass",
+      "testName": "@spec:AC-076 comparação de KPIs detecta divergência entre laço em memória e função canônica",
+      "method": "tap"
+    },
+    "AC-077": {
+      "status": "pass",
+      "testName": "@spec:AC-077 query de listagem usa .range() explícito e detecta truncamento via count",
+      "method": "tap"
+    },
+    "AC-078": {
+      "status": "pass",
+      "testName": "@spec:AC-078 cards executivos: mês sem vendas não conta como melhor mês nem quebra o ticket médio",
+      "method": "tap"
+    },
+    "AC-079": {
+      "status": "pass",
+      "testName": "@spec:AC-079 gráfico tem os 4 seletores de métrica e alterna sem ida ao servidor",
+      "method": "tap"
+    },
+    "AC-080": {
+      "status": "pass",
+      "testName": "@spec:AC-080 variação MoM positiva calcula percentual e direção corretos",
+      "method": "tap"
+    },
+    "AC-081": {
+      "status": "pass",
+      "testName": "@spec:AC-081 drill-down é buscado ao expandir a linha, não no carregamento inicial da página",
+      "method": "tap"
+    },
+    "AC-082": {
+      "status": "pass",
+      "testName": "@spec:AC-082 filtros globais (profissional, médico, origem, categoria) existem, e medico_nome é fallback de medico_id",
+      "method": "tap"
+    },
+    "AC-083": {
+      "status": "pass",
+      "testName": "@spec:AC-083 gráfico e tabela usam scroll horizontal, não quebram o layout em telas estreitas",
+      "method": "tap"
+    },
+    "AC-084": {
+      "status": "pass",
+      "testName": "@spec:AC-084 exportação PDF e XLSX existem e consomem os dados já em tela",
+      "method": "tap"
+    },
+    "AC-085": {
+      "status": "pass",
+      "testName": "@spec:AC-085 Sidebar tem um link para /relatorios/vendas-historicas",
+      "method": "tap"
+    },
+    "AC-086": {
+      "status": "pass",
+      "testName": "@spec:AC-086 /relatorios/vendas usa requireModulo('comercial:relatorio_vendas')",
+      "method": "tap"
+    }
+  },
+  "principles": {}
+}

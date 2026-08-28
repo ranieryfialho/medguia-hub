@@ -6,6 +6,7 @@
     "tests/**",
     "src/**/*.test.*",
     "src/**/*.spec.*",
+    "database/**/*.test.*",
     "__tests__/**"
   ],
   "srcGlobs": [
