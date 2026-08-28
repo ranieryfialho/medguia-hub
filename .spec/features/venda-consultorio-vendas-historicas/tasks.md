@@ -57,8 +57,7 @@
 - Arquivos: src/app/(painel)/relatorios/vendas/page.tsx
 - Notas: Item de maior risco (TDD). KPIs de topo (faturamento, volume, ticket médio) passam a vir de `fn_vendas_resumo_mensal` somada sobre o intervalo filtrado. Query de listagem detalhada ganha `.range()` explícito. Protocolo de corte do TDD: manter o cálculo antigo em paralelo até validação lado a lado fechar (comparar mês corrente, mês anterior, trimestre, ano, filtro por profissional, filtro por médico — divergência só esperada no ticket médio pela regra de venda-sem-itens, que a medição do TDD já mostrou ser zero na base). Remover o caminho antigo só depois da comparação bater. Depende de T-006, T-009.
 
-## T-012 — Testes unitários de agregação e MoM (funções puras) [pendente]
-
+## T-012 — Testes unitários de agregação e MoM (funções puras) [concluida]
 - Refs: AC-067, AC-076, AC-078, AC-080
 - Arquivos: src/lib/relatorios/vendas-historicas.ts, src/lib/relatorios/vendas-historicas.test.ts
 - Notas: Extrair para funções puras testáveis por `node --test`: cálculo de MoM sobre linhas adjacentes (divisão por zero → `—`, nunca `-100%`), derivação dos cards executivos (total, volume, ticket médio consolidado, melhor mês, crescimento médio MoM) a partir do array de linhas mensais. Essas funções são consumidas tanto pela rota nova (T-014) quanto pela validação lado a lado de T-011.
