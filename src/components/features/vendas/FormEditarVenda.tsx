@@ -38,6 +38,7 @@ interface VendaInicial {
   protocolo_id?: string | null
   protocolo_nome?: string | null
   medico_referenciador_nome?: string | null
+  venda_em_consultorio?: boolean | null
   data_venda: string
   observacoes?: string | null
   status?: string | null
@@ -64,6 +65,12 @@ const OPCOES_ORIGEM = [
 ]
 const USUARIO_AUTORIZADO_VENDA_ZERADA = '46581234-19dd-4e7d-904d-db0357fa2219'
 
+// @spec:AC-061 @spec:AC-062 — venda_em_consultorio só existe (não-null) quando origem é 'medico';
+// qualquer outra origem envia null, nunca herda o último valor marcado.
+export function resolverVendaEmConsultorioParaEnvio(origem: string, toggleAtivo: boolean): boolean | null {
+  return origem === 'medico' ? toggleAtivo : null
+}
+
 export function FormEditarVenda({
   vendaId,
   vendaInicial,
@@ -79,6 +86,7 @@ export function FormEditarVenda({
   const [pacienteNome, setPacienteNome] = useState(vendaInicial.pacientes?.nome || '')
   const [profissionalId] = useState(vendaInicial.profissional_id)
   const [origem, setOrigem] = useState(vendaInicial.origem)
+  const [vendaEmConsultorio, setVendaEmConsultorio] = useState(vendaInicial.venda_em_consultorio ?? false)
   const [formaPagamento, setFormaPagamento] = useState(vendaInicial.forma_pagamento)
 
   // Encontrar ID do médico baseado no nome
@@ -267,7 +275,11 @@ export function FormEditarVenda({
                 type="radio"
                 value={opt.value}
                 checked={origem === opt.value}
-                onChange={(e) => setOrigem(e.target.value)}
+                onChange={(e) => {
+                  const novaOrigem = e.target.value
+                  setOrigem(novaOrigem)
+                  if (novaOrigem !== 'medico') setVendaEmConsultorio(false)
+                }}
                 className="w-4 h-4 text-primary-500 rounded"
               />
               <span className="text-sm text-text-primary">{opt.label}</span>
@@ -319,6 +331,34 @@ export function FormEditarVenda({
           {medicoSelecionado && !buscaMedico && (
             <div className="text-xs text-green-600 font-medium">✓ {medicoSelecionado.nome} selecionado</div>
           )}
+
+          <div className="pt-2">
+            <label className="flex items-center gap-3 cursor-pointer select-none">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={vendaEmConsultorio}
+                onClick={() => setVendaEmConsultorio((v) => !v)}
+                className={`relative w-10 h-6 rounded-full transition-colors shrink-0 ${
+                  vendaEmConsultorio ? 'bg-primary-500' : 'bg-border'
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                    vendaEmConsultorio ? 'translate-x-4' : ''
+                  }`}
+                />
+              </button>
+              <span className="text-sm font-medium text-text-primary">
+                Venda realizada em consultório médico?
+              </span>
+            </label>
+            <p className="text-xs text-text-secondary mt-1">
+              {vendaEmConsultorio
+                ? 'O médico já fechou a venda diretamente no consultório.'
+                : 'Conversão pelo fisioterapeuta — o médico apenas encaminhou o paciente.'}
+            </p>
+          </div>
         </div>
       )}
 
@@ -531,6 +571,14 @@ export function FormEditarVenda({
       <input type="hidden" name="origem" value={origem} />
       <input type="hidden" name="forma_pagamento" value={formaPagamento} />
       <input type="hidden" name="medico_referenciador_id" value={medicoReferenciadorId} />
+      <input
+        type="hidden"
+        name="venda_em_consultorio"
+        value={(() => {
+          const valor = resolverVendaEmConsultorioParaEnvio(origem, vendaEmConsultorio)
+          return valor === null ? '' : String(valor)
+        })()}
+      />
       <input type="hidden" name="data_venda" value={dataVenda} />
       <input type="hidden" name="observacoes" value={observacoes} />
       <input type="hidden" name="itens_venda_json" value={JSON.stringify(itens)} />
