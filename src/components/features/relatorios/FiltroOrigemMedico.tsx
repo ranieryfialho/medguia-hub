@@ -20,19 +20,22 @@ interface Props {
   defaultOrigem: string
   defaultMedicoNomes: string[]
   medicos: Medico[]
+  defaultModalidade?: string
 }
 
-export function FiltroOrigemMedico({ defaultOrigem, defaultMedicoNomes, medicos }: Props) {
+export function FiltroOrigemMedico({ defaultOrigem, defaultMedicoNomes, medicos, defaultModalidade = '' }: Props) {
   const [origem, setOrigem] = useState(defaultOrigem)
   const [medicosSelecionados, setMedicosSelecionados] = useState<string[]>(defaultMedicoNomes)
+  const [modalidade, setModalidade] = useState(defaultModalidade)
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setOrigem(defaultOrigem)
     setMedicosSelecionados(defaultMedicoNomes)
+    setModalidade(defaultModalidade)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [defaultOrigem])
+  }, [defaultOrigem, defaultModalidade])
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -66,7 +69,10 @@ export function FiltroOrigemMedico({ defaultOrigem, defaultMedicoNomes, medicos 
           value={origem}
           onChange={(e) => {
             setOrigem(e.target.value)
-            if (e.target.value !== 'medico') setMedicosSelecionados([])
+            if (e.target.value !== 'medico') {
+              setMedicosSelecionados([])
+              setModalidade('')
+            }
           }}
           className="px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
         >
@@ -76,6 +82,22 @@ export function FiltroOrigemMedico({ defaultOrigem, defaultMedicoNomes, medicos 
           ))}
         </select>
       </div>
+
+      {origem === 'medico' && (
+        <div>
+          <label className="block text-xs text-text-secondary uppercase mb-1">Modalidade</label>
+          <select
+            name="modalidade"
+            value={modalidade}
+            onChange={(e) => setModalidade(e.target.value)}
+            className="px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
+          >
+            <option value="">Todos os encaminhamentos</option>
+            <option value="consultorio">Fechados em Consultório</option>
+            <option value="fisio">Convertidos pelo Fisioterapeuta</option>
+          </select>
+        </div>
+      )}
 
       {origem === 'medico' && medicos.length > 0 && (
         <div ref={containerRef} className="relative min-w-[220px]">

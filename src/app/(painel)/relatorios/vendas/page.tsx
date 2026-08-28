@@ -47,6 +47,7 @@ type VendaRow = {
   profissional_id: string
   paciente_id: string
   medico_referenciador_nome: string | null
+  venda_em_consultorio: boolean | null
   status: string | null
   nome: string | null
   motivo_recusa: string | null
@@ -87,6 +88,7 @@ export default async function RelatorioVendasPage({
   const data_inicio = (resolvedParams.data_inicio as string | undefined) ?? primeiroDiaMesAtual
   const data_fim = (resolvedParams.data_fim as string | undefined) ?? ultimoDiaMesAtual
   const origem = (resolvedParams.origem as string) || ''
+  const modalidade = origem === 'medico' ? ((resolvedParams.modalidade as string) || '') : ''
   const forma_pagamento = (resolvedParams.forma_pagamento as string) || ''
   const profissional_id = (resolvedParams.profissional_id as string) || ''
   const nome_protocolo = (resolvedParams.nome_protocolo as string) || ''
@@ -111,6 +113,7 @@ export default async function RelatorioVendasPage({
     if (data_inicio) sp.set('data_inicio', data_inicio)
     if (data_fim) sp.set('data_fim', data_fim)
     if (origem) sp.set('origem', origem)
+    if (modalidade) sp.set('modalidade', modalidade)
     if (forma_pagamento) sp.set('forma_pagamento', forma_pagamento)
     if (profissional_id) sp.set('profissional_id', profissional_id)
     if (nome_protocolo) sp.set('nome_protocolo', nome_protocolo)
@@ -126,7 +129,7 @@ export default async function RelatorioVendasPage({
   let query = supabase
     .from('vendas')
     .select(`
-      id, origem, forma_pagamento, data_venda, profissional_id, paciente_id, medico_referenciador_nome, status, nome, motivo_recusa,
+      id, origem, forma_pagamento, data_venda, profissional_id, paciente_id, medico_referenciador_nome, venda_em_consultorio, status, nome, motivo_recusa,
       pacientes:paciente_id ( nome, origem ),
       profiles:profissional_id ( full_name, role ),
       itens_venda ( quantidade, preco_unitario, produtos:produto_id ( id, nome, categoria ) )
@@ -144,6 +147,8 @@ export default async function RelatorioVendasPage({
   }
   if (status_filter) query = query.eq('status', status_filter)
   if (origem === 'medico' && medicoNomes.length > 0) query = query.in('medico_referenciador_nome', medicoNomes)
+  if (modalidade === 'consultorio') query = query.eq('venda_em_consultorio', true)
+  if (modalidade === 'fisio') query = query.eq('venda_em_consultorio', false)
 
   // Buscar vendas e dados auxiliares em paralelo
   const [
@@ -184,11 +189,20 @@ export default async function RelatorioVendasPage({
   const porFormaPagamento: Record<string, { quantidade: number; faturamento: number }> = {}
   const porProfissional: Record<string, AgregacaoNome> = {}
   const porProduto: Record<string, AgregacaoNome> = {}
-  const porReferenciador: Record<string, AgregacaoNome> = {}
+  const porReferenciador: Record<string, AgregacaoNome & { qtdConsultorio: number; faturamentoConsultorio: number; qtdFisio: number; faturamentoFisio: number }> = {}
   const vendasPorReferenciador: Record<string, VendaDetalhe[]> = {}
   const porPeriodo: Record<string, number> = {}
   const porCategoria: Record<string, { quantidade: number; faturamento: number }> = {}
   const vendasDetalhadas: VendaDetalhe[] = []
+
+  // Segmentação consultório vs. conversão fisio (T-009) — só populada para
+  // vendas de origem médica confirmadas.
+  let faturamentoConsultorio = 0
+  let qtdConsultorio = 0
+  let faturamentoFisio = 0
+  let qtdFisio = 0
+  let qtdEncaminhamentosMedicos = 0
+  const porProfissionalModalidade: Record<string, { conversoesFisio: number; atendimentosConsultorio: number }> = {}
 
   // Agregações de orçamentos
   let orcamentoPendenteCount = 0
@@ -229,6 +243,8 @@ export default async function RelatorioVendasPage({
       nome: venda.nome || null,
       status: statusVenda,
       motivo_recusa: venda.motivo_recusa || null,
+      origem: venda.origem,
+      venda_em_consultorio: venda.venda_em_consultorio,
       itens: itens.map((item): ItemDetalheVenda => ({
         produto_nome: item.produtos?.nome || 'Produto removido',
         categoria: item.produtos?.categoria || null,
@@ -237,6 +253,14 @@ export default async function RelatorioVendasPage({
       })),
       total: totalVenda,
     })
+
+    // Taxa de conversão da equipe (AC-072): denominador é todo encaminhamento
+    // médico com registro (venda confirmada + orçamento recusado), incluído
+    // aqui antes do `continue` de orçamentos. Vendas com venda_em_consultorio
+    // NULL (não classificadas) ficam fora dos dois lados da conta.
+    if (venda.origem === 'medico' && (statusVenda === 'venda_confirmada' || statusVenda === 'orcamento_recusado') && venda.venda_em_consultorio !== null) {
+      qtdEncaminhamentosMedicos += 1
+    }
 
     // Acumular orçamentos separadamente (não entram nos KPIs principais)
     if (statusVenda === 'orcamento_pendente') {
@@ -258,6 +282,23 @@ export default async function RelatorioVendasPage({
     porOrigem[venda.origem].quantidade += 1
     porOrigem[venda.origem].faturamento += totalVenda
 
+    // Segmentação consultório vs. conversão fisio (T-009) — só vendas médicas
+    // confirmadas e classificadas (venda_em_consultorio não-nulo) entram.
+    if (venda.origem === 'medico' && venda.venda_em_consultorio !== null) {
+      if (!porProfissionalModalidade[venda.profissional_id]) {
+        porProfissionalModalidade[venda.profissional_id] = { conversoesFisio: 0, atendimentosConsultorio: 0 }
+      }
+      if (venda.venda_em_consultorio) {
+        faturamentoConsultorio += totalVenda
+        qtdConsultorio += 1
+        porProfissionalModalidade[venda.profissional_id].atendimentosConsultorio += 1
+      } else {
+        faturamentoFisio += totalVenda
+        qtdFisio += 1
+        porProfissionalModalidade[venda.profissional_id].conversoesFisio += 1
+      }
+    }
+
     if (!porFormaPagamento[venda.forma_pagamento]) porFormaPagamento[venda.forma_pagamento] = { quantidade: 0, faturamento: 0 }
     porFormaPagamento[venda.forma_pagamento].quantidade += 1
     porFormaPagamento[venda.forma_pagamento].faturamento += totalVenda
@@ -273,9 +314,18 @@ export default async function RelatorioVendasPage({
     // Por referenciador
     const refNome = venda.medico_referenciador_nome
     if (refNome) {
-      if (!porReferenciador[refNome]) porReferenciador[refNome] = { nome: refNome, quantidade: 0, faturamento: 0 }
+      if (!porReferenciador[refNome]) {
+        porReferenciador[refNome] = { nome: refNome, quantidade: 0, faturamento: 0, qtdConsultorio: 0, faturamentoConsultorio: 0, qtdFisio: 0, faturamentoFisio: 0 }
+      }
       porReferenciador[refNome].quantidade += 1
       porReferenciador[refNome].faturamento += totalVenda
+      if (venda.venda_em_consultorio === true) {
+        porReferenciador[refNome].qtdConsultorio += 1
+        porReferenciador[refNome].faturamentoConsultorio += totalVenda
+      } else if (venda.venda_em_consultorio === false) {
+        porReferenciador[refNome].qtdFisio += 1
+        porReferenciador[refNome].faturamentoFisio += totalVenda
+      }
 
       if (!vendasPorReferenciador[refNome]) vendasPorReferenciador[refNome] = []
       vendasPorReferenciador[refNome].push({
@@ -328,6 +378,10 @@ export default async function RelatorioVendasPage({
   const profissionaisResumo = Object.values(porProfissional)
   const produtosResumo = Object.values(porProduto)
 
+  // Taxa de conversão da equipe (AC-072): convertidas pelo fisio ÷ total de
+  // encaminhamentos médicos com registro (confirmadas + orçamento recusado).
+  const taxaConversaoEquipe = qtdEncaminhamentosMedicos > 0 ? (qtdFisio / qtdEncaminhamentosMedicos) * 100 : null
+
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
@@ -363,6 +417,13 @@ export default async function RelatorioVendasPage({
               vendasPorReferenciador={vendasPorReferenciador}
               porCategoria={porCategoria}
               vendasDetalhadas={vendasDetalhadas}
+              resumoMedico={{
+                faturamentoConsultorio,
+                qtdConsultorio,
+                faturamentoFisio,
+                qtdFisio,
+                taxaConversaoEquipe,
+              }}
             />
           )}
         </div>
@@ -394,6 +455,7 @@ export default async function RelatorioVendasPage({
             defaultOrigem={origem}
             defaultMedicoNomes={medicoNomes}
             medicos={medicosFiltro}
+            defaultModalidade={modalidade}
           />
           <div>
             <label className="block text-xs text-text-secondary uppercase mb-1">Pagamento</label>
@@ -465,7 +527,7 @@ export default async function RelatorioVendasPage({
           >
             Filtrar
           </button>
-          {(data_inicio || data_fim || origem || forma_pagamento || profissional_id || nome_protocolo || status_filter || produtoIds.length > 0 || medicoNomes.length > 0) && (
+          {(data_inicio || data_fim || origem || modalidade || forma_pagamento || profissional_id || nome_protocolo || status_filter || produtoIds.length > 0 || medicoNomes.length > 0) && (
             <Link
               href="/relatorios/vendas"
               className="px-4 py-2 bg-page hover:bg-page/80 border border-border text-text-secondary rounded-md text-sm transition-colors"
@@ -551,6 +613,41 @@ export default async function RelatorioVendasPage({
         </div>
       )}
 
+      {/* Segmentação Consultório vs. Conversão Fisio (T-009) */}
+      {(qtdConsultorio > 0 || qtdFisio > 0) && (
+        <div className="bg-surface rounded-lg border border-border p-6">
+          <h2 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
+            <Stethoscope size={20} className="text-primary-500" />
+            Origem Médica: Consultório vs. Conversão Fisio
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="bg-teal-50 rounded-lg border border-teal-200 p-4">
+              <p className="text-xs text-teal-700 font-semibold uppercase mb-1">Fechado em Consultório</p>
+              <p className="text-2xl font-bold text-teal-800">
+                R$ {faturamentoConsultorio.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
+              <p className="text-sm text-teal-600 mt-0.5">{qtdConsultorio} venda{qtdConsultorio !== 1 ? 's' : ''}</p>
+            </div>
+            <div className="bg-indigo-50 rounded-lg border border-indigo-200 p-4">
+              <p className="text-xs text-indigo-700 font-semibold uppercase mb-1">Convertido pelo Fisio</p>
+              <p className="text-2xl font-bold text-indigo-800">
+                R$ {faturamentoFisio.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
+              <p className="text-sm text-indigo-600 mt-0.5">{qtdFisio} venda{qtdFisio !== 1 ? 's' : ''}</p>
+            </div>
+            <div className="bg-page rounded-lg border border-border p-4">
+              <p className="text-xs text-text-secondary font-semibold uppercase mb-1">Taxa de Conversão da Equipe</p>
+              <p className="text-2xl font-bold text-text-primary">
+                {taxaConversaoEquipe !== null ? `${taxaConversaoEquipe.toFixed(1)}%` : '—'}
+              </p>
+              <p className="text-xs text-text-secondary mt-0.5">
+                {qtdEncaminhamentosMedicos} encaminhamento{qtdEncaminhamentosMedicos !== 1 ? 's' : ''} classificado{qtdEncaminhamentosMedicos !== 1 ? 's' : ''}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Gráficos (cliente) */}
       <RelatorioVendasClient
         porOrigem={porOrigem}
@@ -575,20 +672,27 @@ export default async function RelatorioVendasPage({
                   <th className="px-4 py-2 text-xs font-semibold text-text-secondary uppercase">Profissional</th>
                   <th className="px-4 py-2 text-xs font-semibold text-text-secondary uppercase text-right">Vendas</th>
                   <th className="px-4 py-2 text-xs font-semibold text-text-secondary uppercase text-right">Faturamento</th>
+                  <th className="px-4 py-2 text-xs font-semibold text-text-secondary uppercase text-right">Conversões Ativas</th>
                   <th className="px-4 py-2 text-xs font-semibold text-text-secondary uppercase text-right">% Total</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {profissionaisResumo
-                  .sort((a, b) => b.faturamento - a.faturamento)
-                  .map((prof) => {
+                {Object.entries(porProfissional)
+                  .sort(([, a], [, b]) => b.faturamento - a.faturamento)
+                  .map(([profissionalId, prof]) => {
                     const pct = totalFaturado > 0 ? (prof.faturamento / totalFaturado) * 100 : 0
+                    const modalidade = porProfissionalModalidade[profissionalId]
                     return (
-                      <tr key={prof.nome} className="hover:bg-page/50">
+                      <tr key={profissionalId} className="hover:bg-page/50">
                         <td className="px-4 py-3 text-sm text-text-primary font-medium">{prof.nome}</td>
                         <td className="px-4 py-3 text-sm text-text-primary text-right">{prof.quantidade}</td>
                         <td className="px-4 py-3 text-sm text-text-primary text-right font-medium">
                           R$ {prof.faturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-text-secondary text-right">
+                          {modalidade
+                            ? `${modalidade.conversoesFisio} conversão${modalidade.conversoesFisio !== 1 ? 'ões' : ''} · ${modalidade.atendimentosConsultorio} consultório`
+                            : '—'}
                         </td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-2">
@@ -677,6 +781,8 @@ export default async function RelatorioVendasPage({
                   <th className="px-4 py-2 text-xs font-semibold text-text-secondary uppercase">Médico Referenciador</th>
                   <th className="px-4 py-2 text-xs font-semibold text-text-secondary uppercase text-right">Vendas</th>
                   <th className="px-4 py-2 text-xs font-semibold text-text-secondary uppercase text-right">Faturamento</th>
+                  <th className="px-4 py-2 text-xs font-semibold text-text-secondary uppercase text-right">Consultório</th>
+                  <th className="px-4 py-2 text-xs font-semibold text-text-secondary uppercase text-right">Conversão Fisio</th>
                   <th className="px-4 py-2 text-xs font-semibold text-text-secondary uppercase text-right">% Total</th>
                 </tr>
               </thead>
@@ -691,6 +797,12 @@ export default async function RelatorioVendasPage({
                         <td className="px-4 py-3 text-sm text-text-primary text-right">{ref.quantidade}</td>
                         <td className="px-4 py-3 text-sm text-text-primary text-right font-medium">
                           R$ {ref.faturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-text-secondary text-right">
+                          {ref.qtdConsultorio} · R$ {ref.faturamentoConsultorio.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-text-secondary text-right">
+                          {ref.qtdFisio} · R$ {ref.faturamentoFisio.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-2">
@@ -959,6 +1071,21 @@ export default async function RelatorioVendasPage({
                           )}
                           {venda.nome && (
                             <p className="text-xs text-primary-500 font-medium mt-0.5">{venda.nome}</p>
+                          )}
+                          {venda.origem === 'medico' && (
+                            <span className={`inline-flex items-center mt-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                              venda.venda_em_consultorio === true
+                                ? 'bg-teal-100 text-teal-700'
+                                : venda.venda_em_consultorio === false
+                                  ? 'bg-indigo-100 text-indigo-700'
+                                  : 'bg-page text-text-secondary border border-border'
+                            }`}>
+                              {venda.venda_em_consultorio === true
+                                ? '[Médico · Consultório]'
+                                : venda.venda_em_consultorio === false
+                                  ? '[Médico · Conversão Fisio]'
+                                  : '[Médico · Não classificada]'}
+                            </span>
                           )}
                         </td>
                         <td className="px-4 py-3">

@@ -20,6 +20,8 @@ export type VendaDetalhe = {
   motivo_recusa?: string | null
   itens: ItemDetalheVenda[]
   total: number
+  origem?: string
+  venda_em_consultorio?: boolean | null
 }
 
 export type GerarPdfVendasInput = {
@@ -34,6 +36,13 @@ export type GerarPdfVendasInput = {
   vendasPorReferenciador?: Record<string, VendaDetalhe[]>
   porCategoria?: Record<string, { quantidade: number; faturamento: number }>
   vendasDetalhadas?: VendaDetalhe[]
+  resumoMedico?: {
+    faturamentoConsultorio: number
+    qtdConsultorio: number
+    faturamentoFisio: number
+    qtdFisio: number
+    taxaConversaoEquipe: number | null
+  }
 }
 
 type RGB = readonly [number, number, number]
@@ -74,7 +83,12 @@ export async function gerarPdfVendas(input: GerarPdfVendasInput) {
 
   if (input.porReferenciador && input.porReferenciador.length > 0) {
     doc.addPage()
-    desenharPaginaReferenciadores(doc, input.porReferenciador, input.totalFaturado)
+    let y = desenharPaginaReferenciadores(doc, input.porReferenciador, input.totalFaturado)
+
+    if (input.resumoMedico && (input.resumoMedico.qtdConsultorio > 0 || input.resumoMedico.qtdFisio > 0)) {
+      y += 10
+      desenharBlocoResumoMedico(doc, y, input.resumoMedico)
+    }
   }
 
   if (input.vendasPorReferenciador && Object.keys(input.vendasPorReferenciador).length > 0) {
@@ -228,6 +242,29 @@ function desenharPaginaReferenciadores(doc: jsPDF, referenciadores: AgregacaoNom
       `${pct}%`,
     ], widths)
   }
+
+  return y
+}
+
+function desenharBlocoResumoMedico(
+  doc: jsPDF,
+  y: number,
+  resumo: { faturamentoConsultorio: number; qtdConsultorio: number; faturamentoFisio: number; qtdFisio: number; taxaConversaoEquipe: number | null },
+) {
+  if (y > PAGE_HEIGHT - 60) {
+    doc.addPage()
+    y = desenharCabecalhoInterno(doc, 'Origem Médica: Consultório vs. Conversão Fisio', '')
+  } else {
+    y = desenharTituloSecao(doc, y, 'Origem Médica: Consultório vs. Conversão Fisio')
+  }
+
+  y = desenharGradeCards(doc, y, [
+    ['Fechado em consultório', `${fmt(resumo.faturamentoConsultorio)} (${resumo.qtdConsultorio})`],
+    ['Convertido pelo fisio', `${fmt(resumo.faturamentoFisio)} (${resumo.qtdFisio})`],
+    ['Taxa de conversão da equipe', resumo.taxaConversaoEquipe !== null ? `${resumo.taxaConversaoEquipe.toFixed(1)}%` : '—'],
+  ])
+
+  return y
 }
 
 function desenharCabecalhoInterno(doc: jsPDF, titulo: string, subtitulo: string) {

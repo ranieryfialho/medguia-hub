@@ -42,14 +42,12 @@
 - Arquivos: database/vendas_funcoes_roteiro_teste.sql
 - Notas: Script documentado no SQL Editor cobrindo os cenários críticos do TDD: mês sem venda (AC-067), venda confirmada sem itens (AC-066, cenário construído pois não existe caso real na base), orçamento pendente/recusado fora do faturamento (AC-068), filtros combinados. Serve de prova para os critérios de aceite que rodam em SQL puro — evidência anexada ao PR. Depende de T-006, T-007.
 
-## T-009 — Segmentação consultório/fisio em /relatorios/vendas [pendente]
-
+## T-009 — Segmentação consultório/fisio em /relatorios/vendas [concluida]
 - Refs: AC-071, AC-072, AC-073, AC-074
 - Arquivos: src/app/(painel)/relatorios/vendas/page.tsx
 - Notas: Filtro de modalidade de fechamento (todos/consultório/fisio), cards comparativos de faturamento consultório vs. fisio + taxa de conversão da equipe (denominador inclui orçamento recusado; `venda_em_consultorio = NULL` fora dos dois lados), colunas nas tabelas de médico referenciador e de profissional, tag `[Médico · Consultório]`/`[Médico · Conversão Fisio]` na listagem detalhada. Depende de T-001 (coluna existir).
 
-## T-010 — Bloco de resumo médico no PDF de vendas [pendente]
-
+## T-010 — Bloco de resumo médico no PDF de vendas [concluida]
 - Refs: AC-075
 - Arquivos: src/lib/relatorios/pdf-vendas.ts
 - Notas: Bloco separando faturamento fechado em consultório vs. convertido pelo fisio, alimentado pelos mesmos totais calculados em T-009.
