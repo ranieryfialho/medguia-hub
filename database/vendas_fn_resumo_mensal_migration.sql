@@ -103,7 +103,7 @@ BEGIN
       vf.mes,
       iv.quantidade,
       iv.preco_unitario,
-      p.nome AS produto_nome
+      p.nome::text AS produto_nome
     FROM vendas_filtradas vf
     JOIN public.itens_venda iv ON iv.venda_id = vf.id
     LEFT JOIN public.produtos p ON p.id = iv.produto_id
@@ -162,7 +162,7 @@ BEGIN
     ORDER BY por_produto.mes, total DESC, por_produto.produto_nome ASC
   ),
   profissional_top AS (
-    SELECT DISTINCT ON (por_profissional.mes) por_profissional.mes, pr.full_name AS profissional_nome
+    SELECT DISTINCT ON (por_profissional.mes) por_profissional.mes, pr.full_name::text AS profissional_nome
     FROM (
       SELECT vc.mes, vc.profissional_id, SUM(vc.total_venda) AS total
       FROM vendas_confirmadas vc
