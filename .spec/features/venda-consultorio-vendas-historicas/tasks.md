@@ -37,8 +37,7 @@
 - Arquivos: database/vendas_fn_detalhe_mes_migration.sql
 - Notas: Mesma assinatura de filtros de T-006, troca `p_data_inicio/p_data_fim` por `p_mes DATE`. Retorna quebra por origem, quebra por categoria, ranking de médicos referenciadores e ranking de fisioterapeutas do mês — reaproveitando a mesma CTE de venda contável (copiar a definição de T-006, não duplicar a regra por escrita separada). `SECURITY DEFINER` com `SET search_path = public, pg_temp`. Depende de T-006.
 
-## T-008 — Roteiro de teste SQL manual das funções [pendente]
-
+## T-008 — Roteiro de teste SQL manual das funções [concluida]
 - Refs: AC-065, AC-066, AC-067, AC-068, AC-069
 - Arquivos: database/vendas_funcoes_roteiro_teste.sql
 - Notas: Script documentado no SQL Editor cobrindo os cenários críticos do TDD: mês sem venda (AC-067), venda confirmada sem itens (AC-066, cenário construído pois não existe caso real na base), orçamento pendente/recusado fora do faturamento (AC-068), filtros combinados. Serve de prova para os critérios de aceite que rodam em SQL puro — evidência anexada ao PR. Depende de T-006, T-007.
