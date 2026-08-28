@@ -54,43 +54,43 @@ BEGIN
   RETURNING id INTO v_produto_consulta_id;
 
   -- Cenário 1: venda confirmada COM itens — caso normal, R$ 1000.
-  INSERT INTO public.vendas (status, origem, data_venda, profissional_id, paciente_id, nome)
-  VALUES ('venda_confirmada', 'leads', '2026-06-10', v_profissional_id, v_paciente_id, '[TESTE T-008] Com itens')
+  INSERT INTO public.vendas (status, origem, forma_pagamento, data_venda, profissional_id, paciente_id, nome)
+  VALUES ('venda_confirmada', 'leads', 'pix', '2026-06-10', v_profissional_id, v_paciente_id, '[TESTE T-008] Com itens')
   RETURNING id INTO v_venda_com_itens_id;
   INSERT INTO public.itens_venda (venda_id, produto_id, quantidade, preco_unitario)
   VALUES (v_venda_com_itens_id, v_produto_tratamento_id, 1, 1000);
 
   -- Cenário 2 (AC-066): venda confirmada SEM itens — deve somar R$0 ao
   -- faturamento mas +1 a qtd_vendas (nunca descartada do denominador).
-  INSERT INTO public.vendas (status, origem, data_venda, profissional_id, paciente_id, nome)
-  VALUES ('venda_confirmada', 'leads', '2026-06-12', v_profissional_id, v_paciente_id, '[TESTE T-008] Sem itens')
+  INSERT INTO public.vendas (status, origem, forma_pagamento, data_venda, profissional_id, paciente_id, nome)
+  VALUES ('venda_confirmada', 'leads', 'pix', '2026-06-12', v_profissional_id, v_paciente_id, '[TESTE T-008] Sem itens')
   RETURNING id INTO v_venda_sem_itens_id;
 
   -- Cenário 3: venda médica em consultório — entra em faturamento_consultorio.
-  INSERT INTO public.vendas (status, origem, data_venda, profissional_id, paciente_id, medico_referenciador_nome, venda_em_consultorio, nome)
-  VALUES ('venda_confirmada', 'medico', '2026-06-15', v_profissional_id, v_paciente_id, v_medico_nome, true, '[TESTE T-008] Consultório')
+  INSERT INTO public.vendas (status, origem, forma_pagamento, data_venda, profissional_id, paciente_id, medico_referenciador_nome, venda_em_consultorio, nome)
+  VALUES ('venda_confirmada', 'medico', 'pix', '2026-06-15', v_profissional_id, v_paciente_id, v_medico_nome, true, '[TESTE T-008] Consultório')
   RETURNING id INTO v_venda_consultorio_id;
   INSERT INTO public.itens_venda (venda_id, produto_id, quantidade, preco_unitario)
   VALUES (v_venda_consultorio_id, v_produto_consulta_id, 1, 300);
 
   -- Cenário 4: venda médica convertida pelo fisio — entra em faturamento_fisio
   -- e no ranking_fisios do drill-down.
-  INSERT INTO public.vendas (status, origem, data_venda, profissional_id, paciente_id, medico_referenciador_nome, venda_em_consultorio, nome)
-  VALUES ('venda_confirmada', 'medico', '2026-06-18', v_profissional_id, v_paciente_id, v_medico_nome, false, '[TESTE T-008] Conversão fisio')
+  INSERT INTO public.vendas (status, origem, forma_pagamento, data_venda, profissional_id, paciente_id, medico_referenciador_nome, venda_em_consultorio, nome)
+  VALUES ('venda_confirmada', 'medico', 'pix', '2026-06-18', v_profissional_id, v_paciente_id, v_medico_nome, false, '[TESTE T-008] Conversão fisio')
   RETURNING id INTO v_venda_fisio_id;
   INSERT INTO public.itens_venda (venda_id, produto_id, quantidade, preco_unitario)
   VALUES (v_venda_fisio_id, v_produto_tratamento_id, 1, 1000);
 
   -- Cenário 5 e 6 (AC-068): orçamentos — nunca somam em faturamento/qtd_vendas,
   -- só em qtd_orcamento_pendente/qtd_orcamento_recusado.
-  INSERT INTO public.vendas (status, origem, data_venda, profissional_id, paciente_id, nome)
-  VALUES ('orcamento_pendente', 'leads', '2026-06-20', v_profissional_id, v_paciente_id, '[TESTE T-008] Orçamento pendente')
+  INSERT INTO public.vendas (status, origem, forma_pagamento, data_venda, profissional_id, paciente_id, nome)
+  VALUES ('orcamento_pendente', 'leads', 'pix', '2026-06-20', v_profissional_id, v_paciente_id, '[TESTE T-008] Orçamento pendente')
   RETURNING id INTO v_orcamento_pendente_id;
   INSERT INTO public.itens_venda (venda_id, produto_id, quantidade, preco_unitario)
   VALUES (v_orcamento_pendente_id, v_produto_tratamento_id, 1, 1000);
 
-  INSERT INTO public.vendas (status, origem, data_venda, profissional_id, paciente_id, nome)
-  VALUES ('orcamento_recusado', 'leads', '2026-06-22', v_profissional_id, v_paciente_id, '[TESTE T-008] Orçamento recusado')
+  INSERT INTO public.vendas (status, origem, forma_pagamento, data_venda, profissional_id, paciente_id, nome)
+  VALUES ('orcamento_recusado', 'leads', 'pix', '2026-06-22', v_profissional_id, v_paciente_id, '[TESTE T-008] Orçamento recusado')
   RETURNING id INTO v_orcamento_recusado_id;
 
   RAISE NOTICE 'Fixture criada: paciente=%, profissional=%, médico=%', v_paciente_id, v_profissional_id, v_medico_id;
