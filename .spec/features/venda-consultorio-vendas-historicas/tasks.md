@@ -77,8 +77,7 @@
 - Arquivos: src/app/(painel)/relatorios/vendas-historicas/DrillDownMes.tsx
 - Notas: Componente cliente que chama `fn_vendas_detalhe_mes` ao expandir a linha (não no carregamento inicial). Exibe quebra por origem, quebra por categoria, ranking de médicos referenciadores e ranking de fisioterapeutas do mês. Depende de T-007, T-014.
 
-## T-016 — Exportação PDF e XLSX do relatório histórico [pendente]
-
+## T-016 — Exportação PDF e XLSX do relatório histórico [concluida]
 - Refs: AC-084
 - Arquivos: src/lib/relatorios/pdf-vendas-historicas.ts, src/lib/relatorios/xlsx-vendas-historicas.ts
 - Notas: `jspdf` já em uso no projeto (`pdf-vendas.ts` como referência). `xlsx` está instalado mas nunca foi usado — validar cedo que bundle e download funcionam no ambiente do projeto. Ambos consomem os dados já calculados em tela (cards + tabela mês a mês). Depende de T-014.

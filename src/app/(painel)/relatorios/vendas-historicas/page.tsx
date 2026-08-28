@@ -303,7 +303,18 @@ export default async function RelatorioVendasHistoricasPage({
       </div>
 
       {/* Gráfico + Tabela + Drill-down (cliente) */}
-      <VendasHistoricasClient linhas={tabela} filtros={{ profissional_id, medico_id, origem, categoria, data_inicio, data_fim }} />
+      <VendasHistoricasClient
+        linhas={tabela}
+        filtros={{ profissional_id, medico_id, origem, categoria, data_inicio, data_fim }}
+        cards={cards}
+        periodoLabel={`${data_inicio} até ${data_fim}`}
+        filtrosLabel={[
+          profissional_id && `Profissional: ${profissionaisFiltro.find((p) => p.id === profissional_id)?.nome || profissional_id}`,
+          medico_id && `Médico: ${medicosFiltro.find((m) => m.id === medico_id)?.nome || medico_id}`,
+          origem && `Origem: ${ORIGENS.find((o) => o.value === origem)?.label || origem}`,
+          categoria && `Categoria: ${CATEGORIAS.find((c) => c.value === categoria)?.label || categoria}`,
+        ].filter(Boolean).join(' · ')}
+      />
     </div>
   )
 }

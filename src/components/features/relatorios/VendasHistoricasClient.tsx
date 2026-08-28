@@ -1,13 +1,13 @@
 'use client'
 
 import { useState, Fragment } from 'react'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown, ChevronUp, FileDown, Sheet } from 'lucide-react'
 import {
   ComposedChart, Bar, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer,
 } from 'recharts'
-import type { LinhaTabelaHistorico } from '@/lib/relatorios/vendas-historicas'
+import type { CardsExecutivos, LinhaTabelaHistorico } from '@/lib/relatorios/vendas-historicas'
 import { buscarDrillDownMes, type DrillDownMes } from '@/actions/vendas-historicas'
 
 type Metrica = 'faturamento' | 'ticket_medio' | 'volume' | 'misto'
@@ -24,6 +24,9 @@ type Filtros = {
 interface Props {
   linhas: LinhaTabelaHistorico[]
   filtros: Filtros
+  cards: CardsExecutivos
+  periodoLabel: string
+  filtrosLabel: string
 }
 
 const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
@@ -39,10 +42,31 @@ function badgeVariacao(v: { percentual: number | null; direcao: 'alta' | 'queda'
   return <span className={cor}>{seta} {Math.abs(v.percentual).toFixed(1)}%</span>
 }
 
-export function VendasHistoricasClient({ linhas, filtros }: Props) {
+export function VendasHistoricasClient({ linhas, filtros, cards, periodoLabel, filtrosLabel }: Props) {
   const [metrica, setMetrica] = useState<Metrica>('faturamento')
   const [mesExpandido, setMesExpandido] = useState<string | null>(null)
   const [drillDown, setDrillDown] = useState<Record<string, DrillDownMes | 'carregando' | 'erro'>>({})
+  const [exportando, setExportando] = useState<'pdf' | 'xlsx' | null>(null)
+
+  async function exportarPdf() {
+    setExportando('pdf')
+    try {
+      const { gerarPdfVendasHistoricas } = await import('@/lib/relatorios/pdf-vendas-historicas')
+      await gerarPdfVendasHistoricas({ periodoLabel, filtrosLabel, cards, linhas })
+    } finally {
+      setExportando(null)
+    }
+  }
+
+  async function exportarXlsx() {
+    setExportando('xlsx')
+    try {
+      const { gerarXlsxVendasHistoricas } = await import('@/lib/relatorios/xlsx-vendas-historicas')
+      await gerarXlsxVendasHistoricas({ periodoLabel, linhas })
+    } finally {
+      setExportando(null)
+    }
+  }
 
   const dadosGrafico = [...linhas].reverse().map((l) => ({
     mes: labelMes(l.mes),
@@ -78,6 +102,28 @@ export function VendasHistoricasClient({ linhas, filtros }: Props) {
 
   return (
     <div className="space-y-6">
+      {/* Exportação (AC-084) */}
+      <div className="flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={exportarPdf}
+          disabled={exportando !== null}
+          className="flex items-center gap-2 px-4 py-2 bg-[#006b5a] text-white rounded-md text-sm font-medium hover:bg-[#005548] transition-colors disabled:opacity-60"
+        >
+          <FileDown size={16} />
+          {exportando === 'pdf' ? 'Gerando PDF...' : 'Exportar PDF'}
+        </button>
+        <button
+          type="button"
+          onClick={exportarXlsx}
+          disabled={exportando !== null}
+          className="flex items-center gap-2 px-4 py-2 bg-page border border-border text-text-primary rounded-md text-sm font-medium hover:bg-border transition-colors disabled:opacity-60"
+        >
+          <Sheet size={16} />
+          {exportando === 'xlsx' ? 'Gerando planilha...' : 'Exportar Excel'}
+        </button>
+      </div>
+
       {/* Gráfico com alternância de métrica (AC-079) */}
       <div className="bg-surface rounded-lg border border-border p-6">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
