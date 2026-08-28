@@ -1,0 +1,254 @@
+{
+  "runId": "medguia-hub-venda-consultorio-vendas-historicas-mtc8wsq9",
+  "feature": "venda-consultorio-vendas-historicas",
+  "agent": "claude",
+  "modo": "sequencial",
+  "paralelizar": null,
+  "modeloForcado": null,
+  "esforcoForcado": null,
+  "geradoEm": "2026-08-28 01:00",
+  "branchTrabalho": "spec/venda-consultorio-vendas-historicas",
+  "baseDir": ".spec/features/venda-consultorio-vendas-historicas",
+  "specDir": ".spec",
+  "repoName": "medguia-hub",
+  "logsDir": "../onp-worktrees/medguia-hub-venda-consultorio-vendas-historicas-logs",
+  "ondas": [],
+  "faixas": [],
+  "sequenciais": [
+    {
+      "id": "T-001",
+      "titulo": "Migration: coluna venda_em_consultorio, CHECK e índices",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "database/vendas_venda_em_consultorio_migration.sql"
+      ],
+      "refs": [
+        "AC-063",
+        "AC-064",
+        "AC-070"
+      ]
+    },
+    {
+      "id": "T-002",
+      "titulo": "Toggle no formulário de nova venda",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "src/components/features/vendas/FormNovaVenda.tsx"
+      ],
+      "refs": [
+        "AC-061",
+        "AC-062"
+      ]
+    },
+    {
+      "id": "T-003",
+      "titulo": "Toggle no formulário de edição de venda",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "src/components/features/vendas/FormEditarVenda.tsx"
+      ],
+      "refs": [
+        "AC-061",
+        "AC-062"
+      ]
+    },
+    {
+      "id": "T-004",
+      "titulo": "Validação do toggle nas Server Actions",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "src/actions/vendas.ts"
+      ],
+      "refs": [
+        "AC-063",
+        "AC-064"
+      ]
+    },
+    {
+      "id": "T-005",
+      "titulo": "Testes unitários do toggle nas actions",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "src/actions/vendas.test.ts"
+      ],
+      "refs": [
+        "AC-063",
+        "AC-064"
+      ]
+    },
+    {
+      "id": "T-006",
+      "titulo": "fn_vendas_resumo_mensal (CTE canônica de venda contável)",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "database/vendas_fn_resumo_mensal_migration.sql"
+      ],
+      "refs": [
+        "AC-065",
+        "AC-066",
+        "AC-067",
+        "AC-068",
+        "AC-070"
+      ]
+    },
+    {
+      "id": "T-007",
+      "titulo": "fn_vendas_detalhe_mes (drill-down)",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "database/vendas_fn_detalhe_mes_migration.sql"
+      ],
+      "refs": [
+        "AC-069",
+        "AC-070"
+      ]
+    },
+    {
+      "id": "T-008",
+      "titulo": "Roteiro de teste SQL manual das funções",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "database/vendas_funcoes_roteiro_teste.sql"
+      ],
+      "refs": [
+        "AC-065",
+        "AC-066",
+        "AC-067",
+        "AC-068",
+        "AC-069"
+      ]
+    },
+    {
+      "id": "T-009",
+      "titulo": "Segmentação consultório/fisio em /relatorios/vendas",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "src/app/(painel)/relatorios/vendas/page.tsx"
+      ],
+      "refs": [
+        "AC-071",
+        "AC-072",
+        "AC-073",
+        "AC-074"
+      ]
+    },
+    {
+      "id": "T-010",
+      "titulo": "Bloco de resumo médico no PDF de vendas",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "src/lib/relatorios/pdf-vendas.ts"
+      ],
+      "refs": [
+        "AC-075"
+      ]
+    },
+    {
+      "id": "T-011",
+      "titulo": "Migrar KPIs de /relatorios/vendas para fn_vendas_resumo_mensal + paginação da listagem",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "src/app/(painel)/relatorios/vendas/page.tsx"
+      ],
+      "refs": [
+        "AC-076",
+        "AC-077"
+      ]
+    },
+    {
+      "id": "T-012",
+      "titulo": "Testes unitários de agregação e MoM (funções puras)",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "src/lib/relatorios/vendas-historicas.ts",
+        "src/lib/relatorios/vendas-historicas.test.ts"
+      ],
+      "refs": [
+        "AC-067",
+        "AC-076",
+        "AC-078",
+        "AC-080"
+      ]
+    },
+    {
+      "id": "T-013",
+      "titulo": "Menu lateral: link para /relatorios/vendas-historicas",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "src/components/layout/Sidebar.tsx"
+      ],
+      "refs": [
+        "AC-085"
+      ]
+    },
+    {
+      "id": "T-014",
+      "titulo": "Rota /relatorios/vendas-historicas: cards, gráfico, tabela, filtros",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "src/app/(painel)/relatorios/vendas-historicas/page.tsx"
+      ],
+      "refs": [
+        "AC-078",
+        "AC-079",
+        "AC-080",
+        "AC-082",
+        "AC-083",
+        "AC-086"
+      ]
+    },
+    {
+      "id": "T-015",
+      "titulo": "Drill-down expansível por linha da tabela histórica",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "src/app/(painel)/relatorios/vendas-historicas/DrillDownMes.tsx"
+      ],
+      "refs": [
+        "AC-081"
+      ]
+    },
+    {
+      "id": "T-016",
+      "titulo": "Exportação PDF e XLSX do relatório histórico",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "src/lib/relatorios/pdf-vendas-historicas.ts",
+        "src/lib/relatorios/xlsx-vendas-historicas.ts"
+      ],
+      "refs": [
+        "AC-084"
+      ]
+    },
+    {
+      "id": "T-017",
+      "titulo": "Verificação de controle de acesso da rota histórica",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "src/app/(painel)/relatorios/vendas-historicas/page.test.ts"
+      ],
+      "refs": [
+        "AC-086"
+      ]
+    }
+  ],
+  "concluidas": [],
+  "avisos": []
+}
