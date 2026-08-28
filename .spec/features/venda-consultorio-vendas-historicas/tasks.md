@@ -32,8 +32,7 @@
 - Arquivos: database/vendas_fn_resumo_mensal_migration.sql
 - Notas: CTE única de "venda contável": `status = 'venda_confirmada'`, soma de `itens_venda.quantidade * preco_unitario`, venda confirmada sem itens conta como R$0 no numerador e +1 no denominador (AC-066). Parâmetros: `p_data_inicio, p_data_fim, p_profissional_id, p_medico_id, p_origem, p_categoria, p_modalidade` (todos exceto datas com `DEFAULT NULL`). Retorno: uma linha por mês do período (mês sem venda aparece com zeros, AC-067), com `faturamento, qtd_vendas, ticket_medio, faturamento_consultorio, qtd_consultorio, faturamento_fisio, qtd_fisio, qtd_nao_classificada, qtd_orcamento_pendente, qtd_orcamento_recusado, top_produto, top_profissional`. `SECURITY DEFINER` com `SET search_path = public, pg_temp` (AC-070). `p_origem`, `p_categoria`, `p_modalidade` validados contra lista fechada dentro da função. Depende de T-001.
 
-## T-007 — fn_vendas_detalhe_mes (drill-down) [pendente]
-
+## T-007 — fn_vendas_detalhe_mes (drill-down) [concluida]
 - Refs: AC-069, AC-070
 - Arquivos: database/vendas_fn_detalhe_mes_migration.sql
 - Notas: Mesma assinatura de filtros de T-006, troca `p_data_inicio/p_data_fim` por `p_mes DATE`. Retorna quebra por origem, quebra por categoria, ranking de médicos referenciadores e ranking de fisioterapeutas do mês — reaproveitando a mesma CTE de venda contável (copiar a definição de T-006, não duplicar a regra por escrita separada). `SECURITY DEFINER` com `SET search_path = public, pg_temp`. Depende de T-006.
