@@ -77,7 +77,10 @@ BEGIN
     WHERE (v.data_venda AT TIME ZONE 'America/Sao_Paulo')::date BETWEEN p_data_inicio AND p_data_fim
       AND v.status IN ('venda_confirmada', 'orcamento_pendente', 'orcamento_recusado')
       AND (p_profissional_id IS NULL OR v.profissional_id = p_profissional_id)
-      AND (p_medico_id IS NULL OR v.medico_referenciador_id = p_medico_id)
+      AND (
+        p_medico_id IS NULL
+        OR v.medico_referenciador_nome = (SELECT pr.full_name FROM public.profiles pr WHERE pr.id = p_medico_id)
+      )
       AND (p_origem IS NULL OR v.origem = p_origem)
       AND (
         p_modalidade IS NULL

@@ -60,13 +60,16 @@ BEGIN
       v.id,
       v.origem,
       v.profissional_id,
-      v.medico_referenciador_id,
+      v.medico_referenciador_nome,
       v.venda_em_consultorio
     FROM public.vendas v
     WHERE (v.data_venda AT TIME ZONE 'America/Sao_Paulo')::date BETWEEN v_data_inicio AND v_data_fim
       AND v.status = 'venda_confirmada'
       AND (p_profissional_id IS NULL OR v.profissional_id = p_profissional_id)
-      AND (p_medico_id IS NULL OR v.medico_referenciador_id = p_medico_id)
+      AND (
+        p_medico_id IS NULL
+        OR v.medico_referenciador_nome = (SELECT pr.full_name FROM public.profiles pr WHERE pr.id = p_medico_id)
+      )
       AND (p_origem IS NULL OR v.origem = p_origem)
       AND (
         p_modalidade IS NULL
@@ -106,7 +109,7 @@ BEGIN
       vf.id,
       vf.origem,
       vf.profissional_id,
-      vf.medico_referenciador_id,
+      vf.medico_referenciador_nome,
       vf.venda_em_consultorio,
       COALESCE(tv.total, 0) AS total_venda
     FROM vendas_filtradas vf
@@ -144,7 +147,7 @@ BEGIN
   medicos_agg AS (
     SELECT jsonb_agg(
       jsonb_build_object(
-        'medico_id', medico_referenciador_id,
+        'medico_id', medico_id,
         'medico_nome', medico_nome,
         'faturamento', faturamento,
         'qtd_vendas', qtd_vendas
@@ -152,14 +155,14 @@ BEGIN
     ) AS dados
     FROM (
       SELECT
-        vc.medico_referenciador_id,
-        pr.full_name AS medico_nome,
+        pr.id AS medico_id,
+        vc.medico_referenciador_nome AS medico_nome,
         SUM(vc.total_venda) AS faturamento,
         COUNT(*) AS qtd_vendas
       FROM vendas_contaveis vc
-      LEFT JOIN public.profiles pr ON pr.id = vc.medico_referenciador_id
-      WHERE vc.medico_referenciador_id IS NOT NULL
-      GROUP BY vc.medico_referenciador_id, pr.full_name
+      LEFT JOIN public.profiles pr ON pr.full_name = vc.medico_referenciador_nome AND pr.role = 'medico'
+      WHERE vc.medico_referenciador_nome IS NOT NULL
+      GROUP BY pr.id, vc.medico_referenciador_nome
     ) x
   ),
   -- Ranking de fisioterapeutas: profissionais que converteram encaminhamentos

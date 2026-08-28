@@ -42,5 +42,5 @@ test('@spec:AC-064 migration é aditiva e idempotente (IF NOT EXISTS / DROP CONS
   assert.match(sql, /ALTER TABLE vendas\s*\n\s*ADD COLUMN IF NOT EXISTS venda_em_consultorio/)
   assert.match(sql, /DROP CONSTRAINT IF EXISTS vendas_consultorio_apenas_origem_medico/)
   assert.match(sql, /CREATE INDEX IF NOT EXISTS idx_vendas_data_status/)
-  assert.match(sql, /CREATE INDEX IF NOT EXISTS idx_vendas_medico_ref_id/)
+  assert.match(sql, /CREATE INDEX IF NOT EXISTS idx_vendas_medico_ref_nome/)
 })

@@ -27,6 +27,6 @@ ALTER TABLE vendas
 CREATE INDEX IF NOT EXISTS idx_vendas_data_status
   ON vendas (data_venda, status);
 
-CREATE INDEX IF NOT EXISTS idx_vendas_medico_ref_id
-  ON vendas (medico_referenciador_id)
-  WHERE medico_referenciador_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_vendas_medico_ref_nome
+  ON vendas (medico_referenciador_nome)
+  WHERE medico_referenciador_nome IS NOT NULL;

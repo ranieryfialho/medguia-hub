@@ -24,6 +24,7 @@ DO $$
 DECLARE
   v_profissional_id uuid;
   v_medico_id uuid;
+  v_medico_nome text;
   v_paciente_id uuid;
   v_produto_tratamento_id uuid;
   v_produto_consulta_id uuid;
@@ -35,7 +36,7 @@ DECLARE
   v_orcamento_recusado_id uuid;
 BEGIN
   SELECT id INTO v_profissional_id FROM public.profiles WHERE role = 'fisioterapeuta' LIMIT 1;
-  SELECT id INTO v_medico_id FROM public.profiles WHERE role = 'medico' LIMIT 1;
+  SELECT id, full_name INTO v_medico_id, v_medico_nome FROM public.profiles WHERE role = 'medico' LIMIT 1;
 
   IF v_profissional_id IS NULL OR v_medico_id IS NULL THEN
     RAISE EXCEPTION 'roteiro requer ao menos 1 profissional e 1 médico já cadastrados na base';
@@ -66,16 +67,16 @@ BEGIN
   RETURNING id INTO v_venda_sem_itens_id;
 
   -- Cenário 3: venda médica em consultório — entra em faturamento_consultorio.
-  INSERT INTO public.vendas (status, origem, data_venda, profissional_id, paciente_id, medico_referenciador_id, venda_em_consultorio, nome)
-  VALUES ('venda_confirmada', 'medico', '2026-06-15', v_profissional_id, v_paciente_id, v_medico_id, true, '[TESTE T-008] Consultório')
+  INSERT INTO public.vendas (status, origem, data_venda, profissional_id, paciente_id, medico_referenciador_nome, venda_em_consultorio, nome)
+  VALUES ('venda_confirmada', 'medico', '2026-06-15', v_profissional_id, v_paciente_id, v_medico_nome, true, '[TESTE T-008] Consultório')
   RETURNING id INTO v_venda_consultorio_id;
   INSERT INTO public.itens_venda (venda_id, produto_id, quantidade, preco_unitario)
   VALUES (v_venda_consultorio_id, v_produto_consulta_id, 1, 300);
 
   -- Cenário 4: venda médica convertida pelo fisio — entra em faturamento_fisio
   -- e no ranking_fisios do drill-down.
-  INSERT INTO public.vendas (status, origem, data_venda, profissional_id, paciente_id, medico_referenciador_id, venda_em_consultorio, nome)
-  VALUES ('venda_confirmada', 'medico', '2026-06-18', v_profissional_id, v_paciente_id, v_medico_id, false, '[TESTE T-008] Conversão fisio')
+  INSERT INTO public.vendas (status, origem, data_venda, profissional_id, paciente_id, medico_referenciador_nome, venda_em_consultorio, nome)
+  VALUES ('venda_confirmada', 'medico', '2026-06-18', v_profissional_id, v_paciente_id, v_medico_nome, false, '[TESTE T-008] Conversão fisio')
   RETURNING id INTO v_venda_fisio_id;
   INSERT INTO public.itens_venda (venda_id, produto_id, quantidade, preco_unitario)
   VALUES (v_venda_fisio_id, v_produto_tratamento_id, 1, 1000);

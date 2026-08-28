@@ -3704,19 +3704,19 @@
       "codigo": "VERIFY_OBSOLETO",
       "feature": "status-personalizados-ciclo-vida",
       "ref": "—",
-      "ocorrencias": 7,
+      "ocorrencias": 8,
       "primeiraVez": "2026-08-25T13:24:35.898Z",
-      "ultimaVez": "2026-08-28T01:56:51.853Z",
-      "gitRev": "ae4d883"
+      "ultimaVez": "2026-08-28T02:06:28.250Z",
+      "gitRev": "6edd38b"
     },
     "VERIFY_OBSOLETO::auditoria-exclusao-agendamentos::—": {
       "codigo": "VERIFY_OBSOLETO",
       "feature": "auditoria-exclusao-agendamentos",
       "ref": "—",
-      "ocorrencias": 6,
+      "ocorrencias": 7,
       "primeiraVez": "2026-08-25T13:55:48.789Z",
-      "ultimaVez": "2026-08-28T01:56:51.852Z",
-      "gitRev": "ae4d883"
+      "ultimaVez": "2026-08-28T02:06:28.249Z",
+      "gitRev": "6edd38b"
     },
     "VERIFY_FALHOU::auditoria-exclusao-agendamentos::AC-050": {
       "codigo": "VERIFY_FALHOU",
