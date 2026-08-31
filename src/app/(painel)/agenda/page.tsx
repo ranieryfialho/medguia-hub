@@ -422,21 +422,28 @@ export default async function AgendaPage({ searchParams }: PageProps) {
     )
   }
 
-  const agendamentosMesQuery = supabase
-    .from('atendimentos')
-    .select('data_agendamento, status')
-    .gte('data_agendamento', getAppDayRangeUTC(formatAppDateKey(inicioDoMes)).start)
-    .lte('data_agendamento', getAppDayRangeUTC(formatAppDateKey(fimDoMes)).end)
+  // Na view mês, agendamentosComEfetivo já cobre o mês inteiro com os mesmos
+  // filtros — reaproveita em vez de repetir a query ao Supabase.
+  let agendamentosMesFiltrados: { data_agendamento: string; status: string }[]
+  if (view === 'mes') {
+    agendamentosMesFiltrados = agendamentosComEfetivo
+  } else {
+    const agendamentosMesQuery = supabase
+      .from('atendimentos')
+      .select('data_agendamento, status')
+      .gte('data_agendamento', getAppDayRangeUTC(formatAppDateKey(inicioDoMes)).start)
+      .lte('data_agendamento', getAppDayRangeUTC(formatAppDateKey(fimDoMes)).end)
 
-  if (profissionalIdFiltro) agendamentosMesQuery.or(`profissional_id.eq.${profissionalIdFiltro},fisioterapeuta_id.eq.${profissionalIdFiltro}`)
-  if (shouldFilterByStatus) agendamentosMesQuery.in('status', statusRawValues)
+    if (profissionalIdFiltro) agendamentosMesQuery.or(`profissional_id.eq.${profissionalIdFiltro},fisioterapeuta_id.eq.${profissionalIdFiltro}`)
+    if (shouldFilterByStatus) agendamentosMesQuery.in('status', statusRawValues)
 
-  const { data: agendamentosMes } = await agendamentosMesQuery
-  const agendamentosMesFiltrados = (agendamentosMes ?? []).filter((agendamento) =>
-    matchesStatusFilter(agendamento.status)
-  ).filter((agendamento) =>
-    !horarioSelecionado || formatAppTime(agendamento.data_agendamento) === horarioSelecionado,
-  )
+    const { data: agendamentosMes } = await agendamentosMesQuery
+    agendamentosMesFiltrados = (agendamentosMes ?? []).filter((agendamento) =>
+      matchesStatusFilter(agendamento.status)
+    ).filter((agendamento) =>
+      !horarioSelecionado || formatAppTime(agendamento.data_agendamento) === horarioSelecionado,
+    )
+  }
 
   const diasComAgendamento = new Set(
     agendamentosMesFiltrados.map(a => formatAppDateKey(a.data_agendamento))
@@ -516,6 +523,25 @@ export default async function AgendaPage({ searchParams }: PageProps) {
   const totalAgendamentos = agendamentosHoje.length
   const atendidos = agendamentosHoje.filter(a => isStatusConcluido(a.status)).length
   const pendentes = totalAgendamentos - atendidos
+
+  // Indexa os agendamentos por dia (e por dia+hora, para a view semana) uma única
+  // vez, em vez de rodar .filter() sobre a lista inteira dentro do JSX — que antes
+  // rodava HORAS_DIA.length × diasDaSemana.length (98x) vezes na view semana, e
+  // até 42x na view mês, cada passada varrendo todos os agendamentos do período.
+  const agendamentosPorDia = new Map<string, AgendamentoDetalhe[]>()
+  const agendamentosPorDiaHora = new Map<string, AgendamentoDetalhe[]>()
+  for (const a of agendamentosComEfetivo) {
+    const diaKey = formatAppDateKey(a.data_agendamento)
+
+    const listaDia = agendamentosPorDia.get(diaKey)
+    if (listaDia) listaDia.push(a)
+    else agendamentosPorDia.set(diaKey, [a])
+
+    const horaKey = `${diaKey}T${getAppHour(a.data_agendamento)}`
+    const listaHora = agendamentosPorDiaHora.get(horaKey)
+    if (listaHora) listaHora.push(a)
+    else agendamentosPorDiaHora.set(horaKey, [a])
+  }
 
   // US-003: card de status ao vivo da equipe — só para quem coordena a agenda.
   let cardStatusEquipe: {
@@ -793,9 +819,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                             {horaStr}
                           </div>
                           {diasDaSemana.map((dia) => {
-                            const agendamentosNestaHora = agendamentosComEfetivo.filter(a => {
-                              return formatAppDateKey(a.data_agendamento) === formatAppDateKey(dia) && getAppHour(a.data_agendamento) === horaNum
-                            }) || []
+                            const agendamentosNestaHora = agendamentosPorDiaHora.get(`${formatAppDateKey(dia)}T${horaNum}`) ?? []
 
                             const diaDisp = dispLogado
                               ? resolverJornadaDoDia(
@@ -849,7 +873,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                     const isSelecionado = isSameDay(dia, dataSelecionada)
                     const isHoje = formatAppDateKey(dia) === hojeString
 
-                    const agendamentosDoDia = agendamentosComEfetivo.filter(a => formatAppDateKey(a.data_agendamento) === formatAppDateKey(dia))
+                    const agendamentosDoDia = agendamentosPorDia.get(formatAppDateKey(dia)) ?? []
                     const qtdAgendamentos = agendamentosDoDia.length
 
                     if (!isMesmoMes) {
