@@ -3,6 +3,8 @@ export { GraficoComparativoMedia } from './GraficoComparativoMedia';
 export { GraficoDistribuicaoTempo } from './GraficoDistribuicaoTempo';
 export { ConteudoRelatorio } from './ConteudoRelatorio';
 export { RelatorioVendasClient } from './RelatorioVendasClient';
+export { GraficoFaturamentoPeriodo } from './GraficoFaturamentoPeriodo';
+export { ConversoesPorProfissional } from './ConversoesPorProfissional';
 export { FiltrosRelatorio } from './FiltrosRelatorio';
 export { FiltroOrigemMedico } from './FiltroOrigemMedico';
 export { VendasHistoricasClient } from './VendasHistoricasClient';

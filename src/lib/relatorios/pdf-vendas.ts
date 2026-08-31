@@ -43,6 +43,12 @@ export type GerarPdfVendasInput = {
     qtdFisio: number
     taxaConversaoEquipe: number | null
   }
+  detalhamentoPorProfissional?: {
+    nome: string
+    total: number
+    origens: [string, number][]
+    vendas: { paciente_nome: string; origem_label: string; data_venda: string; total: number }[]
+  }[]
 }
 
 type RGB = readonly [number, number, number]
@@ -87,8 +93,18 @@ export async function gerarPdfVendas(input: GerarPdfVendasInput) {
 
     if (input.resumoMedico && (input.resumoMedico.qtdConsultorio > 0 || input.resumoMedico.qtdFisio > 0)) {
       y += 10
-      desenharBlocoResumoMedico(doc, y, input.resumoMedico)
+      y = desenharBlocoResumoMedico(doc, y, input.resumoMedico)
     }
+
+    if (input.detalhamentoPorProfissional && input.detalhamentoPorProfissional.length > 0) {
+      y += 10
+      desenharBlocoDetalhamentoPorProfissional(doc, y, input.detalhamentoPorProfissional)
+    }
+  }
+
+  if (input.detalhamentoPorProfissional && input.detalhamentoPorProfissional.length > 0) {
+    doc.addPage()
+    desenharPaginaDetalheConversoesPorProfissional(doc, input.detalhamentoPorProfissional)
   }
 
   if (input.vendasPorReferenciador && Object.keys(input.vendasPorReferenciador).length > 0) {
@@ -265,6 +281,120 @@ function desenharBlocoResumoMedico(
   ])
 
   return y
+}
+
+function desenharBlocoDetalhamentoPorProfissional(
+  doc: jsPDF,
+  y: number,
+  detalhamento: { nome: string; total: number; origens: [string, number][] }[],
+) {
+  // Nota: bloco-resumo (sem detalhe de paciente); ver desenharPaginaDetalheConversoesPorProfissional
+  // para a listagem individual por paciente.
+  if (y > PAGE_HEIGHT - 40) {
+    doc.addPage()
+    y = desenharCabecalhoInterno(doc, 'Conversões por Profissional e Origem', '')
+  } else {
+    y = desenharTituloSecao(doc, y, 'Conversões por Profissional e Origem')
+  }
+
+  for (const p of detalhamento) {
+    const origensTexto = p.origens.map(([label, qtd]) => `${qtd} ${label}`).join(', ')
+    const texto = `${p.nome} — ${p.total} ${p.total !== 1 ? 'conversões' : 'conversão'}${origensTexto ? ` (${origensTexto})` : ''}`
+    const linhas = doc.splitTextToSize(texto, CONTENT_WIDTH - 8)
+    const height = linhas.length * 4.4 + 6
+
+    if (y + height > PAGE_HEIGHT - 22) {
+      doc.addPage()
+      y = desenharCabecalhoInterno(doc, 'Conversões por Profissional e Origem', 'Continuação')
+    }
+
+    doc.setFillColor(...SOFT)
+    doc.setDrawColor(...LINE)
+    doc.roundedRect(MARGIN_X, y, CONTENT_WIDTH, height, 2, 2, 'FD')
+
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+    doc.setTextColor(...TEXT)
+    doc.text(linhas, MARGIN_X + 4, y + 5)
+
+    y += height + 3
+  }
+
+  return y
+}
+
+function desenharPaginaDetalheConversoesPorProfissional(
+  doc: jsPDF,
+  detalhamento: {
+    nome: string
+    total: number
+    origens: [string, number][]
+    vendas: { paciente_nome: string; origem_label: string; data_venda: string; total: number }[]
+  }[],
+) {
+  const headers = ['Data', 'Paciente', 'Origem', 'Total']
+  const widths = [24, 80, 46, 24]
+
+  let y = desenharCabecalhoInterno(doc, 'Detalhamento de Conversões por Profissional', 'Vendas individuais por paciente')
+  let primeiroProfissional = true
+
+  for (const p of detalhamento) {
+    if (!primeiroProfissional && y > PAGE_HEIGHT - 40) {
+      doc.addPage()
+      y = desenharCabecalhoInterno(doc, 'Detalhamento de Conversões por Profissional', 'Continuação')
+    }
+    primeiroProfissional = false
+
+    // Cabeçalho do profissional
+    y += 4
+    doc.setFillColor(...SOFT)
+    doc.setDrawColor(...LINE)
+    doc.roundedRect(MARGIN_X, y, CONTENT_WIDTH, 10, 2, 2, 'FD')
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(9)
+    doc.setTextColor(...TEXT)
+    doc.text(p.nome, MARGIN_X + 3, y + 6.5)
+
+    const larguraNome = doc.getTextWidth(p.nome)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(7)
+    doc.setTextColor(...MUTED)
+    doc.text(`${p.total} ${p.total !== 1 ? 'conversões' : 'conversão'}`, MARGIN_X + 3 + larguraNome + 3, y + 6.5)
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(9)
+    doc.setTextColor(...BRAND)
+    const origensTexto = p.origens.map(([label, qtd]) => `${qtd} ${label}`).join(', ')
+    doc.text(origensTexto, PAGE_WIDTH - MARGIN_X - 2, y + 6.5, { align: 'right', maxWidth: 90 })
+
+    y += 12
+    y = desenharLinhaTabela(doc, y, headers, widths, true)
+
+    for (const venda of p.vendas) {
+      const rowH = 8
+
+      if (y + rowH > PAGE_HEIGHT - 22) {
+        doc.addPage()
+        y = desenharCabecalhoInterno(
+          doc,
+          'Detalhamento de Conversões por Profissional',
+          `Continuação — ${p.nome}`,
+        )
+        y = desenharLinhaTabela(doc, y + 4, headers, widths, true)
+      }
+
+      const data = new Date(venda.data_venda).toLocaleDateString('pt-BR')
+      y = desenharLinhaTabela(doc, y, [
+        data,
+        venda.paciente_nome,
+        venda.origem_label,
+        fmt(venda.total),
+      ], widths)
+    }
+
+    y += 6
+  }
 }
 
 function desenharCabecalhoInterno(doc: jsPDF, titulo: string, subtitulo: string) {

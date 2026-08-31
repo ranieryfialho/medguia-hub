@@ -2,7 +2,6 @@
 
 import {
   PieChart, Pie, Cell,
-  LineChart, Line,
   BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer,
@@ -18,7 +17,6 @@ interface AgregacaoNome {
 interface RelatorioVendasClientProps {
   porOrigem: Record<string, { quantidade: number; faturamento: number }>
   porFormaPagamento: Record<string, { quantidade: number; faturamento: number }>
-  porPeriodo: Record<string, number>
   porProfissional: AgregacaoNome[]
   porProduto: AgregacaoNome[]
   totalFaturado: number
@@ -42,7 +40,6 @@ const fmtMisto = (v: any, name: string | number | undefined): [string, string] =
 export function RelatorioVendasClient({
   porOrigem,
   porFormaPagamento,
-  porPeriodo,
   porProfissional,
   porProduto,
 }: RelatorioVendasClientProps) {
@@ -50,16 +47,6 @@ export function RelatorioVendasClient({
     name: TRADUCAO_ORIGEM[origem] || origem,
     value: d.faturamento,
   }))
-
-  const dadosLinha = Object.entries(porPeriodo)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([data, faturamento]) => {
-      const [y, m, d] = data.split('-').map(Number)
-      return {
-        data: new Date(y, m - 1, d).toLocaleDateString('pt-BR', { month: 'short', day: 'numeric' }),
-        faturamento,
-      }
-    })
 
   const dadosProfissional = [...porProfissional]
     .sort((a, b) => b.faturamento - a.faturamento)
@@ -90,25 +77,6 @@ export function RelatorioVendasClient({
 
   return (
     <div className="space-y-6">
-      {/* Faturamento ao longo do tempo */}
-      {dadosLinha.length > 0 && (
-        <div className="bg-surface rounded-lg border border-border p-6">
-          <h2 className="text-lg font-semibold text-text-primary mb-4">Faturamento ao Longo do Tempo</h2>
-          <div className="w-full h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={dadosLinha}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="data" tick={{ fontSize: 12 }} />
-                <YAxis tickFormatter={(v: number) => `R$${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 12 }} />
-                <Tooltip // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  formatter={(v: any) => fmt(Number(v ?? 0))} />
-                <Line type="monotone" dataKey="faturamento" stroke="#0A4D68" strokeWidth={2} dot={false} name="Faturamento" />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      )}
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Por origem (pizza) */}
         {dadosPizza.length > 0 && (

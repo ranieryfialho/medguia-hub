@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { BarChart3, TrendingUp, Users, Package, Stethoscope, FileText, CheckCircle, XCircle, Clock, Tag, List } from 'lucide-react'
-import { RelatorioVendasClient, FiltroOrigemMedico } from '@/components/features/relatorios'
+import { RelatorioVendasClient, FiltroOrigemMedico, GraficoFaturamentoPeriodo, ConversoesPorProfissional } from '@/components/features/relatorios'
 import { BtnGerarPdfVendas } from '@/components/features/shared'
 import { FiltroProdutosMultiSelect } from '@/components/features/produtos'
 import { requireModulo } from '@/lib/guard'
@@ -227,6 +227,11 @@ export default async function RelatorioVendasPage({
   let qtdEncaminhamentosMedicos = 0
   const porProfissionalModalidade: Record<string, { conversoesFisio: number; atendimentosConsultorio: number }> = {}
 
+  // Detalhamento de conversões por profissional e origem (ex.: "6 consultórios,
+  // 3 Leads e 1 renovação") — só vendas confirmadas.
+  type ConversaoDetalhe = { paciente_nome: string; origem_label: string; data_venda: string; total: number }
+  const porProfissionalOrigem: Record<string, { nome: string; total: number; origens: Record<string, number>; vendas: ConversaoDetalhe[] }> = {}
+
   // Agregações de orçamentos
   let orcamentoPendenteCount = 0
   let orcamentoPendenteValor = 0
@@ -334,6 +339,28 @@ export default async function RelatorioVendasPage({
     porProfissional[venda.profissional_id].quantidade += 1
     porProfissional[venda.profissional_id].faturamento += totalVenda
 
+    // Detalhamento por profissional e origem (ex.: consultório, leads, renovação)
+    if (!porProfissionalOrigem[venda.profissional_id]) {
+      porProfissionalOrigem[venda.profissional_id] = { nome: profNome, total: 0, origens: {}, vendas: [] }
+    }
+    const origemLabel =
+      venda.origem === 'medico'
+        ? venda.venda_em_consultorio === true
+          ? 'Consultório'
+          : venda.venda_em_consultorio === false
+            ? 'Conversão Fisio'
+            : 'Médico'
+        : ORIGENS.find((o) => o.value === venda.origem)?.label || venda.origem
+    porProfissionalOrigem[venda.profissional_id].total += 1
+    porProfissionalOrigem[venda.profissional_id].origens[origemLabel] =
+      (porProfissionalOrigem[venda.profissional_id].origens[origemLabel] || 0) + 1
+    porProfissionalOrigem[venda.profissional_id].vendas.push({
+      paciente_nome: paciente?.nome || '—',
+      origem_label: origemLabel,
+      data_venda: venda.data_venda,
+      total: totalVenda,
+    })
+
     // Por referenciador
     const refNome = venda.medico_referenciador_nome
     if (refNome) {
@@ -426,6 +453,15 @@ export default async function RelatorioVendasPage({
   // encaminhamentos médicos com registro (confirmadas + orçamento recusado).
   const taxaConversaoEquipe = qtdEncaminhamentosMedicos > 0 ? (qtdFisio / qtdEncaminhamentosMedicos) * 100 : null
 
+  const detalhamentoPorProfissional = Object.values(porProfissionalOrigem)
+    .map((p) => ({
+      nome: p.nome,
+      total: p.total,
+      origens: Object.entries(p.origens).sort(([, a], [, b]) => b - a),
+      vendas: [...p.vendas].sort((a, b) => a.data_venda.localeCompare(b.data_venda)),
+    }))
+    .sort((a, b) => b.total - a.total)
+
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
@@ -468,6 +504,7 @@ export default async function RelatorioVendasPage({
                 qtdFisio,
                 taxaConversaoEquipe,
               }}
+              detalhamentoPorProfissional={detalhamentoPorProfissional}
             />
           )}
         </div>
@@ -608,6 +645,9 @@ export default async function RelatorioVendasPage({
         </div>
       </div>
 
+      {/* Faturamento ao Longo do Tempo */}
+      <GraficoFaturamentoPeriodo porPeriodo={porPeriodo} />
+
       {/* Funil de Orçamentos */}
       {(orcamentoPendenteCount > 0 || orcamentoRecusadoCount > 0 || orcamentoConvertidoCount > 0) && (
         <div className="bg-surface rounded-lg border border-border p-6">
@@ -696,11 +736,13 @@ export default async function RelatorioVendasPage({
       <RelatorioVendasClient
         porOrigem={porOrigem}
         porFormaPagamento={porFormaPagamento}
-        porPeriodo={porPeriodo}
         porProfissional={profissionaisResumo}
         porProduto={produtosResumo}
         totalFaturado={totalFaturado}
       />
+
+      {/* Detalhamento de conversões por profissional e origem */}
+      <ConversoesPorProfissional detalhamento={detalhamentoPorProfissional} />
 
       {/* Tabela por Profissional */}
       {profissionaisResumo.length > 0 && (
