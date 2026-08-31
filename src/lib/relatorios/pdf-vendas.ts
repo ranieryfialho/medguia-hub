@@ -15,6 +15,7 @@ export type VendaDetalhe = {
   paciente_nome: string
   paciente_origem?: string | null
   profissional_nome: string
+  medico_referenciador_nome?: string | null
   nome?: string | null
   status: string
   motivo_recusa?: string | null
@@ -74,59 +75,148 @@ const TRADUCAO_ORIGEM: Record<string, string> = {
 const fmt = (v: number) =>
   `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
+// ── Desmembramento Orçamento x Venda Confirmada ──────────────────────
+// Todo o PDF distingue os três status possíveis de uma venda: já convertida
+// (venda_confirmada) ou ainda em orçamento (pendente de decisão, ou recusado).
+// As funções abaixo agrupam e agregam `vendasDetalhadas` (que contém TODAS as
+// vendas do período, de qualquer status) para alimentar essa separação em
+// cada tabela do relatório.
+
+type StatusKey = 'venda_confirmada' | 'orcamento_pendente' | 'orcamento_recusado'
+
+const STATUS_ORDER: StatusKey[] = ['venda_confirmada', 'orcamento_pendente', 'orcamento_recusado']
+
+const STATUS_SUBTITULO: Record<StatusKey, string> = {
+  venda_confirmada: 'Vendas Confirmadas',
+  orcamento_pendente: 'Orçamentos Pendentes',
+  orcamento_recusado: 'Orçamentos Recusados',
+}
+
+function agruparPorStatus(vendas: VendaDetalhe[]): Record<StatusKey, VendaDetalhe[]> {
+  const grupos: Record<StatusKey, VendaDetalhe[]> = {
+    venda_confirmada: [],
+    orcamento_pendente: [],
+    orcamento_recusado: [],
+  }
+  for (const venda of vendas) {
+    const key: StatusKey = venda.status in grupos ? (venda.status as StatusKey) : 'venda_confirmada'
+    grupos[key].push(venda)
+  }
+  return grupos
+}
+
+function agregarPorNome(
+  vendas: VendaDetalhe[],
+  chave: (v: VendaDetalhe) => string | null | undefined,
+): AgregacaoNome[] {
+  const mapa = new Map<string, AgregacaoNome>()
+  for (const venda of vendas) {
+    const nome = chave(venda)
+    if (!nome) continue
+    if (!mapa.has(nome)) mapa.set(nome, { nome, quantidade: 0, faturamento: 0 })
+    const entry = mapa.get(nome)!
+    entry.quantidade += 1
+    entry.faturamento += venda.total
+  }
+  return [...mapa.values()].sort((a, b) => b.faturamento - a.faturamento)
+}
+
+function agregarPorChaveVenda(
+  vendas: VendaDetalhe[],
+  chave: (v: VendaDetalhe) => string,
+  traducao: Record<string, string>,
+): AgregacaoNome[] {
+  const mapa = new Map<string, AgregacaoNome>()
+  for (const venda of vendas) {
+    const key = chave(venda)
+    const nome = traducao[key] || key
+    if (!mapa.has(nome)) mapa.set(nome, { nome, quantidade: 0, faturamento: 0 })
+    const entry = mapa.get(nome)!
+    entry.quantidade += 1
+    entry.faturamento += venda.total
+  }
+  return [...mapa.values()].sort((a, b) => b.faturamento - a.faturamento)
+}
+
+function agregarPorItem(
+  vendas: VendaDetalhe[],
+  chave: (item: ItemDetalheVenda) => string,
+  traducao?: Record<string, string>,
+): AgregacaoNome[] {
+  const mapa = new Map<string, AgregacaoNome>()
+  for (const venda of vendas) {
+    for (const item of venda.itens) {
+      const key = chave(item)
+      const nome = traducao ? traducao[key] || key : key
+      if (!mapa.has(nome)) mapa.set(nome, { nome, quantidade: 0, faturamento: 0 })
+      const entry = mapa.get(nome)!
+      entry.quantidade += item.quantidade
+      entry.faturamento += item.subtotal
+    }
+  }
+  return [...mapa.values()].sort((a, b) => b.faturamento - a.faturamento)
+}
+
 export async function gerarPdfVendas(input: GerarPdfVendasInput) {
   const { jsPDF } = await import('jspdf')
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
 
   const profOrdenados = [...input.porProfissional].sort((a, b) => b.faturamento - a.faturamento)
-  const prodOrdenados = [...input.porProduto].sort((a, b) => b.faturamento - a.faturamento)
+  const vendasDetalhadas = input.vendasDetalhadas ?? []
+  const temVendas = vendasDetalhadas.length > 0
 
-  desenharPaginaResumo(doc, input, profOrdenados)
-  doc.addPage()
-  desenharPaginaProfissionais(doc, profOrdenados, input.totalFaturado)
-  doc.addPage()
-  desenharPaginaProdutos(doc, prodOrdenados, input.totalFaturado, input.porOrigem, input.totalFaturado)
+  desenharPaginaResumo(doc, input, profOrdenados, vendasDetalhadas)
 
-  if (input.porReferenciador && input.porReferenciador.length > 0) {
+  if (temVendas) {
     doc.addPage()
-    let y = desenharPaginaReferenciadores(doc, input.porReferenciador, input.totalFaturado)
+    desenharPaginaProfissionais(doc, vendasDetalhadas)
 
-    if (input.resumoMedico && (input.resumoMedico.qtdConsultorio > 0 || input.resumoMedico.qtdFisio > 0)) {
-      y += 10
-      y = desenharBlocoResumoMedico(doc, y, input.resumoMedico)
+    doc.addPage()
+    desenharPaginaProdutos(doc, vendasDetalhadas)
+
+    doc.addPage()
+    desenharPaginaDetalheOrigens(doc, vendasDetalhadas)
+
+    if (vendasDetalhadas.some(v => v.medico_referenciador_nome)) {
+      doc.addPage()
+      let y = desenharPaginaReferenciadores(doc, vendasDetalhadas)
+
+      if (input.resumoMedico && (input.resumoMedico.qtdConsultorio > 0 || input.resumoMedico.qtdFisio > 0)) {
+        y += 10
+        y = desenharBlocoResumoMedico(doc, y, input.resumoMedico)
+      }
+
+      if (input.detalhamentoPorProfissional && input.detalhamentoPorProfissional.length > 0) {
+        y += 10
+        desenharBlocoDetalhamentoPorProfissional(doc, y, input.detalhamentoPorProfissional)
+      }
+
+      doc.addPage()
+      desenharPaginaDetalheReferenciadores(doc, vendasDetalhadas)
     }
 
     if (input.detalhamentoPorProfissional && input.detalhamentoPorProfissional.length > 0) {
-      y += 10
-      desenharBlocoDetalhamentoPorProfissional(doc, y, input.detalhamentoPorProfissional)
+      doc.addPage()
+      desenharPaginaDetalheConversoesPorProfissional(doc, input.detalhamentoPorProfissional)
     }
-  }
 
-  if (input.detalhamentoPorProfissional && input.detalhamentoPorProfissional.length > 0) {
     doc.addPage()
-    desenharPaginaDetalheConversoesPorProfissional(doc, input.detalhamentoPorProfissional)
-  }
+    desenharPaginaCategorias(doc, vendasDetalhadas)
 
-  if (input.vendasPorReferenciador && Object.keys(input.vendasPorReferenciador).length > 0) {
     doc.addPage()
-    desenharPaginaDetalheReferenciadores(doc, input.vendasPorReferenciador)
-  }
-
-  if (input.porCategoria && Object.keys(input.porCategoria).some(k => k !== 'sem_categoria')) {
-    doc.addPage()
-    desenharPaginaCategorias(doc, input.porCategoria, input.totalFaturado)
-  }
-
-  if (input.vendasDetalhadas && input.vendasDetalhadas.length > 0) {
-    doc.addPage()
-    desenharPaginaVendasDetalhadas(doc, input.vendasDetalhadas)
+    desenharPaginaVendasDetalhadas(doc, vendasDetalhadas)
   }
 
   aplicarRodape(doc, input.periodoLabel)
   doc.save('relatorio-vendas.pdf')
 }
 
-function desenharPaginaResumo(doc: jsPDF, input: GerarPdfVendasInput, profOrdenados: AgregacaoNome[]) {
+function desenharPaginaResumo(
+  doc: jsPDF,
+  input: GerarPdfVendasInput,
+  profOrdenados: AgregacaoNome[],
+  vendasDetalhadas: VendaDetalhe[],
+) {
   doc.setFillColor(...BRAND)
   doc.rect(0, 0, PAGE_WIDTH, 48, 'F')
 
@@ -142,75 +232,134 @@ function desenharPaginaResumo(doc: jsPDF, input: GerarPdfVendasInput, profOrdena
 
   let y = 58
   y = desenharGradeCards(doc, y, [
-    ['Total faturado', fmt(input.totalFaturado)],
-    ['Total de vendas', String(input.totalVendas)],
+    ['Total faturado (confirmado)', fmt(input.totalFaturado)],
+    ['Vendas confirmadas', String(input.totalVendas)],
     ['Ticket médio', fmt(input.vendaMedia)],
     ['Profissionais ativos', String(input.porProfissional.length)],
   ])
 
   y += 10
   y = desenharTituloSecao(doc, y, 'Destaques')
-  y = desenharBlocosTexto(doc, y, montarDestaques(profOrdenados, input))
+  y = desenharBlocosTexto(doc, y, montarDestaques(profOrdenados, input, vendasDetalhadas))
+
+  if (vendasDetalhadas.length > 0) {
+    y += 8
+    if (y > PAGE_HEIGHT - 60) {
+      doc.addPage()
+      y = desenharCabecalhoInterno(doc, 'Funil de Orçamentos', '')
+    } else {
+      y = desenharTituloSecao(doc, y, 'Funil de Orçamentos: Confirmado x Orçamento')
+    }
+    y = desenharFunilOrcamentos(doc, y, vendasDetalhadas)
+  }
 
   y += 8
-  y = desenharTituloSecao(doc, y, 'Ranking por profissional')
+  if (y > PAGE_HEIGHT - 60) {
+    doc.addPage()
+    y = desenharCabecalhoInterno(doc, 'Ranking por profissional', '')
+  } else {
+    y = desenharTituloSecao(doc, y, 'Ranking por profissional (vendas confirmadas)')
+  }
   desenharTabelaRankingProf(doc, y, profOrdenados.slice(0, 6), input.totalFaturado)
 }
 
-function desenharPaginaProfissionais(doc: jsPDF, profOrdenados: AgregacaoNome[], totalFaturado: number) {
-  let y = desenharCabecalhoInterno(doc, 'Desempenho por Profissional', 'Consolidado completo')
+function desenharFunilOrcamentos(doc: jsPDF, y: number, vendasDetalhadas: VendaDetalhe[]): number {
+  const porStatus = agruparPorStatus(vendasDetalhadas)
+  const confirmadas = porStatus.venda_confirmada
+  const pendentes = porStatus.orcamento_pendente
+  const recusadas = porStatus.orcamento_recusado
 
-  y += 4
-  const headers = ['Profissional', 'Vendas', 'Faturamento', '% Total']
-  const widths = [74, 18, 52, 34]
-  y = desenharLinhaTabela(doc, y, headers, widths, true)
+  const somaTotal = (lista: VendaDetalhe[]) => lista.reduce((s, v) => s + v.total, 0)
+  const totalOrcamentos = confirmadas.length + pendentes.length + recusadas.length
+  const taxaConversao = totalOrcamentos > 0 ? (confirmadas.length / totalOrcamentos) * 100 : null
 
-  for (const prof of profOrdenados) {
-    if (y > PAGE_HEIGHT - 22) {
-      doc.addPage()
-      y = desenharCabecalhoInterno(doc, 'Desempenho por Profissional', 'Continuação')
-      y = desenharLinhaTabela(doc, y + 4, headers, widths, true)
-    }
-    const pct = totalFaturado > 0 ? ((prof.faturamento / totalFaturado) * 100).toFixed(1) : '0.0'
-    y = desenharLinhaTabela(doc, y, [
-      prof.nome,
-      String(prof.quantidade),
-      fmt(prof.faturamento),
-      `${pct}%`,
-    ], widths)
-  }
+  return desenharGradeCards(doc, y, [
+    ['Orçamentos pendentes', `${pendentes.length} · ${fmt(somaTotal(pendentes))}`],
+    ['Convertidos em venda', `${confirmadas.length} · ${fmt(somaTotal(confirmadas))}`],
+    ['Orçamentos recusados', `${recusadas.length} · ${fmt(somaTotal(recusadas))}`],
+    ['Taxa de conversão', taxaConversao !== null ? `${taxaConversao.toFixed(1)}%` : '—'],
+  ])
 }
 
-function desenharPaginaProdutos(
+function desenharBlocoAgregado(
   doc: jsPDF,
-  prodOrdenados: AgregacaoNome[],
-  totalFaturado: number,
-  porOrigem: Record<string, { quantidade: number; faturamento: number }>,
-  total: number,
-) {
-  let y = desenharCabecalhoInterno(doc, 'Desempenho por Produto', 'Consolidado completo')
+  y: number,
+  paginaTitulo: string,
+  subtitulo: string,
+  itens: AgregacaoNome[],
+  headers: string[],
+  widths: number[],
+): number {
+  if (itens.length === 0) return y
 
-  y += 4
-  const headProd = ['Produto', 'Qtd.', 'Faturamento', '% Total']
-  const widthsProd = [80, 14, 52, 32]
-  y = desenharLinhaTabela(doc, y, headProd, widthsProd, true)
+  if (y > PAGE_HEIGHT - 40) {
+    doc.addPage()
+    y = desenharCabecalhoInterno(doc, paginaTitulo, 'Continuação')
+  }
+  y = desenharTituloSecao(doc, y, subtitulo)
+  y = desenharLinhaTabela(doc, y, headers, widths, true)
 
-  for (const prod of prodOrdenados) {
-    if (y > PAGE_HEIGHT - 50) {
+  const totalFaturamento = itens.reduce((s, i) => s + i.faturamento, 0)
+  const totalQuantidade = itens.reduce((s, i) => s + i.quantidade, 0)
+
+  for (const item of itens) {
+    if (y > PAGE_HEIGHT - 22) {
       doc.addPage()
-      y = desenharCabecalhoInterno(doc, 'Desempenho por Produto', 'Continuação')
-      y = desenharLinhaTabela(doc, y + 4, headProd, widthsProd, true)
+      y = desenharCabecalhoInterno(doc, paginaTitulo, `${subtitulo} — Continuação`)
+      y = desenharLinhaTabela(doc, y + 4, headers, widths, true)
     }
-    const pct = total > 0 ? ((prod.faturamento / total) * 100).toFixed(1) : '0.0'
-    y = desenharLinhaTabela(doc, y, [
-      prod.nome,
-      String(prod.quantidade),
-      fmt(prod.faturamento),
-      `${pct}%`,
-    ], widthsProd)
+    const pct = totalFaturamento > 0 ? ((item.faturamento / totalFaturamento) * 100).toFixed(1) : '0.0'
+    y = desenharLinhaTabela(doc, y, [item.nome, String(item.quantidade), fmt(item.faturamento), `${pct}%`], widths)
   }
 
-  y += 12
+  y = desenharLinhaTabela(
+    doc,
+    y,
+    ['Subtotal', String(totalQuantidade), fmt(totalFaturamento), '100%'],
+    widths,
+    true,
+  )
+  return y + 10
+}
+
+function desenharBlocosPorStatus(
+  doc: jsPDF,
+  y: number,
+  paginaTitulo: string,
+  prefixo: string,
+  porStatus: Record<StatusKey, VendaDetalhe[]>,
+  agregarFn: (vendas: VendaDetalhe[]) => AgregacaoNome[],
+  headers: string[],
+  widths: number[],
+): number {
+  for (const statusKey of STATUS_ORDER) {
+    const itens = agregarFn(porStatus[statusKey])
+    const subtitulo = prefixo ? `${prefixo} — ${STATUS_SUBTITULO[statusKey]}` : STATUS_SUBTITULO[statusKey]
+    y = desenharBlocoAgregado(doc, y, paginaTitulo, subtitulo, itens, headers, widths)
+  }
+  return y
+}
+
+function desenharPaginaProfissionais(doc: jsPDF, vendasDetalhadas: VendaDetalhe[]) {
+  const titulo = 'Desempenho por Profissional'
+  const y = desenharCabecalhoInterno(doc, titulo, 'Consolidado por status')
+  const porStatus = agruparPorStatus(vendasDetalhadas)
+  const headers = ['Profissional', 'Vendas', 'Faturamento', '% Total']
+  const widths = [74, 18, 52, 34]
+
+  desenharBlocosPorStatus(doc, y, titulo, '', porStatus, vs => agregarPorNome(vs, v => v.profissional_nome), headers, widths)
+}
+
+function desenharPaginaProdutos(doc: jsPDF, vendasDetalhadas: VendaDetalhe[]) {
+  const titulo = 'Desempenho por Produto'
+  let y = desenharCabecalhoInterno(doc, titulo, 'Consolidado por status')
+  const porStatus = agruparPorStatus(vendasDetalhadas)
+  const headProd = ['Produto', 'Qtd.', 'Faturamento', '% Total']
+  const widthsProd = [80, 14, 52, 32]
+
+  y = desenharBlocosPorStatus(doc, y, titulo, '', porStatus, vs => agregarPorItem(vs, i => i.produto_nome), headProd, widthsProd)
+
+  y += 4
   if (y > PAGE_HEIGHT - 60) {
     doc.addPage()
     y = desenharCabecalhoInterno(doc, 'Análise por Origem', '')
@@ -218,46 +367,28 @@ function desenharPaginaProdutos(
     y = desenharTituloSecao(doc, y, 'Análise por Origem')
   }
 
-  const origensOrdenadas = Object.entries(porOrigem).sort(([, a], [, b]) => b.faturamento - a.faturamento)
   const headOrig = ['Origem', 'Quantidade', 'Faturamento', '% Total']
   const widthsOrig = [44, 30, 52, 32]
-  y = desenharLinhaTabela(doc, y, headOrig, widthsOrig, true)
-
-  for (const [origemKey, data] of origensOrdenadas) {
-    const label = TRADUCAO_ORIGEM[origemKey] || origemKey
-    const pct = totalFaturado > 0 ? ((data.faturamento / totalFaturado) * 100).toFixed(1) : '0.0'
-    y = desenharLinhaTabela(doc, y, [
-      label,
-      String(data.quantidade),
-      fmt(data.faturamento),
-      `${pct}%`,
-    ], widthsOrig)
-  }
+  desenharBlocosPorStatus(
+    doc,
+    y,
+    'Análise por Origem',
+    '',
+    porStatus,
+    vs => agregarPorChaveVenda(vs, v => v.origem || 'desconhecida', TRADUCAO_ORIGEM),
+    headOrig,
+    widthsOrig,
+  )
 }
 
-function desenharPaginaReferenciadores(doc: jsPDF, referenciadores: AgregacaoNome[], totalFaturado: number) {
-  let y = desenharCabecalhoInterno(doc, 'Desempenho por Médico Referenciador', 'Consolidado completo')
-
-  y += 4
+function desenharPaginaReferenciadores(doc: jsPDF, vendasDetalhadas: VendaDetalhe[]): number {
+  const titulo = 'Desempenho por Médico Referenciador'
+  let y = desenharCabecalhoInterno(doc, titulo, 'Consolidado por status')
+  const porStatus = agruparPorStatus(vendasDetalhadas)
   const headers = ['Médico Referenciador', 'Vendas', 'Faturamento', '% Total']
   const widths = [80, 18, 52, 28]
-  y = desenharLinhaTabela(doc, y, headers, widths, true)
 
-  const ordenados = [...referenciadores].sort((a, b) => b.faturamento - a.faturamento)
-  for (const ref of ordenados) {
-    if (y > PAGE_HEIGHT - 22) {
-      doc.addPage()
-      y = desenharCabecalhoInterno(doc, 'Desempenho por Médico Referenciador', 'Continuação')
-      y = desenharLinhaTabela(doc, y + 4, headers, widths, true)
-    }
-    const pct = totalFaturado > 0 ? ((ref.faturamento / totalFaturado) * 100).toFixed(1) : '0.0'
-    y = desenharLinhaTabela(doc, y, [
-      ref.nome,
-      String(ref.quantidade),
-      fmt(ref.faturamento),
-      `${pct}%`,
-    ], widths)
-  }
+  y = desenharBlocosPorStatus(doc, y, titulo, '', porStatus, vs => agregarPorNome(vs, v => v.medico_referenciador_nome), headers, widths)
 
   return y
 }
@@ -289,7 +420,8 @@ function desenharBlocoDetalhamentoPorProfissional(
   detalhamento: { nome: string; total: number; origens: [string, number][] }[],
 ) {
   // Nota: bloco-resumo (sem detalhe de paciente); ver desenharPaginaDetalheConversoesPorProfissional
-  // para a listagem individual por paciente.
+  // para a listagem individual por paciente. Este bloco cobre só o funil médico
+  // de consultório x conversão fisio (sempre vendas confirmadas, por definição).
   if (y > PAGE_HEIGHT - 40) {
     doc.addPage()
     y = desenharCabecalhoInterno(doc, 'Conversões por Profissional e Origem', '')
@@ -335,7 +467,7 @@ function desenharPaginaDetalheConversoesPorProfissional(
   const headers = ['Data', 'Paciente', 'Origem', 'Total']
   const widths = [24, 80, 46, 24]
 
-  let y = desenharCabecalhoInterno(doc, 'Detalhamento de Conversões por Profissional', 'Vendas individuais por paciente')
+  let y = desenharCabecalhoInterno(doc, 'Detalhamento de Conversões por Profissional', 'Vendas confirmadas individuais por paciente')
   let primeiroProfissional = true
 
   for (const p of detalhamento) {
@@ -549,89 +681,117 @@ const CATEGORIA_LABEL: Record<string, string> = {
   sem_categoria: 'Sem categoria',
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  venda_confirmada: 'Confirmada',
-  orcamento_pendente: 'Orçamento',
-  orcamento_recusado: 'Recusado',
-}
-
-function desenharPaginaCategorias(
-  doc: jsPDF,
-  porCategoria: Record<string, { quantidade: number; faturamento: number }>,
-  totalFaturado: number,
-) {
-  let y = desenharCabecalhoInterno(doc, 'Faturamento por Categoria', 'Breakdown por tipo de produto')
-
-  y += 4
+function desenharPaginaCategorias(doc: jsPDF, vendasDetalhadas: VendaDetalhe[]) {
+  const titulo = 'Faturamento por Categoria'
+  const y = desenharCabecalhoInterno(doc, titulo, 'Breakdown por status e tipo de produto')
+  const porStatus = agruparPorStatus(vendasDetalhadas)
   const headers = ['Categoria', 'Itens vendidos', 'Faturamento', '% do Total']
   const widths = [60, 30, 52, 36]
-  y = desenharLinhaTabela(doc, y, headers, widths, true)
 
-  const ordem = ['tratamento', 'consulta', 'sem_categoria']
-  const entradas = ordem
-    .filter(k => porCategoria[k])
-    .map(k => [k, porCategoria[k]] as const)
-
-  for (const [cat, d] of entradas) {
-    if (y > PAGE_HEIGHT - 22) {
-      doc.addPage()
-      y = desenharCabecalhoInterno(doc, 'Faturamento por Categoria', 'Continuação')
-      y = desenharLinhaTabela(doc, y + 4, headers, widths, true)
-    }
-    const pct = totalFaturado > 0 ? ((d.faturamento / totalFaturado) * 100).toFixed(1) : '0.0'
-    y = desenharLinhaTabela(doc, y, [
-      CATEGORIA_LABEL[cat] || cat,
-      String(d.quantidade),
-      fmt(d.faturamento),
-      `${pct}%`,
-    ], widths)
-  }
-
-  // Linha de total
-  y = desenharLinhaTabela(doc, y, [
-    'TOTAL',
-    String(Object.values(porCategoria).reduce((s, d) => s + d.quantidade, 0)),
-    fmt(totalFaturado),
-    '100%',
-  ], widths, true)
+  desenharBlocosPorStatus(
+    doc,
+    y,
+    titulo,
+    '',
+    porStatus,
+    vs => agregarPorItem(vs, i => i.categoria || 'sem_categoria', CATEGORIA_LABEL),
+    headers,
+    widths,
+  )
 }
 
-function desenharPaginaVendasDetalhadas(doc: jsPDF, vendas: VendaDetalhe[]) {
-  let y = desenharCabecalhoInterno(
-    doc,
-    'Vendas Detalhadas',
-    `${vendas.length} venda${vendas.length !== 1 ? 's' : ''} no período`,
+function desenharCabecalhoGrupo(doc: jsPDF, y: number, nomeGrupo: string, vendas: VendaDetalhe[]): number {
+  const boxH = 14
+  const porStatus = agruparPorStatus(vendas)
+
+  doc.setFillColor(...SOFT)
+  doc.setDrawColor(...LINE)
+  doc.roundedRect(MARGIN_X, y, CONTENT_WIDTH, boxH, 2, 2, 'FD')
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(9)
+  doc.setTextColor(...TEXT)
+  doc.text(nomeGrupo, MARGIN_X + 3, y + 6)
+
+  const larguraNome = doc.getTextWidth(nomeGrupo)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(7)
+  doc.setTextColor(...MUTED)
+  doc.text(
+    `${vendas.length} venda${vendas.length !== 1 ? 's' : ''} no total`,
+    MARGIN_X + 3 + larguraNome + 3,
+    y + 6,
   )
 
-  y += 4
-  const headers = ['Data', 'Paciente', 'Itens', 'Total', 'Status']
-  const widths = [20, 40, 74, 26, 18]
+  // Nota: sem soma monetária aqui — misturaria faturamento já confirmado com
+  // valor apenas orçado (ainda não realizado). O valor de cada status aparece
+  // no "Subtotal" da tabela correspondente, logo abaixo.
+  const resumoStatus = STATUS_ORDER
+    .filter(key => porStatus[key].length > 0)
+    .map(key => `${porStatus[key].length} ${STATUS_SUBTITULO[key].toLowerCase()}`)
+    .join(' · ')
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(7)
+  doc.setTextColor(...MUTED)
+  doc.text(resumoStatus, PAGE_WIDTH - MARGIN_X - 2, y + 9, { align: 'right', maxWidth: 100 })
+
+  return y + boxH + 6
+}
+
+// ── Tabelas de detalhe (vendas individuais) ──────────────────────────
+// Helper compartilhado por Vendas Detalhadas, Detalhamento por Origem e
+// Detalhamento por Médico Referenciador: desenha um grupo de vendas com
+// cabeçalho, linhas com quebra de texto automática e uma linha de subtotal.
+
+function desenharTabelaVendas(
+  doc: jsPDF,
+  y: number,
+  paginaTitulo: string,
+  tituloContinuacao: string,
+  vendas: VendaDetalhe[],
+  headers: string[],
+  widths: number[],
+  totalColIdx: number,
+  colsFn: (venda: VendaDetalhe) => string[],
+  sublinhasFn?: (venda: VendaDetalhe) => { colIdx: number; texto: string }[],
+): number {
+  if (vendas.length === 0) return y
+
+  if (y > PAGE_HEIGHT - 40) {
+    doc.addPage()
+    y = desenharCabecalhoInterno(doc, paginaTitulo, 'Continuação')
+  }
+
   y = desenharLinhaTabela(doc, y, headers, widths, true)
 
-  for (const venda of vendas) {
-    const itensTexto = venda.itens
-      .map(i => `${i.quantidade > 1 ? `${i.quantidade}x ` : ''}${i.produto_nome}`)
-      .join(', ')
+  const totalGrupo = vendas.reduce((s, v) => s + v.total, 0)
+  const vendasOrdenadas = [...vendas].sort((a, b) => a.data_venda.localeCompare(b.data_venda))
 
-    const linhasItens = doc.splitTextToSize(itensTexto, widths[2] - 4)
-    const temNome = !!venda.nome
-    const temOrigem = !!venda.paciente_origem
-    const temMotivo = !!venda.motivo_recusa
-    const linhasMotivo = temMotivo ? doc.splitTextToSize(venda.motivo_recusa!, widths[4] - 4) : []
+  for (const venda of vendasOrdenadas) {
+    const cols = colsFn(venda)
+    const sublinhas = sublinhasFn ? sublinhasFn(venda) : []
+    const subPorCol = new Map<number, string[]>()
+    for (const s of sublinhas) {
+      if (!subPorCol.has(s.colIdx)) subPorCol.set(s.colIdx, [])
+      subPorCol.get(s.colIdx)!.push(s.texto)
+    }
+
     const rowH = Math.max(
-      9 + (temOrigem ? 5 : 0) + (temNome ? 5 : 0) + (temMotivo ? linhasMotivo.length * 4.5 : 0),
-      linhasItens.length * 4.5 + 5,
+      9,
+      ...cols.map((val, idx) => {
+        const baseAltura = doc.splitTextToSize(val, widths[idx] - 4).length * 4.5 + 5
+        const subLinhas = subPorCol.get(idx)
+        const subAltura = subLinhas ? 6 + subLinhas.length * 5 : 0
+        return Math.max(baseAltura, subAltura)
+      }),
     )
 
     if (y + rowH > PAGE_HEIGHT - 22) {
       doc.addPage()
-      y = desenharCabecalhoInterno(doc, 'Vendas Detalhadas', 'Continuação')
+      y = desenharCabecalhoInterno(doc, paginaTitulo, tituloContinuacao)
       y = desenharLinhaTabela(doc, y + 4, headers, widths, true)
     }
-
-    const data = new Date(venda.data_venda).toLocaleDateString('pt-BR')
-    const status = STATUS_LABEL[venda.status] || venda.status
-    const cols = [data, venda.paciente_nome, itensTexto, fmt(venda.total), status]
 
     let x = MARGIN_X
     cols.forEach((val, idx) => {
@@ -643,34 +803,23 @@ function desenharPaginaVendasDetalhadas(doc: jsPDF, vendas: VendaDetalhe[]) {
       doc.setFontSize(7)
       doc.setTextColor(...TEXT)
 
-      const alignRight = idx === 3
+      const alignRight = idx === totalColIdx
       const linhas = doc.splitTextToSize(val, widths[idx] - 4)
       doc.text(linhas, alignRight ? x + widths[idx] - 2 : x + 2, y + 4.5, {
         align: alignRight ? 'right' : 'left',
         maxWidth: widths[idx] - 4,
       })
 
-      // Origem do paciente e nome do protocolo/venda abaixo do paciente
-      if (idx === 1 && (temOrigem || temNome)) {
+      const subLinhas = subPorCol.get(idx)
+      if (subLinhas) {
         doc.setFont('helvetica', 'italic')
         doc.setFontSize(6)
         doc.setTextColor(...MUTED)
         let linhaY = y + 10
-        if (temOrigem) {
-          doc.text(`Origem: ${venda.paciente_origem}`, x + 2, linhaY, { maxWidth: widths[idx] - 4 })
+        for (const texto of subLinhas) {
+          doc.text(texto, x + 2, linhaY, { maxWidth: widths[idx] - 4 })
           linhaY += 5
         }
-        if (temNome) {
-          doc.text(venda.nome!, x + 2, linhaY, { maxWidth: widths[idx] - 4 })
-        }
-      }
-
-      // Motivo de recusa abaixo do status
-      if (idx === 4 && temMotivo) {
-        doc.setFont('helvetica', 'italic')
-        doc.setFontSize(6)
-        doc.setTextColor(...MUTED)
-        doc.text(linhasMotivo, x + 2, y + 10, { maxWidth: widths[idx] - 4, lineHeightFactor: 1.3 })
       }
 
       x += widths[idx]
@@ -678,135 +827,214 @@ function desenharPaginaVendasDetalhadas(doc: jsPDF, vendas: VendaDetalhe[]) {
 
     y += rowH
   }
+
+  const linhaSubtotal = headers.map((_, idx) => {
+    if (idx === 0) return `Subtotal (${vendas.length})`
+    if (idx === totalColIdx) return fmt(totalGrupo)
+    return ''
+  })
+  y = desenharLinhaTabela(doc, y, linhaSubtotal, widths, true)
+
+  return y + 6
 }
 
-function desenharPaginaDetalheReferenciadores(doc: jsPDF, vendasPorRef: Record<string, VendaDetalhe[]>) {
-  const headers = ['Data', 'Paciente', 'Itens', 'Total', 'Status']
-  const widths = [20, 42, 68, 26, 22]
-
-  const medicos = Object.entries(vendasPorRef).sort(
-    ([, a], [, b]) =>
-      b.reduce((s, v) => s + v.total, 0) - a.reduce((s, v) => s + v.total, 0),
+function desenharPaginaVendasDetalhadas(doc: jsPDF, vendasDetalhadas: VendaDetalhe[]) {
+  const titulo = 'Vendas Detalhadas'
+  let y = desenharCabecalhoInterno(
+    doc,
+    titulo,
+    `${vendasDetalhadas.length} venda${vendasDetalhadas.length !== 1 ? 's' : ''} no período, por status`,
   )
 
-  let y = desenharCabecalhoInterno(doc, 'Detalhamento por Médico Referenciador', 'Vendas individuais por médico')
+  const porStatus = agruparPorStatus(vendasDetalhadas)
+  const headers = ['Data', 'Paciente', 'Itens', 'Total']
+  const widths = [22, 46, 78, 32]
+
+  for (const statusKey of STATUS_ORDER) {
+    const vendas = porStatus[statusKey]
+    if (vendas.length === 0) continue
+
+    y += 4
+    if (y > PAGE_HEIGHT - 40) {
+      doc.addPage()
+      y = desenharCabecalhoInterno(doc, titulo, 'Continuação')
+    }
+    y = desenharTituloSecao(doc, y, STATUS_SUBTITULO[statusKey])
+
+    y = desenharTabelaVendas(
+      doc,
+      y,
+      titulo,
+      `${STATUS_SUBTITULO[statusKey]} — Continuação`,
+      vendas,
+      headers,
+      widths,
+      3,
+      venda => {
+        const data = new Date(venda.data_venda).toLocaleDateString('pt-BR')
+        const itensTexto = venda.itens
+          .map(i => `${i.quantidade > 1 ? `${i.quantidade}x ` : ''}${i.produto_nome}`)
+          .join(', ')
+        return [data, venda.paciente_nome, itensTexto, fmt(venda.total)]
+      },
+      venda => {
+        const subs: { colIdx: number; texto: string }[] = []
+        if (venda.paciente_origem) subs.push({ colIdx: 1, texto: `Origem: ${venda.paciente_origem}` })
+        if (venda.nome) subs.push({ colIdx: 1, texto: venda.nome })
+        if (venda.motivo_recusa) subs.push({ colIdx: 2, texto: `Motivo: ${venda.motivo_recusa}` })
+        return subs
+      },
+    )
+  }
+}
+
+function desenharPaginaDetalheReferenciadores(doc: jsPDF, vendasDetalhadas: VendaDetalhe[]) {
+  const titulo = 'Detalhamento por Médico Referenciador'
+  const headers = ['Data', 'Paciente', 'Itens', 'Origem', 'Total']
+  const widths = [20, 40, 60, 30, 28]
+
+  const porMedico = new Map<string, VendaDetalhe[]>()
+  for (const venda of vendasDetalhadas) {
+    if (!venda.medico_referenciador_nome) continue
+    if (!porMedico.has(venda.medico_referenciador_nome)) porMedico.set(venda.medico_referenciador_nome, [])
+    porMedico.get(venda.medico_referenciador_nome)!.push(venda)
+  }
+
+  const medicos = [...porMedico.entries()].sort(
+    ([, a], [, b]) => b.reduce((s, v) => s + v.total, 0) - a.reduce((s, v) => s + v.total, 0),
+  )
+
+  let y = desenharCabecalhoInterno(doc, titulo, 'Vendas individuais por médico e status')
   let primeiroMedico = true
 
   for (const [medico, vendas] of medicos) {
-    const totalMedico = vendas.reduce((s, v) => s + v.total, 0)
-
     if (!primeiroMedico && y > PAGE_HEIGHT - 40) {
       doc.addPage()
-      y = desenharCabecalhoInterno(doc, 'Detalhamento por Médico Referenciador', 'Continuação')
+      y = desenharCabecalhoInterno(doc, titulo, 'Continuação')
     }
     primeiroMedico = false
 
-    // Cabeçalho do médico
     y += 4
-    doc.setFillColor(...SOFT)
-    doc.setDrawColor(...LINE)
-    doc.roundedRect(MARGIN_X, y, CONTENT_WIDTH, 10, 2, 2, 'FD')
+    y = desenharCabecalhoGrupo(doc, y, medico, vendas)
 
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(9)
-    doc.setTextColor(...TEXT)
-    doc.text(medico, MARGIN_X + 3, y + 6.5)
+    const porStatus = agruparPorStatus(vendas)
+    for (const statusKey of STATUS_ORDER) {
+      const vendasStatus = porStatus[statusKey]
+      if (vendasStatus.length === 0) continue
 
-    const larguraNome = doc.getTextWidth(medico)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(7)
-    doc.setTextColor(...MUTED)
-    doc.text(`${vendas.length} venda${vendas.length !== 1 ? 's' : ''}`, MARGIN_X + 3 + larguraNome + 3, y + 6.5)
-
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(9)
-    doc.setTextColor(...BRAND)
-    doc.text(fmt(totalMedico), PAGE_WIDTH - MARGIN_X - 2, y + 6.5, { align: 'right' })
-
-    y += 12
-    y = desenharLinhaTabela(doc, y, headers, widths, true)
-
-    for (const venda of [...vendas].sort((a, b) => a.data_venda.localeCompare(b.data_venda))) {
-      const itensTexto = venda.itens
-        .map(i => `${i.quantidade > 1 ? `${i.quantidade}x ` : ''}${i.produto_nome}`)
-        .join(', ')
-
-      const linhasItens = doc.splitTextToSize(itensTexto, widths[2] - 4)
-      const temNome = !!venda.nome
-      const temOrigem = !!venda.paciente_origem
-      const rowH = Math.max(9 + (temOrigem ? 5 : 0) + (temNome ? 5 : 0), linhasItens.length * 4.5 + 5)
-
-      if (y + rowH > PAGE_HEIGHT - 22) {
+      if (y > PAGE_HEIGHT - 40) {
         doc.addPage()
-        y = desenharCabecalhoInterno(
-          doc,
-          'Detalhamento por Médico Referenciador',
-          `Continuação — ${medico}`,
-        )
-        y = desenharLinhaTabela(doc, y + 4, headers, widths, true)
+        y = desenharCabecalhoInterno(doc, titulo, `Continuação — ${medico}`)
       }
+      y = desenharTituloSecao(doc, y, `${medico} — ${STATUS_SUBTITULO[statusKey]}`)
 
-      const data = new Date(venda.data_venda).toLocaleDateString('pt-BR')
-      const status = STATUS_LABEL[venda.status] || venda.status
-      const cols = [data, venda.paciente_nome, itensTexto, fmt(venda.total), status]
-
-      let x = MARGIN_X
-      cols.forEach((val, idx) => {
-        doc.setDrawColor(...LINE)
-        doc.setFillColor(255, 255, 255)
-        doc.rect(x, y, widths[idx], rowH, 'FD')
-
-        doc.setFont('helvetica', 'normal')
-        doc.setFontSize(7)
-        doc.setTextColor(...TEXT)
-
-        const alignRight = idx === 3
-        const linhas = doc.splitTextToSize(val, widths[idx] - 4)
-        doc.text(linhas, alignRight ? x + widths[idx] - 2 : x + 2, y + 4.5, {
-          align: alignRight ? 'right' : 'left',
-          maxWidth: widths[idx] - 4,
-        })
-
-        if (idx === 1 && (temOrigem || temNome)) {
-          doc.setFont('helvetica', 'italic')
-          doc.setFontSize(6)
-          doc.setTextColor(...MUTED)
-          let linhaY = y + 10
-          if (temOrigem) {
-            doc.text(`Origem: ${venda.paciente_origem}`, x + 2, linhaY, { maxWidth: widths[idx] - 4 })
-            linhaY += 5
-          }
-          if (temNome) {
-            doc.text(venda.nome!, x + 2, linhaY, { maxWidth: widths[idx] - 4 })
-          }
-        }
-
-        x += widths[idx]
-      })
-
-      y += rowH
+      y = desenharTabelaVendas(
+        doc,
+        y,
+        titulo,
+        `Continuação — ${medico} (${STATUS_SUBTITULO[statusKey]})`,
+        vendasStatus,
+        headers,
+        widths,
+        4,
+        venda => {
+          const data = new Date(venda.data_venda).toLocaleDateString('pt-BR')
+          const itensTexto = venda.itens
+            .map(i => `${i.quantidade > 1 ? `${i.quantidade}x ` : ''}${i.produto_nome}`)
+            .join(', ')
+          return [data, venda.paciente_nome, itensTexto, venda.paciente_origem || '-', fmt(venda.total)]
+        },
+        venda => (venda.nome ? [{ colIdx: 1, texto: venda.nome }] : []),
+      )
     }
 
     y += 6
   }
 }
 
-function montarDestaques(profOrdenados: AgregacaoNome[], input: GerarPdfVendasInput): string[] {
-  if (input.totalVendas === 0) return ['Não há dados de vendas para o período selecionado.']
+function desenharPaginaDetalheOrigens(doc: jsPDF, vendasDetalhadas: VendaDetalhe[]) {
+  const titulo = 'Detalhamento por Origem'
+  const headers = ['Data', 'Paciente', 'Profissional', 'Médico Referenciador', 'Itens', 'Total']
+  const widths = [22, 28, 20, 40, 46, 22]
+
+  const vendasPorOrigem = new Map<string, VendaDetalhe[]>()
+  for (const venda of vendasDetalhadas) {
+    const label = TRADUCAO_ORIGEM[venda.origem || ''] || venda.origem || 'Sem origem'
+    if (!vendasPorOrigem.has(label)) vendasPorOrigem.set(label, [])
+    vendasPorOrigem.get(label)!.push(venda)
+  }
+
+  const origens = [...vendasPorOrigem.entries()].sort(
+    ([, a], [, b]) => b.reduce((s, v) => s + v.total, 0) - a.reduce((s, v) => s + v.total, 0),
+  )
+
+  let y = desenharCabecalhoInterno(doc, titulo, 'Vendas individuais por origem de fechamento e status')
+  let primeiraOrigem = true
+
+  for (const [origem, vendas] of origens) {
+    if (!primeiraOrigem && y > PAGE_HEIGHT - 40) {
+      doc.addPage()
+      y = desenharCabecalhoInterno(doc, titulo, 'Continuação')
+    }
+    primeiraOrigem = false
+
+    y += 4
+    y = desenharCabecalhoGrupo(doc, y, origem, vendas)
+
+    const porStatus = agruparPorStatus(vendas)
+    for (const statusKey of STATUS_ORDER) {
+      const vendasStatus = porStatus[statusKey]
+      if (vendasStatus.length === 0) continue
+
+      if (y > PAGE_HEIGHT - 40) {
+        doc.addPage()
+        y = desenharCabecalhoInterno(doc, titulo, `Continuação — ${origem}`)
+      }
+      y = desenharTituloSecao(doc, y, `${origem} — ${STATUS_SUBTITULO[statusKey]}`)
+
+      y = desenharTabelaVendas(
+        doc,
+        y,
+        titulo,
+        `Continuação — ${origem} (${STATUS_SUBTITULO[statusKey]})`,
+        vendasStatus,
+        headers,
+        widths,
+        5,
+        venda => {
+          const data = new Date(venda.data_venda).toLocaleDateString('pt-BR')
+          const itensTexto = venda.itens
+            .map(i => `${i.quantidade > 1 ? `${i.quantidade}x ` : ''}${i.produto_nome}`)
+            .join(', ')
+          return [data, venda.paciente_nome, venda.profissional_nome, venda.medico_referenciador_nome || '-', itensTexto, fmt(venda.total)]
+        },
+      )
+    }
+
+    y += 6
+  }
+}
+
+function montarDestaques(
+  profOrdenados: AgregacaoNome[],
+  input: GerarPdfVendasInput,
+  vendasDetalhadas: VendaDetalhe[],
+): string[] {
+  if (input.totalVendas === 0) return ['Não há vendas confirmadas para o período selecionado.']
 
   const destaques: string[] = []
 
   if (profOrdenados.length > 0) {
     const top = profOrdenados[0]
     destaques.push(
-      `${top.nome} liderou o faturamento do período com ${fmt(top.faturamento)} em ${top.quantidade} venda(s).`,
+      `${top.nome} liderou o faturamento confirmado do período com ${fmt(top.faturamento)} em ${top.quantidade} venda(s).`,
     )
   }
 
   const prodTop = [...input.porProduto].sort((a, b) => b.faturamento - a.faturamento)[0]
   if (prodTop) {
     destaques.push(
-      `O produto mais vendido foi "${prodTop.nome}", gerando ${fmt(prodTop.faturamento)} em ${prodTop.quantidade} unidade(s).`,
+      `O produto mais vendido foi "${prodTop.nome}", gerando ${fmt(prodTop.faturamento)} em ${prodTop.quantidade} unidade(s) (vendas confirmadas).`,
     )
   }
 
@@ -815,7 +1043,16 @@ function montarDestaques(profOrdenados: AgregacaoNome[], input: GerarPdfVendasIn
     const [origemKey, origemData] = origensOrdenadas[0]
     const label = TRADUCAO_ORIGEM[origemKey] || origemKey
     destaques.push(
-      `A principal origem de vendas foi "${label}", responsável por ${fmt(origemData.faturamento)} (${((origemData.faturamento / input.totalFaturado) * 100).toFixed(1)}% do total).`,
+      `A principal origem de vendas confirmadas foi "${label}", responsável por ${fmt(origemData.faturamento)} (${((origemData.faturamento / input.totalFaturado) * 100).toFixed(1)}% do total).`,
+    )
+  }
+
+  const porStatus = agruparPorStatus(vendasDetalhadas)
+  const pendentes = porStatus.orcamento_pendente
+  if (pendentes.length > 0) {
+    const valorPendente = pendentes.reduce((s, v) => s + v.total, 0)
+    destaques.push(
+      `Há ${pendentes.length} orçamento${pendentes.length !== 1 ? 's' : ''} pendente${pendentes.length !== 1 ? 's' : ''} de decisão, somando ${fmt(valorPendente)}.`,
     )
   }
 

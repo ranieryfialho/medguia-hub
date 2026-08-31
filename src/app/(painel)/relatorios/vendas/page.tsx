@@ -268,6 +268,7 @@ export default async function RelatorioVendasPage({
       paciente_nome: paciente?.nome || '—',
       paciente_origem: parsearOrigemPaciente(paciente?.origem),
       profissional_nome: perfil?.full_name || 'Desconhecido',
+      medico_referenciador_nome: venda.medico_referenciador_nome || null,
       nome: venda.nome || null,
       status: statusVenda,
       motivo_recusa: venda.motivo_recusa || null,
