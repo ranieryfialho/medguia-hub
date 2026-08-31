@@ -801,8 +801,10 @@ function desenharTabelaVendas(
       ...cols.map((val, idx) => {
         const baseAltura = doc.splitTextToSize(val, widths[idx] - 4).length * 4.5 + 5
         const subLinhas = subPorCol.get(idx)
-        const subAltura = subLinhas ? 6 + subLinhas.length * 5 : 0
-        return Math.max(baseAltura, subAltura)
+        const subAltura = subLinhas
+          ? 4 + subLinhas.reduce((sum, t) => sum + doc.splitTextToSize(t, widths[idx] - 4).length * 4.5, 0)
+          : 0
+        return baseAltura + subAltura
       }),
     )
 
@@ -832,12 +834,13 @@ function desenharTabelaVendas(
       const subLinhas = subPorCol.get(idx)
       if (subLinhas) {
         doc.setFont('helvetica', 'italic')
-        doc.setFontSize(6)
+        doc.setFontSize(7.5)
         doc.setTextColor(...MUTED)
-        let linhaY = y + 10
+        let linhaY = y + 4.5 + (linhas.length - 1) * 4.5 + 4
         for (const texto of subLinhas) {
-          doc.text(texto, x + 2, linhaY, { maxWidth: widths[idx] - 4 })
-          linhaY += 5
+          const linhasTexto = doc.splitTextToSize(texto, widths[idx] - 4)
+          doc.text(linhasTexto, x + 2, linhaY, { maxWidth: widths[idx] - 4 })
+          linhaY += linhasTexto.length * 4.5
         }
       }
 
