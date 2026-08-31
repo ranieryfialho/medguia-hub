@@ -29,11 +29,17 @@ interface ItemVenda {
   numero_atendimentos: number | null
 }
 
+interface Objecao {
+  id: string
+  nome: string
+}
+
 interface FormNovaVendaProps {
   profissionais: Profissional[]
   produtos: Produto[]
   medicos?: Profissional[]
   protocolos?: Protocolo[]
+  objecoes?: Objecao[]
 }
 
 const OPCOES_ORIGEM = [
@@ -59,7 +65,7 @@ export function resolverVendaEmConsultorioParaEnvio(origem: string, toggleAtivo:
 const ABAS = ['Paciente & Profissional', 'Origem da Venda', 'Produtos']
 const USUARIO_AUTORIZADO_VENDA_ZERADA = '46581234-19dd-4e7d-904d-db0357fa2219'
 
-export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolos = [] }: FormNovaVendaProps) {
+export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolos = [], objecoes = [] }: FormNovaVendaProps) {
   const [state, formAction] = useActionState(criarVenda, null)
 
   const [abaAtual, setAbaAtual] = useState(0)
@@ -96,6 +102,10 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
   const [erroLocal, setErroLocal] = useState('')
   const [ocultarErroSenhaAction, setOcultarErroSenhaAction] = useState(false)
   const [usuarioAtualId, setUsuarioAtualId] = useState<string | null>(null)
+
+  const [showModalObjecao, setShowModalObjecao] = useState(false)
+  const [objecaoMotivoId, setObjecaoMotivoId] = useState('')
+  const [objecaoObservacao, setObjecaoObservacao] = useState('')
   const [isSubmitting, startSubmitTransition] = useTransition()
   const [isConfirmandoSenha, startConfirmacaoSenhaTransition] = useTransition()
   const formRef = useRef<HTMLFormElement>(null)
@@ -181,6 +191,7 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
   }
 
   const protocoloSelecionado = protocolos.find((p) => p.id === protocoloId) ?? null
+  const objecaoSelecionada = objecoes.find((o) => o.id === objecaoMotivoId) ?? null
 
   useEffect(() => {
     const supabase = createClient()
@@ -193,6 +204,12 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (isSubmitting || isConfirmandoSenha) return
+
+    if (statusVenda === 'orcamento_pendente') {
+      setErroLocal('')
+      setShowModalObjecao(true)
+      return
+    }
 
     if (total === 0) {
       if (usuarioAtualId !== USUARIO_AUTORIZADO_VENDA_ZERADA) {
@@ -229,6 +246,19 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
     setSenhaError('')
     setOcultarErroSenhaAction(false)
     startConfirmacaoSenhaTransition(() => formAction(formData))
+  }
+
+  const handleConfirmarObjecao = () => {
+    if (!formRef.current) return
+
+    const formData = new FormData(formRef.current)
+    formData.set('objecao_motivo_id', objecaoMotivoId)
+    formData.set('objecao_motivo_nome', objecaoSelecionada?.nome ?? '')
+    formData.set('objecao_observacao', objecaoObservacao)
+
+    setShowModalObjecao(false)
+    setErroLocal('')
+    startSubmitTransition(() => formAction(formData))
   }
 
   const erroSenhaConfirmacao = senhaError || (!ocultarErroSenhaAction && !isConfirmandoSenha ? state?.error : '')
@@ -818,6 +848,9 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
       <input type="hidden" name="observacoes" value={observacoes} />
       <input type="hidden" name="itens_venda_json" value={JSON.stringify(itens)} />
       <input type="hidden" name="status" value={statusVenda} />
+      <input type="hidden" name="objecao_motivo_id" value={objecaoMotivoId} />
+      <input type="hidden" name="objecao_motivo_nome" value={objecaoSelecionada?.nome ?? ''} />
+      <input type="hidden" name="objecao_observacao" value={objecaoObservacao} />
 
       {/* Navegação */}
       <div className="flex items-center justify-between pt-6 border-t border-border">
@@ -868,7 +901,7 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
         </div>
       )}
 
-      {!showModalConfirmacao && (erroLocal || state?.error) && (
+      {!showModalConfirmacao && !showModalObjecao && (erroLocal || state?.error) && (
         <div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-800 text-sm">
           {erroLocal || state?.error}
         </div>
@@ -926,6 +959,77 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
             >
               {isConfirmandoSenha && <LoaderCircle size={16} className="animate-spin" />}
               {isConfirmandoSenha ? 'Validando...' : 'Confirmar'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Modal de objeção ao criar um orçamento */}
+    {showModalObjecao && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="bg-surface rounded-xl border border-border shadow-xl w-full max-w-md p-6 space-y-4">
+          <h3 className="text-lg font-semibold text-text-primary">Detalhar objeção (opcional)</h3>
+          <p className="text-sm text-text-secondary">
+            Este orçamento não foi fechado agora. Se quiser, registre o motivo — isso ajuda a
+            entender os principais motivos de objeção nos relatórios.
+          </p>
+
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-2">Motivo da objeção</label>
+            <select
+              value={objecaoMotivoId}
+              onChange={(e) => setObjecaoMotivoId(e.target.value)}
+              className="w-full px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
+            >
+              <option value="">Selecionar...</option>
+              {objecoes.map((o) => (
+                <option key={o.id} value={o.id}>{o.nome}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-2">Observação</label>
+            <textarea
+              value={objecaoObservacao}
+              onChange={(e) => setObjecaoObservacao(e.target.value)}
+              placeholder="Detalhes adicionais sobre a objeção..."
+              rows={3}
+              className="w-full px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500 resize-none"
+            />
+          </div>
+
+          {isSubmitting && (
+            <div className="flex items-center gap-2 rounded-md border border-primary-200 bg-primary-50 px-3 py-2 text-sm text-primary-800">
+              <LoaderCircle size={16} className="animate-spin" />
+              Criando orçamento...
+            </div>
+          )}
+
+          {(erroLocal || state?.error) && (
+            <div className="p-2 rounded-md bg-red-50 border border-red-200 text-red-800 text-sm">
+              {erroLocal || state?.error}
+            </div>
+          )}
+
+          <div className="flex gap-2 justify-end pt-2">
+            <button
+              type="button"
+              onClick={() => setShowModalObjecao(false)}
+              disabled={isSubmitting}
+              className="px-4 py-2 rounded-md text-sm font-medium text-text-secondary hover:bg-page transition-colors disabled:opacity-50"
+            >
+              Voltar
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmarObjecao}
+              disabled={isSubmitting}
+              className="px-4 py-2 rounded-md bg-green-600 hover:bg-green-700 text-white text-sm font-medium transition-colors disabled:opacity-70 disabled:cursor-wait inline-flex items-center gap-2"
+            >
+              {isSubmitting && <LoaderCircle size={16} className="animate-spin" />}
+              Criar Orçamento
             </button>
           </div>
         </div>

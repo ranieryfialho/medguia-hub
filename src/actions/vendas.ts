@@ -140,6 +140,9 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
   const itensJson = formData.get('itens_venda_json') as string
   const statusRaw = (formData.get('status') as string) || 'venda_confirmada'
   const status = statusValido(statusRaw) ? statusRaw : 'venda_confirmada'
+  const objecao_motivo_id = ((formData.get('objecao_motivo_id') as string) || '').trim() || null
+  const objecao_motivo_nome = ((formData.get('objecao_motivo_nome') as string) || '').trim() || null
+  const objecao_observacao = ((formData.get('objecao_observacao') as string) || '').trim() || null
 
   if (!paciente_id || !origem || !forma_pagamento) {
     return { error: 'Paciente, origem e forma de pagamento são obrigatórios.' }
@@ -207,6 +210,9 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
 
   const venda_em_consultorio = await resolverVendaEmConsultorio(origem, formData)
 
+  // Defesa em profundidade: objeção só faz sentido para orçamento pendente,
+  // mesmo que o client tenha mandado algo (ex.: usuário trocou o tipo de
+  // registro depois de passar pelo modal de objeção).
   const dadosVenda = {
     paciente_id,
     profissional_id: profissional_id || null,
@@ -220,6 +226,9 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
     protocolo_id,
     protocolo_nome,
     status,
+    objecao_motivo_id: status === 'orcamento_pendente' ? objecao_motivo_id : null,
+    objecao_motivo_nome: status === 'orcamento_pendente' ? objecao_motivo_nome : null,
+    objecao_observacao: status === 'orcamento_pendente' ? objecao_observacao : null,
   }
 
   // Inserir venda
@@ -247,6 +256,21 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
 
     vendaInserida = tentativaSemProtocolo.data
     erroVenda = tentativaSemProtocolo.error
+  }
+
+  if (erroVenda && isMissingColumnError(erroVenda.message, ['objecao_motivo_id', 'objecao_motivo_nome', 'objecao_observacao'])) {
+    const { objecao_motivo_id, objecao_motivo_nome, objecao_observacao, ...dadosSemObjecao } = dadosVenda
+    void objecao_motivo_id
+    void objecao_motivo_nome
+    void objecao_observacao
+    const tentativaSemObjecao = await supabase
+      .from('vendas')
+      .insert(dadosSemObjecao)
+      .select('id')
+      .single()
+
+    vendaInserida = tentativaSemObjecao.data
+    erroVenda = tentativaSemObjecao.error
   }
 
   if (erroVenda && (await isCheckConstraintError(erroVenda.message))) {

@@ -14,6 +14,7 @@ export type ModuloChave =
   | 'follow_ups:templates'
   | 'comercial:vendas'
   | 'comercial:produtos'
+  | 'comercial:objecoes'
   | 'comercial:relatorio_vendas'
   | 'equipe:membros'
   | 'equipe:tempo_fabril'
@@ -83,6 +84,7 @@ export const GRUPOS_MODULOS: GrupoModulos[] = [
     modulos: [
       { chave: 'comercial:vendas', label: 'Vendas', rota: '/vendas' },
       { chave: 'comercial:produtos', label: 'Produtos', rota: '/produtos' },
+      { chave: 'comercial:objecoes', label: 'Objeções de Orçamento', rota: '/objecoes' },
       { chave: 'comercial:relatorio_vendas', label: 'Relatório de Vendas', rota: '/relatorios/vendas' },
     ],
   },
@@ -152,7 +154,7 @@ export const TEMPLATES_PERFIL: Record<TemplatePerfilChave, { label: string; modu
       'confirmacoes:cards', 'confirmacoes:semana', 'confirmacoes:mensagens', 'confirmacoes:historico',
       'contatos:base', 'contatos:relatorio',
       'pacientes', 'prontuarios', 'follow_ups', 'follow_ups:tipos', 'follow_ups:templates',
-      'comercial:vendas', 'comercial:produtos', 'comercial:relatorio_vendas',
+      'comercial:vendas', 'comercial:produtos', 'comercial:objecoes', 'comercial:relatorio_vendas',
       'equipe:membros', 'equipe:tempo_fabril', 'equipe:conferencia',
       'configuracoes:jornada', 'configuracoes:disponibilidade', 'configuracoes:status_disponibilidade', 'configuracoes:google_drive',
     ],
@@ -162,7 +164,7 @@ export const TEMPLATES_PERFIL: Record<TemplatePerfilChave, { label: string; modu
     modulos: [
       'dashboard',
       'contatos:base', 'contatos:relatorio',
-      'comercial:vendas', 'comercial:produtos',
+      'comercial:vendas', 'comercial:produtos', 'comercial:objecoes',
     ],
   },
   completo: {

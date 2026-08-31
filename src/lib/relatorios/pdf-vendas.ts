@@ -19,6 +19,8 @@ export type VendaDetalhe = {
   nome?: string | null
   status: string
   motivo_recusa?: string | null
+  objecao_motivo_nome?: string | null
+  objecao_observacao?: string | null
   itens: ItemDetalheVenda[]
   total: number
   origem?: string
@@ -251,6 +253,23 @@ function desenharPaginaResumo(
       y = desenharTituloSecao(doc, y, 'Funil de Orçamentos: Confirmado x Orçamento')
     }
     y = desenharFunilOrcamentos(doc, y, vendasDetalhadas)
+
+    const objecoes = agregarPorNome(
+      agruparPorStatus(vendasDetalhadas).orcamento_pendente,
+      v => v.objecao_motivo_nome,
+    )
+    if (objecoes.length > 0) {
+      y += 8
+      y = desenharBlocoAgregado(
+        doc,
+        y,
+        'Resumo',
+        'Objeções mais comuns (orçamentos pendentes)',
+        objecoes,
+        ['Objeção', 'Qtd.', 'Valor em orçamento', '% Total'],
+        [78, 18, 46, 34],
+      )
+    }
   }
 
   y += 8
@@ -882,6 +901,10 @@ function desenharPaginaVendasDetalhadas(doc: jsPDF, vendasDetalhadas: VendaDetal
         if (venda.paciente_origem) subs.push({ colIdx: 1, texto: `Origem: ${venda.paciente_origem}` })
         if (venda.nome) subs.push({ colIdx: 1, texto: venda.nome })
         if (venda.motivo_recusa) subs.push({ colIdx: 2, texto: `Motivo: ${venda.motivo_recusa}` })
+        if (venda.objecao_motivo_nome) {
+          const observacao = venda.objecao_observacao ? ` — ${venda.objecao_observacao}` : ''
+          subs.push({ colIdx: 2, texto: `Objeção: ${venda.objecao_motivo_nome}${observacao}` })
+        }
         return subs
       },
     )

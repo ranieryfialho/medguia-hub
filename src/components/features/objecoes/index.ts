@@ -1,0 +1,1 @@
+export { ObjecoesManager } from './ObjecoesManager';

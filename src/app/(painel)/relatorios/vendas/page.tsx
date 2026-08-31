@@ -51,6 +51,8 @@ type VendaRow = {
   status: string | null
   nome: string | null
   motivo_recusa: string | null
+  objecao_motivo_nome: string | null
+  objecao_observacao: string | null
   pacientes: PacienteVenda | PacienteVenda[] | null
   profiles: PerfilVenda | PerfilVenda[] | null
   itens_venda: ItemVendaRow[] | null
@@ -130,7 +132,7 @@ export default async function RelatorioVendasPage({
   let query = supabase
     .from('vendas')
     .select(`
-      id, origem, forma_pagamento, data_venda, profissional_id, paciente_id, medico_referenciador_nome, venda_em_consultorio, status, nome, motivo_recusa,
+      id, origem, forma_pagamento, data_venda, profissional_id, paciente_id, medico_referenciador_nome, venda_em_consultorio, status, nome, motivo_recusa, objecao_motivo_nome, objecao_observacao,
       pacientes:paciente_id ( nome, origem ),
       profiles:profissional_id ( full_name, role ),
       itens_venda ( quantidade, preco_unitario, produtos:produto_id ( id, nome, categoria ) )
@@ -272,6 +274,8 @@ export default async function RelatorioVendasPage({
       nome: venda.nome || null,
       status: statusVenda,
       motivo_recusa: venda.motivo_recusa || null,
+      objecao_motivo_nome: venda.objecao_motivo_nome || null,
+      objecao_observacao: venda.objecao_observacao || null,
       origem: venda.origem,
       venda_em_consultorio: venda.venda_em_consultorio,
       itens: itens.map((item): ItemDetalheVenda => ({
@@ -388,6 +392,8 @@ export default async function RelatorioVendasPage({
         nome: venda.nome || null,
         status: statusVenda,
         motivo_recusa: venda.motivo_recusa || null,
+        objecao_motivo_nome: venda.objecao_motivo_nome || null,
+        objecao_observacao: venda.objecao_observacao || null,
         itens: itens.map((item): ItemDetalheVenda => ({
           produto_nome: item.produtos?.nome || 'Produto removido',
           categoria: item.produtos?.categoria || null,
@@ -447,6 +453,19 @@ export default async function RelatorioVendasPage({
 
   const totalOrcamentos = orcamentoPendenteCount + orcamentoRecusadoCount + orcamentoConvertidoCount
   const taxaConversao = totalOrcamentos > 0 ? (orcamentoConvertidoCount / totalOrcamentos) * 100 : null
+
+  const objecoesMaisComuns = (() => {
+    const mapa = new Map<string, { nome: string; quantidade: number; valor: number }>()
+    for (const venda of vendasDetalhadas) {
+      if (venda.status !== 'orcamento_pendente' || !venda.objecao_motivo_nome) continue
+      const entry = mapa.get(venda.objecao_motivo_nome) ?? { nome: venda.objecao_motivo_nome, quantidade: 0, valor: 0 }
+      entry.quantidade += 1
+      entry.valor += venda.total
+      mapa.set(venda.objecao_motivo_nome, entry)
+    }
+    return [...mapa.values()].sort((a, b) => b.quantidade - a.quantidade)
+  })()
+
   const profissionaisResumo = Object.values(porProfissional)
   const produtosResumo = Object.values(porProduto)
 
@@ -694,6 +713,38 @@ export default async function RelatorioVendasPage({
                 {totalOrcamentos} orçamento{totalOrcamentos !== 1 ? 's' : ''} no período
               </p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Objeções mais comuns nos orçamentos pendentes */}
+      {objecoesMaisComuns.length > 0 && (
+        <div className="bg-surface rounded-lg border border-border p-6">
+          <h2 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
+            <FileText size={20} className="text-primary-500" />
+            Objeções mais comuns
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[420px]">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="py-2 pr-4 text-xs font-semibold text-text-secondary uppercase">Objeção</th>
+                  <th className="py-2 pr-4 text-xs font-semibold text-text-secondary uppercase text-right">Qtd.</th>
+                  <th className="py-2 text-xs font-semibold text-text-secondary uppercase text-right">Valor em orçamento</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {objecoesMaisComuns.map((objecao) => (
+                  <tr key={objecao.nome}>
+                    <td className="py-2 pr-4 text-sm text-text-primary">{objecao.nome}</td>
+                    <td className="py-2 pr-4 text-sm text-text-primary text-right">{objecao.quantidade}</td>
+                    <td className="py-2 text-sm text-text-primary text-right">
+                      R$ {objecao.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
@@ -1202,6 +1253,12 @@ export default async function RelatorioVendasPage({
                           </span>
                           {venda.motivo_recusa && (
                             <p className="text-xs text-text-secondary mt-1 italic">{venda.motivo_recusa}</p>
+                          )}
+                          {venda.objecao_motivo_nome && (
+                            <p className="text-xs text-text-secondary mt-1 italic">
+                              Objeção: {venda.objecao_motivo_nome}
+                              {venda.objecao_observacao ? ` — ${venda.objecao_observacao}` : ''}
+                            </p>
                           )}
                         </td>
                       </tr>

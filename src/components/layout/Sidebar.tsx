@@ -36,6 +36,7 @@ import {
   CircleDot,
   ShieldAlert,
   TrendingUp,
+  MessageCircleWarning,
 } from 'lucide-react'
 import { ProntuariosBadge } from './ProntuariosBadge'
 import { FollowUpsBadge } from './FollowUpsBadge'
@@ -67,7 +68,7 @@ export function Sidebar({
   const [contatosOpen, setContatosOpen] = useState(() => pathname?.startsWith('/contatos') ?? false)
   const [configOpen, setConfigOpen] = useState(() => pathname?.startsWith('/configuracoes') ?? false)
   const [equipeOpen, setEquipeOpen] = useState(() => (pathname?.startsWith('/equipe') || pathname?.startsWith('/relatorios/tempo-fabril') || pathname?.startsWith('/relatorios/conferencia-agendamentos') || pathname?.startsWith('/relatorios/auditoria-exclusoes') || pathname?.startsWith('/configuracoes/jornada') || pathname?.startsWith('/configuracoes/disponibilidade') || pathname?.startsWith('/configuracoes/status-disponibilidade')) ?? false)
-  const [comercialOpen, setComercialOpen] = useState(() => (pathname?.startsWith('/vendas') || pathname?.startsWith('/produtos') || pathname?.startsWith('/relatorios/vendas') || pathname?.startsWith('/vendas/protocolos')) ?? false)
+  const [comercialOpen, setComercialOpen] = useState(() => (pathname?.startsWith('/vendas') || pathname?.startsWith('/produtos') || pathname?.startsWith('/objecoes') || pathname?.startsWith('/relatorios/vendas') || pathname?.startsWith('/vendas/protocolos')) ?? false)
   const [pacientesOpen, setPacientesOpen] = useState(() => pathname?.startsWith('/pacientes') ?? false)
   const [prontuariosOpen, setProntuariosOpen] = useState(() => (pathname?.startsWith('/prontuarios') || pathname?.startsWith('/follow-ups')) ?? false)
   const modulos = modulosLiberadosProp ?? []
@@ -279,7 +280,7 @@ export function Sidebar({
           <div>
             <button
               onClick={() => setComercialOpen(v => !v)}
-              className={groupCls(!!isActive('/vendas') || !!isActive('/produtos') || !!isActive('/relatorios/vendas'))}
+              className={groupCls(!!isActive('/vendas') || !!isActive('/produtos') || !!isActive('/objecoes') || !!isActive('/relatorios/vendas'))}
             >
               <ShoppingCart size={20} />
               <span className="flex-1 text-left">Comercial</span>
@@ -303,6 +304,12 @@ export function Sidebar({
                   <Link href="/vendas/protocolos" onClick={handleNavClick} className={subLinkCls(!!isActive('/vendas/protocolos'))}>
                     <Layers size={14} />
                     Protocolos
+                  </Link>
+                )}
+                {pv('comercial:objecoes') && (
+                  <Link href="/objecoes" onClick={handleNavClick} className={subLinkCls(!!isActive('/objecoes'))}>
+                    <MessageCircleWarning size={14} />
+                    Objeções
                   </Link>
                 )}
                 {pv('comercial:relatorio_vendas') && (

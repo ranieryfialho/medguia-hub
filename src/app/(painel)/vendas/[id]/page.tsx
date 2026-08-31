@@ -32,7 +32,9 @@ const SELECT_VENDA_BASE = `
 const SELECT_VENDA_COM_PROTOCOLO = `
   ${SELECT_VENDA_BASE},
   protocolo_id,
-  protocolo_nome
+  protocolo_nome,
+  objecao_motivo_nome,
+  objecao_observacao
 `
 
 export default async function VendaDetalhePage({
@@ -53,14 +55,21 @@ export default async function VendaDetalhePage({
 
   let venda = vendaComProtocolo
 
-  if (vendaError && (vendaError.message.includes('protocolo_id') || vendaError.message.includes('protocolo_nome'))) {
+  if (vendaError && (
+    vendaError.message.includes('protocolo_id') ||
+    vendaError.message.includes('protocolo_nome') ||
+    vendaError.message.includes('objecao_motivo_nome') ||
+    vendaError.message.includes('objecao_observacao')
+  )) {
     const fallback = await supabase
       .from('vendas')
       .select(SELECT_VENDA_BASE)
       .eq('id', id)
       .single()
 
-    venda = fallback.data ? { ...fallback.data, protocolo_id: null, protocolo_nome: null } : fallback.data
+    venda = fallback.data
+      ? { ...fallback.data, protocolo_id: null, protocolo_nome: null, objecao_motivo_nome: null, objecao_observacao: null }
+      : fallback.data
   }
 
   const { data: itens } = await supabase
@@ -218,6 +227,19 @@ export default async function VendaDetalhePage({
           </div>
         </div>
       </div>
+
+      {/* Objeção registrada ao criar o orçamento */}
+      {statusAtual === 'orcamento_pendente' && (v.objecao_motivo_nome || v.objecao_observacao) && (
+        <div className="bg-amber-50 rounded-lg border border-amber-200 p-4 space-y-2">
+          <p className="text-xs text-amber-700 uppercase font-semibold">Objeção registrada</p>
+          {v.objecao_motivo_nome && (
+            <p className="text-sm text-amber-900 font-medium">{v.objecao_motivo_nome as string}</p>
+          )}
+          {v.objecao_observacao && (
+            <p className="text-sm text-amber-900">{v.objecao_observacao as string}</p>
+          )}
+        </div>
+      )}
 
       {/* Motivo de recusa */}
       {statusAtual === 'orcamento_recusado' && (
