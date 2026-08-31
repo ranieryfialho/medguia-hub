@@ -343,23 +343,49 @@ export function calcularKPIs(
   const jornadasSemanaisPorProfissional = buildMapaSemanalPorProfissional(jornadas)
   const jornadasMensaisPorProfissional = buildMapaMensalPorProfissional(jornadasPlanejadas)
 
+  // Indexa atendimentos/histórico/reuniões por profissional uma única vez, em vez
+  // de rodar um .filter() sobre a lista inteira para cada profissional do laço
+  // abaixo (O(profissionais × atendimentos) vira O(profissionais + atendimentos)).
+  const atendimentosPorProfissional = new Map<string, Atendimento[]>()
+  for (const a of atendimentos) {
+    const idsAlvo = a.fisioterapeuta_id && a.fisioterapeuta_id !== a.profissional_id
+      ? [a.profissional_id, a.fisioterapeuta_id]
+      : [a.profissional_id]
+    for (const id of idsAlvo) {
+      const lista = atendimentosPorProfissional.get(id)
+      if (lista) lista.push(a)
+      else atendimentosPorProfissional.set(id, [a])
+    }
+  }
+
+  const historicoPorProfissional = new Map<string, HistoricoStatus[]>()
+  for (const h of historico) {
+    const lista = historicoPorProfissional.get(h.profissional_id)
+    if (lista) lista.push(h)
+    else historicoPorProfissional.set(h.profissional_id, [h])
+  }
+
+  const reunioesPorProfissional = new Map<string, Reuniao[]>()
+  for (const r of reunioes) {
+    const lista = reunioesPorProfissional.get(r.profissional_id)
+    if (lista) lista.push(r)
+    else reunioesPorProfissional.set(r.profissional_id, [r])
+  }
+
+  const historicoAbertoPorProfissional = new Map<string, HistoricoStatusAberto[]>()
+  for (const h of historicoAberto) {
+    const lista = historicoAbertoPorProfissional.get(h.profissional_id)
+    if (lista) lista.push(h)
+    else historicoAbertoPorProfissional.set(h.profissional_id, [h])
+  }
+
   for (const prof of profissionaisLista) {
     const jornadaSemanalMap = jornadasSemanaisPorProfissional.get(prof.id) ?? new Map()
     const jornadaMensalMap = jornadasMensaisPorProfissional.get(prof.id)
 
-    // Inclui atendimentos onde o profissional é responsável OU executor atribuído
-    // Usa Set para evitar duplicatas quando profissional_id === fisioterapeuta_id
-    const atsIds = new Set<string>()
-    const atsProfissional: Atendimento[] = []
-    for (const a of atendimentos) {
-      if ((a.profissional_id === prof.id || a.fisioterapeuta_id === prof.id) && !atsIds.has(a.id)) {
-        atsIds.add(a.id)
-        atsProfissional.push(a)
-      }
-    }
-
-    const historicoProfissional = historico.filter((h) => h.profissional_id === prof.id)
-    const reuniaoProfissional = reunioes.filter((r) => r.profissional_id === prof.id)
+    const atsProfissional = atendimentosPorProfissional.get(prof.id) ?? []
+    const historicoProfissional = historicoPorProfissional.get(prof.id) ?? []
+    const reuniaoProfissional = reunioesPorProfissional.get(prof.id) ?? []
 
     // Os intervalos de relógio já contados como atendimento fabril. Unidos uma
     // vez por profissional: dois atendimentos sobrepostos entre si — sessões
@@ -461,6 +487,15 @@ export function calcularKPIs(
       ? Math.round((tempoFabrilMin / jornadaContratadaMin) * 100)
       : 0
 
+    // Indexa os atendimentos fábris do profissional por dia uma única vez, em vez
+    // de rodar um .filter() sobre a lista inteira para cada dia do período abaixo.
+    const tempoFabrilPorDia = new Map<string, number>()
+    for (const a of atsProfissional) {
+      if (!isStatusFabril(a.status)) continue
+      const diaKey = formatAppDateKey(new Date(a.data_agendamento))
+      tempoFabrilPorDia.set(diaKey, (tempoFabrilPorDia.get(diaKey) ?? 0) + (a.duracao_minutos ?? 0))
+    }
+
     let diasSubutilizados = 0
     let cursor = new Date(dataInicio)
 
@@ -469,14 +504,7 @@ export function calcularKPIs(
 
       if (jornDia) {
         const dataKeyCursor = formatAppDateKey(cursor)
-        const atsDoDia = atsProfissional.filter((a) => {
-          const dataKeyAtt = formatAppDateKey(new Date(a.data_agendamento))
-          return dataKeyAtt === dataKeyCursor
-        })
-
-        const tempoFabrilDia = atsDoDia
-          .filter((a) => isStatusFabril(a.status))
-          .reduce((acc, a) => acc + (a.duracao_minutos ?? 0), 0)
+        const tempoFabrilDia = tempoFabrilPorDia.get(dataKeyCursor) ?? 0
 
         const jornadaDia = calcularMinutosJornada(jornDia)
         const ocupacaoDia = jornadaDia > 0 ? tempoFabrilDia / jornadaDia : 0
@@ -513,7 +541,7 @@ export function calcularKPIs(
     // Conferência de status: entradas fechadas no período + qualquer entrada ainda
     // em aberto agora (não entra no cálculo de tempoStatusMin, só é exibida pra
     // o gestor conseguir revisar/pegar anomalias antes do fallback de 2h agir).
-    const historicoAbertoProfissional = historicoAberto.filter((h) => h.profissional_id === prof.id)
+    const historicoAbertoProfissional = historicoAbertoPorProfissional.get(prof.id) ?? []
 
     const detalheStatusFechados: StatusDetalheKPI[] = historicoProfissional
       .filter((h) => {
