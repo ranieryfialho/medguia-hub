@@ -569,13 +569,15 @@ export async function buscarDetalhesAgendamento(atendimentoId: string) {
       profissional_id,
       agendamento_id,
       criado_por,
+      editado_por,
+      editado_em,
       data_agendamento,
       created_at,
       status,
       tipo,
       duracao_minutos,
       observacoes,
-      agendamento:agendamentos(plano_saude, tipo, criado_por, created_at),
+      agendamento:agendamentos(plano_saude, tipo, criado_por, created_at, editado_por, editado_em),
       numero_sessao,
       total_sessoes,
       pacientes (nome, telefone, email),
@@ -594,25 +596,33 @@ export async function buscarDetalhesAgendamento(atendimentoId: string) {
   }
 
   const agendamentoPai = Array.isArray(data.agendamento) ? data.agendamento[0] ?? null : data.agendamento
+  // O criador é sempre o de quem marcou originalmente (série pai, com
+  // fallback pra sessão avulsa) — editarAtendimento nunca deve tocar em
+  // criado_por, só em editado_por/editado_em.
   const criadorId = agendamentoPai?.criado_por ?? data.criado_por ?? null
+  const editorId = data.editado_por ?? agendamentoPai?.editado_por ?? null
+  const editadoEm = data.editado_por
+    ? data.editado_em
+    : agendamentoPai?.editado_por
+    ? agendamentoPai.editado_em
+    : null
 
-  let criador: { full_name?: string | null } | null = null
-
-  if (criadorId) {
-    const { data: criadorProfile } = await supabase
-      .from('profiles')
-      .select('full_name')
-      .eq('id', criadorId)
-      .maybeSingle()
-
-    criador = criadorProfile ?? null
-  }
+  const [{ data: criadorProfile }, { data: editorProfile }] = await Promise.all([
+    criadorId
+      ? supabase.from('profiles').select('full_name').eq('id', criadorId).maybeSingle()
+      : Promise.resolve({ data: null }),
+    editorId
+      ? supabase.from('profiles').select('full_name').eq('id', editorId).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ])
 
   return {
     data: {
       ...data,
       agendamento: agendamentoPai,
-      criador,
+      criador: criadorProfile ?? null,
+      editor: editorProfile ?? null,
+      editado_em: editadoEm,
       created_at: agendamentoPai?.created_at ?? data.created_at ?? null,
     },
   }
@@ -1235,6 +1245,7 @@ export async function editarAtendimento(id: string, formData: FormData) {
   }
 
   const marcou_retorno = formData.get('marcou_retorno') === 'on'
+  const agora = new Date().toISOString()
 
   const { error } = await supabaseAdmin
     .from('atendimentos')
@@ -1245,6 +1256,8 @@ export async function editarAtendimento(id: string, formData: FormData) {
       duracao_minutos: duracao,
       observacoes: observacoes || null,
       marcou_retorno,
+      editado_por: userId,
+      editado_em: agora,
     })
     .eq('id', id)
 
@@ -1285,6 +1298,8 @@ export async function editarAtendimento(id: string, formData: FormData) {
           duracao_minutos: duracao,
           observacoes: observacoes || null,
           plano_saude: plano_saude || null,
+          editado_por: userId,
+          editado_em: agora,
         })
         .eq('id', atendimentoAtual.agendamento_id)
 
@@ -1387,7 +1402,8 @@ export async function editarSessoesDaSerie(
 ) {
   const ctx = await requirePermissaoAgendaAdmin()
   if ('error' in ctx) return { error: ctx.error }
-  const { supabaseAdmin } = ctx
+  const { supabaseAdmin, userId } = ctx
+  const agora = new Date().toISOString()
 
   const resultados = await Promise.all(
     updates.map(({ id, data, hora_inicio, hora_fim, profissional_id }) => {
@@ -1402,6 +1418,8 @@ export async function editarSessoesDaSerie(
           profissional_id: profissional_id || null,
           data_agendamento: buildAppDateTimeISO(data, hora_inicio),
           duracao_minutos: duracao,
+          editado_por: userId,
+          editado_em: agora,
         })
         .eq('id', id)
         .then(({ error }) => error)

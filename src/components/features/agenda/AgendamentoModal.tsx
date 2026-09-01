@@ -98,6 +98,7 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
     telefone?: string | null; email?: string | null; full_name?: string | null; role?: string | null
     criador_nome?: string | null; created_at?: string | null; plano_saude?: string | null
     duracao_minutos?: number | null; observacoes?: string | null
+    editor_nome?: string | null; editado_em?: string | null
   }>>({})
   const [falhasDetalhes, setFalhasDetalhes] = useState<Record<string, true>>({})
   const opcoesRef = useRef<HTMLDivElement>(null)
@@ -146,6 +147,8 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
   const roleProfissional = detalhesExtras?.role ?? agendamento.profissional?.role
   const nomeCriador = detalhesExtras?.criador_nome ?? agendamento.criador?.full_name ?? null
   const criadoEm = detalhesExtras?.created_at ?? agendamento.created_at ?? null
+  const nomeEditor = detalhesExtras?.editor_nome ?? null
+  const editadoEm = detalhesExtras?.editado_em ?? null
   const planoSaude = detalhesExtras?.plano_saude ?? agendamento.agendamento_pai?.plano_saude
   const nomeProtocolo = agendamento.agendamento_pai?.tipo?.trim() ?? ''
   const tituloAtendimento = nomeProtocolo || agendamento.tipo
@@ -158,6 +161,7 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
   const horaFim = duracaoMinutos ? formatAppTime(new Date(dataObj.getTime() + duracaoMinutos * 60000)) : null
   const dataFormatada = formatAppDateLabel(dataObj)
   const criadoEmFormatado = criadoEm ? format(new Date(criadoEm), "dd/MM/yyyy 'às' HH:mm") : null
+  const editadoEmFormatado = editadoEm ? format(new Date(editadoEm), "dd/MM/yyyy 'às' HH:mm") : null
   const precisaCarregarDetalhes = telefone == null || emailPaciente == null || roleProfissional == null
     || nomeCriador == null || criadoEm == null || planoSaude == null || duracaoMinutos == null || observacoes == null
   const loadingDetalhes = precisaCarregarDetalhes
@@ -192,6 +196,8 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
           plano_saude: (detalhes.agendamento as { plano_saude?: string | null } | null)?.plano_saude ?? null,
           duracao_minutos: detalhes.duracao_minutos ?? null,
           observacoes: detalhes.observacoes ?? null,
+          editor_nome: (detalhes.editor as { full_name?: string | null } | null)?.full_name ?? null,
+          editado_em: (detalhes as { editado_em?: string | null }).editado_em ?? null,
         },
       }))
     })
@@ -440,6 +446,11 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
                     {loadingDetalhes
                       ? 'Carregando responsável pelo agendamento...'
                       : `Agendado${nomeCriador ? ` por ${nomeCriador}` : ''}${criadoEmFormatado ? ` em ${criadoEmFormatado}` : ''}`}
+                  </p>
+                )}
+                {!loadingDetalhes && (nomeEditor || editadoEmFormatado) && (
+                  <p className="mt-0.5 text-[10px] sm:text-xs text-[#6d7a75]">
+                    {`Editado${nomeEditor ? ` por ${nomeEditor}` : ''}${editadoEmFormatado ? ` em ${editadoEmFormatado}` : ''}`}
                   </p>
                 )}
               </div>
