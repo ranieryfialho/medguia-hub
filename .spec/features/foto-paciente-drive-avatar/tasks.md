@@ -52,8 +52,7 @@
 - Arquivos: src/app/api/drive/file/[fileId]/route.test.ts
 - Notas: teste de integração confirmando 401 sem sessão no `/api/drive/file/[fileId]` já existente — só criação de teste, sem mudança de código (a rota já bloqueia sem sessão).
 
-## T-011 — Medir baseline de performance da agenda (dia cheio, views dia/semana/mês) [pendente]
-
+## T-011 — Medir baseline de performance da agenda (dia cheio, views dia/semana/mês) [concluida]
 - Refs: AC-104, AC-106
 - Arquivos: docs/tdds/006-foto-do-paciente-google-drive-e-avatar.md
 - Notas: registrar os números medidos antes de tocar em `AgendamentoItem.tsx`, conforme Decisão F da RFC. Bloqueia T-012.
