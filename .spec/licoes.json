@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "proximoId": 2,
+  "licoes": [
+    {
+      "id": "L-001",
+      "texto": "Teste que compara texto-fonte com assinatura multi-linha (\\n literal) quebra apos merge, pois o repo usa CRLF no Windows -- normalize o source lido (.replace(/\\r\\n/g, '\\n')) antes de comparar.",
+      "chave": "VERIFY_FALHOU::teste que compara texto fonte com assinatura multi linha n literal quebra apos merge pois o repo usa crlf no windows normalize o source lido replace r n g n antes de comparar",
+      "sinal": "VERIFY_FALHOU",
+      "escopo": "testes",
+      "status": "candidata",
+      "recorrencia": 1,
+      "features": [
+        "foto-paciente-drive-avatar"
+      ],
+      "evidencias": [
+        {
+          "fonte": "AC-098",
+          "feature": "foto-paciente-drive-avatar",
+          "quando": "2026-09-02T21:02:02.785Z",
+          "gitRev": "6923333"
+        }
+      ],
+      "penalidades": 0,
+      "criadaEm": "2026-09-02T21:02:02.785Z",
+      "ultimaVez": "2026-09-02T21:02:02.785Z"
+    }
+  ]
+}
