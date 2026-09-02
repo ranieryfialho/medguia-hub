@@ -22,8 +22,7 @@
 - Arquivos: src/app/api/pacientes/[id]/foto/route.ts, src/app/api/pacientes/[id]/foto/route.test.ts
 - Notas: valida sessão (401), valida MIME por magic bytes (400), teto de 2MB (400), garante pasta do paciente, sobe o arquivo (nome `foto_perfil_[ID8].{ext}`, permissão herdada da pasta — sem `anyoneWithLink`), persiste `foto_drive_file_id`/`foto_atualizada_em`, só então apaga o `fileId` anterior. `DELETE` idempotente em paciente sem foto (200, AC-095). Depende de T-001 (colunas) e T-002 (limite de 2MB pressupõe compressão no cliente).
 
-## T-005 — Cliente orquestra pós-cadastro: upload de foto após `pacienteId`, toast de warning em falha do Drive [pendente]
-
+## T-005 — Cliente orquestra pós-cadastro: upload de foto após `pacienteId`, toast de warning em falha do Drive [concluida]
 - Refs: AC-088, AC-089
 - Arquivos: src/components/features/pacientes/FormCadastroPaciente.tsx
 - Notas: após a action retornar `pacienteId`, se há foto selecionada chama a rota de T-004; sucesso → toast + navega; falha do Drive → `toast.warning` e navega assim mesmo (não trava o cadastro). Depende de T-003 e T-004.
