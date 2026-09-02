@@ -3,8 +3,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { atualizarMetadataInativacao } from '@/lib/paciente-inativacao'
+import { atualizarMetadataInativacao, deveExcluirFotoPorObito } from '@/lib/paciente-inativacao'
 import { garantirPastaPacientePorId } from '@/actions/google-drive'
+import { getClienteAutenticado } from '@/lib/google-drive'
+import { google } from 'googleapis'
 import type { PacienteDuplicado, PacienteFormState } from '@/lib/types/paciente-form-state'
 
 export type { PacienteDuplicado, PacienteFormState } from '@/lib/types/paciente-form-state'
@@ -162,6 +164,13 @@ export async function criarPaciente(prevState: PacienteFormState | null, formDat
   return { pacienteId: novoPaciente.id }
 }
 
+async function criarClienteDriveParaInativacao() {
+  const auth = await getClienteAutenticado()
+  return google.drive({ version: 'v3', auth }) as unknown as {
+    files: { update: (args: unknown) => Promise<unknown> }
+  }
+}
+
 export async function editarPaciente(prevState: PacienteFormState | null, formData: FormData) {
   const supabase = await createClient()
   const id = formData.get('id') as string
@@ -174,6 +183,19 @@ export async function editarPaciente(prevState: PacienteFormState | null, formDa
   const motivoInatividade = formData.get('motivo_inatividade') as string || ''
   const obitoInatividade = formData.get('obito_inatividade') === 'on'
   const observacoesGerais = formData.get('observacoes_gerais') as string || ''
+
+  // AC-112: inativação por óbito zera a foto no mesmo salvamento; qualquer
+  // outro motivo de inativação preserva a foto normalmente (AC-113).
+  const excluirFotoPorObito = deveExcluirFotoPorObito(ativo, obitoInatividade)
+  let fotoDriveFileIdAnterior: string | null = null
+  if (excluirFotoPorObito) {
+    const { data: pacienteAtual } = await supabase
+      .from('pacientes')
+      .select('foto_drive_file_id')
+      .eq('id', id)
+      .maybeSingle()
+    fotoDriveFileIdAnterior = (pacienteAtual?.foto_drive_file_id as string | null) ?? null
+  }
 
   const dadosPaciente = {
     ativo,
@@ -198,6 +220,7 @@ export async function editarPaciente(prevState: PacienteFormState | null, formDa
       obito: obitoInatividade,
     }),
     convenio: formData.get('convenio') as string,
+    ...(excluirFotoPorObito ? { foto_drive_file_id: null, foto_atualizada_em: null } : {}),
   }
   const fields = {
     ...dadosPaciente,
@@ -248,6 +271,15 @@ export async function editarPaciente(prevState: PacienteFormState | null, formDa
 
   if (error) {
     return { error: `Erro ao editar paciente: ${error.message}`, fields }
+  }
+
+  if (excluirFotoPorObito && fotoDriveFileIdAnterior) {
+    try {
+      const drive = await criarClienteDriveParaInativacao()
+      await drive.files.update({ fileId: fotoDriveFileIdAnterior, requestBody: { trashed: true } })
+    } catch (err) {
+      console.error('[Inativação por óbito] Falha ao remover foto do Drive:', id, fotoDriveFileIdAnterior, err)
+    }
   }
 
   // ROTAS ATUALIZADAS
