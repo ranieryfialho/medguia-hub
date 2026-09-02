@@ -7,6 +7,7 @@ import { FiltrosPacientes } from '@/components/features/pacientes'
 import { PaginacaoPacientes } from '@/components/features/pacientes'
 import { requireModulo } from '@/lib/guard'
 import { extrairMetadataInativacao } from '@/lib/paciente-inativacao'
+import AvatarPaciente from '@/components/features/pacientes/AvatarPaciente'
 
 export default async function PacientesListPage({
   searchParams,
@@ -27,7 +28,7 @@ export default async function PacientesListPage({
   let query = supabase
     .from('pacientes')
     .select(
-      'id, nome, cpf, email, telefone, recuperacao_base, convenio, ativo, observacoes_gerais',
+      'id, nome, cpf, email, telefone, recuperacao_base, convenio, ativo, observacoes_gerais, foto_drive_file_id, foto_atualizada_em',
       { count: 'exact' }
     )
     .order('nome', { ascending: true })
@@ -94,7 +95,6 @@ export default async function PacientesListPage({
                 </tr>
               )}
               {pacientes?.map((paciente) => {
-                const iniciais = paciente.nome.split(' ').slice(0, 2).map((n: string) => n[0]).join('').toUpperCase()
                 const numeroLimpo = paciente.telefone?.replace(/\D/g, '') || ''
                 const isAtivo = paciente.ativo !== false
                 const metaInativacao = extrairMetadataInativacao(paciente.observacoes_gerais)
@@ -103,9 +103,12 @@ export default async function PacientesListPage({
                   <tr key={paciente.id} className={`transition-colors group ${!isAtivo ? 'bg-page/40 opacity-75' : 'hover:bg-page/50'}`}>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-border flex items-center justify-center text-xs font-medium text-text-secondary shrink-0">
-                          {iniciais}
-                        </div>
+                        <AvatarPaciente
+                          nome={paciente.nome}
+                          fotoDriveFileId={paciente.foto_drive_file_id}
+                          fotoAtualizadaEm={paciente.foto_atualizada_em}
+                          size="sm"
+                        />
                         <div className="flex flex-col">
                           <span className="text-sm font-medium text-text-primary">{paciente.nome}</span>
                           {!isAtivo ? (
@@ -172,16 +175,18 @@ export default async function PacientesListPage({
             </p>
           )}
           {pacientes?.map((paciente) => {
-            const iniciais = paciente.nome.split(' ').slice(0, 2).map((n: string) => n[0]).join('').toUpperCase()
             const numeroLimpo = paciente.telefone?.replace(/\D/g, '') || ''
             const isAtivo = paciente.ativo !== false
             const metaInativacao = extrairMetadataInativacao(paciente.observacoes_gerais)
 
             return (
               <div key={paciente.id} className={`px-4 py-3 flex items-center gap-3 ${!isAtivo ? 'opacity-60' : ''}`}>
-                <div className="w-10 h-10 rounded-full bg-border flex items-center justify-center text-xs font-medium text-text-secondary shrink-0">
-                  {iniciais}
-                </div>
+                <AvatarPaciente
+                  nome={paciente.nome}
+                  fotoDriveFileId={paciente.foto_drive_file_id}
+                  fotoAtualizadaEm={paciente.foto_atualizada_em}
+                  size="md"
+                />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-text-primary truncate">{paciente.nome}</p>
                   <p className="text-xs text-text-secondary truncate">{paciente.telefone || paciente.email || 'Sem contato'}</p>

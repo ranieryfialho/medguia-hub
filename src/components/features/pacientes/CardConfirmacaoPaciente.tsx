@@ -7,6 +7,7 @@ import { BtnWhatsApp, BtnSMS, BtnEmail } from '../shared'
 import { ModalSessaoReposicao } from '../shared'
 import { registrarContato, obterProximaData, adicionarSessaoReposicao, criarAtendimentoReagendado } from '@/actions/confirmacoes'
 import toast from 'react-hot-toast'
+import AvatarPaciente from './AvatarPaciente'
 
 type Paciente = {
   id: string
@@ -21,6 +22,8 @@ type Paciente = {
   numero_sessao?: number
   total_sessoes?: number
   contato_confirmacao?: string | null
+  fotoDriveFileId?: string | null
+  fotoAtualizadaEm?: string | null
 }
 
 type Props = {
@@ -136,8 +139,6 @@ export function CardConfirmacaoPaciente({ paciente, showDate = false }: Props) {
     }
   }
 
-  const iniciais = paciente.nome.split(' ').slice(0, 2).map((n: string) => n[0]).join('').toUpperCase()
-
   return (
     <>
       <div className={`bg-white rounded-xl shadow-sm border transition-shadow hover:shadow-md ${
@@ -156,11 +157,13 @@ export function CardConfirmacaoPaciente({ paciente, showDate = false }: Props) {
         <div className="flex items-center justify-between gap-4 p-4">
           {/* Info do paciente */}
           <div className="flex items-center gap-3 flex-1 min-w-0">
-            <div className={`w-12 h-12 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 ${
-              naoAtendeu ? 'bg-orange-100 text-orange-600' : 'bg-[#006b5a]/10 text-[#006b5a]'
-            }`}>
-              {iniciais}
-            </div>
+            <AvatarPaciente
+              nome={paciente.nome}
+              fotoDriveFileId={paciente.fotoDriveFileId}
+              fotoAtualizadaEm={paciente.fotoAtualizadaEm}
+              size="md"
+              ampliavel
+            />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <h3 className="font-semibold text-slate-900 truncate">{paciente.nome}</h3>

@@ -5,10 +5,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { CalendarDays, ClipboardList, User } from 'lucide-react'
 import { requireModulo } from '@/lib/guard'
-
-function iniciais(nome: string) {
-  return nome.split(' ').slice(0, 2).map((n: string) => n[0]).join('').toUpperCase()
-}
+import AvatarPaciente from '@/components/features/pacientes/AvatarPaciente'
 
 export default async function ProntuarioFormPage({
   params,
@@ -32,7 +29,7 @@ export default async function ProntuarioFormPage({
         tipo,
         paciente_id,
         status,
-        pacientes(id, nome, convenio, telefone),
+        pacientes(id, nome, convenio, telefone, foto_drive_file_id, foto_atualizada_em),
         agendamento:agendamentos(tipo, is_recorrente)
       `)
       .eq('id', atendimentoId)
@@ -54,6 +51,8 @@ export default async function ProntuarioFormPage({
     nome: string
     convenio?: string | null
     telefone?: string | null
+    foto_drive_file_id?: string | null
+    foto_atualizada_em?: string | null
   } | null
 
   const tipoSessao = (atendimento.agendamento as { tipo?: string } | null)?.tipo
@@ -89,9 +88,13 @@ export default async function ProntuarioFormPage({
           {/* Card do paciente */}
           <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
             <div className="flex items-center gap-3 mb-5">
-              <div className="w-14 h-14 rounded-2xl bg-[#006b5a] flex items-center justify-center text-white font-bold text-xl shrink-0 shadow-md">
-                {iniciais(nomeExibido)}
-              </div>
+              <AvatarPaciente
+                nome={nomeExibido}
+                fotoDriveFileId={paciente?.foto_drive_file_id}
+                fotoAtualizadaEm={paciente?.foto_atualizada_em}
+                size="lg"
+                ampliavel
+              />
               <div className="flex-1 min-w-0">
                 <p className="font-extrabold text-slate-900 text-[15px] leading-tight truncate">
                   {nomeExibido}
