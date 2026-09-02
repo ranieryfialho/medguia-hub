@@ -7,8 +7,7 @@
 - Arquivos: database/pacientes_foto_drive_migration.sql
 - Notas: `ADD COLUMN IF NOT EXISTS foto_drive_file_id TEXT`, `foto_atualizada_em TIMESTAMPTZ`, índice parcial. Sem `foto_drive_url` (Decisão A). Aplicar via SQL Editor do Studio (DDL não passa por REST). Nenhum AC de teste automatizado directo — é pré-requisito das demais tarefas.
 
-## T-002 — Módulo cliente de validação e redimensionamento de imagem [pendente]
-
+## T-002 — Módulo cliente de validação e redimensionamento de imagem [concluida]
 - Refs: AC-087, AC-090, AC-091
 - Arquivos: src/lib/imagem.ts, src/lib/imagem.test.ts
 - Notas: valida extensão/MIME/tamanho (rejeita >10MB antes de ler o arquivo), redimensiona lado maior para 1024px, exporta WebP q80 com fallback JPEG. Gera o preview usado no AC-087.
