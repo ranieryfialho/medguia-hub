@@ -67,8 +67,7 @@
 - Arquivos: docs/tdds/006-foto-do-paciente-google-drive-e-avatar.md
 - Notas: compara com o baseline de T-011; regressão perceptível na view semana ⇒ reverter T-012 isoladamente (Nível 1 do plano de rollback), sem afetar as demais tarefas. Depende de T-012.
 
-## T-014 — Rotina automática de limpeza de arquivos órfãos no Drive [pendente]
-
+## T-014 — Rotina automática de limpeza de arquivos órfãos no Drive [concluida]
 - Refs: AC-111
 - Arquivos: src/actions/google-drive.ts, src/lib/limpeza-orfaos-drive.ts, src/lib/limpeza-orfaos-drive.test.ts
 - Notas: quando a rota de T-004 falha ao apagar o `fileId` anterior, registra o órfão (log `warn` já previsto no TDD); a rotina lê esses registros e apaga os arquivos no Drive. Depende de T-004 (é a origem do registro de órfãos).
