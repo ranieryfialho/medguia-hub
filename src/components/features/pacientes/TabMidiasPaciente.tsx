@@ -1,10 +1,9 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import {
   ExternalLink, FileIcon, FileText, FolderOpen, FolderPlus,
-  ImageIcon, Loader2, RefreshCw, Upload, VideoIcon, X,
+  ImageIcon, Loader2, RefreshCw, Upload, VideoIcon,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -14,6 +13,7 @@ import {
   listarMidiasPaciente, listarMidiasPacienteConsultas,
 } from '@/actions/google-drive'
 import type { MidiaItem } from '@/components/features/agenda/agendamento-item-utils'
+import { LightboxMidia, type LightboxMidiaItem, type TipoLightboxMidia } from '@/components/features/pacientes/LightboxMidia'
 
 type MidiaConsulta = MidiaItem & {
   atendimento_data: string | null
@@ -106,8 +106,6 @@ export function TabMidiasPaciente({ pacienteId, nomePaciente }: { pacienteId: st
 
   const [uploadando, setUploadando] = useState(false)
   const [midiaAmpliada, setMidiaAmpliada] = useState<ViewerState>(null)
-  const [videoErro, setVideoErro] = useState(false)
-  const [pdfCarregando, setPdfCarregando] = useState(false)
   const uploadInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -158,6 +156,22 @@ export function TabMidiasPaciente({ pacienteId, nomePaciente }: { pacienteId: st
       else { toast.success('Arquivo enviado!'); await carregarMidias() }
     } catch { toast.error('Erro ao enviar arquivo') }
     finally { setUploadando(false); if (uploadInputRef.current) uploadInputRef.current.value = '' }
+  }
+
+  function midiaParaLightboxItem(midia: MidiaItem | MidiaConsulta): LightboxMidiaItem {
+    const tipo: TipoLightboxMidia = midia.mime_type?.startsWith('image/')
+      ? 'image'
+      : midia.mime_type?.startsWith('video/')
+        ? 'video'
+        : midia.mime_type === 'application/pdf'
+          ? 'pdf'
+          : 'file'
+    return {
+      src: `/api/drive/file/${midia.google_drive_file_id}`,
+      nome: midia.nome,
+      tipo,
+      urlExterna: midia.google_drive_file_url,
+    }
   }
 
   if (carregandoPasta) return (
@@ -223,7 +237,7 @@ export function TabMidiasPaciente({ pacienteId, nomePaciente }: { pacienteId: st
           {carregando ? (
             <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-[#006b5a]" /></div>
           ) : (
-            <MidiaGrid midias={midiasPaciente} onAmplia={(m) => { setVideoErro(false); setPdfCarregando(m.mime_type === 'application/pdf'); setMidiaAmpliada(m) }} />
+            <MidiaGrid midias={midiasPaciente} onAmplia={(m) => setMidiaAmpliada(m)} />
           )}
         </section>
 
@@ -254,7 +268,7 @@ export function TabMidiasPaciente({ pacienteId, nomePaciente }: { pacienteId: st
               ).map(([label, items]) => (
                 <div key={label} className="space-y-2">
                   <p className="text-[11px] font-semibold text-[#6d7a75] uppercase tracking-wide">{label}</p>
-                  <MidiaGrid midias={items} onAmplia={(m) => { setVideoErro(false); setPdfCarregando(m.mime_type === 'application/pdf'); setMidiaAmpliada(m) }} />
+                  <MidiaGrid midias={items} onAmplia={(m) => setMidiaAmpliada(m)} />
                 </div>
               ))}
             </div>
@@ -262,65 +276,8 @@ export function TabMidiasPaciente({ pacienteId, nomePaciente }: { pacienteId: st
         </section>
       </div>
 
-      {midiaAmpliada && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center p-4"
-          onClick={() => setMidiaAmpliada(null)}>
-          <button type="button" onClick={() => setMidiaAmpliada(null)}
-            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20">
-            <X size={20} />
-          </button>
-          <div className="relative max-w-4xl max-h-[90vh] flex flex-col items-center gap-3"
-            onClick={(e) => e.stopPropagation()}>
-            {midiaAmpliada.mime_type?.startsWith('image/') ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={`/api/drive/file/${midiaAmpliada.google_drive_file_id}`} alt={midiaAmpliada.nome}
-                className="max-h-[80vh] max-w-full rounded-xl object-contain" />
-            ) : midiaAmpliada.mime_type?.startsWith('video/') ? (
-              videoErro ? (
-                <div className="bg-white rounded-xl p-8 flex flex-col items-center gap-3 max-w-sm text-center">
-                  <VideoIcon size={40} className="text-slate-300" />
-                  <p className="text-sm font-semibold text-[#3d4945]">Não foi possível reproduzir</p>
-                  {midiaAmpliada.google_drive_file_url && (
-                    <a href={midiaAmpliada.google_drive_file_url} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#006b5a] text-white text-xs font-semibold">
-                      <ExternalLink size={13} />Abrir no Google Drive
-                    </a>
-                  )}
-                </div>
-              ) : (
-                <video src={`/api/drive/file/${midiaAmpliada.google_drive_file_id}`}
-                  controls autoPlay playsInline onError={() => setVideoErro(true)}
-                  className="max-h-[80vh] max-w-full rounded-xl" />
-              )
-            ) : midiaAmpliada.mime_type === 'application/pdf' ? (
-              <div style={{ position: 'relative', width: 'min(90vw, 860px)', height: '80vh' }}>
-                {pdfCarregando && (
-                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'white', borderRadius: '12px', zIndex: 1 }}>
-                    <Loader2 size={32} className="animate-spin text-[#006b5a]" />
-                  </div>
-                )}
-                <iframe src={`/api/drive/file/${midiaAmpliada.google_drive_file_id}`} title={midiaAmpliada.nome}
-                  onLoad={() => setPdfCarregando(false)}
-                  style={{ width: '100%', height: '100%', border: 'none', borderRadius: '12px', background: 'white', display: 'block' }} />
-              </div>
-            ) : (
-              <div className="bg-white rounded-xl p-8 flex flex-col items-center gap-3">
-                <FileIcon size={48} className="text-[#6d7a75]" />
-                <p className="text-sm font-semibold text-[#083142]">{midiaAmpliada.nome}</p>
-              </div>
-            )}
-            <div className="flex items-center gap-3">
-              <p className="text-white/70 text-xs">{midiaAmpliada.nome}</p>
-              {midiaAmpliada.google_drive_file_url && (
-                <a href={midiaAmpliada.google_drive_file_url} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 text-white text-xs font-semibold hover:bg-white/20">
-                  <ExternalLink size={12} />Abrir no Drive
-                </a>
-              )}
-            </div>
-          </div>
-        </div>,
-        document.body
+      {midiaAmpliada && (
+        <LightboxMidia item={midiaParaLightboxItem(midiaAmpliada)} onClose={() => setMidiaAmpliada(null)} />
       )}
     </>
   )

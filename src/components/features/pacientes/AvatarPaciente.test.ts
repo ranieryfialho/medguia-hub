@@ -31,6 +31,9 @@ const construirUrlFotoBody = extrairFuncao(
 const calcularEstadoAvatarBody = extrairFuncao(
   'export function calcularEstadoAvatar(\n  fotoDriveFileId: string | null | undefined,\n  imagemCarregou: boolean,\n  imagemFalhou: boolean,\n): EstadoAvatarPaciente',
 )
+const podeAmpliarBody = extrairFuncao(
+  'export function podeAmpliar(fotoDriveFileId: string | null | undefined, ampliavel: boolean): boolean',
+)
 
 const calcularIniciais = new Function('nome', calcularIniciaisBody) as (nome: string) => string
 
@@ -50,6 +53,12 @@ const calcularEstadoAvatar = new Function(
   imagemCarregou: boolean,
   imagemFalhou: boolean,
 ) => 'fallback' | 'carregando' | 'foto'
+
+const podeAmpliar = new Function(
+  'fotoDriveFileId',
+  'ampliavel',
+  podeAmpliarBody,
+) as (fotoDriveFileId: string | null | undefined, ampliavel: boolean) => boolean
 
 test('@spec:AC-097 sem fotoDriveFileId (nulo) o estado é fallback', () => {
   assert.equal(calcularEstadoAvatar(null, false, false), 'fallback')
@@ -115,4 +124,43 @@ test('@spec:AC-096 o <img> é renderizado com a URL construída por construirUrl
 
 test('@spec:AC-097 as iniciais só são renderizadas quando o estado é fallback', () => {
   assert.match(source, /\{estado === 'fallback' && <span>\{iniciais\}<\/span>\}/)
+})
+
+test('@spec:AC-100 com foto e ampliavel ativada, podeAmpliar retorna true', () => {
+  assert.equal(podeAmpliar('drive-file-123', true), true)
+})
+
+test('@spec:AC-100 o clique no avatar só dispara a abertura do lightbox quando ampliavelAtivo é verdadeiro', () => {
+  assert.match(source, /onClick=\{ampliavelAtivo \? \(\) => setLightboxAberto\(true\) : undefined\}/)
+})
+
+test('@spec:AC-100 o LightboxMidia só é renderizado com lightboxAberto, ampliavelAtivo e fotoDriveFileId verdadeiros', () => {
+  assert.match(source, /\{lightboxAberto && ampliavelAtivo && fotoDriveFileId && \(/)
+})
+
+test('@spec:AC-100 o LightboxMidia recebe a URL construída por construirUrlFoto (imagem ampliada, não recarregada do zero)', () => {
+  const blocoLightbox = source.match(/<LightboxMidia[\s\S]*?\/>/)
+  assert.ok(blocoLightbox, '<LightboxMidia> não encontrado em AvatarPaciente.tsx')
+  assert.match(blocoLightbox[0], /src: construirUrlFoto\(fotoDriveFileId, fotoAtualizadaEm\)/)
+})
+
+test('@spec:AC-101 sem fotoDriveFileId (nulo), podeAmpliar retorna false mesmo com ampliavel ativada', () => {
+  assert.equal(podeAmpliar(null, true), false)
+})
+
+test('@spec:AC-101 sem fotoDriveFileId (vazio), podeAmpliar retorna false mesmo com ampliavel ativada', () => {
+  assert.equal(podeAmpliar('', true), false)
+})
+
+test('@spec:AC-101 com foto mas sem ampliavel, podeAmpliar retorna false', () => {
+  assert.equal(podeAmpliar('drive-file-123', false), false)
+})
+
+test('@spec:AC-101 sem foto nem ampliavel, podeAmpliar retorna false', () => {
+  assert.equal(podeAmpliar(null, false), false)
+})
+
+test('@spec:AC-101 o avatar não recebe role="button" nem onClick quando ampliavelAtivo é falso (nada acontece ao clicar)', () => {
+  assert.match(source, /role=\{ampliavelAtivo \? 'button' : undefined\}/)
+  assert.match(source, /tabIndex=\{ampliavelAtivo \? 0 : undefined\}/)
 })

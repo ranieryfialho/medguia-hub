@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { LightboxMidia } from '@/components/features/pacientes/LightboxMidia'
 
 export type TamanhoAvatarPaciente = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl'
 
@@ -13,6 +14,7 @@ export interface AvatarPacienteProps {
   mostrarStatus?: boolean
   className?: string
   priority?: boolean
+  ampliavel?: boolean
 }
 
 /** Duas primeiras iniciais do nome, em caixa alta — fallback quando não há foto (AC-097). */
@@ -31,6 +33,11 @@ export function calcularIniciais(nome: string): string {
 export function construirUrlFoto(fotoDriveFileId: string, fotoAtualizadaEm?: string | null): string {
   const versao = fotoAtualizadaEm ?? ''
   return `/api/drive/file/${fotoDriveFileId}?v=${encodeURIComponent(versao)}`
+}
+
+/** Só abre ampliação com foto presente e `ampliavel` ativada — iniciais nunca ampliam (AC-100, AC-101). */
+export function podeAmpliar(fotoDriveFileId: string | null | undefined, ampliavel: boolean): boolean {
+  return ampliavel && Boolean(fotoDriveFileId)
 }
 
 export type EstadoAvatarPaciente = 'fallback' | 'carregando' | 'foto'
@@ -73,18 +80,24 @@ export default function AvatarPaciente({
   mostrarStatus = false,
   className = '',
   priority = false,
+  ampliavel = false,
 }: AvatarPacienteProps) {
   const [imagemCarregou, setImagemCarregou] = useState(false)
   const [imagemFalhou, setImagemFalhou] = useState(false)
+  const [lightboxAberto, setLightboxAberto] = useState(false)
 
   const estado = calcularEstadoAvatar(fotoDriveFileId, imagemCarregou, imagemFalhou)
   const iniciais = calcularIniciais(nome)
   const tamanhoClasses = TAMANHO_CLASSES[size]
+  const ampliavelAtivo = podeAmpliar(fotoDriveFileId, ampliavel)
 
   return (
     <div className={`relative inline-flex shrink-0 ${className}`}>
       <div
-        className={`${tamanhoClasses} relative overflow-hidden flex items-center justify-center bg-[#006b5a] font-bold text-white shrink-0`}
+        className={`${tamanhoClasses} relative overflow-hidden flex items-center justify-center bg-[#006b5a] font-bold text-white shrink-0 ${ampliavelAtivo ? 'cursor-pointer' : ''}`}
+        role={ampliavelAtivo ? 'button' : undefined}
+        tabIndex={ampliavelAtivo ? 0 : undefined}
+        onClick={ampliavelAtivo ? () => setLightboxAberto(true) : undefined}
       >
         {fotoDriveFileId && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -108,6 +121,12 @@ export default function AvatarPaciente({
             isAtivo ? 'bg-[#25D366]' : 'bg-red-500'
           }`}
           aria-hidden="true"
+        />
+      )}
+      {lightboxAberto && ampliavelAtivo && fotoDriveFileId && (
+        <LightboxMidia
+          item={{ src: construirUrlFoto(fotoDriveFileId, fotoAtualizadaEm), nome, tipo: 'image' }}
+          onClose={() => setLightboxAberto(false)}
         />
       )}
     </div>
