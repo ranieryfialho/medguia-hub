@@ -1,6 +1,7 @@
 'use client'
 
 import { useActionState, useEffect, useRef, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { buscarPacientesPorNome, criarPaciente, type PacienteDuplicado, type PacienteFormState } from '@/actions/pacientes'
 import Link from 'next/link'
 import { Loader2, UploadCloud } from 'lucide-react'
@@ -9,6 +10,42 @@ import type { OrigemPaciente } from '@/actions/origens-paciente'
 import type { PlanoSaude } from '@/actions/planos-saude'
 import { ComboboxPaciente } from '@/components/features/pacientes'
 import { formatarCPF, formatarRG, formatarTelefone, mascararCPFInput, mascararRGInput, mascararTelefoneInput } from '@/lib/input-masks'
+import { gerarPreviewImagem, redimensionarImagem, revogarPreviewImagem, validarArquivoImagem } from '@/lib/imagem'
+
+const MENSAGEM_FALHA_FOTO = 'Paciente cadastrado com sucesso, mas a foto não pôde ser salva agora. Você pode enviá-la depois pela edição do cadastro.'
+
+export interface DepsEnvioFotoPosCadastro {
+  uploadFoto: (pacienteId: string, file: File) => Promise<Response>
+  toastSuccess: (mensagem: string) => void
+  toastWarning: (mensagem: string) => void
+}
+
+// @spec:AC-088 @spec:AC-089 — chamada só depois que `criarPaciente` (T-003) devolve
+// `pacienteId` (cadastro textual já concluído). Falha do Drive (resposta não-ok ou
+// exceção de rede) nunca vira erro fatal: mostra warning e deixa o cadastro seguir,
+// já que o paciente já existe e a foto pode ser reenviada depois pela edição.
+export async function enviarFotoAposCadastro(
+  pacienteId: string,
+  file: File,
+  deps: DepsEnvioFotoPosCadastro,
+): Promise<void> {
+  try {
+    const response = await deps.uploadFoto(pacienteId, file)
+    if (response.ok) {
+      deps.toastSuccess('Paciente cadastrado com sucesso.')
+    } else {
+      deps.toastWarning(MENSAGEM_FALHA_FOTO)
+    }
+  } catch {
+    deps.toastWarning(MENSAGEM_FALHA_FOTO)
+  }
+}
+
+async function uploadFotoPaciente(pacienteId: string, file: File): Promise<Response> {
+  const formData = new FormData()
+  formData.append('file', file)
+  return fetch(`/api/pacientes/${pacienteId}/foto`, { method: 'POST', body: formData })
+}
 
 type CadastroPacienteState = PacienteFormState
 type NomeSuggestion = {
@@ -53,6 +90,7 @@ function tipoOrigem(nome: string) {
 }
 
 export function FormCadastroPaciente({ origens = [], planos = [] }: { origens?: OrigemPaciente[]; planos?: PlanoSaude[] }) {
+  const router = useRouter()
   const [state, formAction, isPending] = useActionState<CadastroPacienteState, FormData>(criarPaciente, { error: '', fields: {} })
   const [isBuscandoNome, startBuscaNome] = useTransition()
   const origemInicial = parseOrigem(state?.fields?.origem as string || '')
@@ -62,12 +100,67 @@ export function FormCadastroPaciente({ origens = [], planos = [] }: { origens?: 
   const [nome, setNome] = useState(state?.fields?.nome as string || '')
   const [sugestoesNome, setSugestoesNome] = useState<NomeSuggestion[]>([])
   const debounceNomeRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [fotoFile, setFotoFile] = useState<File | null>(null)
+  const [fotoPreviewUrl, setFotoPreviewUrl] = useState<string | null>(null)
+  const [enviandoFoto, setEnviandoFoto] = useState(false)
+  const pacienteIdProcessadoRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (state?.error) {
       toast.error(state.error)
     }
   }, [state?.error])
+
+  // AC-107/AC-108/AC-109: `pacienteId` só existe quando o cadastro textual foi
+  // concluído (nem CPF duplicado nem candidato a duplicado retornam ele) — a
+  // navegação e o upload de foto (AC-088/AC-089) só disparam a partir daqui.
+  useEffect(() => {
+    const pacienteId = state?.pacienteId
+    if (!pacienteId || pacienteIdProcessadoRef.current === pacienteId) return
+    pacienteIdProcessadoRef.current = pacienteId
+
+    async function concluirCadastro() {
+      if (!fotoFile) {
+        toast.success('Paciente cadastrado com sucesso.')
+        router.push('/pacientes')
+        return
+      }
+
+      setEnviandoFoto(true)
+      const arquivoParaEnvio = await redimensionarImagem(fotoFile).catch(() => fotoFile)
+      await enviarFotoAposCadastro(pacienteId, arquivoParaEnvio, {
+        uploadFoto: uploadFotoPaciente,
+        toastSuccess: toast.success,
+        toastWarning: (mensagem) => toast(mensagem, { icon: '⚠️', duration: 6000 }),
+      })
+      setEnviandoFoto(false)
+      router.push('/pacientes')
+    }
+
+    concluirCadastro()
+  }, [state?.pacienteId, fotoFile, router])
+
+  useEffect(() => {
+    return () => {
+      if (fotoPreviewUrl) revogarPreviewImagem(fotoPreviewUrl)
+    }
+  }, [fotoPreviewUrl])
+
+  async function handleSelecionarFoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+
+    const validacao = await validarArquivoImagem(file)
+    if (!validacao.valido) {
+      toast.error(validacao.erro || 'Imagem inválida.')
+      return
+    }
+
+    if (fotoPreviewUrl) revogarPreviewImagem(fotoPreviewUrl)
+    setFotoFile(file)
+    setFotoPreviewUrl(gerarPreviewImagem(file))
+  }
 
   useEffect(() => {
     const termo = nome.trim()
@@ -263,16 +356,30 @@ export function FormCadastroPaciente({ origens = [], planos = [] }: { origens?: 
         </div>
       </div>
 
-      {/* Bloco: Imagem (Placeholder Visual) */}
+      {/* Bloco: Imagem */}
       <div className="mb-8">
-        <label className="block text-xs font-medium text-text-secondary mb-2">Imagem</label>
-        <div className="w-full border-2 border-dashed border-border-input rounded-lg p-8 flex flex-col items-center justify-center text-center cursor-not-allowed bg-page/50">
-          <UploadCloud className="text-text-tertiary mb-2" size={32} />
+        <span className="block text-xs font-medium text-text-secondary mb-2">Imagem</span>
+        <label className="w-full border-2 border-dashed border-border-input rounded-lg p-8 flex flex-col items-center justify-center text-center cursor-pointer bg-page/50 hover:border-primary-300">
+          {fotoPreviewUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={fotoPreviewUrl} alt="Preview da foto do paciente" className="mb-2 h-24 w-24 rounded-full object-cover" />
+          ) : (
+            <UploadCloud className="text-text-tertiary mb-2" size={32} />
+          )}
           <p className="text-sm text-text-primary">
             <span className="text-primary-500 font-medium">Clique para fazer upload</span> ou arraste e solte
           </p>
-          <p className="text-xs text-text-secondary mt-1">PNG, JPG ou JPEG (máx. 10MB)</p>
-        </div>
+          <p className="text-xs text-text-secondary mt-1">
+            {enviandoFoto ? 'Enviando foto...' : 'PNG, JPG ou JPEG (máx. 10MB)'}
+          </p>
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            disabled={isPending || enviandoFoto}
+            onChange={handleSelecionarFoto}
+          />
+        </label>
       </div>
 
       {/* Bloco: Como nos conheceu */}
