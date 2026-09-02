@@ -1,0 +1,249 @@
+{
+  "runId": "medguia-hub-foto-paciente-drive-avatar-mtkht49p",
+  "feature": "foto-paciente-drive-avatar",
+  "agent": "claude",
+  "modo": "sequencial",
+  "paralelizar": null,
+  "modeloForcado": null,
+  "esforcoForcado": null,
+  "geradoEm": "2026-09-02 19:32",
+  "branchTrabalho": "spec/foto-paciente-drive-avatar",
+  "baseDir": ".spec/features/foto-paciente-drive-avatar",
+  "specDir": ".spec",
+  "repoName": "medguia-hub",
+  "logsDir": "../onp-worktrees/medguia-hub-foto-paciente-drive-avatar-logs",
+  "ondas": [],
+  "faixas": [],
+  "sequenciais": [
+    {
+      "id": "T-001",
+      "titulo": "Migração SQL: colunas de foto em `pacientes`",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "database/pacientes_foto_drive_migration.sql"
+      ],
+      "refs": [
+        "US-026",
+        "US-028"
+      ]
+    },
+    {
+      "id": "T-002",
+      "titulo": "Módulo cliente de validação e redimensionamento de imagem",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "src/lib/imagem.ts",
+        "src/lib/imagem.test.ts"
+      ],
+      "refs": [
+        "AC-087",
+        "AC-090",
+        "AC-091"
+      ]
+    },
+    {
+      "id": "T-003",
+      "titulo": "`garantirPastaPacientePorId` chamada com `await` em `criarPaciente`; action retorna `pacienteId` em vez de redirecionar",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "src/actions/pacientes.ts",
+        "src/lib/types/paciente-form-state.ts"
+      ],
+      "refs": [
+        "AC-107",
+        "AC-108",
+        "AC-109",
+        "AC-110"
+      ]
+    },
+    {
+      "id": "T-004",
+      "titulo": "Rota `POST/DELETE /api/pacientes/[id]/foto`",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "src/app/api/pacientes/[id]/foto/route.ts",
+        "src/app/api/pacientes/[id]/foto/route.test.ts"
+      ],
+      "refs": [
+        "AC-088",
+        "AC-089",
+        "AC-090",
+        "AC-091",
+        "AC-092",
+        "AC-093",
+        "AC-095",
+        "AC-103"
+      ]
+    },
+    {
+      "id": "T-005",
+      "titulo": "Cliente orquestra pós-cadastro: upload de foto após `pacienteId`, toast de warning em falha do Drive",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "src/components/features/pacientes/FormCadastroPaciente.tsx"
+      ],
+      "refs": [
+        "AC-088",
+        "AC-089"
+      ]
+    },
+    {
+      "id": "T-006",
+      "titulo": "Troca/remoção de foto na edição, fora do submit",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "src/components/features/pacientes/FormEditarPaciente.tsx"
+      ],
+      "refs": [
+        "AC-092",
+        "AC-093",
+        "AC-094",
+        "AC-095"
+      ]
+    },
+    {
+      "id": "T-007",
+      "titulo": "Componente único `AvatarPaciente`",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "src/components/features/pacientes/AvatarPaciente.tsx",
+        "src/components/features/pacientes/AvatarPaciente.test.tsx"
+      ],
+      "refs": [
+        "AC-096",
+        "AC-097",
+        "AC-098",
+        "AC-099"
+      ]
+    },
+    {
+      "id": "T-008",
+      "titulo": "Lightbox extraído de `TabMidiasPaciente` + prop `ampliavel` no `AvatarPaciente`",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "src/components/features/pacientes/LightboxMidia.tsx",
+        "src/components/features/pacientes/AvatarPaciente.tsx",
+        "src/components/features/pacientes/TabMidiasPaciente.tsx"
+      ],
+      "refs": [
+        "AC-100",
+        "AC-101"
+      ]
+    },
+    {
+      "id": "T-009",
+      "titulo": "Migrar os 8 pontos de renderização existentes para `AvatarPaciente`",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "src/app/(painel)/pacientes/[id]/page.tsx",
+        "src/app/(painel)/pacientes/page.tsx",
+        "src/components/features/pacientes/CardConfirmacaoPaciente.tsx",
+        "src/app/(painel)/confirmacoes/semana/page.tsx",
+        "src/app/(painel)/follow-ups/page.tsx",
+        "src/app/(painel)/prontuarios/page.tsx",
+        "src/app/(painel)/prontuarios/[atendimentoId]/page.tsx"
+      ],
+      "refs": [
+        "AC-096",
+        "AC-097",
+        "AC-098",
+        "AC-099",
+        "AC-100",
+        "AC-101",
+        "AC-113"
+      ]
+    },
+    {
+      "id": "T-010",
+      "titulo": "Autenticação do proxy de leitura de foto (comportamento existente, sem alteração)",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "src/app/api/drive/file/[fileId]/route.test.ts"
+      ],
+      "refs": [
+        "AC-102"
+      ]
+    },
+    {
+      "id": "T-011",
+      "titulo": "Medir baseline de performance da agenda (dia cheio, views dia/semana/mês)",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "docs/tdds/006-foto-do-paciente-google-drive-e-avatar.md"
+      ],
+      "refs": [
+        "AC-104",
+        "AC-106"
+      ]
+    },
+    {
+      "id": "T-012",
+      "titulo": "Avatar na agenda (views dia e semana)",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "src/components/features/agenda/AgendamentoItem.tsx",
+        "src/app/(painel)/agenda/page.tsx"
+      ],
+      "refs": [
+        "AC-104",
+        "AC-105",
+        "AC-106"
+      ]
+    },
+    {
+      "id": "T-013",
+      "titulo": "Remedir a agenda e decidir manter/reverter (Decisão F)",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "docs/tdds/006-foto-do-paciente-google-drive-e-avatar.md"
+      ],
+      "refs": [
+        "AC-104",
+        "AC-105",
+        "AC-106"
+      ]
+    },
+    {
+      "id": "T-014",
+      "titulo": "Rotina automática de limpeza de arquivos órfãos no Drive",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "src/actions/google-drive.ts",
+        "src/lib/limpeza-orfaos-drive.ts",
+        "src/lib/limpeza-orfaos-drive.test.ts"
+      ],
+      "refs": [
+        "AC-111"
+      ]
+    },
+    {
+      "id": "T-015",
+      "titulo": "Exclusão automática da foto ao inativar paciente por óbito",
+      "modelo": "claude-sonnet-5",
+      "esforco": "medium",
+      "arquivos": [
+        "src/actions/pacientes.ts",
+        "src/lib/paciente-inativacao.ts"
+      ],
+      "refs": [
+        "AC-112"
+      ]
+    }
+  ],
+  "concluidas": [],
+  "avisos": []
+}
