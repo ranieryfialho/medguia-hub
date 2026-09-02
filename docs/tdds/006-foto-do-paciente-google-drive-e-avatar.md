@@ -423,6 +423,23 @@ Medir **antes** de tocar na agenda e repetir depois, com o mesmo dia cheio e as 
 
 **Critério de reversão:** regressão perceptível na view semana ⇒ o avatar da agenda sai e volta como fase 2. A decisão é do Tech Lead com base na comparação, e não bloqueia o resto da entrega.
 
+#### Medição — Fase 0 (T-011, medida em 2026-09-02)
+
+**Fonte e metodologia (resposta à Questão 4).** Sem APM no projeto, a medida reproduzível é o tempo de execução das próprias queries que a agenda faz ao Postgres (produção, `supabase.medguia.cloud`) — é o custo que a Decisão F pode piorar (mais colunas selecionadas, mais avatares para o proxy buscar) e o único ponto hoje coberto por número, não por percepção. Metodologia: script Node ad-hoc com `@supabase/supabase-js` (service role, sem RLS, sem HTTP do navegador), replicando **exatamente** as queries de [`agenda/page.tsx`](../../src/app/(painel)/agenda/page.tsx) — a "query leve" das views dia/semana ([L268](../../src/app/(painel)/agenda/page.tsx#L268)), a query leve da view mês e a query do calendário mensal (usada nas 3 views) —, sem filtro de profissional (pior caso: todos os agendamentos do dia/semana/mês, o "dia cheio"). Cada query rodou 5 vezes seguidas contra o mesmo recorte; a tabela reporta as 5 medições e a média. Dia de referência: **2026-09-02**, o dia com mais agendamentos dos últimos 60 dias + próximos 14 (72 atendimentos) no levantamento feito para esta medição.
+
+| Query | View(s) | Linhas retornadas | Tempos (ms) | Média (ms) |
+|---|---|---|---|---|
+| Query leve (`pacientes(nome)`, sem filtro de profissional) | dia | 72 | 453, 472, 286, 206, 208 | 325 |
+| Query leve (`pacientes(nome)`, sem filtro de profissional) | semana | 266 | 298, 280, 206, 214, 204 | 240 |
+| Query leve (`id, data_agendamento, status`) | mês | 418 | 102, 91, 134, 100, 94 | 104 |
+| Calendário mensal (`data_agendamento, status`, roda nas 3 views) | dia, semana, mês | 418 | 99, 91, 91, 97, 96 | 95 |
+
+**Nº de requisições ao proxy na carga inicial:** **0** nas três views — nenhum avatar existe ainda em `AgendamentoItem.tsx` (T-012 ainda não implementada). Este é o baseline literal: após a T-012, o esperado é 1 requisição por agendamento visível na tela (72 na view dia, 266 na semana, no dia de referência), todas com `loading="lazy"` (AC-106) para não bloquear a renderização.
+
+**Tempo até a tela ficar utilizável:** não medido via navegador (sem ferramenta de automação de browser disponível nesta medição). Proxy adotado: soma da query leve da view + a query do calendário mensal (que roda em paralelo/sequência em todas as views), como cota superior do tempo de servidor antes do primeiro paint útil — **dia ≈ 420 ms**, **semana ≈ 335 ms**, **mês ≈ 199 ms**. Fica registrado como limitação: a remedição em T-013 deve, se possível, complementar com uma medida de navegador (aba Rede/Performance) sobre a mesma metodologia de dia de referência.
+
+**Registro para a remedição (T-013):** comparar view a view com os números acima, no mesmo dia de referência (ou outro dia com volume comparável de agendamentos), focando na view semana (a mais provável de regredir, por ter o maior número de avatares simultâneos — 266 no dia medido).
+
 ---
 
 ## Plano de Rollback
@@ -511,7 +528,7 @@ Ordem escolhida para que cada fase seja verificável isoladamente e para que o r
 | 1 | Arquivo órfão detectado no log tem rotina de limpeza ou tratamento manual? | Espera-se volume próximo de zero; rotina pode ser overkill | @Raniery | 🟡 Decidir se aparecer o primeiro |
 | 2 | Foto de paciente inativo deve continuar aparecendo? | Hoje o inativo aparece na listagem com badge vermelho; nada muda por padrão | @Dr. Felipe | 🔴 Aberta — o padrão é manter |
 | 3 | Excluir a foto ao inativar por óbito? | Ponto de retenção LGPD; não levantado no PRD | @Dr. Felipe | 🔴 Aberta — fora da V1 até decisão |
-| 4 | Qual a fonte da medição da agenda (fase 0)? | Precisa ser reprodutível para a comparação valer | @Raniery | 🟡 Definir antes da fase 0 |
+| 4 | Qual a fonte da medição da agenda (fase 0)? | Precisa ser reprodutível para a comparação valer | @Raniery | 🟢 Respondida — ver [Baseline de performance da agenda](#baseline-de-performance-da-agenda-decisão-f), medição de 2026-09-02 (T-011) |
 
 Nenhuma delas bloqueia o início da implementação. A **4** bloqueia a fase 0 e, por consequência, a fase 8.
 
@@ -544,4 +561,4 @@ Nenhuma delas bloqueia o início da implementação. A **4** bloqueia a fase 0 e
 - [x] Segurança e LGPD documentadas, com a limitação da Decisão C explicitada
 - [x] Rollback em camadas independentes
 - [x] Testes bloqueantes identificados (regressão de cadastro e resiliência com Drive desconectado)
-- [ ] Questão 4 respondida antes da fase 0
+- [x] Questão 4 respondida antes da fase 0 (T-011, 2026-09-02)
