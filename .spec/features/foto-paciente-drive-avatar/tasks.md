@@ -62,8 +62,7 @@
 - Arquivos: src/components/features/agenda/AgendamentoItem.tsx, src/app/(painel)/agenda/page.tsx
 - Notas: `AvatarPaciente` em `AgendamentoItemDia`/`AgendamentoItemSemana` (`xs`/`sm`, `ampliavel=false`, sempre `loading="lazy"`); view mês intocada; as 4 variantes da query leve da agenda passam a selecionar `pacientes (nome, foto_drive_file_id, foto_atualizada_em)`. Depende de T-007, T-009 (padrão já estabelecido) e T-011 (baseline).
 
-## T-013 — Remedir a agenda e decidir manter/reverter (Decisão F) [pendente]
-
+## T-013 — Remedir a agenda e decidir manter/reverter (Decisão F) [concluida]
 - Refs: AC-104, AC-105, AC-106
 - Arquivos: docs/tdds/006-foto-do-paciente-google-drive-e-avatar.md
 - Notas: compara com o baseline de T-011; regressão perceptível na view semana ⇒ reverter T-012 isoladamente (Nível 1 do plano de rollback), sem afetar as demais tarefas. Depende de T-012.
