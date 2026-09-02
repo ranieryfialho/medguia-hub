@@ -32,8 +32,7 @@
 - Arquivos: src/components/features/pacientes/FormEditarPaciente.tsx
 - Notas: troca e remoção chamam a rota de T-004 imediatamente (com `router.refresh()`), fora do fluxo de `editarPaciente`. Editar outros campos não dispara nenhuma chamada ao Drive (AC-094). Depende de T-004.
 
-## T-007 — Componente único `AvatarPaciente` [pendente]
-
+## T-007 — Componente único `AvatarPaciente` [concluida]
 - Refs: AC-096, AC-097, AC-098, AC-099
 - Arquivos: src/components/features/pacientes/AvatarPaciente.tsx, src/components/features/pacientes/AvatarPaciente.test.tsx
 - Notas: estados fallback/carregando/foto/fallback-degradado; URL `/api/drive/file/{fotoDriveFileId}?v={fotoAtualizadaEm}`; `onError` volta para iniciais sem ícone de imagem quebrada; `priority` só quando pedido explicitamente. Depende de T-001 (campos existirem no tipo de paciente).
