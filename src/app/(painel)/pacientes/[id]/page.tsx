@@ -13,6 +13,7 @@ import { listarFollowUpsPaciente, listarTipos } from '@/actions/follow-ups'
 import { SecaoFollowUpsPaciente } from '@/components/features/follow-ups/SecaoFollowUpsPaciente'
 import { PacienteTabsClient } from '@/components/features/pacientes/PacienteTabsClient'
 import { CardContatosPaciente } from '@/components/features/pacientes/CardContatosPaciente'
+import AvatarPaciente from '@/components/features/pacientes/AvatarPaciente'
 import { extrairMetadataInativacao } from '@/lib/paciente-inativacao'
 import { buildSessaoEfetivaMap } from '@/lib/sessoes'
 import {
@@ -315,7 +316,6 @@ export default async function PacienteDetailsPage({
     return `${trechoEventos}${trechoObs}`;
   }
 
-  const iniciais = paciente.nome.split(' ').slice(0, 2).map((n: string) => n[0]).join('').toUpperCase()
   const isAtivo = paciente.ativo !== false
   const origemFormatada = formatarOrigemPaciente(paciente.origem)
 
@@ -371,15 +371,17 @@ export default async function PacienteDetailsPage({
           
           <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-100">
             <div className="flex flex-col items-center text-center">
-              <div className="relative mb-4">
-                <div className="w-28 h-28 rounded-3xl bg-[#006b5a] flex items-center justify-center text-3xl font-bold text-white shadow-xl">
-                  {iniciais}
-                </div>
-                {isAtivo ? (
-                  <span className="absolute bottom-[-4px] right-[-4px] w-5 h-5 bg-[#25D366] border-4 border-white rounded-full"></span>
-                ) : (
-                  <span className="absolute bottom-[-4px] right-[-4px] w-5 h-5 bg-red-500 border-4 border-white rounded-full"></span>
-                )}
+              <div className="mb-4">
+                <AvatarPaciente
+                  nome={paciente.nome}
+                  fotoDriveFileId={paciente.foto_drive_file_id}
+                  fotoAtualizadaEm={paciente.foto_atualizada_em}
+                  size="2xl"
+                  isAtivo={isAtivo}
+                  mostrarStatus
+                  ampliavel
+                  className="shadow-xl"
+                />
               </div>
               <h3 className="text-xl font-extrabold text-slate-900 leading-tight">{paciente.nome}</h3>
               <p className="text-slate-500 text-sm font-medium mt-1 mb-4">CPF: {paciente.cpf || 'Não informado'}</p>

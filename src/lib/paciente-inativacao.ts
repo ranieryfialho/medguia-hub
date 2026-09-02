@@ -35,6 +35,15 @@ export function extrairMetadataInativacao(observacoes: string | null | undefined
   }
 }
 
+/**
+ * AC-112: a foto do paciente só é excluída automaticamente quando a
+ * inativação marca o motivo como óbito — inativação por qualquer outro
+ * motivo preserva a foto (AC-113).
+ */
+export function deveExcluirFotoPorObito(ativo: boolean, obitoInatividade: boolean): boolean {
+  return !ativo && obitoInatividade
+}
+
 export function atualizarMetadataInativacao(
   observacoes: string | null | undefined,
   options: {

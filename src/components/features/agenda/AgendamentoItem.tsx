@@ -11,6 +11,7 @@ import { mudarStatusAgendamento, chamarPaciente } from '@/actions/agenda'
 import { createClient } from '@/lib/supabase/client'
 import { getAtendimentoStatusKey } from '@/lib/atendimento-status'
 import { useTempoEspera } from '@/hooks/useTempoEspera'
+import AvatarPaciente from '@/components/features/pacientes/AvatarPaciente'
 import { MenuAcoesAgendamento } from './MenuAcoesAgendamento'
 import { SlideNovoAgendamento } from './SlideNovoAgendamento'
 import { AgendamentoModal } from './AgendamentoModal'
@@ -28,6 +29,19 @@ export type { AgendamentoDetalhe }
 
 type Paciente = { id: string; nome: string }
 type Profissional = { id: string; nome: string; cargo: string }
+
+/** A query leve da agenda seleciona `foto_drive_file_id`/`foto_atualizada_em`,
+ * mas o tipo `AgendamentoDetalhe['pacientes']` (compartilhado com telas que não
+ * pedem esses campos) ainda não os declara — por isso o cast local (AC-104). */
+type PacienteComFoto = { nome: string; foto_drive_file_id?: string | null; foto_atualizada_em?: string | null }
+
+function getFotoPaciente(agendamento: AgendamentoDetalhe): { fotoDriveFileId?: string | null; fotoAtualizadaEm?: string | null } {
+  const paciente = agendamento.pacientes as PacienteComFoto | null
+  return {
+    fotoDriveFileId: paciente?.foto_drive_file_id,
+    fotoAtualizadaEm: paciente?.foto_atualizada_em,
+  }
+}
 
 export function ConfirmacaoFaltaModal({
   onConfirmar,
@@ -168,6 +182,13 @@ export function AgendamentoItemDia({
             {/* Grid principal: conteúdo + ícones de ação */}
             <div className="grid grid-cols-[1fr_auto] items-center gap-2">
               <div className="flex items-center gap-3 min-w-0">
+                <AvatarPaciente
+                  nome={nomePaciente}
+                  {...getFotoPaciente(agendamento)}
+                  size="sm"
+                  ampliavel={false}
+                  className="shrink-0"
+                />
                 <div className={`w-9 h-9 shrink-0 rounded-full bg-white flex items-center justify-center shadow-sm ${config.iconText}`}>
                   <Icone size={18} />
                 </div>
@@ -489,6 +510,13 @@ export function AgendamentoItemSemana({
         className={`${config.cardBg} border-l-4 ${config.border} p-2 rounded-lg mb-1 shadow-sm cursor-pointer hover:scale-[1.02] transition-transform`}
       >
         <div className="flex items-center gap-1 flex-wrap">
+          <AvatarPaciente
+            nome={agendamento.pacientes?.nome || 'Paciente'}
+            {...getFotoPaciente(agendamento)}
+            size="xs"
+            ampliavel={false}
+            className="shrink-0"
+          />
           <p className={`text-[10px] font-bold ${config.titleText} truncate`}>{primeiroNome}</p>
           {agendamento.marcou_retorno && (
             <span className="text-[9px] font-bold px-1 py-0.5 bg-[#e0e7ff] text-[#3730a3] rounded whitespace-nowrap">↩ Ret.</span>

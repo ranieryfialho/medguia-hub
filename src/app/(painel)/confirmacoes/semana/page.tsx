@@ -5,6 +5,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import Link from 'next/link'
 import { requireModulo } from '@/lib/guard'
+import AvatarPaciente from '@/components/features/pacientes/AvatarPaciente'
 
 const TZ = 'America/Sao_Paulo'
 const MIDNIGHT_BRT_IN_UTC = 'T03:00:00Z'
@@ -32,7 +33,7 @@ type AtendimentoRow = {
   numero_sessao: number | null
   total_sessoes: number | null
   contato_confirmacao: string | null
-  paciente: { id: string; nome: string; telefone: string } | null
+  paciente: { id: string; nome: string; telefone: string; foto_drive_file_id: string | null; foto_atualizada_em: string | null } | null
   profissional: { full_name: string } | null
 }
 
@@ -94,7 +95,7 @@ export default async function SemanaPage({
       numero_sessao,
       total_sessoes,
       contato_confirmacao,
-      paciente:pacientes(id, nome, telefone),
+      paciente:pacientes(id, nome, telefone, foto_drive_file_id, foto_atualizada_em),
       profissional:profiles!profissional_id(full_name)
     `)
     .eq('status', 'Aguardando')
@@ -251,15 +252,16 @@ export default async function SemanaPage({
               {diaAtivo.lista.map(a => {
                 const statusKey = a.contato_confirmacao ?? 'pendente'
                 const status = STATUS_CONFIG[statusKey] ?? STATUS_CONFIG.pendente
-                const iniciais = (a.paciente?.nome ?? '?')
-                  .split(' ').slice(0, 2).map((n: string) => n[0]).join('').toUpperCase()
 
                 return (
                   <div key={a.id} className="flex items-center gap-3 px-4 py-3">
                     {/* Avatar */}
-                    <div className="w-9 h-9 rounded-lg bg-[#006b5a]/10 text-[#006b5a] flex items-center justify-center text-xs font-bold shrink-0">
-                      {iniciais}
-                    </div>
+                    <AvatarPaciente
+                      nome={a.paciente?.nome ?? '—'}
+                      fotoDriveFileId={a.paciente?.foto_drive_file_id}
+                      fotoAtualizadaEm={a.paciente?.foto_atualizada_em}
+                      size="sm"
+                    />
 
                     {/* Info */}
                     <div className="flex-1 min-w-0">

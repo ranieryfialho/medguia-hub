@@ -10,10 +10,7 @@ import { BotaoConcluirFollowUp } from '@/components/features/follow-ups/BotaoCon
 import { DashboardFollowUps } from '@/components/features/follow-ups/DashboardFollowUps'
 import { BtnGerarPdfFollowUps, BtnExportarMdFollowUps } from '@/components/features/shared'
 import type { DadosRelatorioFollowUps } from '@/lib/relatorios/follow-ups-relatorio-dados'
-
-function iniciais(nome: string) {
-  return nome.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()
-}
+import AvatarPaciente from '@/components/features/pacientes/AvatarPaciente'
 
 const LIMITE = 25
 const BACKLOG_DIAS = 7
@@ -71,7 +68,7 @@ export default async function FollowUpsPage({
     .select(`
       id, paciente_id, atendimento_id, tipo_id, descricao, responsavel_id, criado_por, created_at, status,
       tipo:follow_up_tipos(id, nome, cor),
-      paciente:pacientes(id, nome),
+      paciente:pacientes(id, nome, foto_drive_file_id, foto_atualizada_em),
       responsavel:profiles!responsavel_id(id, full_name),
       autor:profiles!criado_por(id, full_name)
     `, { count: 'exact' })
@@ -406,7 +403,7 @@ export default async function FollowUpsPage({
       ) : (
         <div className="space-y-3">
           {followUps.map((fu: any) => {
-            const paciente = fu.paciente as { id: string; nome: string } | null
+            const paciente = fu.paciente as { id: string; nome: string; foto_drive_file_id: string | null; foto_atualizada_em: string | null } | null
             const tipo = fu.tipo as { id: string; nome: string; cor: string | null } | null
             const responsavel = fu.responsavel as { id: string; full_name: string } | null
             const autor = fu.autor as { id: string; full_name: string } | null
@@ -419,9 +416,14 @@ export default async function FollowUpsPage({
               >
                 <Link
                   href={`/pacientes/${fu.paciente_id}?aba=follow-ups&follow_up_id=${fu.id}`}
-                  className="w-11 h-11 rounded-2xl bg-[#006b5a] flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm"
+                  className="shrink-0"
                 >
-                  {iniciais(nome)}
+                  <AvatarPaciente
+                    nome={nome}
+                    fotoDriveFileId={paciente?.foto_drive_file_id}
+                    fotoAtualizadaEm={paciente?.foto_atualizada_em}
+                    size="sm"
+                  />
                 </Link>
                 <Link
                   href={`/pacientes/${fu.paciente_id}?aba=follow-ups&follow_up_id=${fu.id}`}

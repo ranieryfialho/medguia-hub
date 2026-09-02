@@ -5,10 +5,7 @@ import { ptBR } from 'date-fns/locale'
 import { ClipboardList, CheckCheck, ChevronRight, CalendarDays, History, Search, SlidersHorizontal, X } from 'lucide-react'
 import { requireModulo } from '@/lib/guard'
 import { PRONTUARIOS_PENDENTES_RECENT_LIMIT } from '@/lib/prontuarios'
-
-function iniciais(nome: string) {
-  return nome.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()
-}
+import AvatarPaciente from '@/components/features/pacientes/AvatarPaciente'
 
 const LIMITE = 20
 
@@ -255,7 +252,7 @@ export default async function ProntuariosPage({
           tipo,
           agendamento:agendamentos(tipo)
         ),
-        pacientes:paciente_id(id, nome)
+        pacientes:paciente_id(id, nome, foto_drive_file_id, foto_atualizada_em)
       `, { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offsetHistorico, offsetHistorico + LIMITE - 1)
@@ -417,9 +414,7 @@ export default async function ProntuariosPage({
                     href={`/prontuarios/${atendimento.id}`}
                     className="flex items-center gap-4 bg-white rounded-xl p-4 shadow-sm border border-slate-100 hover:border-[#006b5a]/30 hover:shadow-md active:scale-[0.99] transition-all group"
                   >
-                    <div className="w-11 h-11 rounded-2xl bg-[#006b5a] flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm">
-                      {iniciais(nome)}
-                    </div>
+                    <AvatarPaciente nome={nome} size="sm" />
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-slate-900 truncate leading-tight">{nome}</p>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -476,7 +471,7 @@ export default async function ProntuariosPage({
           ) : (
             <div className="space-y-3">
               {historicoPaginado.map((prontuario: any) => {
-                const paciente = prontuario.pacientes as { id: string; nome: string } | null
+                const paciente = prontuario.pacientes as { id: string; nome: string; foto_drive_file_id: string | null; foto_atualizada_em: string | null } | null
                 const atendimento = prontuario.atendimentos as {
                   data_agendamento: string
                   tipo: string
@@ -494,9 +489,12 @@ export default async function ProntuariosPage({
                     href={`/prontuarios/${prontuario.atendimento_id}?from=historico`}
                     className="flex items-center gap-4 bg-white rounded-xl p-4 shadow-sm border border-slate-100 hover:border-emerald-200 hover:shadow-md active:scale-[0.99] transition-all group"
                   >
-                    <div className="w-11 h-11 rounded-2xl bg-emerald-500 flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm">
-                      {iniciais(nome)}
-                    </div>
+                    <AvatarPaciente
+                      nome={nome}
+                      fotoDriveFileId={paciente?.foto_drive_file_id}
+                      fotoAtualizadaEm={paciente?.foto_atualizada_em}
+                      size="sm"
+                    />
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-slate-900 truncate leading-tight">{nome}</p>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
