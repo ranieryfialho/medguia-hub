@@ -286,7 +286,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 aguardando_desde,
                 em_atendimento_desde,
                 agendamento_pai:agendamentos(plano_saude, tipo),
-                pacientes (nome),
+                pacientes (nome, foto_drive_file_id, foto_atualizada_em),
                 profissional:profiles!profissional_id(full_name),
                 fisioterapeuta_executor:profiles!fisioterapeuta_id(full_name)
               `)
@@ -312,7 +312,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 aguardando_desde,
                 em_atendimento_desde,
                 agendamento_pai:agendamentos(plano_saude, tipo),
-                pacientes (nome),
+                pacientes (nome, foto_drive_file_id, foto_atualizada_em),
                 profissional:profiles!profissional_id(full_name),
                 fisioterapeuta_executor:profiles!fisioterapeuta_id(full_name)
               `)
@@ -341,7 +341,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 aguardando_desde,
                 em_atendimento_desde,
                 agendamento_pai:agendamentos(plano_saude, tipo),
-                pacientes (nome, telefone, email),
+                pacientes (nome, telefone, email, foto_drive_file_id, foto_atualizada_em),
                 profissional:profiles!profissional_id(full_name, role),
                 fisioterapeuta_executor:profiles!fisioterapeuta_id(full_name)
               `)
@@ -368,7 +368,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
                 aguardando_desde,
                 em_atendimento_desde,
                 agendamento_pai:agendamentos(plano_saude, tipo),
-                pacientes (nome, telefone, email),
+                pacientes (nome, telefone, email, foto_drive_file_id, foto_atualizada_em),
                 profissional:profiles!profissional_id(full_name, role),
                 fisioterapeuta_executor:profiles!fisioterapeuta_id(full_name)
               `)
