@@ -47,8 +47,7 @@
 - Arquivos: src/app/(painel)/pacientes/[id]/page.tsx, src/app/(painel)/pacientes/page.tsx, src/components/features/pacientes/CardConfirmacaoPaciente.tsx, src/app/(painel)/confirmacoes/semana/page.tsx, src/app/(painel)/follow-ups/page.tsx, src/app/(painel)/prontuarios/page.tsx, src/app/(painel)/prontuarios/[atendimentoId]/page.tsx
 - Notas: prontuário digital (`2xl`, ampliável), listagem tabela (`sm`), listagem cards (`md`), card de confirmação (`md`, ampliável), confirmações da semana (`sm`), follow-ups (`sm`), prontuários listagem (`sm`, 2 pontos), prontuário de atendimento (`lg`, ampliável). Cada `select` precisa incluir `foto_drive_file_id` e `foto_atualizada_em` — é o passo mais fácil de esquecer (AC-113 cobre o caso de paciente inativo, que deve continuar mostrando a foto). Depende de T-007 e T-008.
 
-## T-010 — Autenticação do proxy de leitura de foto (comportamento existente, sem alteração) [pendente]
-
+## T-010 — Autenticação do proxy de leitura de foto (comportamento existente, sem alteração) [concluida]
 - Refs: AC-102
 - Arquivos: src/app/api/drive/file/[fileId]/route.test.ts
 - Notas: teste de integração confirmando 401 sem sessão no `/api/drive/file/[fileId]` já existente — só criação de teste, sem mudança de código (a rota já bloqueia sem sessão).
