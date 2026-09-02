@@ -12,8 +12,7 @@
 - Arquivos: src/lib/imagem.ts, src/lib/imagem.test.ts
 - Notas: valida extensão/MIME/tamanho (rejeita >10MB antes de ler o arquivo), redimensiona lado maior para 1024px, exporta WebP q80 com fallback JPEG. Gera o preview usado no AC-087.
 
-## T-003 — `garantirPastaPacientePorId` chamada com `await` em `criarPaciente`; action retorna `pacienteId` em vez de redirecionar [pendente]
-
+## T-003 — `garantirPastaPacientePorId` chamada com `await` em `criarPaciente`; action retorna `pacienteId` em vez de redirecionar [concluida]
 - Refs: AC-107, AC-108, AC-109, AC-110
 - Arquivos: src/actions/pacientes.ts, src/lib/types/paciente-form-state.ts
 - Notas: troca `void criarPastaPaciente(...)` por `await`; troca `redirect('/pacientes')` por retorno de `{ pacienteId }` no `PacienteFormState`. Os caminhos de CPF duplicado e candidato a duplicado (que já retornam estado) precisam continuar sem `pacienteId`. É o risco mais alto da entrega — implementar e provar antes de qualquer tarefa de UI depender dela.
