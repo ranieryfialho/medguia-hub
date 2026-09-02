@@ -1,7 +1,7 @@
 {
   "feature": "foto-paciente-drive-avatar",
-  "timestamp": "2026-09-02T20:45:53.026Z",
-  "gitRev": "6923333",
+  "timestamp": "2026-09-02T20:58:51.428Z",
+  "gitRev": "31b7cff",
   "command": "node --test --test-reporter=tap",
   "reporter": "tap",
   "exitCode": 0,

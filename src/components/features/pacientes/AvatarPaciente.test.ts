@@ -12,7 +12,9 @@ import path from 'node:path'
 // extraímos seu código-fonte real do arquivo e as executamos isoladamente,
 // para o teste quebrar se a lógica shippada mudar.
 const sourcePath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'AvatarPaciente.tsx')
-const source = readFileSync(sourcePath, 'utf8')
+// Normaliza CRLF -> LF: o repo usa final de linha CRLF no Windows, mas as
+// assinaturas abaixo comparam com `\n` literal.
+const source = readFileSync(sourcePath, 'utf8').replace(/\r\n/g, '\n')
 
 function extrairFuncao(assinatura: string): string {
   const inicio = source.indexOf(assinatura)
