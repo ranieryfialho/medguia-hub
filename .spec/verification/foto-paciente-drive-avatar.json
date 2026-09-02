@@ -1,0 +1,147 @@
+{
+  "feature": "foto-paciente-drive-avatar",
+  "timestamp": "2026-09-02T20:32:49.543Z",
+  "gitRev": "87c0e28",
+  "command": "node --test --test-reporter=tap",
+  "reporter": "tap",
+  "exitCode": 1,
+  "testsParsed": 408,
+  "results": {
+    "AC-087": {
+      "status": "fail",
+      "testName": "AC-087: Preview imediato ao selecionar imagem válida @spec:AC-087",
+      "method": "tap"
+    },
+    "AC-088": {
+      "status": "fail",
+      "testName": "AC-088: Foto é enviada ao Drive após o paciente ser criado com sucesso @spec:AC-088",
+      "method": "tap"
+    },
+    "AC-089": {
+      "status": "fail",
+      "testName": "AC-089: Cadastro conclui mesmo com o Google Drive indisponível @spec:AC-089",
+      "method": "tap"
+    },
+    "AC-090": {
+      "status": "fail",
+      "testName": "AC-090: Arquivo que não é imagem de verdade é rejeitado @spec:AC-090",
+      "method": "tap"
+    },
+    "AC-091": {
+      "status": "fail",
+      "testName": "AC-091: Arquivo acima do limite é rejeitado pelo servidor @spec:AC-091",
+      "method": "tap"
+    },
+    "AC-092": {
+      "status": "fail",
+      "testName": "AC-092: Trocar a foto substitui o arquivo anterior no Drive @spec:AC-092",
+      "method": "tap"
+    },
+    "AC-093": {
+      "status": "fail",
+      "testName": "AC-093: Remover a foto limpa o cadastro e o Drive @spec:AC-093",
+      "method": "tap"
+    },
+    "AC-094": {
+      "status": "fail",
+      "testName": "AC-094: Editar outros campos não mexe na foto @spec:AC-094",
+      "method": "tap"
+    },
+    "AC-095": {
+      "status": "fail",
+      "testName": "AC-095: Remover foto de paciente sem foto é idempotente @spec:AC-095",
+      "method": "tap"
+    },
+    "AC-096": {
+      "status": "fail",
+      "testName": "AC-096: Avatar mostra a foto real quando ela existe @spec:AC-096",
+      "method": "tap"
+    },
+    "AC-097": {
+      "status": "fail",
+      "testName": "AC-097: Avatar mostra iniciais quando não há foto @spec:AC-097",
+      "method": "tap"
+    },
+    "AC-098": {
+      "status": "fail",
+      "testName": "AC-098: Falha ao carregar a imagem cai para iniciais sem quebrar a tela @spec:AC-098",
+      "method": "tap"
+    },
+    "AC-099": {
+      "status": "fail",
+      "testName": "AC-099: Trocar a foto invalida o cache do navegador @spec:AC-099",
+      "method": "tap"
+    },
+    "AC-100": {
+      "status": "fail",
+      "testName": "AC-100: Clicar no avatar com foto e ampliação habilitada abre a visualização ampliada @spec:AC-100",
+      "method": "tap"
+    },
+    "AC-101": {
+      "status": "fail",
+      "testName": "AC-101: Avatar sem foto não é clicável mesmo com ampliação habilitada @spec:AC-101",
+      "method": "tap"
+    },
+    "AC-102": {
+      "status": "fail",
+      "testName": "AC-102: Leitura da foto exige sessão autenticada @spec:AC-102",
+      "method": "tap"
+    },
+    "AC-103": {
+      "status": "fail",
+      "testName": "AC-103: Nenhuma permissão pública é criada no arquivo salvo @spec:AC-103",
+      "method": "tap"
+    },
+    "AC-104": {
+      "status": "fail",
+      "testName": "AC-104: Avatar aparece nos itens de agendamento das views dia e semana @spec:AC-104",
+      "method": "tap"
+    },
+    "AC-105": {
+      "status": "fail",
+      "testName": "AC-105: View mês não recebe avatar @spec:AC-105",
+      "method": "tap"
+    },
+    "AC-106": {
+      "status": "fail",
+      "testName": "AC-106: Avatares da agenda carregam sem bloquear a renderização @spec:AC-106",
+      "method": "tap"
+    },
+    "AC-107": {
+      "status": "fail",
+      "testName": "AC-107: Cadastro bem-sucedido devolve o id do paciente @spec:AC-107",
+      "method": "tap"
+    },
+    "AC-108": {
+      "status": "fail",
+      "testName": "AC-108: CPF duplicado não retorna id de paciente nem tenta subir foto @spec:AC-108",
+      "method": "tap"
+    },
+    "AC-109": {
+      "status": "fail",
+      "testName": "AC-109: Candidato a duplicado por nome não retorna id de paciente nem tenta subir foto @spec:AC-109",
+      "method": "tap"
+    },
+    "AC-110": {
+      "status": "fail",
+      "testName": "AC-110: Criação do paciente aguarda a pasta do Drive antes de retornar @spec:AC-110",
+      "method": "tap"
+    },
+    "AC-111": {
+      "status": "fail",
+      "testName": "AC-111: Rotina automática remove arquivos órfãos detectados @spec:AC-111",
+      "method": "tap"
+    },
+    "AC-112": {
+      "status": "fail",
+      "testName": "AC-112: Inativação por óbito remove a foto do paciente @spec:AC-112",
+      "method": "tap"
+    },
+    "AC-113": {
+      "status": "fail",
+      "testName": "AC-113: Paciente inativo por outro motivo continua exibindo a foto normalmente @spec:AC-113",
+      "method": "tap"
+    }
+  },
+  "principles": {}
+}

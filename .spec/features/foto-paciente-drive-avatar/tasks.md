@@ -72,8 +72,7 @@
 - Arquivos: src/actions/google-drive.ts, src/lib/limpeza-orfaos-drive.ts, src/lib/limpeza-orfaos-drive.test.ts
 - Notas: quando a rota de T-004 falha ao apagar o `fileId` anterior, registra o órfão (log `warn` já previsto no TDD); a rotina lê esses registros e apaga os arquivos no Drive. Depende de T-004 (é a origem do registro de órfãos).
 
-## T-015 — Exclusão automática da foto ao inativar paciente por óbito [pendente]
-
+## T-015 — Exclusão automática da foto ao inativar paciente por óbito [concluida]
 - Refs: AC-112
 - Arquivos: src/actions/pacientes.ts, src/lib/paciente-inativacao.ts
 - Notas: no mesmo salvamento em que `editarPaciente` processa `ativo=false` com `obito_inatividade=on` (fluxo já existente de inativação), chama a exclusão de foto de T-004 e zera as colunas. Depende de T-004.

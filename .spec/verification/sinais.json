@@ -3704,19 +3704,19 @@
       "codigo": "VERIFY_OBSOLETO",
       "feature": "status-personalizados-ciclo-vida",
       "ref": "—",
-      "ocorrencias": 13,
+      "ocorrencias": 14,
       "primeiraVez": "2026-08-25T13:24:35.898Z",
-      "ultimaVez": "2026-09-02T19:31:06.292Z",
-      "gitRev": "db36350"
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
     },
     "VERIFY_OBSOLETO::auditoria-exclusao-agendamentos::—": {
       "codigo": "VERIFY_OBSOLETO",
       "feature": "auditoria-exclusao-agendamentos",
       "ref": "—",
-      "ocorrencias": 12,
+      "ocorrencias": 13,
       "primeiraVez": "2026-08-25T13:55:48.789Z",
-      "ultimaVez": "2026-09-02T19:31:06.291Z",
-      "gitRev": "db36350"
+      "ultimaVez": "2026-09-02T20:32:49.918Z",
+      "gitRev": "87c0e28"
     },
     "VERIFY_FALHOU::auditoria-exclusao-agendamentos::AC-050": {
       "codigo": "VERIFY_FALHOU",
@@ -4613,10 +4613,10 @@
       "codigo": "VERIFY_OBSOLETO",
       "feature": "venda-consultorio-vendas-historicas",
       "ref": "—",
-      "ocorrencias": 4,
+      "ocorrencias": 5,
       "primeiraVez": "2026-08-28T02:34:20.018Z",
-      "ultimaVez": "2026-09-02T19:31:06.292Z",
-      "gitRev": "db36350"
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
     },
     "ARQUIVO_INEXISTENTE::foto-paciente-drive-avatar::T-001": {
       "codigo": "ARQUIVO_INEXISTENTE",
@@ -5117,10 +5117,10 @@
       "codigo": "ARQUIVO_INEXISTENTE",
       "feature": "foto-paciente-drive-avatar",
       "ref": "T-007",
-      "ocorrencias": 2,
+      "ocorrencias": 3,
       "primeiraVez": "2026-09-02T19:31:06.292Z",
-      "ultimaVez": "2026-09-02T19:31:06.292Z",
-      "gitRev": "db36350"
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
     },
     "ARQUIVO_INEXISTENTE::foto-paciente-drive-avatar::T-008": {
       "codigo": "ARQUIVO_INEXISTENTE",
@@ -5148,6 +5148,618 @@
       "primeiraVez": "2026-09-02T19:31:06.292Z",
       "ultimaVez": "2026-09-02T19:31:06.292Z",
       "gitRev": "db36350"
+    },
+    "VERIFY_FALHOU::foto-paciente-drive-avatar::AC-087": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-087",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.589Z",
+      "ultimaVez": "2026-09-02T20:32:49.589Z",
+      "gitRev": "87c0e28"
+    },
+    "VERIFY_FALHOU::foto-paciente-drive-avatar::AC-088": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-088",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.589Z",
+      "ultimaVez": "2026-09-02T20:32:49.589Z",
+      "gitRev": "87c0e28"
+    },
+    "VERIFY_FALHOU::foto-paciente-drive-avatar::AC-089": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-089",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.589Z",
+      "ultimaVez": "2026-09-02T20:32:49.589Z",
+      "gitRev": "87c0e28"
+    },
+    "VERIFY_FALHOU::foto-paciente-drive-avatar::AC-090": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-090",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.589Z",
+      "ultimaVez": "2026-09-02T20:32:49.589Z",
+      "gitRev": "87c0e28"
+    },
+    "VERIFY_FALHOU::foto-paciente-drive-avatar::AC-091": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-091",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.589Z",
+      "ultimaVez": "2026-09-02T20:32:49.589Z",
+      "gitRev": "87c0e28"
+    },
+    "VERIFY_FALHOU::foto-paciente-drive-avatar::AC-092": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-092",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.589Z",
+      "ultimaVez": "2026-09-02T20:32:49.589Z",
+      "gitRev": "87c0e28"
+    },
+    "VERIFY_FALHOU::foto-paciente-drive-avatar::AC-093": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-093",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.589Z",
+      "ultimaVez": "2026-09-02T20:32:49.589Z",
+      "gitRev": "87c0e28"
+    },
+    "VERIFY_FALHOU::foto-paciente-drive-avatar::AC-094": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-094",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.589Z",
+      "ultimaVez": "2026-09-02T20:32:49.589Z",
+      "gitRev": "87c0e28"
+    },
+    "VERIFY_FALHOU::foto-paciente-drive-avatar::AC-095": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-095",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.589Z",
+      "ultimaVez": "2026-09-02T20:32:49.589Z",
+      "gitRev": "87c0e28"
+    },
+    "VERIFY_FALHOU::foto-paciente-drive-avatar::AC-096": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-096",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.589Z",
+      "ultimaVez": "2026-09-02T20:32:49.589Z",
+      "gitRev": "87c0e28"
+    },
+    "VERIFY_FALHOU::foto-paciente-drive-avatar::AC-097": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-097",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.589Z",
+      "ultimaVez": "2026-09-02T20:32:49.589Z",
+      "gitRev": "87c0e28"
+    },
+    "VERIFY_FALHOU::foto-paciente-drive-avatar::AC-098": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-098",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.589Z",
+      "ultimaVez": "2026-09-02T20:32:49.589Z",
+      "gitRev": "87c0e28"
+    },
+    "VERIFY_FALHOU::foto-paciente-drive-avatar::AC-099": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-099",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.589Z",
+      "ultimaVez": "2026-09-02T20:32:49.589Z",
+      "gitRev": "87c0e28"
+    },
+    "VERIFY_FALHOU::foto-paciente-drive-avatar::AC-100": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-100",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.589Z",
+      "ultimaVez": "2026-09-02T20:32:49.589Z",
+      "gitRev": "87c0e28"
+    },
+    "VERIFY_FALHOU::foto-paciente-drive-avatar::AC-101": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-101",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.589Z",
+      "ultimaVez": "2026-09-02T20:32:49.589Z",
+      "gitRev": "87c0e28"
+    },
+    "VERIFY_FALHOU::foto-paciente-drive-avatar::AC-102": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-102",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.589Z",
+      "ultimaVez": "2026-09-02T20:32:49.589Z",
+      "gitRev": "87c0e28"
+    },
+    "VERIFY_FALHOU::foto-paciente-drive-avatar::AC-103": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-103",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.589Z",
+      "ultimaVez": "2026-09-02T20:32:49.589Z",
+      "gitRev": "87c0e28"
+    },
+    "VERIFY_FALHOU::foto-paciente-drive-avatar::AC-104": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-104",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.589Z",
+      "ultimaVez": "2026-09-02T20:32:49.589Z",
+      "gitRev": "87c0e28"
+    },
+    "VERIFY_FALHOU::foto-paciente-drive-avatar::AC-105": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-105",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.589Z",
+      "ultimaVez": "2026-09-02T20:32:49.589Z",
+      "gitRev": "87c0e28"
+    },
+    "VERIFY_FALHOU::foto-paciente-drive-avatar::AC-106": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-106",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.589Z",
+      "ultimaVez": "2026-09-02T20:32:49.589Z",
+      "gitRev": "87c0e28"
+    },
+    "VERIFY_FALHOU::foto-paciente-drive-avatar::AC-107": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-107",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.589Z",
+      "ultimaVez": "2026-09-02T20:32:49.589Z",
+      "gitRev": "87c0e28"
+    },
+    "VERIFY_FALHOU::foto-paciente-drive-avatar::AC-108": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-108",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.589Z",
+      "ultimaVez": "2026-09-02T20:32:49.589Z",
+      "gitRev": "87c0e28"
+    },
+    "VERIFY_FALHOU::foto-paciente-drive-avatar::AC-109": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-109",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.589Z",
+      "ultimaVez": "2026-09-02T20:32:49.589Z",
+      "gitRev": "87c0e28"
+    },
+    "VERIFY_FALHOU::foto-paciente-drive-avatar::AC-110": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-110",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.589Z",
+      "ultimaVez": "2026-09-02T20:32:49.589Z",
+      "gitRev": "87c0e28"
+    },
+    "VERIFY_FALHOU::foto-paciente-drive-avatar::AC-111": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-111",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.589Z",
+      "ultimaVez": "2026-09-02T20:32:49.589Z",
+      "gitRev": "87c0e28"
+    },
+    "VERIFY_FALHOU::foto-paciente-drive-avatar::AC-112": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-112",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.589Z",
+      "ultimaVez": "2026-09-02T20:32:49.589Z",
+      "gitRev": "87c0e28"
+    },
+    "VERIFY_FALHOU::foto-paciente-drive-avatar::AC-113": {
+      "codigo": "VERIFY_FALHOU",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-113",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.589Z",
+      "ultimaVez": "2026-09-02T20:32:49.589Z",
+      "gitRev": "87c0e28"
+    },
+    "TASK_CONCLUIDA_SEM_PROVA::foto-paciente-drive-avatar::T-002": {
+      "codigo": "TASK_CONCLUIDA_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "T-002",
+      "ocorrencias": 3,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "TASK_CONCLUIDA_SEM_PROVA::foto-paciente-drive-avatar::T-003": {
+      "codigo": "TASK_CONCLUIDA_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "T-003",
+      "ocorrencias": 4,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "TASK_CONCLUIDA_SEM_PROVA::foto-paciente-drive-avatar::T-004": {
+      "codigo": "TASK_CONCLUIDA_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "T-004",
+      "ocorrencias": 8,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "TASK_CONCLUIDA_SEM_PROVA::foto-paciente-drive-avatar::T-005": {
+      "codigo": "TASK_CONCLUIDA_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "T-005",
+      "ocorrencias": 2,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "TASK_CONCLUIDA_SEM_PROVA::foto-paciente-drive-avatar::T-006": {
+      "codigo": "TASK_CONCLUIDA_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "T-006",
+      "ocorrencias": 4,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "TASK_CONCLUIDA_SEM_PROVA::foto-paciente-drive-avatar::T-007": {
+      "codigo": "TASK_CONCLUIDA_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "T-007",
+      "ocorrencias": 4,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "TASK_CONCLUIDA_SEM_PROVA::foto-paciente-drive-avatar::T-008": {
+      "codigo": "TASK_CONCLUIDA_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "T-008",
+      "ocorrencias": 2,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "TASK_CONCLUIDA_SEM_PROVA::foto-paciente-drive-avatar::T-009": {
+      "codigo": "TASK_CONCLUIDA_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "T-009",
+      "ocorrencias": 7,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "TASK_CONCLUIDA_SEM_PROVA::foto-paciente-drive-avatar::T-010": {
+      "codigo": "TASK_CONCLUIDA_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "T-010",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "TASK_CONCLUIDA_SEM_PROVA::foto-paciente-drive-avatar::T-011": {
+      "codigo": "TASK_CONCLUIDA_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "T-011",
+      "ocorrencias": 2,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "TASK_CONCLUIDA_SEM_PROVA::foto-paciente-drive-avatar::T-012": {
+      "codigo": "TASK_CONCLUIDA_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "T-012",
+      "ocorrencias": 3,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "TASK_CONCLUIDA_SEM_PROVA::foto-paciente-drive-avatar::T-013": {
+      "codigo": "TASK_CONCLUIDA_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "T-013",
+      "ocorrencias": 3,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "TASK_CONCLUIDA_SEM_PROVA::foto-paciente-drive-avatar::T-014": {
+      "codigo": "TASK_CONCLUIDA_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "T-014",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "TASK_CONCLUIDA_SEM_PROVA::foto-paciente-drive-avatar::T-015": {
+      "codigo": "TASK_CONCLUIDA_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "T-015",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "AC_SEM_PROVA::foto-paciente-drive-avatar::AC-087": {
+      "codigo": "AC_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-087",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "AC_SEM_PROVA::foto-paciente-drive-avatar::AC-088": {
+      "codigo": "AC_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-088",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "AC_SEM_PROVA::foto-paciente-drive-avatar::AC-089": {
+      "codigo": "AC_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-089",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "AC_SEM_PROVA::foto-paciente-drive-avatar::AC-090": {
+      "codigo": "AC_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-090",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "AC_SEM_PROVA::foto-paciente-drive-avatar::AC-091": {
+      "codigo": "AC_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-091",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "AC_SEM_PROVA::foto-paciente-drive-avatar::AC-092": {
+      "codigo": "AC_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-092",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "AC_SEM_PROVA::foto-paciente-drive-avatar::AC-093": {
+      "codigo": "AC_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-093",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "AC_SEM_PROVA::foto-paciente-drive-avatar::AC-094": {
+      "codigo": "AC_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-094",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "AC_SEM_PROVA::foto-paciente-drive-avatar::AC-095": {
+      "codigo": "AC_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-095",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "AC_SEM_PROVA::foto-paciente-drive-avatar::AC-096": {
+      "codigo": "AC_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-096",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "AC_SEM_PROVA::foto-paciente-drive-avatar::AC-097": {
+      "codigo": "AC_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-097",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "AC_SEM_PROVA::foto-paciente-drive-avatar::AC-098": {
+      "codigo": "AC_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-098",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "AC_SEM_PROVA::foto-paciente-drive-avatar::AC-099": {
+      "codigo": "AC_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-099",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "AC_SEM_PROVA::foto-paciente-drive-avatar::AC-100": {
+      "codigo": "AC_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-100",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "AC_SEM_PROVA::foto-paciente-drive-avatar::AC-101": {
+      "codigo": "AC_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-101",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "AC_SEM_PROVA::foto-paciente-drive-avatar::AC-102": {
+      "codigo": "AC_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-102",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "AC_SEM_PROVA::foto-paciente-drive-avatar::AC-103": {
+      "codigo": "AC_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-103",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "AC_SEM_PROVA::foto-paciente-drive-avatar::AC-104": {
+      "codigo": "AC_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-104",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "AC_SEM_PROVA::foto-paciente-drive-avatar::AC-105": {
+      "codigo": "AC_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-105",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "AC_SEM_PROVA::foto-paciente-drive-avatar::AC-106": {
+      "codigo": "AC_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-106",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "AC_SEM_PROVA::foto-paciente-drive-avatar::AC-107": {
+      "codigo": "AC_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-107",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "AC_SEM_PROVA::foto-paciente-drive-avatar::AC-108": {
+      "codigo": "AC_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-108",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "AC_SEM_PROVA::foto-paciente-drive-avatar::AC-109": {
+      "codigo": "AC_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-109",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "AC_SEM_PROVA::foto-paciente-drive-avatar::AC-110": {
+      "codigo": "AC_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-110",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "AC_SEM_PROVA::foto-paciente-drive-avatar::AC-111": {
+      "codigo": "AC_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-111",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "AC_SEM_PROVA::foto-paciente-drive-avatar::AC-112": {
+      "codigo": "AC_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-112",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
+    },
+    "AC_SEM_PROVA::foto-paciente-drive-avatar::AC-113": {
+      "codigo": "AC_SEM_PROVA",
+      "feature": "foto-paciente-drive-avatar",
+      "ref": "AC-113",
+      "ocorrencias": 1,
+      "primeiraVez": "2026-09-02T20:32:49.919Z",
+      "ultimaVez": "2026-09-02T20:32:49.919Z",
+      "gitRev": "87c0e28"
     }
   }
 }
