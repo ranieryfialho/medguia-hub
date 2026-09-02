@@ -42,8 +42,7 @@
 - Arquivos: src/components/features/pacientes/LightboxMidia.tsx, src/components/features/pacientes/AvatarPaciente.tsx, src/components/features/pacientes/TabMidiasPaciente.tsx
 - Notas: extrai o lightbox existente (`TabMidiasPaciente.tsx`) para componente reusável; `AvatarPaciente` abre-o no clique somente quando `ampliavel && fotoDriveFileId`. Depende de T-007.
 
-## T-009 — Migrar os 8 pontos de renderização existentes para `AvatarPaciente` [pendente]
-
+## T-009 — Migrar os 8 pontos de renderização existentes para `AvatarPaciente` [concluida]
 - Refs: AC-096, AC-097, AC-098, AC-099, AC-100, AC-101, AC-113
 - Arquivos: src/app/(painel)/pacientes/[id]/page.tsx, src/app/(painel)/pacientes/page.tsx, src/components/features/pacientes/CardConfirmacaoPaciente.tsx, src/app/(painel)/confirmacoes/semana/page.tsx, src/app/(painel)/follow-ups/page.tsx, src/app/(painel)/prontuarios/page.tsx, src/app/(painel)/prontuarios/[atendimentoId]/page.tsx
 - Notas: prontuário digital (`2xl`, ampliável), listagem tabela (`sm`), listagem cards (`md`), card de confirmação (`md`, ampliável), confirmações da semana (`sm`), follow-ups (`sm`), prontuários listagem (`sm`, 2 pontos), prontuário de atendimento (`lg`, ampliável). Cada `select` precisa incluir `foto_drive_file_id` e `foto_atualizada_em` — é o passo mais fácil de esquecer (AC-113 cobre o caso de paciente inativo, que deve continuar mostrando a foto). Depende de T-007 e T-008.
