@@ -99,13 +99,18 @@ export default function AvatarPaciente({
         tabIndex={ampliavelAtivo ? 0 : undefined}
         onClick={ampliavelAtivo ? () => setLightboxAberto(true) : undefined}
       >
+        {/* A imagem some por opacidade (nunca por display:none/classe de
+            visibilidade): um elemento sem box nunca é considerado "em
+            viewport" pelo `loading="lazy"` nativo em vários navegadores, e
+            o `onLoad` nunca dispara — o avatar ficava travado no pulso
+            verde de carregando até o usuário abrir a ampliação. */}
         {fotoDriveFileId && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={construirUrlFoto(fotoDriveFileId, fotoAtualizadaEm)}
             alt={nome}
             loading={priority ? undefined : 'lazy'}
-            className={`w-full h-full object-cover ${estado === 'foto' ? '' : 'hidden'}`}
+            className={`absolute inset-0 w-full h-full object-cover ${estado === 'foto' ? 'opacity-100' : 'opacity-0'}`}
             onLoad={() => setImagemCarregou(true)}
             onError={() => setImagemFalhou(true)}
           />
@@ -113,7 +118,7 @@ export default function AvatarPaciente({
         {estado === 'carregando' && (
           <span className="w-full h-full absolute inset-0 animate-pulse bg-[#006b5a]/60" aria-hidden="true" />
         )}
-        {estado === 'fallback' && <span>{iniciais}</span>}
+        {estado === 'fallback' && <span className="relative">{iniciais}</span>}
       </div>
       {mostrarStatus && (
         <span

@@ -81,3 +81,8 @@
 - Refs: AC-114
 - Arquivos: src/app/(painel)/pacientes/page.tsx, src/components/features/pacientes/AvatarPaciente.pontos-renderizacao.test.ts
 - Notas: liga `ampliavel` no `AvatarPaciente` da tabela desktop (linha ~106) e do card mobile (linha ~184). Seguro porque a linha/card não tem `onClick` de navegação — só os ícones de olho/editar navegam — então não há conflito de propagação de clique. Depende de T-007/T-008 (lightbox já existe).
+
+## T-017 — Corrigir avatar travado no estado "carregando" (não some display:none + loading=lazy) [concluida]
+- Refs: AC-115
+- Arquivos: src/components/features/pacientes/AvatarPaciente.tsx, src/components/features/pacientes/AvatarPaciente.test.ts
+- Notas: o `<img>` escondia via classe `hidden` (`display:none`) enquanto `estado !== 'foto'`, combinado com `loading="lazy"` — um elemento `display:none` nunca é considerado "em viewport" pelo lazy-load nativo em vários navegadores, então o `onLoad` nunca dispara e o avatar fica preso no pulso verde de carregando, só resolvendo quando o usuário abre a ampliação (que monta um `<img>` novo, sem esse combo). Troca `hidden` por `opacity-0` (mantém o layout, o lazy-load passa a funcionar). Afeta todos os pontos que usam `AvatarPaciente` — correção centralizada no componente. Reportado pelo usuário em `/pacientes` e `/pacientes/[id]`, em mobile e desktop.

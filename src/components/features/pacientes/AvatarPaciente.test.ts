@@ -112,10 +112,24 @@ test('@spec:AC-098 o <img> do avatar tem onError ligado ao estado que dispara o 
   assert.match(source, /onError=\{\(\) => setImagemFalhou\(true\)\}/)
 })
 
-test('@spec:AC-098 o <img> nunca é desmontado ao falhar — some por classe (hidden), preservando o layout', () => {
+test('@spec:AC-098 o <img> nunca é desmontado ao falhar — some por opacidade, preservando o layout', () => {
   const blocoImgMatch = source.match(/<img[\s\S]*?\/>/)
   assert.ok(blocoImgMatch, '<img> não encontrado em AvatarPaciente.tsx')
-  assert.match(blocoImgMatch[0], /estado === 'foto' \? '' : 'hidden'/)
+  assert.match(blocoImgMatch[0], /estado === 'foto' \? 'opacity-100' : 'opacity-0'/)
+})
+
+test('@spec:AC-098 o <img> nunca usa display:none (classe hidden) junto de loading=lazy — trava o carregamento em alguns navegadores', () => {
+  const blocoImgMatch = source.match(/<img[\s\S]*?\/>/)
+  assert.ok(blocoImgMatch, '<img> não encontrado em AvatarPaciente.tsx')
+  assert.doesNotMatch(blocoImgMatch[0], /\bhidden\b/)
+})
+
+test('@spec:AC-115 o <img> some por opacidade (opacity-0), nunca por display:none, enquanto carrega — display:none + loading=lazy trava o onLoad', () => {
+  const blocoImgMatch = source.match(/<img[\s\S]*?\/>/)
+  assert.ok(blocoImgMatch, '<img> não encontrado em AvatarPaciente.tsx')
+  assert.match(blocoImgMatch[0], /loading=\{priority \? undefined : 'lazy'\}/)
+  assert.match(blocoImgMatch[0], /opacity-0/)
+  assert.doesNotMatch(blocoImgMatch[0], /\bhidden\b/)
 })
 
 test('@spec:AC-096 o <img> é renderizado com a URL construída por construirUrlFoto quando há fotoDriveFileId', () => {
@@ -125,7 +139,7 @@ test('@spec:AC-096 o <img> é renderizado com a URL construída por construirUrl
 })
 
 test('@spec:AC-097 as iniciais só são renderizadas quando o estado é fallback', () => {
-  assert.match(source, /\{estado === 'fallback' && <span>\{iniciais\}<\/span>\}/)
+  assert.match(source, /\{estado === 'fallback' && <span className="relative">\{iniciais\}<\/span>\}/)
 })
 
 test('@spec:AC-100 com foto e ampliavel ativada, podeAmpliar retorna true', () => {

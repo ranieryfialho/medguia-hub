@@ -101,6 +101,12 @@ Como fisioterapeuta ou recepcionista, quero ver a foto real do paciente (ou inic
 - **Quando** o avatar é renderizado novamente em qualquer tela
 - **Então** a URL da imagem inclui o novo valor de `foto_atualizada_em` como parâmetro de versão, forçando o navegador a buscar a imagem nova em vez de servir a antiga do cache
 
+#### AC-115 — Avatar com foto carrega normalmente em qualquer tela, sem travar no estado de carregando
+
+- **Dado** um paciente com `foto_drive_file_id` válido, exibido em qualquer tela (listagem, prontuário digital, etc.), em qualquer navegador
+- **Quando** o avatar é renderizado
+- **Então** a foto real aparece — o avatar não fica preso no estado "carregando" (pulso verde) exigindo que o usuário abra a ampliação para a imagem finalmente aparecer
+
 ### US-029 — Fisioterapeuta amplia a foto para conferir identidade
 
 Como fisioterapeuta, quero clicar na foto do paciente no prontuário para vê-la ampliada, para confirmar a identidade antes de um atendimento.

@@ -1,11 +1,11 @@
 {
   "feature": "foto-paciente-drive-avatar",
-  "timestamp": "2026-09-02T21:17:52.936Z",
-  "gitRev": "a576b71",
+  "timestamp": "2026-09-02T21:22:02.467Z",
+  "gitRev": "51f9b3a",
   "command": "node --test --test-reporter=tap",
   "reporter": "tap",
   "exitCode": 0,
-  "testsParsed": 382,
+  "testsParsed": 384,
   "results": {
     "AC-087": {
       "status": "pass",
@@ -70,6 +70,11 @@
     "AC-099": {
       "status": "pass",
       "testName": "@spec:AC-099 nenhum dos 7 arquivos migrados constrói a URL da foto manualmente (delega para AvatarPaciente/construirUrlFoto)",
+      "method": "tap"
+    },
+    "AC-115": {
+      "status": "pass",
+      "testName": "@spec:AC-115 o <img> some por opacidade (opacity-0), nunca por display:none, enquanto carrega — display:none + loading=lazy trava o onLoad",
       "method": "tap"
     },
     "AC-100": {

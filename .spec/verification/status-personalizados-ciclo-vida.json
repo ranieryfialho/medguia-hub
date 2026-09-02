@@ -1,11 +1,11 @@
 {
   "feature": "status-personalizados-ciclo-vida",
-  "timestamp": "2026-09-02T21:18:10.051Z",
-  "gitRev": "a576b71",
+  "timestamp": "2026-09-02T21:22:15.180Z",
+  "gitRev": "51f9b3a",
   "command": "node --test --test-reporter=tap",
   "reporter": "tap",
   "exitCode": 0,
-  "testsParsed": 382,
+  "testsParsed": 384,
   "results": {
     "AC-021": {
       "status": "pass",

@@ -1,11 +1,11 @@
 {
   "feature": "venda-consultorio-vendas-historicas",
-  "timestamp": "2026-09-02T21:18:13.968Z",
-  "gitRev": "a576b71",
+  "timestamp": "2026-09-02T21:22:19.325Z",
+  "gitRev": "51f9b3a",
   "command": "node --test --test-reporter=tap",
   "reporter": "tap",
   "exitCode": 0,
-  "testsParsed": 382,
+  "testsParsed": 384,
   "results": {
     "AC-061": {
       "status": "pass",
