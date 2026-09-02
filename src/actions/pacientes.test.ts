@@ -374,8 +374,8 @@ test('@spec:AC-112 inativar paciente por óbito remove a foto do Drive e zera as
   const chamadasTrash: { fileId: string; requestBody: unknown }[] = []
   const criarClienteDriveParaInativacao = async () => ({
     files: {
-      update: async (args: { fileId: string; requestBody: unknown }) => {
-        chamadasTrash.push(args)
+      update: async (args: unknown) => {
+        chamadasTrash.push(args as { fileId: string; requestBody: unknown })
         return {}
       },
     },

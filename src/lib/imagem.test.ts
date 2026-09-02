@@ -21,7 +21,7 @@ const BYTES_WEBP_VALIDO = new Uint8Array([
 ])
 
 function arquivoJpegValido(nome = 'paciente.jpg', bytes: Uint8Array = BYTES_JPEG_VALIDO): File {
-  return new File([bytes], nome, { type: 'image/jpeg' })
+  return new File([bytes as BlobPart], nome, { type: 'image/jpeg' })
 }
 
 test('@spec:AC-087 preview aparece imediatamente ao selecionar imagem válida (.jpg, .jpeg, .png, .webp)', async () => {

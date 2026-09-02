@@ -34,7 +34,7 @@
 
 ## T-007 — Componente único `AvatarPaciente` [concluida]
 - Refs: AC-096, AC-097, AC-098, AC-099
-- Arquivos: src/components/features/pacientes/AvatarPaciente.tsx, src/components/features/pacientes/AvatarPaciente.test.tsx
+- Arquivos: src/components/features/pacientes/AvatarPaciente.tsx, src/components/features/pacientes/AvatarPaciente.test.ts
 - Notas: estados fallback/carregando/foto/fallback-degradado; URL `/api/drive/file/{fotoDriveFileId}?v={fotoAtualizadaEm}`; `onError` volta para iniciais sem ícone de imagem quebrada; `priority` só quando pedido explicitamente. Depende de T-001 (campos existirem no tipo de paciente).
 
 ## T-008 — Lightbox extraído de `TabMidiasPaciente` + prop `ampliavel` no `AvatarPaciente` [concluida]

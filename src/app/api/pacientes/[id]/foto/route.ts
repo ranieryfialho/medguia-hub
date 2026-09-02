@@ -9,7 +9,7 @@
 // (route.test.ts injeta mocks nelas).
 
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { createClient as createServiceClient, type SupabaseClient } from '@supabase/supabase-js'
 import { getClienteAutenticado } from '@/lib/google-drive'
 import { garantirPastaPacientePorId } from '@/actions/google-drive'
 import { detectarMimeRealPorBytes, type MimeImagemAceita } from '@/lib/imagem'
@@ -18,7 +18,7 @@ import { Readable } from 'stream'
 
 export const TAMANHO_MAXIMO_SERVIDOR_BYTES = 2 * 1024 * 1024 // 2MB — AC-091
 
-type SupabaseAdmin = ReturnType<typeof createServiceClient>
+type SupabaseAdmin = SupabaseClient
 
 interface DriveApiCliente {
   files: {

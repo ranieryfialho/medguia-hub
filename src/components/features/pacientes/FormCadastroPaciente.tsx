@@ -119,7 +119,7 @@ export function FormCadastroPaciente({ origens = [], planos = [] }: { origens?: 
     if (!pacienteId || pacienteIdProcessadoRef.current === pacienteId) return
     pacienteIdProcessadoRef.current = pacienteId
 
-    async function concluirCadastro() {
+    async function concluirCadastro(pacienteIdConfirmado: string) {
       if (!fotoFile) {
         toast.success('Paciente cadastrado com sucesso.')
         router.push('/pacientes')
@@ -128,7 +128,7 @@ export function FormCadastroPaciente({ origens = [], planos = [] }: { origens?: 
 
       setEnviandoFoto(true)
       const arquivoParaEnvio = await redimensionarImagem(fotoFile).catch(() => fotoFile)
-      await enviarFotoAposCadastro(pacienteId, arquivoParaEnvio, {
+      await enviarFotoAposCadastro(pacienteIdConfirmado, arquivoParaEnvio, {
         uploadFoto: uploadFotoPaciente,
         toastSuccess: toast.success,
         toastWarning: (mensagem) => toast(mensagem, { icon: '⚠️', duration: 6000 }),
@@ -137,7 +137,7 @@ export function FormCadastroPaciente({ origens = [], planos = [] }: { origens?: 
       router.push('/pacientes')
     }
 
-    concluirCadastro()
+    concluirCadastro(pacienteId)
   }, [state?.pacienteId, fotoFile, router])
 
   useEffect(() => {

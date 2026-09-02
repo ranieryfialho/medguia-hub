@@ -175,7 +175,7 @@ const BYTES_JPEG_VALIDO = new Uint8Array([
 ])
 
 function arquivoJpegValido(nome = 'paciente.jpg', bytes: Uint8Array = BYTES_JPEG_VALIDO): File {
-  return new File([bytes], nome, { type: 'image/jpeg' })
+  return new File([bytes as BlobPart], nome, { type: 'image/jpeg' })
 }
 
 test('@spec:AC-088 upload com sucesso envia a foto ao Drive e retorna fotoDriveFileId e fotoAtualizadaEm', async () => {
