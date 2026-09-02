@@ -209,6 +209,60 @@ export async function garantirPastaPacientePorId(
   }
 }
 
+const CHAVE_ARQUIVOS_ORFAOS_PENDENTES = 'google_drive_arquivos_orfaos_pendentes'
+
+export interface ArquivoOrfaoDrivePendente {
+  pacienteId: string
+  fileId: string
+  registradoEm: string
+}
+
+async function lerArquivosOrfaosPendentesDB(): Promise<ArquivoOrfaoDrivePendente[]> {
+  const db = createServiceClient()
+  const { data } = await db
+    .from('configuracoes_sistema')
+    .select('valor')
+    .eq('chave', CHAVE_ARQUIVOS_ORFAOS_PENDENTES)
+    .maybeSingle()
+
+  if (!data?.valor) return []
+  try {
+    const parsed = JSON.parse(data.valor)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+async function salvarArquivosOrfaosPendentesDB(lista: ArquivoOrfaoDrivePendente[]): Promise<void> {
+  const db = createServiceClient()
+  await db.from('configuracoes_sistema').upsert({
+    chave: CHAVE_ARQUIVOS_ORFAOS_PENDENTES,
+    valor: JSON.stringify(lista),
+    atualizado_em: new Date().toISOString(),
+  })
+}
+
+/** Registra um `fileId` que falhou ao ser apagado do Drive (T-004, §5.3 do TDD), para a rotina de T-014 varrer depois. */
+export async function registrarArquivoOrfaoDrive(pacienteId: string, fileId: string): Promise<void> {
+  const pendentes = await lerArquivosOrfaosPendentesDB()
+  if (pendentes.some(p => p.fileId === fileId)) return
+  pendentes.push({ pacienteId, fileId, registradoEm: new Date().toISOString() })
+  await salvarArquivosOrfaosPendentesDB(pendentes)
+}
+
+export async function listarArquivosOrfaosDrivePendentes(): Promise<ArquivoOrfaoDrivePendente[]> {
+  return lerArquivosOrfaosPendentesDB()
+}
+
+/** Tira o `fileId` da lista de pendentes depois que a rotina de limpeza confirma a remoção no Drive. */
+export async function removerArquivoOrfaoDrivePendente(fileId: string): Promise<void> {
+  const pendentes = await lerArquivosOrfaosPendentesDB()
+  const restante = pendentes.filter(p => p.fileId !== fileId)
+  if (restante.length === pendentes.length) return
+  await salvarArquivosOrfaosPendentesDB(restante)
+}
+
 export async function listarMidiasAtendimento(atendimentoId: string): Promise<{
   midias: Array<{
     id: string
