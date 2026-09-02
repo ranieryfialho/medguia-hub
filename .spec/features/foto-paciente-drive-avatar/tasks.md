@@ -37,8 +37,7 @@
 - Arquivos: src/components/features/pacientes/AvatarPaciente.tsx, src/components/features/pacientes/AvatarPaciente.test.tsx
 - Notas: estados fallback/carregando/foto/fallback-degradado; URL `/api/drive/file/{fotoDriveFileId}?v={fotoAtualizadaEm}`; `onError` volta para iniciais sem ícone de imagem quebrada; `priority` só quando pedido explicitamente. Depende de T-001 (campos existirem no tipo de paciente).
 
-## T-008 — Lightbox extraído de `TabMidiasPaciente` + prop `ampliavel` no `AvatarPaciente` [pendente]
-
+## T-008 — Lightbox extraído de `TabMidiasPaciente` + prop `ampliavel` no `AvatarPaciente` [concluida]
 - Refs: AC-100, AC-101
 - Arquivos: src/components/features/pacientes/LightboxMidia.tsx, src/components/features/pacientes/AvatarPaciente.tsx, src/components/features/pacientes/TabMidiasPaciente.tsx
 - Notas: extrai o lightbox existente (`TabMidiasPaciente.tsx`) para componente reusável; `AvatarPaciente` abre-o no clique somente quando `ampliavel && fotoDriveFileId`. Depende de T-007.
