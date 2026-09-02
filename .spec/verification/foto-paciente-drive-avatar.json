@@ -1,11 +1,11 @@
 {
   "feature": "foto-paciente-drive-avatar",
-  "timestamp": "2026-09-02T20:58:51.428Z",
-  "gitRev": "31b7cff",
+  "timestamp": "2026-09-02T21:17:52.936Z",
+  "gitRev": "a576b71",
   "command": "node --test --test-reporter=tap",
   "reporter": "tap",
   "exitCode": 0,
-  "testsParsed": 381,
+  "testsParsed": 382,
   "results": {
     "AC-087": {
       "status": "pass",
@@ -80,6 +80,11 @@
     "AC-101": {
       "status": "pass",
       "testName": "@spec:AC-096 @spec:AC-100 @spec:AC-101 card de confirmação usa AvatarPaciente ampliável (md)",
+      "method": "tap"
+    },
+    "AC-114": {
+      "status": "pass",
+      "testName": "@spec:AC-114 listagem de pacientes usa AvatarPaciente ampliável na tabela e nos cards",
       "method": "tap"
     },
     "AC-102": {

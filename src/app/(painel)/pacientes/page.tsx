@@ -108,6 +108,7 @@ export default async function PacientesListPage({
                           fotoDriveFileId={paciente.foto_drive_file_id}
                           fotoAtualizadaEm={paciente.foto_atualizada_em}
                           size="sm"
+                          ampliavel
                         />
                         <div className="flex flex-col">
                           <span className="text-sm font-medium text-text-primary">{paciente.nome}</span>
@@ -186,6 +187,7 @@ export default async function PacientesListPage({
                   fotoDriveFileId={paciente.foto_drive_file_id}
                   fotoAtualizadaEm={paciente.foto_atualizada_em}
                   size="md"
+                  ampliavel
                 />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-text-primary truncate">{paciente.nome}</p>

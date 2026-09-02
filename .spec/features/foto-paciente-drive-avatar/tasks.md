@@ -76,3 +76,8 @@
 - Refs: AC-112
 - Arquivos: src/actions/pacientes.ts, src/lib/paciente-inativacao.ts
 - Notas: no mesmo salvamento em que `editarPaciente` processa `ativo=false` com `obito_inatividade=on` (fluxo já existente de inativação), chama a exclusão de foto de T-004 e zera as colunas. Depende de T-004.
+
+## T-016 — Habilitar ampliação do avatar na listagem de pacientes [concluida]
+- Refs: AC-114
+- Arquivos: src/app/(painel)/pacientes/page.tsx, src/components/features/pacientes/AvatarPaciente.pontos-renderizacao.test.ts
+- Notas: liga `ampliavel` no `AvatarPaciente` da tabela desktop (linha ~106) e do card mobile (linha ~184). Seguro porque a linha/card não tem `onClick` de navegação — só os ícones de olho/editar navegam — então não há conflito de propagação de clique. Depende de T-007/T-008 (lightbox já existe).

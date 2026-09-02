@@ -117,6 +117,12 @@ Como fisioterapeuta, quero clicar na foto do paciente no prontuário para vê-la
 - **Quando** o usuário tenta clicar
 - **Então** nada acontece — não há visualização ampliada de iniciais
 
+#### AC-114 — Avatar da listagem de pacientes também amplia ao clique
+
+- **Dado** a listagem de pacientes (tabela desktop e cards mobile), com um paciente que tem foto
+- **Quando** o usuário clica no avatar dessa linha/card
+- **Então** a foto abre em visualização ampliada (lightbox), sem navegar para a página do paciente — a navegação continua acontecendo só pelos ícones de visualizar/editar
+
 ### US-030 — Sistema nunca expõe foto de paciente publicamente
 
 Como gestor da clínica, quero garantir que nenhuma foto de paciente fique acessível sem autenticação, para manter conformidade com a LGPD.

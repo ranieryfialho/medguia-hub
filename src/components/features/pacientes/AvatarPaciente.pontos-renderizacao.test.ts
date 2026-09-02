@@ -60,6 +60,14 @@ test('@spec:AC-096 @spec:AC-097 listagem de pacientes usa AvatarPaciente na tabe
   assert.doesNotMatch(fonteListaPacientes, REGEX_INICIAIS_CRUAS)
 })
 
+test('@spec:AC-114 listagem de pacientes usa AvatarPaciente ampliável na tabela e nos cards', () => {
+  const ocorrenciasAmpliavel = fonteListaPacientes.match(/<AvatarPaciente[\s\S]*?\/>/g) ?? []
+  assert.equal(ocorrenciasAmpliavel.length, 2, 'esperado um AvatarPaciente na tabela desktop e outro nos cards mobile')
+  for (const bloco of ocorrenciasAmpliavel) {
+    assert.match(bloco, /ampliavel/, `AvatarPaciente da listagem deveria ter a prop ampliavel: ${bloco}`)
+  }
+})
+
 test('@spec:AC-096 @spec:AC-100 @spec:AC-101 card de confirmação usa AvatarPaciente ampliável (md)', () => {
   assert.match(fonteCardConfirmacao, /import AvatarPaciente from '\.\/AvatarPaciente'/)
   assert.match(fonteCardConfirmacao, /fotoDriveFileId\?: string \| null/)

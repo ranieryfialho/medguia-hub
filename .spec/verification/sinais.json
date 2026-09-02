@@ -3704,19 +3704,19 @@
       "codigo": "VERIFY_OBSOLETO",
       "feature": "status-personalizados-ciclo-vida",
       "ref": "—",
-      "ocorrencias": 17,
+      "ocorrencias": 18,
       "primeiraVez": "2026-08-25T13:24:35.898Z",
-      "ultimaVez": "2026-09-02T20:56:13.755Z",
-      "gitRev": "31b7cff"
+      "ultimaVez": "2026-09-02T21:17:57.892Z",
+      "gitRev": "a576b71"
     },
     "VERIFY_OBSOLETO::auditoria-exclusao-agendamentos::—": {
       "codigo": "VERIFY_OBSOLETO",
       "feature": "auditoria-exclusao-agendamentos",
       "ref": "—",
-      "ocorrencias": 16,
+      "ocorrencias": 17,
       "primeiraVez": "2026-08-25T13:55:48.789Z",
-      "ultimaVez": "2026-09-02T20:56:13.748Z",
-      "gitRev": "31b7cff"
+      "ultimaVez": "2026-09-02T21:17:57.891Z",
+      "gitRev": "a576b71"
     },
     "VERIFY_FALHOU::auditoria-exclusao-agendamentos::AC-050": {
       "codigo": "VERIFY_FALHOU",
@@ -4613,10 +4613,10 @@
       "codigo": "VERIFY_OBSOLETO",
       "feature": "venda-consultorio-vendas-historicas",
       "ref": "—",
-      "ocorrencias": 8,
+      "ocorrencias": 9,
       "primeiraVez": "2026-08-28T02:34:20.018Z",
-      "ultimaVez": "2026-09-02T20:56:13.755Z",
-      "gitRev": "31b7cff"
+      "ultimaVez": "2026-09-02T21:17:57.892Z",
+      "gitRev": "a576b71"
     },
     "ARQUIVO_INEXISTENTE::foto-paciente-drive-avatar::T-001": {
       "codigo": "ARQUIVO_INEXISTENTE",
