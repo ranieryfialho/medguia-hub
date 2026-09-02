@@ -17,8 +17,7 @@
 - Arquivos: src/actions/pacientes.ts, src/lib/types/paciente-form-state.ts
 - Notas: troca `void criarPastaPaciente(...)` por `await`; troca `redirect('/pacientes')` por retorno de `{ pacienteId }` no `PacienteFormState`. Os caminhos de CPF duplicado e candidato a duplicado (que já retornam estado) precisam continuar sem `pacienteId`. É o risco mais alto da entrega — implementar e provar antes de qualquer tarefa de UI depender dela.
 
-## T-004 — Rota `POST/DELETE /api/pacientes/[id]/foto` [pendente]
-
+## T-004 — Rota `POST/DELETE /api/pacientes/[id]/foto` [concluida]
 - Refs: AC-088, AC-089, AC-090, AC-091, AC-092, AC-093, AC-095, AC-103
 - Arquivos: src/app/api/pacientes/[id]/foto/route.ts, src/app/api/pacientes/[id]/foto/route.test.ts
 - Notas: valida sessão (401), valida MIME por magic bytes (400), teto de 2MB (400), garante pasta do paciente, sobe o arquivo (nome `foto_perfil_[ID8].{ext}`, permissão herdada da pasta — sem `anyoneWithLink`), persiste `foto_drive_file_id`/`foto_atualizada_em`, só então apaga o `fileId` anterior. `DELETE` idempotente em paciente sem foto (200, AC-095). Depende de T-001 (colunas) e T-002 (limite de 2MB pressupõe compressão no cliente).
