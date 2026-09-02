@@ -57,8 +57,7 @@
 - Arquivos: docs/tdds/006-foto-do-paciente-google-drive-e-avatar.md
 - Notas: registrar os números medidos antes de tocar em `AgendamentoItem.tsx`, conforme Decisão F da RFC. Bloqueia T-012.
 
-## T-012 — Avatar na agenda (views dia e semana) [pendente]
-
+## T-012 — Avatar na agenda (views dia e semana) [concluida]
 - Refs: AC-104, AC-105, AC-106
 - Arquivos: src/components/features/agenda/AgendamentoItem.tsx, src/app/(painel)/agenda/page.tsx
 - Notas: `AvatarPaciente` em `AgendamentoItemDia`/`AgendamentoItemSemana` (`xs`/`sm`, `ampliavel=false`, sempre `loading="lazy"`); view mês intocada; as 4 variantes da query leve da agenda passam a selecionar `pacientes (nome, foto_drive_file_id, foto_atualizada_em)`. Depende de T-007, T-009 (padrão já estabelecido) e T-011 (baseline).
