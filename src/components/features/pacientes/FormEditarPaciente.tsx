@@ -1,14 +1,79 @@
 'use client'
 
 import { useActionState, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { editarPaciente, type PacienteDuplicado, type PacienteFormState } from '@/actions/pacientes'
 import Link from 'next/link'
+import { Trash2, UploadCloud } from 'lucide-react'
 import toast from 'react-hot-toast'
 import type { OrigemPaciente } from '@/actions/origens-paciente'
 import type { PlanoSaude } from '@/actions/planos-saude'
 import { ComboboxPaciente } from '@/components/features/pacientes'
 import { formatarCPF, formatarRG, formatarTelefone, mascararCPFInput, mascararRGInput, mascararTelefoneInput } from '@/lib/input-masks'
 import { extrairMetadataInativacao } from '@/lib/paciente-inativacao'
+import { gerarPreviewImagem, redimensionarImagem, revogarPreviewImagem, validarArquivoImagem } from '@/lib/imagem'
+
+const MENSAGEM_FALHA_TROCA_FOTO = 'Não foi possível salvar a nova foto agora. Tente novamente em instantes.'
+const MENSAGEM_FALHA_REMOCAO_FOTO = 'Não foi possível remover a foto agora. Tente novamente em instantes.'
+
+export interface DepsFotoEdicaoPaciente {
+  uploadFoto: (pacienteId: string, file: File) => Promise<Response>
+  removerFoto: (pacienteId: string) => Promise<Response>
+  toastSuccess: (mensagem: string) => void
+  toastError: (mensagem: string) => void
+  refresh: () => void
+}
+
+// @spec:AC-092 — troca de foto na edição chama a rota de upload (T-004)
+// imediatamente, fora do submit do `<form>`; a própria rota substitui o
+// `foto_drive_file_id` e apaga o arquivo anterior no Drive.
+export async function trocarFotoPacienteEdicao(
+  pacienteId: string,
+  file: File,
+  deps: DepsFotoEdicaoPaciente,
+): Promise<void> {
+  try {
+    const response = await deps.uploadFoto(pacienteId, file)
+    if (response.ok) {
+      deps.toastSuccess('Foto atualizada com sucesso.')
+      deps.refresh()
+    } else {
+      deps.toastError(MENSAGEM_FALHA_TROCA_FOTO)
+    }
+  } catch {
+    deps.toastError(MENSAGEM_FALHA_TROCA_FOTO)
+  }
+}
+
+// @spec:AC-093 @spec:AC-095 — remoção chama a rota de DELETE (T-004), que já
+// é idempotente para paciente sem foto (200 sem tocar no Drive); aqui só
+// repassamos sucesso/erro, sem tratar "sem foto" como caso especial.
+export async function removerFotoPacienteEdicao(
+  pacienteId: string,
+  deps: DepsFotoEdicaoPaciente,
+): Promise<void> {
+  try {
+    const response = await deps.removerFoto(pacienteId)
+    if (response.ok) {
+      deps.toastSuccess('Foto removida com sucesso.')
+      deps.refresh()
+    } else {
+      deps.toastError(MENSAGEM_FALHA_REMOCAO_FOTO)
+    }
+  } catch {
+    deps.toastError(MENSAGEM_FALHA_REMOCAO_FOTO)
+  }
+}
+
+async function uploadFotoPacienteEdicao(pacienteId: string, file: File): Promise<Response> {
+  const formData = new FormData()
+  formData.append('file', file)
+  return fetch(`/api/pacientes/${pacienteId}/foto`, { method: 'POST', body: formData })
+}
+
+async function removerFotoPacienteRequest(pacienteId: string): Promise<Response> {
+  return fetch(`/api/pacientes/${pacienteId}/foto`, { method: 'DELETE' })
+}
 
 function parseOrigem(origem: string) {
   const [origemBase = '', segundoNivel = ''] = origem.split('::')
@@ -50,16 +115,76 @@ type PacienteEdicao = Record<string, string | boolean | null | undefined> & {
   nome: string
   ativo?: boolean | null
   endereco_sem_numero?: boolean | null
+  foto_drive_file_id?: string | null
+  foto_atualizada_em?: string | null
 }
 
 export function FormEditarPaciente({ paciente, origens = [], planos = [] }: { paciente: PacienteEdicao; origens?: OrigemPaciente[]; planos?: PlanoSaude[] }) {
+  const router = useRouter()
   const [state, formAction, isPending] = useActionState<PacienteFormState, FormData>(editarPaciente, { error: '', fields: {} })
+  const [fotoPreviewUrl, setFotoPreviewUrl] = useState<string | null>(null)
+  const [enviandoFoto, setEnviandoFoto] = useState(false)
+  const [removendoFoto, setRemovendoFoto] = useState(false)
+  const temFoto = Boolean(paciente.foto_drive_file_id)
+  const fotoUrlAtual = temFoto
+    ? `/api/drive/file/${paciente.foto_drive_file_id}?v=${paciente.foto_atualizada_em ?? ''}`
+    : null
 
   useEffect(() => {
     if (state?.error) {
       toast.error(state.error)
     }
   }, [state?.error])
+
+  useEffect(() => {
+    return () => {
+      if (fotoPreviewUrl) revogarPreviewImagem(fotoPreviewUrl)
+    }
+  }, [fotoPreviewUrl])
+
+  // @spec:AC-092 @spec:AC-094 — disparado pelo `onChange` do input de foto,
+  // nunca pelo submit do `<form>` (o input não tem `name`, então nunca entra
+  // no FormData de `editarPaciente`); editar outros campos não passa por
+  // aqui e não chama o Drive.
+  async function handleTrocarFoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+
+    const validacao = await validarArquivoImagem(file)
+    if (!validacao.valido) {
+      toast.error(validacao.erro || 'Imagem inválida.')
+      return
+    }
+
+    if (fotoPreviewUrl) revogarPreviewImagem(fotoPreviewUrl)
+    setFotoPreviewUrl(gerarPreviewImagem(file))
+
+    setEnviandoFoto(true)
+    const arquivoParaEnvio = await redimensionarImagem(file).catch(() => file)
+    await trocarFotoPacienteEdicao(paciente.id, arquivoParaEnvio, {
+      uploadFoto: uploadFotoPacienteEdicao,
+      removerFoto: removerFotoPacienteRequest,
+      toastSuccess: toast.success,
+      toastError: toast.error,
+      refresh: () => router.refresh(),
+    })
+    setEnviandoFoto(false)
+  }
+
+  // @spec:AC-093 — remoção também fora do submit, disparada pelo botão de
+  // remover (type="button").
+  async function handleRemoverFoto() {
+    setRemovendoFoto(true)
+    await removerFotoPacienteEdicao(paciente.id, {
+      uploadFoto: uploadFotoPacienteEdicao,
+      removerFoto: removerFotoPacienteRequest,
+      toastSuccess: toast.success,
+      toastError: toast.error,
+      refresh: () => router.refresh(),
+    })
+    setRemovendoFoto(false)
+  }
 
   const getValue = (field: string) => {
     if (state?.fields && state.fields[field] !== undefined) {
@@ -188,6 +313,45 @@ export function FormEditarPaciente({ paciente, origens = [], planos = [] }: { pa
             </label>
           </div>
         )}
+      </div>
+
+      {/* Bloco: Foto — troca/remoção fora do submit (AC-092/AC-093/AC-094/AC-095) */}
+      <div className="mb-8 rounded-2xl border border-[#bcc9c4]/40 bg-white p-5 shadow-sm">
+        <label className="block text-sm font-semibold text-[#171d1c] mb-3">Foto do Paciente</label>
+        <div className="flex items-center gap-4">
+          <div className="h-20 w-20 shrink-0 overflow-hidden rounded-full bg-page/50 flex items-center justify-center">
+            {fotoPreviewUrl || fotoUrlAtual ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={fotoPreviewUrl || fotoUrlAtual || ''} alt="Foto do paciente" className="h-full w-full object-cover" />
+            ) : (
+              <UploadCloud className="text-text-tertiary" size={28} />
+            )}
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-md border border-border-input px-3 py-2 text-sm font-medium text-text-primary hover:bg-page">
+              <UploadCloud size={16} />
+              {enviandoFoto ? 'Enviando...' : temFoto ? 'Trocar foto' : 'Adicionar foto'}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                disabled={enviandoFoto || removendoFoto}
+                onChange={handleTrocarFoto}
+              />
+            </label>
+            {temFoto && (
+              <button
+                type="button"
+                onClick={handleRemoverFoto}
+                disabled={enviandoFoto || removendoFoto}
+                className="inline-flex w-fit items-center gap-2 rounded-md border border-[#ba1a1a]/30 px-3 py-2 text-sm font-medium text-[#ba1a1a] hover:bg-[#ffdad6]/40 disabled:opacity-60"
+              >
+                <Trash2 size={16} />
+                {removendoFoto ? 'Removendo...' : 'Remover foto'}
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="mb-8">
