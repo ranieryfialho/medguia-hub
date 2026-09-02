@@ -4,7 +4,10 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { atualizarMetadataInativacao } from '@/lib/paciente-inativacao'
-import { criarPastaPaciente } from '@/actions/google-drive'
+import { garantirPastaPacientePorId } from '@/actions/google-drive'
+import type { PacienteDuplicado, PacienteFormState } from '@/lib/types/paciente-form-state'
+
+export type { PacienteDuplicado, PacienteFormState } from '@/lib/types/paciente-form-state'
 
 function normalizarCPF(cpf: string): string {
   return cpf.replace(/\D/g, '')
@@ -20,25 +23,6 @@ function normalizarTelefone(telefone: string): string {
 
 function normalizarEmail(email: string): string {
   return email.trim().toLowerCase()
-}
-
-export type PacienteDuplicado = {
-  id: string
-  nome: string
-  cpf: string | null
-  telefone: string | null
-  email: string | null
-  data_nascimento: string | null
-  ativo: boolean | null
-  score: number
-  motivos: string[]
-}
-
-export type PacienteFormState = {
-  error?: string
-  warning?: string
-  fields?: Record<string, unknown>
-  duplicateCandidates?: PacienteDuplicado[]
 }
 
 async function buscarPossiveisDuplicadosPaciente(
@@ -170,10 +154,12 @@ export async function criarPaciente(prevState: PacienteFormState | null, formDat
     return { error: `Erro ao criar paciente: ${error.message}`, fields: dadosPaciente }
   }
 
-  void criarPastaPaciente(novoPaciente.id, novoPaciente.nome)
+  // AC-110: aguarda a pasta do paciente no Drive existir antes de retornar,
+  // para que o upload de foto no cliente (que depende dela) não chegue cedo demais.
+  await garantirPastaPacientePorId(novoPaciente.id)
 
   revalidatePath('/pacientes')
-  redirect('/pacientes')
+  return { pacienteId: novoPaciente.id }
 }
 
 export async function editarPaciente(prevState: PacienteFormState | null, formData: FormData) {
