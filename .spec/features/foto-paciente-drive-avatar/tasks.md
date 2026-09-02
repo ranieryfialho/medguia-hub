@@ -2,8 +2,7 @@
 
 > feature: foto-paciente-drive-avatar
 
-## T-001 — Migração SQL: colunas de foto em `pacientes` [pendente]
-
+## T-001 — Migração SQL: colunas de foto em `pacientes` [concluida]
 - Refs: US-026, US-028
 - Arquivos: database/pacientes_foto_drive_migration.sql
 - Notas: `ADD COLUMN IF NOT EXISTS foto_drive_file_id TEXT`, `foto_atualizada_em TIMESTAMPTZ`, índice parcial. Sem `foto_drive_url` (Decisão A). Aplicar via SQL Editor do Studio (DDL não passa por REST). Nenhum AC de teste automatizado directo — é pré-requisito das demais tarefas.
