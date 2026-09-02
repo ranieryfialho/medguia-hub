@@ -27,8 +27,7 @@
 - Arquivos: src/components/features/pacientes/FormCadastroPaciente.tsx
 - Notas: após a action retornar `pacienteId`, se há foto selecionada chama a rota de T-004; sucesso → toast + navega; falha do Drive → `toast.warning` e navega assim mesmo (não trava o cadastro). Depende de T-003 e T-004.
 
-## T-006 — Troca/remoção de foto na edição, fora do submit [pendente]
-
+## T-006 — Troca/remoção de foto na edição, fora do submit [concluida]
 - Refs: AC-092, AC-093, AC-094, AC-095
 - Arquivos: src/components/features/pacientes/FormEditarPaciente.tsx
 - Notas: troca e remoção chamam a rota de T-004 imediatamente (com `router.refresh()`), fora do fluxo de `editarPaciente`. Editar outros campos não dispara nenhuma chamada ao Drive (AC-094). Depende de T-004.
