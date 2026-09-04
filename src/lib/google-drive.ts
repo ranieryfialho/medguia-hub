@@ -40,7 +40,7 @@ export function gerarUrlAutorizacao(): string {
   return client.generateAuthUrl({
     access_type: 'offline',
     scope: [
-      'https://www.googleapis.com/auth/drive',
+      'https://www.googleapis.com/auth/drive.file',
       'https://www.googleapis.com/auth/userinfo.email',
     ],
     prompt: 'consent',
