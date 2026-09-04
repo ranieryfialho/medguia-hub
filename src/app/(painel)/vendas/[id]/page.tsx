@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { ArrowLeft, Edit, FileText, AlertTriangle } from 'lucide-react'
-import { BtnDeletarVenda, BtnAtualizarStatusVenda } from '@/components/features/vendas'
+import { ArrowLeft, Edit, AlertTriangle } from 'lucide-react'
+import { BtnDeletarVenda, BtnAtualizarStatusVenda, ComprovanteVendaPreview } from '@/components/features/vendas'
 import { requireModulo } from '@/lib/guard'
 import { FORMA_PAGAMENTO_LABEL, STATUS_VENDA_LABEL, TIPO_VENDA_LABEL } from '@/lib/vendas'
 import { formatAppDate } from '@/lib/datetime'
@@ -271,15 +271,11 @@ export default async function VendaDetalhePage({
             <div>
               <p className="text-xs text-text-secondary uppercase">Comprovante de Pagamento</p>
               {comprovanteFileId ? (
-                <a
-                  href={`/api/drive/file/${comprovanteFileId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-sm text-primary-500 hover:text-primary-600 mt-1"
-                >
-                  <FileText size={14} />
-                  {comprovanteNome || 'Ver comprovante'}
-                </a>
+                <ComprovanteVendaPreview
+                  fileId={comprovanteFileId}
+                  nome={comprovanteNome || 'Comprovante'}
+                  fileUrl={v.comprovante_pagamento_google_drive_file_url ?? null}
+                />
               ) : statusAtual === 'venda_confirmada' ? (
                 <p className="inline-flex items-center gap-1.5 text-sm text-amber-700 mt-1">
                   <AlertTriangle size={14} />
