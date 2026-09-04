@@ -1,4 +1,5 @@
 import type { jsPDF } from 'jspdf'
+import { TIPO_VENDA_LABEL } from '@/lib/vendas'
 
 export type AgregacaoNome = { nome: string; quantidade: number; faturamento: number }
 
@@ -18,6 +19,7 @@ export type VendaDetalhe = {
   medico_referenciador_nome?: string | null
   nome?: string | null
   status: string
+  tipo_venda?: string | null
   motivo_recusa?: string | null
   objecao_motivo_nome?: string | null
   objecao_observacao?: string | null
@@ -902,6 +904,7 @@ function desenharPaginaVendasDetalhadas(doc: jsPDF, vendasDetalhadas: VendaDetal
       venda => {
         const subs: { colIdx: number; texto: string }[] = []
         if (venda.paciente_origem) subs.push({ colIdx: 1, texto: `Origem: ${venda.paciente_origem}` })
+        if (venda.tipo_venda) subs.push({ colIdx: 1, texto: `Tipo: ${TIPO_VENDA_LABEL[venda.tipo_venda] ?? venda.tipo_venda}` })
         if (venda.nome) subs.push({ colIdx: 1, texto: venda.nome })
         if (venda.motivo_recusa) subs.push({ colIdx: 2, texto: `Motivo: ${venda.motivo_recusa}` })
         if (venda.objecao_motivo_nome) {

@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Plus, Eye, Edit } from 'lucide-react'
+import { Plus, Eye, Edit, FileText } from 'lucide-react'
 import { FiltrosVendas } from '@/components/features/vendas'
 import { BtnDeletarVenda } from '@/components/features/vendas'
 import { requireModulo } from '@/lib/guard'
@@ -26,6 +26,8 @@ const SELECT_VENDAS_BASE = `
   observacoes,
   status,
   tipo_venda,
+  comprovante_pagamento_google_drive_file_id,
+  comprovante_pagamento_nome,
   criado_em,
   itens_venda(produtos(nome))
 `
@@ -330,6 +332,17 @@ export default async function VendasListPage({
                         >
                           <Edit size={16} />
                         </Link>
+                        {venda.comprovante_pagamento_google_drive_file_id && (
+                          <a
+                            href={`/api/drive/file/${venda.comprovante_pagamento_google_drive_file_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-2 text-text-secondary hover:text-primary-500 hover:bg-page rounded transition-colors"
+                            title="Ver comprovante de pagamento"
+                          >
+                            <FileText size={16} />
+                          </a>
+                        )}
                         <BtnDeletarVenda id={venda.id} status={venda.status} />
                       </div>
                     </td>
@@ -413,6 +426,17 @@ export default async function VendasListPage({
                       <Edit size={14} />
                       Editar
                     </Link>
+                    {venda.comprovante_pagamento_google_drive_file_id && (
+                      <a
+                        href={`/api/drive/file/${venda.comprovante_pagamento_google_drive_file_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 px-3 py-1.5 text-xs rounded-md bg-page text-text-primary hover:bg-page/80 transition-colors flex items-center justify-center gap-1"
+                      >
+                        <FileText size={14} />
+                        Comprovante
+                      </a>
+                    )}
                   </div>
                 </div>
               )

@@ -5,7 +5,7 @@ import { RelatorioVendasClient, FiltroOrigemMedico, GraficoFaturamentoPeriodo, C
 import { BtnGerarPdfVendas } from '@/components/features/shared'
 import { FiltroProdutosMultiSelect } from '@/components/features/produtos'
 import { requireModulo } from '@/lib/guard'
-import { FORMAS_PAGAMENTO } from '@/lib/vendas'
+import { FORMAS_PAGAMENTO, TIPO_VENDA_LABEL } from '@/lib/vendas'
 import type { VendaDetalhe, ItemDetalheVenda } from '@/lib/relatorios/pdf-vendas'
 import { formatAppDateKey, getAppDayRangeUTC } from '@/lib/datetime'
 
@@ -49,6 +49,7 @@ type VendaRow = {
   medico_referenciador_nome: string | null
   venda_em_consultorio: boolean | null
   status: string | null
+  tipo_venda: string | null
   nome: string | null
   motivo_recusa: string | null
   objecao_motivo_nome: string | null
@@ -132,7 +133,7 @@ export default async function RelatorioVendasPage({
   let query = supabase
     .from('vendas')
     .select(`
-      id, origem, forma_pagamento, data_venda, profissional_id, paciente_id, medico_referenciador_nome, venda_em_consultorio, status, nome, motivo_recusa, objecao_motivo_nome, objecao_observacao,
+      id, origem, forma_pagamento, data_venda, profissional_id, paciente_id, medico_referenciador_nome, venda_em_consultorio, status, tipo_venda, nome, motivo_recusa, objecao_motivo_nome, objecao_observacao,
       pacientes:paciente_id ( nome, origem ),
       profiles:profissional_id ( full_name, role ),
       itens_venda ( quantidade, preco_unitario, produtos:produto_id ( id, nome, categoria ) )
@@ -273,6 +274,7 @@ export default async function RelatorioVendasPage({
       medico_referenciador_nome: venda.medico_referenciador_nome || null,
       nome: venda.nome || null,
       status: statusVenda,
+      tipo_venda: venda.tipo_venda || null,
       motivo_recusa: venda.motivo_recusa || null,
       objecao_motivo_nome: venda.objecao_motivo_nome || null,
       objecao_observacao: venda.objecao_observacao || null,
@@ -1191,6 +1193,7 @@ export default async function RelatorioVendasPage({
                     <th className="px-4 py-2 text-xs font-semibold text-text-secondary uppercase">Itens</th>
                     <th className="px-4 py-2 text-xs font-semibold text-text-secondary uppercase text-right">Total</th>
                     <th className="px-4 py-2 text-xs font-semibold text-text-secondary uppercase">Profissional</th>
+                    <th className="px-4 py-2 text-xs font-semibold text-text-secondary uppercase">Tipo da Venda</th>
                     <th className="px-4 py-2 text-xs font-semibold text-text-secondary uppercase">Status</th>
                   </tr>
                 </thead>
@@ -1247,6 +1250,15 @@ export default async function RelatorioVendasPage({
                           R$ {venda.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </td>
                         <td className="px-4 py-3 text-sm text-text-secondary">{venda.profissional_nome.split(' ')[0]}</td>
+                        <td className="px-4 py-3">
+                          {venda.tipo_venda ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-sky-50 text-sky-700">
+                              {TIPO_VENDA_LABEL[venda.tipo_venda] ?? venda.tipo_venda}
+                            </span>
+                          ) : (
+                            <span className="text-text-secondary text-sm">—</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3">
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${sc.cls}`}>
                             {sc.label}
