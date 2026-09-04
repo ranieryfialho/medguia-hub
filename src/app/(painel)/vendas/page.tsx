@@ -243,7 +243,7 @@ export default async function VendasListPage({
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Paciente</th>
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Profissional</th>
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Status</th>
-                <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Tipo</th>
+                <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Tipo da Venda</th>
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Origem</th>
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Pagamento</th>
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Referenciador</th>
