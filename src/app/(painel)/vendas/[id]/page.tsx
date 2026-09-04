@@ -1,9 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { ArrowLeft, Edit } from 'lucide-react'
+import { ArrowLeft, Edit, FileText, AlertTriangle } from 'lucide-react'
 import { BtnDeletarVenda, BtnAtualizarStatusVenda } from '@/components/features/vendas'
 import { requireModulo } from '@/lib/guard'
-import { FORMA_PAGAMENTO_LABEL, STATUS_VENDA_LABEL } from '@/lib/vendas'
+import { FORMA_PAGAMENTO_LABEL, STATUS_VENDA_LABEL, TIPO_VENDA_LABEL } from '@/lib/vendas'
 import { formatAppDate } from '@/lib/datetime'
 
 const STATUS_BADGE: Record<string, { classes: string }> = {
@@ -25,6 +25,10 @@ const SELECT_VENDA_BASE = `
   observacoes,
   status,
   motivo_recusa,
+  tipo_venda,
+  comprovante_pagamento_google_drive_file_id,
+  comprovante_pagamento_google_drive_file_url,
+  comprovante_pagamento_nome,
   criado_em,
   atualizado_em
 `
@@ -69,6 +73,38 @@ export default async function VendaDetalhePage({
 
     venda = fallback.data
       ? { ...fallback.data, protocolo_id: null, protocolo_nome: null, objecao_motivo_nome: null, objecao_observacao: null }
+      : fallback.data
+  }
+
+  if (
+    vendaError && (
+      vendaError.message.includes('tipo_venda') ||
+      vendaError.message.includes('comprovante_pagamento')
+    )
+  ) {
+    const fallback = await supabase
+      .from('vendas')
+      .select(`
+        id, paciente_id, pacientes(id, nome, cpf, telefone, email), profissional_id,
+        profiles:profissional_id(id, full_name, role), origem, forma_pagamento,
+        medico_referenciador_nome, data_venda, observacoes, status, motivo_recusa,
+        criado_em, atualizado_em
+      `)
+      .eq('id', id)
+      .single()
+
+    venda = fallback.data
+      ? {
+          ...fallback.data,
+          protocolo_id: null,
+          protocolo_nome: null,
+          objecao_motivo_nome: null,
+          objecao_observacao: null,
+          tipo_venda: null,
+          comprovante_pagamento_google_drive_file_id: null,
+          comprovante_pagamento_google_drive_file_url: null,
+          comprovante_pagamento_nome: null,
+        }
       : fallback.data
   }
 
@@ -127,6 +163,9 @@ export default async function VendaDetalhePage({
   const isOrcamento = statusAtual !== 'venda_confirmada'
   const tituloPage = isOrcamento ? 'Detalhes do Orçamento' : 'Detalhes da Venda'
   const protocoloNome = (venda as { protocolo_nome?: string | null }).protocolo_nome ?? null
+  const tipoVenda = (v.tipo_venda ?? null) as string | null
+  const comprovanteFileId = (v.comprovante_pagamento_google_drive_file_id ?? null) as string | null
+  const comprovanteNome = (v.comprovante_pagamento_nome ?? null) as string | null
 
   return (
     <div className="space-y-6">
@@ -149,6 +188,11 @@ export default async function VendaDetalhePage({
             {protocoloNome && (
               <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-violet-100 text-violet-800">
                 Protocolo
+              </span>
+            )}
+            {tipoVenda && (
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-100 text-sky-800">
+                {TIPO_VENDA_LABEL[tipoVenda] ?? tipoVenda}
               </span>
             )}
           </div>
@@ -224,6 +268,27 @@ export default async function VendaDetalhePage({
               <p className="text-xs text-text-secondary uppercase">{isOrcamento ? 'Data do Orçamento' : 'Data da Venda'}</p>
               <p className="text-text-primary">{dataFormatada}</p>
             </div>
+            <div>
+              <p className="text-xs text-text-secondary uppercase">Comprovante de Pagamento</p>
+              {comprovanteFileId ? (
+                <a
+                  href={`/api/drive/file/${comprovanteFileId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm text-primary-500 hover:text-primary-600 mt-1"
+                >
+                  <FileText size={14} />
+                  {comprovanteNome || 'Ver comprovante'}
+                </a>
+              ) : statusAtual === 'venda_confirmada' ? (
+                <p className="inline-flex items-center gap-1.5 text-sm text-amber-700 mt-1">
+                  <AlertTriangle size={14} />
+                  Nenhum comprovante anexado
+                </p>
+              ) : (
+                <p className="text-text-secondary text-sm">—</p>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -253,7 +318,13 @@ export default async function VendaDetalhePage({
 
       {/* Ações de status */}
       <div className="bg-surface rounded-lg border border-border p-4">
-        <BtnAtualizarStatusVenda vendaId={id} statusAtual={statusAtual} />
+        <BtnAtualizarStatusVenda
+          vendaId={id}
+          statusAtual={statusAtual}
+          pacienteId={v.paciente_id}
+          pacienteNome={v.pacientes?.nome || ''}
+          comprovanteAtual={comprovanteFileId ? { fileId: comprovanteFileId, fileUrl: v.comprovante_pagamento_google_drive_file_url ?? null, nome: comprovanteNome } : null}
+        />
       </div>
 
       {/* Produtos */}

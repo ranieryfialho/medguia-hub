@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { ShoppingCart, ChevronDown, ChevronUp, ExternalLink, Clock, XCircle } from 'lucide-react'
 import Link from 'next/link'
 import { formatAppDate } from '@/lib/datetime'
+import { TIPO_VENDA_LABEL } from '@/lib/vendas'
 
 const ORIGEM_CONFIG: Record<string, { label: string; cor: string; bg: string }> = {
   medico:    { label: 'Médico',    cor: 'text-blue-700',   bg: 'bg-blue-50' },
@@ -30,6 +31,7 @@ export type VendaTimeline = {
   id: string
   origem: string
   status?: string | null
+  tipo_venda?: string | null
   medico_referenciador_nome?: string | null
   data_venda: string
   observacoes?: string | null
@@ -76,6 +78,11 @@ export function CartaoVenda({ venda }: { venda: VendaTimeline }) {
                 <span className={`px-2 py-0.5 ${statusCfg.bg} ${statusCfg.cor} text-[10px] font-extrabold rounded uppercase tracking-wider`}>
                   {statusCfg.label}
                 </span>
+                {venda.tipo_venda && (
+                  <span className="px-2 py-0.5 bg-sky-50 text-sky-700 text-[10px] font-extrabold rounded uppercase tracking-wider">
+                    {TIPO_VENDA_LABEL[venda.tipo_venda] ?? venda.tipo_venda}
+                  </span>
+                )}
               </div>
               <span className="text-xs font-medium text-slate-500">
                 {formatAppDate(venda.data_venda, 'pt-BR', {

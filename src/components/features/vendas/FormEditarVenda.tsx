@@ -1,10 +1,11 @@
 'use client'
 
 import { editarVenda } from '@/actions/vendas'
+import { criarPastaPaciente } from '@/actions/google-drive'
 import { useActionState, useEffect, useState, startTransition, useRef, useTransition } from 'react'
-import { LoaderCircle, Plus, Trash2 } from 'lucide-react'
+import { LoaderCircle, Plus, Trash2, Upload, FileText, X, ExternalLink } from 'lucide-react'
 import { ComboboxPaciente } from '@/components/features/pacientes'
-import { FORMAS_PAGAMENTO } from '@/lib/vendas'
+import { FORMAS_PAGAMENTO, TIPO_VENDA } from '@/lib/vendas'
 import { createClient } from '@/lib/supabase/client'
 import { formatAppDateKey } from '@/lib/datetime'
 
@@ -42,6 +43,10 @@ interface VendaInicial {
   data_venda: string
   observacoes?: string | null
   status?: string | null
+  tipo_venda?: string | null
+  comprovante_pagamento_google_drive_file_id?: string | null
+  comprovante_pagamento_google_drive_file_url?: string | null
+  comprovante_pagamento_nome?: string | null
   pacientes?: {
     nome: string
   } | null
@@ -101,6 +106,19 @@ export function FormEditarVenda({
   const [statusVenda, setStatusVenda] = useState<'venda_confirmada' | 'orcamento_pendente' | 'orcamento_recusado'>(
     (vendaInicial.status as 'venda_confirmada' | 'orcamento_pendente' | 'orcamento_recusado') ?? 'venda_confirmada'
   )
+  const [tipoVenda, setTipoVenda] = useState(vendaInicial.tipo_venda ?? '')
+  const [comprovante, setComprovante] = useState<{ fileId: string; fileUrl: string | null; nome: string } | null>(
+    vendaInicial.comprovante_pagamento_google_drive_file_id
+      ? {
+          fileId: vendaInicial.comprovante_pagamento_google_drive_file_id,
+          fileUrl: vendaInicial.comprovante_pagamento_google_drive_file_url ?? null,
+          nome: vendaInicial.comprovante_pagamento_nome ?? 'Comprovante',
+        }
+      : null
+  )
+  const [uploadandoComprovante, setUploadandoComprovante] = useState(false)
+  const [erroComprovante, setErroComprovante] = useState('')
+  const comprovanteInputRef = useRef<HTMLInputElement>(null)
 
   const medicosFiltrados = buscaMedico.trim()
     ? medicos.filter((p) => p.nome.toLowerCase().includes(buscaMedico.toLowerCase()))
@@ -165,8 +183,54 @@ export function FormEditarVenda({
     })
   }, [])
 
+  const handleUploadComprovante = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !pacienteId) return
+    if (file.size > 50 * 1024 * 1024) {
+      setErroComprovante('Arquivo muito grande. Máximo 50MB.')
+      return
+    }
+    setErroComprovante('')
+    setUploadandoComprovante(true)
+    try {
+      const pasta = await criarPastaPaciente(pacienteId, pacienteNome)
+      if (!pasta.success) {
+        setErroComprovante(pasta.error ?? 'Erro ao preparar pasta no Drive.')
+        return
+      }
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('pacienteId', pacienteId)
+      const res = await fetch('/api/drive/upload', { method: 'POST', body: fd })
+      const json = await res.json()
+      if (!res.ok) {
+        setErroComprovante(json.error ?? 'Erro no upload do comprovante.')
+      } else {
+        setComprovante({ fileId: json.id, fileUrl: json.fileUrl ?? null, nome: json.nome ?? file.name })
+      }
+    } catch {
+      setErroComprovante('Erro ao enviar comprovante.')
+    } finally {
+      setUploadandoComprovante(false)
+      if (comprovanteInputRef.current) comprovanteInputRef.current.value = ''
+    }
+  }
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+
+    if (!tipoVenda) {
+      setErroLocal('Selecione o tipo de venda (Fisioterápica ou Médica).')
+      setOcultarErroSenhaAction(true)
+      return
+    }
+
+    if (statusVenda === 'venda_confirmada' && !comprovante) {
+      setErroLocal('Anexe o comprovante de pagamento para confirmar a venda.')
+      setOcultarErroSenhaAction(true)
+      return
+    }
+
     if (total === 0) {
       if (usuarioAtualId !== USUARIO_AUTORIZADO_VENDA_ZERADA) {
         setErroLocal('Apenas o usuário autorizado pode confirmar venda com valor zero.')
@@ -426,6 +490,77 @@ export function FormEditarVenda({
         </div>
       </div>
 
+      <div>
+        <label className="block text-sm font-medium text-text-primary mb-2">Tipo de Venda *</label>
+        <div className="grid grid-cols-2 gap-2">
+          {TIPO_VENDA.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setTipoVenda(opt.value)}
+              className={`p-2.5 rounded-lg border text-sm font-medium transition-colors ${
+                tipoVenda === opt.value
+                  ? 'border-primary-500 bg-primary-50 text-primary-700'
+                  : 'border-border hover:bg-page text-text-secondary'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-text-primary mb-2">
+          Comprovante de Pagamento {statusVenda === 'venda_confirmada' && <span className="text-red-500">*</span>}
+        </label>
+        {comprovante ? (
+          <div className="flex items-center justify-between gap-2 p-3 rounded-lg border border-border bg-page">
+            <div className="flex items-center gap-2 min-w-0">
+              <FileText size={16} className="text-primary-500 shrink-0" />
+              <span className="text-sm text-text-primary truncate">{comprovante.nome}</span>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              <a
+                href={`/api/drive/file/${comprovante.fileId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-1.5 text-text-secondary hover:text-primary-500 hover:bg-white rounded transition-colors"
+                title="Ver comprovante"
+              >
+                <ExternalLink size={14} />
+              </a>
+              <button
+                type="button"
+                onClick={() => setComprovante(null)}
+                className="p-1.5 text-text-secondary hover:text-red-500 hover:bg-white rounded transition-colors"
+                title="Remover"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            disabled={!pacienteId || uploadandoComprovante}
+            onClick={() => comprovanteInputRef.current?.click()}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-md border border-dashed border-border-input text-sm font-medium text-text-secondary hover:bg-page transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {uploadandoComprovante ? <LoaderCircle size={16} className="animate-spin" /> : <Upload size={16} />}
+            {uploadandoComprovante ? 'Enviando...' : 'Anexar comprovante'}
+          </button>
+        )}
+        <input
+          ref={comprovanteInputRef}
+          type="file"
+          accept="image/*,.pdf"
+          className="hidden"
+          onChange={handleUploadComprovante}
+        />
+        {erroComprovante && <p className="text-xs text-red-600 mt-1.5">{erroComprovante}</p>}
+      </div>
+
       {/* Produtos */}
       <div className="space-y-4 pt-4 border-t border-border">
         <h3 className="text-sm font-semibold text-text-primary">Produtos</h3>
@@ -583,6 +718,10 @@ export function FormEditarVenda({
       <input type="hidden" name="observacoes" value={observacoes} />
       <input type="hidden" name="itens_venda_json" value={JSON.stringify(itens)} />
       <input type="hidden" name="status" value={statusVenda} />
+      <input type="hidden" name="tipo_venda" value={tipoVenda} />
+      <input type="hidden" name="comprovante_pagamento_file_id" value={comprovante?.fileId ?? ''} />
+      <input type="hidden" name="comprovante_pagamento_url" value={comprovante?.fileUrl ?? ''} />
+      <input type="hidden" name="comprovante_pagamento_nome" value={comprovante?.nome ?? ''} />
 
       {/* Botões */}
       <div className="flex items-center justify-end gap-4 pt-4 border-t border-border">

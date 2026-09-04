@@ -4,7 +4,7 @@ import { Plus, Eye, Edit } from 'lucide-react'
 import { FiltrosVendas } from '@/components/features/vendas'
 import { BtnDeletarVenda } from '@/components/features/vendas'
 import { requireModulo } from '@/lib/guard'
-import { FORMA_PAGAMENTO_LABEL } from '@/lib/vendas'
+import { FORMA_PAGAMENTO_LABEL, TIPO_VENDA_LABEL } from '@/lib/vendas'
 import { formatAppDate, getAppDayRangeUTC } from '@/lib/datetime'
 
 const STATUS_BADGE: Record<string, { label: string; classes: string }> = {
@@ -25,6 +25,7 @@ const SELECT_VENDAS_BASE = `
   data_venda,
   observacoes,
   status,
+  tipo_venda,
   criado_em,
   itens_venda(produtos(nome))
 `
@@ -33,6 +34,22 @@ const SELECT_VENDAS_COM_PROTOCOLO = `
   ${SELECT_VENDAS_BASE},
   protocolo_id,
   protocolo_nome
+`
+
+const SELECT_VENDAS_SEM_TIPO = `
+  id,
+  paciente_id,
+  pacientes(nome),
+  profissional_id,
+  profiles:profissional_id(full_name),
+  origem,
+  forma_pagamento,
+  medico_referenciador_nome,
+  data_venda,
+  observacoes,
+  status,
+  criado_em,
+  itens_venda(produtos(nome))
 `
 
 function TagsItens({ itens }: { itens: { produtos: { nome: string } | null }[] }) {
@@ -159,7 +176,7 @@ export default async function VendasListPage({
     let query = aplicarBusca(buildQuery(SELECT_VENDAS_COM_PROTOCOLO))
     const tentativaComProtocolo = await query.range(offset, offset + limite - 1)
     let { data, count } = tentativaComProtocolo
-    const { error } = tentativaComProtocolo
+    let { error } = tentativaComProtocolo
 
     if (error && (error.message.includes('protocolo_id') || error.message.includes('protocolo_nome'))) {
       usarCamposProtocolo = false
@@ -167,12 +184,25 @@ export default async function VendasListPage({
       const fallback = await query.range(offset, offset + limite - 1)
       data = fallback.data
       count = fallback.count
+      error = fallback.error
+    }
+
+    let usarTipoVenda = true
+    if (error && error.message.includes('tipo_venda')) {
+      usarTipoVenda = false
+      query = aplicarBusca(buildQuery(SELECT_VENDAS_SEM_TIPO))
+      const fallback = await query.range(offset, offset + limite - 1)
+      data = fallback.data
+      count = fallback.count
     }
 
     const vendasData = (data ?? []) as any[]
-    vendas = usarCamposProtocolo
-      ? vendasData
-      : vendasData.map((venda) => ({ ...venda, protocolo_id: null, protocolo_nome: null }))
+    vendas = vendasData.map((venda) => ({
+      ...venda,
+      protocolo_id: usarCamposProtocolo ? venda.protocolo_id : null,
+      protocolo_nome: usarCamposProtocolo ? venda.protocolo_nome : null,
+      tipo_venda: usarTipoVenda ? venda.tipo_venda : null,
+    }))
     total = count ?? 0
   }
 
@@ -213,6 +243,7 @@ export default async function VendasListPage({
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Paciente</th>
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Profissional</th>
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Status</th>
+                <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Tipo</th>
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Origem</th>
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Pagamento</th>
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Referenciador</th>
@@ -223,7 +254,7 @@ export default async function VendasListPage({
             <tbody className="divide-y divide-border">
               {vendas.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-6 py-8 text-center text-sm text-text-secondary">
+                  <td colSpan={9} className="px-6 py-8 text-center text-sm text-text-secondary">
                     {busca ? `Nenhuma venda encontrada para "${busca}".` : 'Nenhuma venda encontrada.'}
                   </td>
                 </tr>
@@ -255,6 +286,15 @@ export default async function VendasListPage({
                           </span>
                         )
                       })()}
+                    </td>
+                    <td className="px-6 py-4">
+                      {venda.tipo_venda ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-50 text-sky-700">
+                          {TIPO_VENDA_LABEL[venda.tipo_venda] ?? venda.tipo_venda}
+                        </span>
+                      ) : (
+                        <span className="text-text-secondary text-sm">—</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-sm text-text-secondary capitalize">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-page text-text-primary">
@@ -344,6 +384,11 @@ export default async function VendasListPage({
                                 ? 'Renovação'
                                 : 'Campanha'}
                       </span>
+                      {venda.tipo_venda && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-sky-50 text-sky-700">
+                          {TIPO_VENDA_LABEL[venda.tipo_venda] ?? venda.tipo_venda}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <p className="text-xs text-text-secondary">{dataFormatada}</p>

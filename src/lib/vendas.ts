@@ -22,3 +22,14 @@ export const FORMAS_PAGAMENTO = [
 export const FORMA_PAGAMENTO_LABEL: Record<string, string> = Object.fromEntries(
   FORMAS_PAGAMENTO.map((forma) => [forma.value, forma.label]),
 )
+
+export const TIPO_VENDA = [
+  { value: 'fisioterapica', label: 'Fisioterápica' },
+  { value: 'medica', label: 'Médica' },
+] as const
+
+export type TipoVenda = (typeof TIPO_VENDA)[number]['value']
+
+export const TIPO_VENDA_LABEL: Record<string, string> = Object.fromEntries(
+  TIPO_VENDA.map((tipo) => [tipo.value, tipo.label]),
+)

@@ -120,6 +120,7 @@ export default async function PacienteDetailsPage({
         id,
         origem,
         status,
+        tipo_venda,
         medico_referenciador_nome,
         data_venda,
         observacoes,

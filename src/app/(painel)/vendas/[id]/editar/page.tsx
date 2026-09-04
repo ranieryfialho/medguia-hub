@@ -22,6 +22,10 @@ interface VendaRow {
   data_venda: string
   observacoes?: string | null
   status?: string | null
+  tipo_venda?: string | null
+  comprovante_pagamento_google_drive_file_id?: string | null
+  comprovante_pagamento_google_drive_file_url?: string | null
+  comprovante_pagamento_nome?: string | null
   pacientes?: {
     nome: string
   } | null
@@ -50,6 +54,10 @@ const SELECT_VENDA_EDITAR_BASE = `
   data_venda,
   observacoes,
   status,
+  tipo_venda,
+  comprovante_pagamento_google_drive_file_id,
+  comprovante_pagamento_google_drive_file_url,
+  comprovante_pagamento_nome,
   pacientes(nome)
 `
 
@@ -86,6 +94,34 @@ export default async function EditarVendaPage({
       .single()
 
     venda = fallback.data ? { ...fallback.data, protocolo_id: null, protocolo_nome: null } : fallback.data
+  }
+
+  if (
+    vendaError && (
+      vendaError.message.includes('tipo_venda') ||
+      vendaError.message.includes('comprovante_pagamento')
+    )
+  ) {
+    const fallback = await supabase
+      .from('vendas')
+      .select(`
+        id, paciente_id, profissional_id, origem, forma_pagamento,
+        medico_referenciador_nome, data_venda, observacoes, status, pacientes(nome)
+      `)
+      .eq('id', id)
+      .single()
+
+    venda = fallback.data
+      ? {
+          ...fallback.data,
+          protocolo_id: null,
+          protocolo_nome: null,
+          tipo_venda: null,
+          comprovante_pagamento_google_drive_file_id: null,
+          comprovante_pagamento_google_drive_file_url: null,
+          comprovante_pagamento_nome: null,
+        }
+      : fallback.data
   }
 
   // Carregar itens da venda
@@ -149,6 +185,10 @@ export default async function EditarVendaPage({
     data_venda: venda.data_venda,
     observacoes: venda.observacoes,
     status: (venda as any).status ?? 'venda_confirmada',
+    tipo_venda: (venda as { tipo_venda?: string | null }).tipo_venda ?? null,
+    comprovante_pagamento_google_drive_file_id: (venda as { comprovante_pagamento_google_drive_file_id?: string | null }).comprovante_pagamento_google_drive_file_id ?? null,
+    comprovante_pagamento_google_drive_file_url: (venda as { comprovante_pagamento_google_drive_file_url?: string | null }).comprovante_pagamento_google_drive_file_url ?? null,
+    comprovante_pagamento_nome: (venda as { comprovante_pagamento_nome?: string | null }).comprovante_pagamento_nome ?? null,
     pacientes: firstRelation(venda.pacientes as VendaRow['pacientes'] | VendaRow['pacientes'][]),
   }
 

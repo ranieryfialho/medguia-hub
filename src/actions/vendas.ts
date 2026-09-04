@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { FORMAS_PAGAMENTO, STATUS_VENDA } from '@/lib/vendas'
+import { FORMAS_PAGAMENTO, STATUS_VENDA, TIPO_VENDA } from '@/lib/vendas'
 import { formatAppDateKey, getAppDayRangeUTC, parseAppDate } from '@/lib/datetime'
 
 const USUARIO_AUTORIZADO_VENDA_ZERADA = '46581234-19dd-4e7d-904d-db0357fa2219'
@@ -95,6 +95,24 @@ function statusValido(value: string) {
   return STATUS_VENDA.some((s) => s.value === value)
 }
 
+function tipoVendaValido(value: string) {
+  return TIPO_VENDA.some((t) => t.value === value)
+}
+
+interface ComprovanteVendaForm {
+  file_id: string | null
+  file_url: string | null
+  nome: string | null
+}
+
+function lerComprovanteDoFormData(formData: FormData): ComprovanteVendaForm {
+  return {
+    file_id: ((formData.get('comprovante_pagamento_file_id') as string) || '').trim() || null,
+    file_url: ((formData.get('comprovante_pagamento_url') as string) || '').trim() || null,
+    nome: ((formData.get('comprovante_pagamento_nome') as string) || '').trim() || null,
+  }
+}
+
 function isMissingColumnError(message: string | undefined, columns: string[]) {
   const normalized = (message || '').toLowerCase()
   return columns.some((column) => normalized.includes(column.toLowerCase()))
@@ -143,6 +161,8 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
   const objecao_motivo_id = ((formData.get('objecao_motivo_id') as string) || '').trim() || null
   const objecao_motivo_nome = ((formData.get('objecao_motivo_nome') as string) || '').trim() || null
   const objecao_observacao = ((formData.get('objecao_observacao') as string) || '').trim() || null
+  const tipo_venda = ((formData.get('tipo_venda') as string) || '').trim() || null
+  const comprovante = lerComprovanteDoFormData(formData)
 
   if (!paciente_id || !origem || !forma_pagamento) {
     return { error: 'Paciente, origem e forma de pagamento são obrigatórios.' }
@@ -150,6 +170,14 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
 
   if (!formaPagamentoValida(forma_pagamento)) {
     return { error: 'Forma de pagamento inválida.' }
+  }
+
+  if (!tipo_venda || !tipoVendaValido(tipo_venda)) {
+    return { error: 'Tipo de venda (Fisioterápica ou Médica) é obrigatório.' }
+  }
+
+  if (status === 'venda_confirmada' && !comprovante.file_id) {
+    return { error: 'Comprovante de pagamento é obrigatório para vendas confirmadas.' }
   }
 
   if (origem === 'medico' && !medico_referenciador_id?.trim()) {
@@ -229,6 +257,10 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
     objecao_motivo_id: status === 'orcamento_pendente' ? objecao_motivo_id : null,
     objecao_motivo_nome: status === 'orcamento_pendente' ? objecao_motivo_nome : null,
     objecao_observacao: status === 'orcamento_pendente' ? objecao_observacao : null,
+    tipo_venda,
+    comprovante_pagamento_google_drive_file_id: comprovante.file_id,
+    comprovante_pagamento_google_drive_file_url: comprovante.file_url,
+    comprovante_pagamento_nome: comprovante.nome,
   }
 
   // Inserir venda
@@ -271,6 +303,31 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
 
     vendaInserida = tentativaSemObjecao.data
     erroVenda = tentativaSemObjecao.error
+  }
+
+  if (erroVenda && isMissingColumnError(erroVenda.message, [
+    'tipo_venda',
+    'comprovante_pagamento_google_drive_file_id',
+    'comprovante_pagamento_google_drive_file_url',
+    'comprovante_pagamento_nome',
+  ])) {
+    const {
+      tipo_venda, comprovante_pagamento_google_drive_file_id,
+      comprovante_pagamento_google_drive_file_url, comprovante_pagamento_nome,
+      ...dadosSemComprovante
+    } = dadosVenda
+    void tipo_venda
+    void comprovante_pagamento_google_drive_file_id
+    void comprovante_pagamento_google_drive_file_url
+    void comprovante_pagamento_nome
+    const tentativaSemComprovante = await supabase
+      .from('vendas')
+      .insert(dadosSemComprovante)
+      .select('id')
+      .single()
+
+    vendaInserida = tentativaSemComprovante.data
+    erroVenda = tentativaSemComprovante.error
   }
 
   if (erroVenda && (await isCheckConstraintError(erroVenda.message))) {
@@ -320,6 +377,8 @@ export async function editarVenda(_prevState: unknown, formData: FormData) {
   const itensJson = formData.get('itens_venda_json') as string
   const statusRaw = (formData.get('status') as string) || 'venda_confirmada'
   const status = statusValido(statusRaw) ? statusRaw : 'venda_confirmada'
+  const tipo_venda = ((formData.get('tipo_venda') as string) || '').trim() || null
+  const comprovante = lerComprovanteDoFormData(formData)
 
   if (!paciente_id || !origem || !forma_pagamento) {
     return { error: 'Paciente, origem e forma de pagamento são obrigatórios.' }
@@ -327,6 +386,14 @@ export async function editarVenda(_prevState: unknown, formData: FormData) {
 
   if (!formaPagamentoValida(forma_pagamento)) {
     return { error: 'Forma de pagamento inválida.' }
+  }
+
+  if (!tipo_venda || !tipoVendaValido(tipo_venda)) {
+    return { error: 'Tipo de venda (Fisioterápica ou Médica) é obrigatório.' }
+  }
+
+  if (status === 'venda_confirmada' && !comprovante.file_id) {
+    return { error: 'Comprovante de pagamento é obrigatório para vendas confirmadas.' }
   }
 
   if (origem === 'medico' && !medico_referenciador_id?.trim()) {
@@ -399,6 +466,10 @@ export async function editarVenda(_prevState: unknown, formData: FormData) {
     protocolo_id,
     protocolo_nome,
     status,
+    tipo_venda,
+    comprovante_pagamento_google_drive_file_id: comprovante.file_id,
+    comprovante_pagamento_google_drive_file_url: comprovante.file_url,
+    comprovante_pagamento_nome: comprovante.nome,
     atualizado_em: new Date().toISOString(),
   }
 
@@ -422,6 +493,29 @@ export async function editarVenda(_prevState: unknown, formData: FormData) {
       .eq('id', id)
 
     erroVenda = tentativaSemProtocolo.error
+  }
+
+  if (erroVenda && isMissingColumnError(erroVenda.message, [
+    'tipo_venda',
+    'comprovante_pagamento_google_drive_file_id',
+    'comprovante_pagamento_google_drive_file_url',
+    'comprovante_pagamento_nome',
+  ])) {
+    const {
+      tipo_venda, comprovante_pagamento_google_drive_file_id,
+      comprovante_pagamento_google_drive_file_url, comprovante_pagamento_nome,
+      ...dadosSemComprovante
+    } = dadosVenda
+    void tipo_venda
+    void comprovante_pagamento_google_drive_file_id
+    void comprovante_pagamento_google_drive_file_url
+    void comprovante_pagamento_nome
+    const tentativaSemComprovante = await supabase
+      .from('vendas')
+      .update(dadosSemComprovante)
+      .eq('id', id)
+
+    erroVenda = tentativaSemComprovante.error
   }
 
   if (erroVenda && (await isCheckConstraintError(erroVenda.message))) {
@@ -581,17 +675,51 @@ export async function listarVendas(filtros: FiltrosVendas = {}) {
   return { vendas, total: count || 0, error: null }
 }
 
-export async function atualizarStatusVenda(id: string, novoStatus: string, motivoRecusa?: string) {
+interface ComprovanteVendaInput {
+  fileId: string
+  fileUrl: string | null
+  nome: string | null
+}
+
+export async function atualizarStatusVenda(
+  id: string,
+  novoStatus: string,
+  motivoRecusa?: string,
+  comprovante?: ComprovanteVendaInput,
+) {
   if (!statusValido(novoStatus)) {
     return { error: 'Status inválido.' }
   }
 
   const supabase = await createClient()
 
+  if (novoStatus === 'venda_confirmada' && !comprovante?.fileId) {
+    const { data: vendaAtual, error: erroVendaAtual } = await supabase
+      .from('vendas')
+      .select('comprovante_pagamento_google_drive_file_id')
+      .eq('id', id)
+      .maybeSingle()
+
+    const jaTemComprovante = !erroVendaAtual && !!vendaAtual?.comprovante_pagamento_google_drive_file_id
+
+    if (!jaTemComprovante) {
+      return {
+        error: 'Comprovante de pagamento é obrigatório para confirmar a venda.',
+        needsComprovante: true,
+      }
+    }
+  }
+
   const campos: Record<string, unknown> = {
     status: novoStatus,
     atualizado_em: new Date().toISOString(),
     motivo_recusa: novoStatus === 'orcamento_recusado' ? (motivoRecusa?.trim() || null) : null,
+  }
+
+  if (comprovante?.fileId) {
+    campos.comprovante_pagamento_google_drive_file_id = comprovante.fileId
+    campos.comprovante_pagamento_google_drive_file_url = comprovante.fileUrl ?? null
+    campos.comprovante_pagamento_nome = comprovante.nome ?? null
   }
 
   const { error } = await supabase
