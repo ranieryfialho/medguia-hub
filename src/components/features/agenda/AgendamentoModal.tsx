@@ -26,6 +26,7 @@ import { adicionarSessaoReposicao, criarAtendimentoReagendado, obterProximaData,
 import { format } from 'date-fns'
 import { formatAppDateLabel, formatAppTime } from '@/lib/datetime'
 import { getAtendimentoStatusKey, TRANSICOES_VALIDAS, getPreRequisitoTransicao } from '@/lib/atendimento-status'
+import AvatarPaciente from '@/components/features/pacientes/AvatarPaciente'
 import { ProntuarioEvolucao } from '../prontuarios'
 import { ModalSessaoReposicao } from '../shared'
 import { ConfirmacaoFaltaModal } from './AgendamentoItem'
@@ -138,7 +139,12 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
   const motivoValido = !!motivoCategoria && (!categoriaSelecionada?.exige_observacao || motivoObservacao.trim().length > 0)
   const isConcluido = getAtendimentoStatusKey(status) === 'concluido'
   const nomePaciente = agendamento.pacientes?.nome || 'Paciente'
-  const inicial = nomePaciente.charAt(0).toUpperCase()
+  /** A query da agenda seleciona `foto_drive_file_id`/`foto_atualizada_em`, mas
+   * `AgendamentoDetalhe['pacientes']` (compartilhado com telas que não pedem
+   * esses campos) ainda não os declara — por isso o cast local (AC-104). */
+  const pacienteComFoto = agendamento.pacientes as
+    | { foto_drive_file_id?: string | null; foto_atualizada_em?: string | null }
+    | null
   const dataObj = new Date(agendamento.data_agendamento)
   const detalhesExtras = detalhesPorAgendamento[agendamento.id] ?? null
   const telefone = detalhesExtras?.telefone ?? agendamento.pacientes?.telefone
@@ -408,9 +414,14 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
             style={{ paddingTop: 'calc(20px + env(safe-area-inset-top, 0px))' }}
           >
             <div className="flex items-start gap-3 sm:gap-4">
-              <div className="h-12 w-12 shrink-0 rounded-full bg-[#006b5a] flex items-center justify-center text-xl sm:h-14 sm:w-14 sm:text-2xl font-bold text-white">
-                {inicial}
-              </div>
+              <AvatarPaciente
+                nome={nomePaciente}
+                fotoDriveFileId={pacienteComFoto?.foto_drive_file_id}
+                fotoAtualizadaEm={pacienteComFoto?.foto_atualizada_em}
+                size="lg"
+                ampliavel
+                priority
+              />
               <div className="min-w-0 flex-1">
                 <h3 className="truncate text-lg sm:text-xl font-bold text-[#083142]">{nomePaciente}</h3>
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] sm:text-xs font-semibold text-[#3d4945]">
