@@ -5,3 +5,4 @@ export { FiltrosVendas } from './FiltrosVendas';
 export { BtnDeletarVenda } from './BtnDeletarVenda';
 export { BtnAtualizarStatusVenda } from './BtnAtualizarStatusVenda';
 export { ComprovanteVendaPreview } from './ComprovanteVendaPreview';
+export { UploadComprovantesVenda } from './UploadComprovantesVenda';

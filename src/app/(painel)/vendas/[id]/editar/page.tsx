@@ -23,6 +23,7 @@ interface VendaRow {
   observacoes?: string | null
   status?: string | null
   tipo_venda?: string | null
+  comprovantes_pagamento?: unknown
   comprovante_pagamento_google_drive_file_id?: string | null
   comprovante_pagamento_google_drive_file_url?: string | null
   comprovante_pagamento_nome?: string | null
@@ -67,6 +68,13 @@ const SELECT_VENDA_EDITAR_COM_PROTOCOLO = `
   protocolo_nome
 `
 
+// Lista de múltiplos comprovantes: coluna nova, pode não existir em ambientes
+// onde a migração ainda não rodou.
+const SELECT_VENDA_EDITAR_COMPLETO = `
+  ${SELECT_VENDA_EDITAR_COM_PROTOCOLO},
+  comprovantes_pagamento
+`
+
 export default async function EditarVendaPage({
   params,
 }: {
@@ -78,13 +86,25 @@ export default async function EditarVendaPage({
   const { id } = await params
 
   // Carregar dados da venda
-  const { data: vendaComProtocolo, error: vendaError } = await supabase
+  const consultaCompleta = await supabase
     .from('vendas')
-    .select(SELECT_VENDA_EDITAR_COM_PROTOCOLO)
+    .select(SELECT_VENDA_EDITAR_COMPLETO)
     .eq('id', id)
     .single()
 
-  let venda = vendaComProtocolo
+  let venda: any = consultaCompleta.data
+  let vendaError = consultaCompleta.error
+
+  if (vendaError?.message.includes('comprovantes_pagamento')) {
+    const semLista = await supabase
+      .from('vendas')
+      .select(SELECT_VENDA_EDITAR_COM_PROTOCOLO)
+      .eq('id', id)
+      .single()
+
+    venda = semLista.data
+    vendaError = semLista.error
+  }
 
   if (vendaError && (vendaError.message.includes('protocolo_id') || vendaError.message.includes('protocolo_nome'))) {
     const fallback = await supabase
@@ -186,6 +206,7 @@ export default async function EditarVendaPage({
     observacoes: venda.observacoes,
     status: (venda as any).status ?? 'venda_confirmada',
     tipo_venda: (venda as { tipo_venda?: string | null }).tipo_venda ?? null,
+    comprovantes_pagamento: (venda as { comprovantes_pagamento?: unknown }).comprovantes_pagamento ?? null,
     comprovante_pagamento_google_drive_file_id: (venda as { comprovante_pagamento_google_drive_file_id?: string | null }).comprovante_pagamento_google_drive_file_id ?? null,
     comprovante_pagamento_google_drive_file_url: (venda as { comprovante_pagamento_google_drive_file_url?: string | null }).comprovante_pagamento_google_drive_file_url ?? null,
     comprovante_pagamento_nome: (venda as { comprovante_pagamento_nome?: string | null }).comprovante_pagamento_nome ?? null,

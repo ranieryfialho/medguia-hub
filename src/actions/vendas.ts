@@ -4,6 +4,13 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { FORMAS_PAGAMENTO, STATUS_VENDA, TIPO_VENDA } from '@/lib/vendas'
+import {
+  MAX_COMPROVANTES_VENDA,
+  parseComprovantesJson,
+  parseComprovantesVenda,
+  serializarComprovantes,
+  type ComprovanteVenda,
+} from '@/lib/comprovantes-venda'
 import { formatAppDateKey, getAppDayRangeUTC, parseAppDate } from '@/lib/datetime'
 
 const USUARIO_AUTORIZADO_VENDA_ZERADA = '46581234-19dd-4e7d-904d-db0357fa2219'
@@ -99,17 +106,72 @@ function tipoVendaValido(value: string) {
   return TIPO_VENDA.some((t) => t.value === value)
 }
 
-interface ComprovanteVendaForm {
-  file_id: string | null
-  file_url: string | null
-  nome: string | null
+// Lê a lista de comprovantes do formulário. `comprovantes_pagamento_json` é o
+// formato atual (múltiplos arquivos); os campos únicos continuam sendo aceitos
+// para não quebrar formulários que ainda não foram atualizados.
+function lerComprovantesDoFormData(formData: FormData): ComprovanteVenda[] {
+  const lista = parseComprovantesJson(formData.get('comprovantes_pagamento_json') as string | null)
+  if (lista.length > 0) return lista
+
+  const fileId = ((formData.get('comprovante_pagamento_file_id') as string) || '').trim()
+  if (!fileId) return []
+
+  return [{
+    fileId,
+    fileUrl: ((formData.get('comprovante_pagamento_url') as string) || '').trim() || null,
+    nome: ((formData.get('comprovante_pagamento_nome') as string) || '').trim() || 'Comprovante',
+  }]
 }
 
-function lerComprovanteDoFormData(formData: FormData): ComprovanteVendaForm {
+const COLUNAS_COMPROVANTE = [
+  'comprovantes_pagamento',
+  'comprovante_pagamento_google_drive_file_id',
+  'comprovante_pagamento_google_drive_file_url',
+  'comprovante_pagamento_nome',
+]
+
+const COLUNAS_COMPROVANTE_LEGADO = COLUNAS_COMPROVANTE.slice(1)
+
+type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
+
+// Lê os comprovantes já anexados à venda, com fallback nas colunas escalares
+// para ambientes onde a migração do JSONB ainda não rodou.
+async function lerComprovantesAtuais(supabase: SupabaseServerClient, id: string): Promise<ComprovanteVenda[]> {
+  const comLista = await supabase
+    .from('vendas')
+    .select(COLUNAS_COMPROVANTE.join(', '))
+    .eq('id', id)
+    .maybeSingle()
+
+  if (!comLista.error) {
+    return parseComprovantesVenda(comLista.data as VendaComprovantesRow | null)
+  }
+
+  const legado = await supabase
+    .from('vendas')
+    .select(COLUNAS_COMPROVANTE_LEGADO.join(', '))
+    .eq('id', id)
+    .maybeSingle()
+
+  return parseComprovantesVenda(legado.data as VendaComprovantesRow | null)
+}
+
+interface VendaComprovantesRow {
+  comprovantes_pagamento?: unknown
+  comprovante_pagamento_google_drive_file_id?: string | null
+  comprovante_pagamento_google_drive_file_url?: string | null
+  comprovante_pagamento_nome?: string | null
+}
+
+// As colunas escalares espelham o primeiro comprovante — é delas que a listagem
+// e os relatórios ainda leem.
+function camposComprovantes(comprovantes: ComprovanteVenda[]) {
+  const primeiro = comprovantes[0] ?? null
   return {
-    file_id: ((formData.get('comprovante_pagamento_file_id') as string) || '').trim() || null,
-    file_url: ((formData.get('comprovante_pagamento_url') as string) || '').trim() || null,
-    nome: ((formData.get('comprovante_pagamento_nome') as string) || '').trim() || null,
+    comprovantes_pagamento: comprovantes.length > 0 ? serializarComprovantes(comprovantes) : null,
+    comprovante_pagamento_google_drive_file_id: primeiro?.fileId ?? null,
+    comprovante_pagamento_google_drive_file_url: primeiro?.fileUrl ?? null,
+    comprovante_pagamento_nome: primeiro?.nome ?? null,
   }
 }
 
@@ -162,7 +224,7 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
   const objecao_motivo_nome = ((formData.get('objecao_motivo_nome') as string) || '').trim() || null
   const objecao_observacao = ((formData.get('objecao_observacao') as string) || '').trim() || null
   const tipo_venda = ((formData.get('tipo_venda') as string) || '').trim() || null
-  const comprovante = lerComprovanteDoFormData(formData)
+  const comprovantes = lerComprovantesDoFormData(formData)
 
   if (!paciente_id || !origem || !forma_pagamento) {
     return { error: 'Paciente, origem e forma de pagamento são obrigatórios.' }
@@ -176,8 +238,12 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
     return { error: 'Tipo de venda (Fisioterápica ou Médica) é obrigatório.' }
   }
 
-  if (status === 'venda_confirmada' && !comprovante.file_id) {
+  if (status === 'venda_confirmada' && comprovantes.length === 0) {
     return { error: 'Comprovante de pagamento é obrigatório para vendas confirmadas.' }
+  }
+
+  if (comprovantes.length > MAX_COMPROVANTES_VENDA) {
+    return { error: `Máximo de ${MAX_COMPROVANTES_VENDA} comprovantes por venda.` }
   }
 
   if (origem === 'medico' && !medico_referenciador_id?.trim()) {
@@ -258,9 +324,7 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
     objecao_motivo_nome: status === 'orcamento_pendente' ? objecao_motivo_nome : null,
     objecao_observacao: status === 'orcamento_pendente' ? objecao_observacao : null,
     tipo_venda,
-    comprovante_pagamento_google_drive_file_id: comprovante.file_id,
-    comprovante_pagamento_google_drive_file_url: comprovante.file_url,
-    comprovante_pagamento_nome: comprovante.nome,
+    ...camposComprovantes(comprovantes),
   }
 
   // Inserir venda
@@ -305,18 +369,29 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
     erroVenda = tentativaSemObjecao.error
   }
 
-  if (erroVenda && isMissingColumnError(erroVenda.message, [
-    'tipo_venda',
-    'comprovante_pagamento_google_drive_file_id',
-    'comprovante_pagamento_google_drive_file_url',
-    'comprovante_pagamento_nome',
-  ])) {
+  // Ambiente sem a migração de múltiplos comprovantes: grava só o primeiro,
+  // nas colunas escalares antigas.
+  if (erroVenda && isMissingColumnError(erroVenda.message, ['comprovantes_pagamento'])) {
+    const { comprovantes_pagamento, ...dadosSemLista } = dadosVenda
+    void comprovantes_pagamento
+    const tentativaSemLista = await supabase
+      .from('vendas')
+      .insert(dadosSemLista)
+      .select('id')
+      .single()
+
+    vendaInserida = tentativaSemLista.data
+    erroVenda = tentativaSemLista.error
+  }
+
+  if (erroVenda && isMissingColumnError(erroVenda.message, ['tipo_venda', ...COLUNAS_COMPROVANTE])) {
     const {
-      tipo_venda, comprovante_pagamento_google_drive_file_id,
+      tipo_venda, comprovantes_pagamento, comprovante_pagamento_google_drive_file_id,
       comprovante_pagamento_google_drive_file_url, comprovante_pagamento_nome,
       ...dadosSemComprovante
     } = dadosVenda
     void tipo_venda
+    void comprovantes_pagamento
     void comprovante_pagamento_google_drive_file_id
     void comprovante_pagamento_google_drive_file_url
     void comprovante_pagamento_nome
@@ -378,7 +453,7 @@ export async function editarVenda(_prevState: unknown, formData: FormData) {
   const statusRaw = (formData.get('status') as string) || 'venda_confirmada'
   const status = statusValido(statusRaw) ? statusRaw : 'venda_confirmada'
   const tipo_venda = ((formData.get('tipo_venda') as string) || '').trim() || null
-  const comprovante = lerComprovanteDoFormData(formData)
+  const comprovantes = lerComprovantesDoFormData(formData)
 
   if (!paciente_id || !origem || !forma_pagamento) {
     return { error: 'Paciente, origem e forma de pagamento são obrigatórios.' }
@@ -392,8 +467,12 @@ export async function editarVenda(_prevState: unknown, formData: FormData) {
     return { error: 'Tipo de venda (Fisioterápica ou Médica) é obrigatório.' }
   }
 
-  if (status === 'venda_confirmada' && !comprovante.file_id) {
+  if (status === 'venda_confirmada' && comprovantes.length === 0) {
     return { error: 'Comprovante de pagamento é obrigatório para vendas confirmadas.' }
+  }
+
+  if (comprovantes.length > MAX_COMPROVANTES_VENDA) {
+    return { error: `Máximo de ${MAX_COMPROVANTES_VENDA} comprovantes por venda.` }
   }
 
   if (origem === 'medico' && !medico_referenciador_id?.trim()) {
@@ -467,9 +546,7 @@ export async function editarVenda(_prevState: unknown, formData: FormData) {
     protocolo_nome,
     status,
     tipo_venda,
-    comprovante_pagamento_google_drive_file_id: comprovante.file_id,
-    comprovante_pagamento_google_drive_file_url: comprovante.file_url,
-    comprovante_pagamento_nome: comprovante.nome,
+    ...camposComprovantes(comprovantes),
     atualizado_em: new Date().toISOString(),
   }
 
@@ -495,18 +572,27 @@ export async function editarVenda(_prevState: unknown, formData: FormData) {
     erroVenda = tentativaSemProtocolo.error
   }
 
-  if (erroVenda && isMissingColumnError(erroVenda.message, [
-    'tipo_venda',
-    'comprovante_pagamento_google_drive_file_id',
-    'comprovante_pagamento_google_drive_file_url',
-    'comprovante_pagamento_nome',
-  ])) {
+  // Ambiente sem a migração de múltiplos comprovantes: grava só o primeiro,
+  // nas colunas escalares antigas.
+  if (erroVenda && isMissingColumnError(erroVenda.message, ['comprovantes_pagamento'])) {
+    const { comprovantes_pagamento, ...dadosSemLista } = dadosVenda
+    void comprovantes_pagamento
+    const tentativaSemLista = await supabase
+      .from('vendas')
+      .update(dadosSemLista)
+      .eq('id', id)
+
+    erroVenda = tentativaSemLista.error
+  }
+
+  if (erroVenda && isMissingColumnError(erroVenda.message, ['tipo_venda', ...COLUNAS_COMPROVANTE])) {
     const {
-      tipo_venda, comprovante_pagamento_google_drive_file_id,
+      tipo_venda, comprovantes_pagamento, comprovante_pagamento_google_drive_file_id,
       comprovante_pagamento_google_drive_file_url, comprovante_pagamento_nome,
       ...dadosSemComprovante
     } = dadosVenda
     void tipo_venda
+    void comprovantes_pagamento
     void comprovante_pagamento_google_drive_file_id
     void comprovante_pagamento_google_drive_file_url
     void comprovante_pagamento_nome
@@ -685,7 +771,7 @@ export async function atualizarStatusVenda(
   id: string,
   novoStatus: string,
   motivoRecusa?: string,
-  comprovante?: ComprovanteVendaInput,
+  novosComprovantes?: ComprovanteVendaInput[],
 ) {
   if (!statusValido(novoStatus)) {
     return { error: 'Status inválido.' }
@@ -693,21 +779,16 @@ export async function atualizarStatusVenda(
 
   const supabase = await createClient()
 
-  if (novoStatus === 'venda_confirmada' && !comprovante?.fileId) {
-    const { data: vendaAtual, error: erroVendaAtual } = await supabase
-      .from('vendas')
-      .select('comprovante_pagamento_google_drive_file_id')
-      .eq('id', id)
-      .maybeSingle()
+  const anexados: ComprovanteVenda[] = (novosComprovantes ?? [])
+    .filter((c) => c?.fileId?.trim())
+    .map((c) => ({
+      fileId: c.fileId.trim(),
+      fileUrl: c.fileUrl?.trim() || null,
+      nome: c.nome?.trim() || 'Comprovante',
+    }))
 
-    const jaTemComprovante = !erroVendaAtual && !!vendaAtual?.comprovante_pagamento_google_drive_file_id
-
-    if (!jaTemComprovante) {
-      return {
-        error: 'Comprovante de pagamento é obrigatório para confirmar a venda.',
-        needsComprovante: true,
-      }
-    }
+  if (anexados.length > MAX_COMPROVANTES_VENDA) {
+    return { error: `Máximo de ${MAX_COMPROVANTES_VENDA} comprovantes por venda.` }
   }
 
   const campos: Record<string, unknown> = {
@@ -716,16 +797,37 @@ export async function atualizarStatusVenda(
     motivo_recusa: novoStatus === 'orcamento_recusado' ? (motivoRecusa?.trim() || null) : null,
   }
 
-  if (comprovante?.fileId) {
-    campos.comprovante_pagamento_google_drive_file_id = comprovante.fileId
-    campos.comprovante_pagamento_google_drive_file_url = comprovante.fileUrl ?? null
-    campos.comprovante_pagamento_nome = comprovante.nome ?? null
+  // Os novos comprovantes são acrescentados aos que a venda já tem, nunca
+  // substituem — por isso a leitura do estado atual antes do update.
+  if (anexados.length > 0 || novoStatus === 'venda_confirmada') {
+    const atuais = await lerComprovantesAtuais(supabase, id)
+
+    const idsAtuais = new Set(atuais.map((c) => c.fileId))
+    const lista = [...atuais, ...anexados.filter((c) => !idsAtuais.has(c.fileId))]
+      .slice(0, MAX_COMPROVANTES_VENDA)
+
+    if (novoStatus === 'venda_confirmada' && lista.length === 0) {
+      return {
+        error: 'Comprovante de pagamento é obrigatório para confirmar a venda.',
+        needsComprovante: true,
+      }
+    }
+
+    if (anexados.length > 0) {
+      Object.assign(campos, camposComprovantes(lista))
+    }
   }
 
-  const { error } = await supabase
+  let { error } = await supabase
     .from('vendas')
     .update(campos)
     .eq('id', id)
+
+  if (error && isMissingColumnError(error.message, ['comprovantes_pagamento'])) {
+    const { comprovantes_pagamento, ...camposSemLista } = campos
+    void comprovantes_pagamento
+    error = (await supabase.from('vendas').update(camposSemLista).eq('id', id)).error
+  }
 
   if (error) {
     return { error: `Erro ao atualizar status: ${error.message}` }

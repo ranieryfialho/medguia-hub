@@ -1,10 +1,11 @@
 'use client'
 
 import { criarVenda } from '@/actions/vendas'
-import { criarPastaPaciente } from '@/actions/google-drive'
 import { useActionState, useEffect, useState, useRef, useTransition } from 'react'
-import { ChevronRight, ChevronLeft, LoaderCircle, Plus, Trash2, Layers, Upload, FileText, X, ExternalLink } from 'lucide-react'
+import { ChevronRight, ChevronLeft, LoaderCircle, Plus, Trash2, Layers } from 'lucide-react'
 import { ComboboxPaciente } from '@/components/features/pacientes'
+import { UploadComprovantesVenda } from './UploadComprovantesVenda'
+import { serializarComprovantes, type ComprovanteVenda } from '@/lib/comprovantes-venda'
 import { FORMAS_PAGAMENTO, TIPO_VENDA } from '@/lib/vendas'
 import { createClient } from '@/lib/supabase/client'
 import { formatAppDateKey } from '@/lib/datetime'
@@ -88,10 +89,7 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
   const [observacoes, setObservacoes] = useState('')
   const [statusVenda, setStatusVenda] = useState<'venda_confirmada' | 'orcamento_pendente'>('venda_confirmada')
   const [tipoVenda, setTipoVenda] = useState('')
-  const [comprovante, setComprovante] = useState<{ fileId: string; fileUrl: string | null; nome: string } | null>(null)
-  const [uploadandoComprovante, setUploadandoComprovante] = useState(false)
-  const [erroComprovante, setErroComprovante] = useState('')
-  const comprovanteInputRef = useRef<HTMLInputElement>(null)
+  const [comprovantes, setComprovantes] = useState<ComprovanteVenda[]>([])
 
   // Aba 2
   const [nome, setNome] = useState('')
@@ -146,39 +144,6 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
 
   const podeAvancar0 = !!pacienteId && (!!profissionalId || semProfissional)
   const podeAvancar1 = !!origem && !!formaPagamento && !!tipoVenda && (origem !== 'medico' || !!medicoReferenciadorId)
-
-  const handleUploadComprovante = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || !pacienteId) return
-    if (file.size > 50 * 1024 * 1024) {
-      setErroComprovante('Arquivo muito grande. Máximo 50MB.')
-      return
-    }
-    setErroComprovante('')
-    setUploadandoComprovante(true)
-    try {
-      const pasta = await criarPastaPaciente(pacienteId, pacienteNome)
-      if (!pasta.success) {
-        setErroComprovante(pasta.error ?? 'Erro ao preparar pasta no Drive.')
-        return
-      }
-      const fd = new FormData()
-      fd.append('file', file)
-      fd.append('pacienteId', pacienteId)
-      const res = await fetch('/api/drive/upload', { method: 'POST', body: fd })
-      const json = await res.json()
-      if (!res.ok) {
-        setErroComprovante(json.error ?? 'Erro no upload do comprovante.')
-      } else {
-        setComprovante({ fileId: json.id, fileUrl: json.fileUrl ?? null, nome: json.nome ?? file.name })
-      }
-    } catch {
-      setErroComprovante('Erro ao enviar comprovante.')
-    } finally {
-      setUploadandoComprovante(false)
-      if (comprovanteInputRef.current) comprovanteInputRef.current.value = ''
-    }
-  }
 
   const medicosFiltrados = buscaMedico.trim()
     ? medicos.filter((p) => p.nome.toLowerCase().includes(buscaMedico.toLowerCase()))
@@ -250,7 +215,7 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
       return
     }
 
-    if (!comprovante) {
+    if (comprovantes.length === 0) {
       setErroLocal('Anexe o comprovante de pagamento para confirmar a venda.')
       setOcultarErroSenhaAction(true)
       return
@@ -650,56 +615,15 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
 
             <div>
               <label className="block text-sm font-medium text-text-primary mb-2">
-                Comprovante de Pagamento {statusVenda === 'venda_confirmada' && <span className="text-red-500">*</span>}
+                Comprovantes de Pagamento {statusVenda === 'venda_confirmada' && <span className="text-red-500">*</span>}
               </label>
-              {comprovante ? (
-                <div className="flex items-center justify-between gap-2 p-3 rounded-lg border border-border bg-page">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <FileText size={16} className="text-primary-500 shrink-0" />
-                    <span className="text-sm text-text-primary truncate">{comprovante.nome}</span>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {comprovante.fileId && (
-                      <a
-                        href={`/api/drive/file/${comprovante.fileId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-1.5 text-text-secondary hover:text-primary-500 hover:bg-white rounded transition-colors"
-                        title="Ver comprovante"
-                      >
-                        <ExternalLink size={14} />
-                      </a>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setComprovante(null)}
-                      className="p-1.5 text-text-secondary hover:text-red-500 hover:bg-white rounded transition-colors"
-                      title="Remover"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  disabled={!pacienteId || uploadandoComprovante}
-                  onClick={() => comprovanteInputRef.current?.click()}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-md border border-dashed border-border-input text-sm font-medium text-text-secondary hover:bg-page transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {uploadandoComprovante ? <LoaderCircle size={16} className="animate-spin" /> : <Upload size={16} />}
-                  {uploadandoComprovante ? 'Enviando...' : 'Anexar comprovante'}
-                </button>
-              )}
-              <input
-                ref={comprovanteInputRef}
-                type="file"
-                accept="image/*,.pdf"
-                className="hidden"
-                onChange={handleUploadComprovante}
+              <UploadComprovantesVenda
+                pacienteId={pacienteId}
+                pacienteNome={pacienteNome}
+                comprovantes={comprovantes}
+                onChange={setComprovantes}
               />
-              {erroComprovante && <p className="text-xs text-red-600 mt-1.5">{erroComprovante}</p>}
-              {!pacienteId && !comprovante && (
+              {!pacienteId && comprovantes.length === 0 && (
                 <p className="text-xs text-text-secondary mt-1.5">Selecione o paciente na primeira etapa para anexar o comprovante.</p>
               )}
             </div>
@@ -970,9 +894,11 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
       <input type="hidden" name="itens_venda_json" value={JSON.stringify(itens)} />
       <input type="hidden" name="status" value={statusVenda} />
       <input type="hidden" name="tipo_venda" value={tipoVenda} />
-      <input type="hidden" name="comprovante_pagamento_file_id" value={comprovante?.fileId ?? ''} />
-      <input type="hidden" name="comprovante_pagamento_url" value={comprovante?.fileUrl ?? ''} />
-      <input type="hidden" name="comprovante_pagamento_nome" value={comprovante?.nome ?? ''} />
+      <input
+        type="hidden"
+        name="comprovantes_pagamento_json"
+        value={JSON.stringify(serializarComprovantes(comprovantes))}
+      />
       <input type="hidden" name="objecao_motivo_id" value={objecaoMotivoId} />
       <input type="hidden" name="objecao_motivo_nome" value={objecaoSelecionada?.nome ?? ''} />
       <input type="hidden" name="objecao_observacao" value={objecaoObservacao} />

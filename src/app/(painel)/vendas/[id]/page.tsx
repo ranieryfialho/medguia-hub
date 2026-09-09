@@ -4,6 +4,7 @@ import { ArrowLeft, Edit, AlertTriangle } from 'lucide-react'
 import { BtnDeletarVenda, BtnAtualizarStatusVenda, ComprovanteVendaPreview } from '@/components/features/vendas'
 import { requireModulo } from '@/lib/guard'
 import { FORMA_PAGAMENTO_LABEL, STATUS_VENDA_LABEL, TIPO_VENDA_LABEL } from '@/lib/vendas'
+import { parseComprovantesVenda } from '@/lib/comprovantes-venda'
 import { formatAppDate } from '@/lib/datetime'
 
 const STATUS_BADGE: Record<string, { classes: string }> = {
@@ -41,6 +42,13 @@ const SELECT_VENDA_COM_PROTOCOLO = `
   objecao_observacao
 `
 
+// Lista de múltiplos comprovantes: coluna nova, pode não existir em ambientes
+// onde a migração ainda não rodou.
+const SELECT_VENDA_COMPLETO = `
+  ${SELECT_VENDA_COM_PROTOCOLO},
+  comprovantes_pagamento
+`
+
 export default async function VendaDetalhePage({
   params,
 }: {
@@ -51,13 +59,25 @@ export default async function VendaDetalhePage({
   const supabase = await createClient()
   const { id } = await params
 
-  const { data: vendaComProtocolo, error: vendaError } = await supabase
+  const consultaCompleta = await supabase
     .from('vendas')
-    .select(SELECT_VENDA_COM_PROTOCOLO)
+    .select(SELECT_VENDA_COMPLETO)
     .eq('id', id)
     .single()
 
-  let venda = vendaComProtocolo
+  let venda: any = consultaCompleta.data
+  let vendaError = consultaCompleta.error
+
+  if (vendaError?.message.includes('comprovantes_pagamento')) {
+    const semLista = await supabase
+      .from('vendas')
+      .select(SELECT_VENDA_COM_PROTOCOLO)
+      .eq('id', id)
+      .single()
+
+    venda = semLista.data
+    vendaError = semLista.error
+  }
 
   if (vendaError && (
     vendaError.message.includes('protocolo_id') ||
@@ -164,8 +184,7 @@ export default async function VendaDetalhePage({
   const tituloPage = isOrcamento ? 'Detalhes do Orçamento' : 'Detalhes da Venda'
   const protocoloNome = (venda as { protocolo_nome?: string | null }).protocolo_nome ?? null
   const tipoVenda = (v.tipo_venda ?? null) as string | null
-  const comprovanteFileId = (v.comprovante_pagamento_google_drive_file_id ?? null) as string | null
-  const comprovanteNome = (v.comprovante_pagamento_nome ?? null) as string | null
+  const comprovantes = parseComprovantesVenda(v)
 
   return (
     <div className="space-y-6">
@@ -269,13 +288,20 @@ export default async function VendaDetalhePage({
               <p className="text-text-primary">{dataFormatada}</p>
             </div>
             <div>
-              <p className="text-xs text-text-secondary uppercase">Comprovante de Pagamento</p>
-              {comprovanteFileId ? (
-                <ComprovanteVendaPreview
-                  fileId={comprovanteFileId}
-                  nome={comprovanteNome || 'Comprovante'}
-                  fileUrl={v.comprovante_pagamento_google_drive_file_url ?? null}
-                />
+              <p className="text-xs text-text-secondary uppercase">
+                {comprovantes.length > 1 ? `Comprovantes de Pagamento (${comprovantes.length})` : 'Comprovante de Pagamento'}
+              </p>
+              {comprovantes.length > 0 ? (
+                <div className="space-y-1">
+                  {comprovantes.map((comprovante) => (
+                    <ComprovanteVendaPreview
+                      key={comprovante.fileId}
+                      fileId={comprovante.fileId}
+                      nome={comprovante.nome}
+                      fileUrl={comprovante.fileUrl}
+                    />
+                  ))}
+                </div>
               ) : statusAtual === 'venda_confirmada' ? (
                 <p className="inline-flex items-center gap-1.5 text-sm text-amber-700 mt-1">
                   <AlertTriangle size={14} />
@@ -319,7 +345,7 @@ export default async function VendaDetalhePage({
           statusAtual={statusAtual}
           pacienteId={v.paciente_id}
           pacienteNome={v.pacientes?.nome || ''}
-          comprovanteAtual={comprovanteFileId ? { fileId: comprovanteFileId, fileUrl: v.comprovante_pagamento_google_drive_file_url ?? null, nome: comprovanteNome } : null}
+          comprovantesAtuais={comprovantes}
         />
       </div>
 
