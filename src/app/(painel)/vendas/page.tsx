@@ -29,7 +29,7 @@ const SELECT_VENDAS_BASE = `
   comprovante_pagamento_google_drive_file_id,
   comprovante_pagamento_nome,
   criado_em,
-  itens_venda(produtos(nome))
+  itens_venda(quantidade, preco_unitario, produtos(nome))
 `
 
 const SELECT_VENDAS_COM_PROTOCOLO = `
@@ -51,8 +51,12 @@ const SELECT_VENDAS_SEM_TIPO = `
   observacoes,
   status,
   criado_em,
-  itens_venda(produtos(nome))
+  itens_venda(quantidade, preco_unitario, produtos(nome))
 `
+
+function formatarValor(v: number) {
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
 
 function TagsItens({ itens }: { itens: { produtos: { nome: string } | null }[] }) {
   if (!itens?.length) return null
@@ -248,6 +252,7 @@ export default async function VendasListPage({
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Tipo da Venda</th>
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Origem</th>
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Pagamento</th>
+                <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase text-right">Valor</th>
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Referenciador</th>
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase">Data</th>
                 <th className="px-6 py-3 text-xs font-semibold text-text-secondary uppercase text-right">Ações</th>
@@ -256,13 +261,17 @@ export default async function VendasListPage({
             <tbody className="divide-y divide-border">
               {vendas.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-6 py-8 text-center text-sm text-text-secondary">
+                  <td colSpan={10} className="px-6 py-8 text-center text-sm text-text-secondary">
                     {busca ? `Nenhuma venda encontrada para "${busca}".` : 'Nenhuma venda encontrada.'}
                   </td>
                 </tr>
               )}
               {vendas.map((venda: any) => {
                 const dataFormatada = formatAppDate(venda.data_venda)
+                const valorTotal = (venda.itens_venda ?? []).reduce(
+                  (sum: number, item: any) => sum + item.quantidade * item.preco_unitario,
+                  0
+                )
 
                 return (
                   <tr key={venda.id} className="hover:bg-page/50 transition-colors">
@@ -314,6 +323,9 @@ export default async function VendasListPage({
                     <td className="px-6 py-4 text-sm text-text-secondary">
                       {FORMA_PAGAMENTO_LABEL[venda.forma_pagamento] || '—'}
                     </td>
+                    <td className="px-6 py-4 text-sm font-semibold text-text-primary text-right">
+                      {formatarValor(valorTotal)}
+                    </td>
                     <td className="px-6 py-4 text-sm text-text-secondary">{venda.medico_referenciador_nome || '—'}</td>
                     <td className="px-6 py-4 text-sm text-text-secondary">{dataFormatada}</td>
                     <td className="px-6 py-4 text-right">
@@ -362,12 +374,17 @@ export default async function VendasListPage({
           ) : (
             vendas.map((venda: any) => {
               const dataFormatada = formatAppDate(venda.data_venda)
+              const valorTotal = (venda.itens_venda ?? []).reduce(
+                (sum: number, item: any) => sum + item.quantidade * item.preco_unitario,
+                0
+              )
 
               return (
                 <div key={venda.id} className="p-4 space-y-2">
                   <div className="flex items-start justify-between">
                     <div>
                       <p className="font-medium text-text-primary">{venda.pacientes?.nome}</p>
+                      <p className="text-sm font-semibold text-emerald-700 mt-0.5">{formatarValor(valorTotal)}</p>
                       {venda.protocolo_nome && (
                         <p className="text-[11px] text-violet-700 font-medium mt-1">
                           Protocolo: {venda.protocolo_nome}
