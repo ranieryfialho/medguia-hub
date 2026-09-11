@@ -11,7 +11,7 @@ import { FiltrosCards } from './FiltrosCards'
 import { Suspense } from 'react'
 
 const TELA = 'confirmacoes_cards'
-const FILTRO_KEYS = ['ordem', 'busca', 'profissional', 'tipo', 'contato', 'periodo'] as const
+const FILTRO_KEYS = ['ordem', 'busca', 'profissional', 'categoria', 'tipo', 'contato', 'periodo'] as const
 
 type Periodo = {
   dataInicio: string
@@ -31,7 +31,7 @@ type AtendimentoRow = {
   total_sessoes: number | null
   contato_confirmacao: string | null
   paciente: { id: string; nome: string; telefone: string; email: string | null } | null
-  profissional: { id: string; full_name: string } | null
+  profissional: { id: string; full_name: string; role: string | null } | null
 }
 
 function periodoParaContatar(): { periodos: Periodo[]; isSexta: boolean } {
@@ -146,6 +146,7 @@ export default async function CardsPage({
 
   const buscaFiltro = (typeof params.busca === 'string' ? params.busca : '').trim().toLowerCase()
   const profissionalFiltro = typeof params.profissional === 'string' ? params.profissional : ''
+  const categoriaFiltro = typeof params.categoria === 'string' ? params.categoria : ''
   const tipoFiltro = typeof params.tipo === 'string' ? params.tipo : ''
   const contatoFiltro = typeof params.contato === 'string' ? params.contato : ''
   const periodoFiltro = typeof params.periodo === 'string' ? params.periodo : ''
@@ -164,7 +165,7 @@ export default async function CardsPage({
       total_sessoes,
       contato_confirmacao,
       paciente:pacientes(id, nome, telefone, email),
-      profissional:profiles!profissional_id(id, full_name)
+      profissional:profiles!profissional_id(id, full_name, role)
     `)
     .eq('status', 'Aguardando')
     .or(
@@ -206,6 +207,8 @@ export default async function CardsPage({
     if (!a.paciente) return false
     if (buscaFiltro && !a.paciente.nome.toLowerCase().includes(buscaFiltro)) return false
     if (profissionalFiltro && a.profissional?.id !== profissionalFiltro) return false
+    if (categoriaFiltro === 'fisioterapia' && a.profissional?.role !== 'fisioterapeuta') return false
+    if (categoriaFiltro === 'medicos' && a.profissional?.role !== 'medico') return false
     if (tipoFiltro && a.tipo !== tipoFiltro) return false
     return true
   })
@@ -329,7 +332,7 @@ export default async function CardsPage({
         <div className="text-center py-12 bg-white rounded-xl border border-slate-100 shadow-sm">
           <PhoneCall size={48} className="mx-auto text-slate-300 mb-4" />
           <p className="text-slate-500 font-medium">
-            {buscaFiltro || profissionalFiltro || tipoFiltro || contatoFiltro || periodoFiltro
+            {buscaFiltro || profissionalFiltro || categoriaFiltro || tipoFiltro || contatoFiltro || periodoFiltro
               ? 'Nenhuma confirmação encontrada para os filtros aplicados'
               : 'Nenhuma confirmação pendente'}
           </p>

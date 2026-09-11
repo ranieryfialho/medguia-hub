@@ -20,6 +20,11 @@ const OPCOES_CONTATO: Opcao[] = [
   { valor: 'nao_atendeu', label: 'Não atendeu' },
 ]
 
+const OPCOES_CATEGORIA: Opcao[] = [
+  { valor: 'fisioterapia', label: 'Fisioterapia' },
+  { valor: 'medicos', label: 'Médicos' },
+]
+
 export function FiltrosCards({ opcoesProfissionais, opcoesTipos, opcoesPeriodo }: FiltrosCardsProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -27,6 +32,7 @@ export function FiltrosCards({ opcoesProfissionais, opcoesTipos, opcoesPeriodo }
 
   const buscaAtual = searchParams.get('busca') || ''
   const profissionalAtual = searchParams.get('profissional') || ''
+  const categoriaAtual = searchParams.get('categoria') || ''
   const tipoAtual = searchParams.get('tipo') || ''
   const contatoAtual = searchParams.get('contato') || ''
   const periodoAtual = searchParams.get('periodo') || ''
@@ -60,7 +66,7 @@ export function FiltrosCards({ opcoesProfissionais, opcoesTipos, opcoesPeriodo }
     void salvarPreferenciaTela(TELA, {}).catch(() => {})
   }
 
-  const temFiltros = !!(buscaAtual || profissionalAtual || tipoAtual || contatoAtual || periodoAtual)
+  const temFiltros = !!(buscaAtual || profissionalAtual || categoriaAtual || tipoAtual || contatoAtual || periodoAtual)
 
   return (
     <div className="bg-white/80 backdrop-blur-md p-4 rounded-xl shadow-sm border border-slate-100 flex flex-wrap items-center gap-3">
@@ -73,6 +79,30 @@ export function FiltrosCards({ opcoesProfissionais, opcoesTipos, opcoesPeriodo }
           placeholder="Buscar paciente..."
           className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#006b5a]"
         />
+      </div>
+
+      <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg p-1">
+        <button
+          type="button"
+          onClick={() => atualizar({ categoria: '' })}
+          className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors ${
+            !categoriaAtual ? 'bg-[#006b5a] text-white' : 'text-slate-500 hover:text-[#006b5a]'
+          }`}
+        >
+          Todos
+        </button>
+        {OPCOES_CATEGORIA.map((c) => (
+          <button
+            key={c.valor}
+            type="button"
+            onClick={() => atualizar({ categoria: c.valor })}
+            className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors whitespace-nowrap ${
+              categoriaAtual === c.valor ? 'bg-[#006b5a] text-white' : 'text-slate-500 hover:text-[#006b5a]'
+            }`}
+          >
+            {c.label}
+          </button>
+        ))}
       </div>
 
       {opcoesProfissionais.length > 0 && (
