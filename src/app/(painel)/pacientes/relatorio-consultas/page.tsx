@@ -47,7 +47,7 @@ type AtendimentoResumo = {
   data_agendamento: string
   marcou_retorno?: boolean | null
   profissional?: { full_name: string | null } | Array<{ full_name: string | null }> | null
-  pacientes?: { nome: string | null; telefone: string | null; email: string | null; origem: string | null } | Array<{ nome: string | null; telefone: string | null; email: string | null; origem: string | null }> | null
+  pacientes?: { nome: string | null; telefone: string | null; email: string | null; origem: string | null; indicado_por: string | null } | Array<{ nome: string | null; telefone: string | null; email: string | null; origem: string | null; indicado_por: string | null }> | null
 }
 
 type MetricaTipo = {
@@ -102,6 +102,23 @@ function normalizarTipo(tipo: string | null | undefined) {
 function normalizarPlanoSaude(plano: string | null | undefined) {
   const texto = (plano ?? '').trim()
   return texto || 'Não informado'
+}
+
+function ehOrigemMedico(origem: string) {
+  const n = origem.toLowerCase()
+  return n.includes('médico') || n.includes('medico')
+}
+
+function normalizarNomeMedico(nome: string | null | undefined): string {
+  if (!nome?.trim()) return ''
+  const semPrefixo = nome.trim().replace(/^(Dra?\.?\s+)/i, '').trim()
+  return semPrefixo.toLowerCase().replace(/(?:^|\s)\S/g, c => c.toUpperCase())
+}
+
+function medicoParceiroDetalhamento(origem: string, indicadoPor: string | null | undefined): string | null {
+  const nome = normalizarNomeMedico(indicadoPor)
+  if (nome && ehOrigemMedico(origem)) return `Dr(a). ${nome}`
+  return null
 }
 
 function firstRelation<T>(value: T | T[] | null | undefined): T | null {
@@ -293,7 +310,7 @@ export default async function RelatorioConsultasPage({
       data_agendamento,
       marcou_retorno,
       profissional:profiles!profissional_id(full_name),
-      pacientes(nome, telefone, email, origem)
+      pacientes(nome, telefone, email, origem, indicado_por)
     `)
     .gte('data_agendamento', dataInicioIso)
     .lte('data_agendamento', dataFimIso)
@@ -466,6 +483,7 @@ export default async function RelatorioConsultasPage({
       dataAvaliacao: atendimento.data_agendamento,
       contato,
       origem: paciente?.origem?.trim() || 'Sem origem',
+      medicoParceiroNome: medicoParceiroDetalhamento(paciente?.origem?.trim() || 'Sem origem', paciente?.indicado_por),
       marcouRetorno: isRetorno(atendimento),
       realizado: isStatusFabril(atendimento.status),
     }
@@ -712,6 +730,8 @@ export default async function RelatorioConsultasPage({
                 profissionalNome: consulta.profissionalNome,
                 dataAvaliacao: `${formatAppDate(consulta.dataAvaliacao)} ${formatAppTime(consulta.dataAvaliacao)}`,
                 contato: consulta.contato,
+                origem: consulta.origem,
+                medicoParceiroNome: consulta.medicoParceiroNome,
               }))}
             />
           )}
@@ -1169,7 +1189,12 @@ export default async function RelatorioConsultasPage({
                     {`${formatAppDate(consulta.dataAvaliacao)} ${formatAppTime(consulta.dataAvaliacao)}`}
                   </td>
                   <td className="px-4 py-3 text-slate-700">{consulta.contato}</td>
-                  <td className="px-4 py-3 text-slate-700">{consulta.origem}</td>
+                  <td className="px-4 py-3 text-slate-700">
+                    {consulta.origem}
+                    {consulta.medicoParceiroNome && (
+                      <span className="block text-xs text-slate-400">{consulta.medicoParceiroNome}</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

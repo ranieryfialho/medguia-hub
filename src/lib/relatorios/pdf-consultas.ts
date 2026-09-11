@@ -33,6 +33,8 @@ export type PdfDetalheConsulta = {
   profissionalNome: string
   dataAvaliacao: string
   contato: string
+  origem: string
+  medicoParceiroNome?: string | null
 }
 
 export type PdfRetornoConsulta = {
@@ -300,26 +302,55 @@ function desenharPaginaRetornos(doc: jsPDF, retornos: PdfRetornoConsulta[]) {
 }
 
 function desenharPaginaDetalhamento(doc: jsPDF, detalhamento: PdfDetalheConsulta[]) {
-  let y = desenharCabecalhoInterno(doc, 'Detalhamento das Consultas', 'Paciente, tipo, responsável, data e contato')
-  const headers = ['Paciente', 'Tipo', 'Responsável', 'Data', 'Contato']
-  const widths = [54, 30, 36, 28, 28]
+  let y = desenharCabecalhoInterno(doc, 'Detalhamento das Consultas', 'Paciente, tipo, responsável, data, contato e origem')
+  const headers = ['Paciente', 'Tipo', 'Responsável', 'Data', 'Contato', 'Origem']
+  const widths = [46, 24, 32, 26, 24, 26]
   y = desenharLinhaTabela(doc, y + 4, headers, widths, true)
 
   for (const consulta of detalhamento) {
-    if (y > PAGE_HEIGHT - 20) {
+    if (y > PAGE_HEIGHT - 24) {
       doc.addPage()
       y = desenharCabecalhoInterno(doc, 'Detalhamento das Consultas', 'Continuação')
       y = desenharLinhaTabela(doc, y + 4, headers, widths, true)
     }
 
-    y = desenharLinhaTabela(doc, y, [
-      consulta.pacienteNome,
-      consulta.tipo,
-      consulta.profissionalNome,
-      consulta.dataAvaliacao,
-      consulta.contato,
-    ], widths)
+    y = desenharLinhaDetalhamento(doc, y, consulta, widths)
   }
+}
+
+function desenharLinhaDetalhamento(doc: jsPDF, y: number, consulta: PdfDetalheConsulta, widths: number[]) {
+  const temMedicoParceiro = !!consulta.medicoParceiroNome
+  const height = temMedicoParceiro ? 12 : 8
+  let x = MARGIN_X
+
+  doc.setDrawColor(...LINE)
+  doc.setTextColor(...TEXT)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8)
+
+  const cols = [consulta.pacienteNome, consulta.tipo, consulta.profissionalNome, consulta.dataAvaliacao, consulta.contato]
+  cols.forEach((col, index) => {
+    const width = widths[index]
+    doc.rect(x, y, width, height, 'S')
+    doc.text(String(col), x + 2, y + 5.2, { maxWidth: width - 4 })
+    x += width
+  })
+
+  const origemWidth = widths[5]
+  doc.rect(x, y, origemWidth, height, 'S')
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8)
+  doc.setTextColor(...TEXT)
+  doc.text(consulta.origem, x + 2, y + 5.2, { maxWidth: origemWidth - 4 })
+
+  if (temMedicoParceiro) {
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(6.5)
+    doc.setTextColor(...MUTED)
+    doc.text(consulta.medicoParceiroNome as string, x + 2, y + 9.8, { maxWidth: origemWidth - 4 })
+  }
+
+  return y + height
 }
 
 function desenharCabecalhoInterno(doc: jsPDF, titulo: string, subtitulo: string) {
