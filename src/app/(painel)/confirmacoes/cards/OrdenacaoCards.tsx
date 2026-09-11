@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { ArrowDownAZ, ArrowUpDown, Clock } from 'lucide-react'
+import { salvarPreferenciaTela } from '@/actions/preferencias'
 
 export type OrdemCards = 'data_asc' | 'data_desc' | 'nome_asc'
 
-const STORAGE_KEY = 'confirmacoes_cards_ordem'
+const TELA = 'confirmacoes_cards'
 
 const OPCOES: { valor: OrdemCards; label: string; Icon: React.ElementType; title: string }[] = [
   { valor: 'data_asc',  label: 'Horário ↑', title: 'Ordenar por horário crescente', Icon: Clock },
@@ -19,23 +19,11 @@ export function OrdenacaoCards({ ordemAtual }: { ordemAtual: OrdemCards }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  useEffect(() => {
-    if (searchParams.get('ordem')) return
-    try {
-      const salva = localStorage.getItem(STORAGE_KEY) as OrdemCards | null
-      if (salva && salva !== 'data_asc') {
-        const params = new URLSearchParams(searchParams.toString())
-        params.set('ordem', salva)
-        router.replace(`${pathname}?${params.toString()}`)
-      }
-    } catch {}
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
   function mudarOrdem(valor: OrdemCards) {
-    try { localStorage.setItem(STORAGE_KEY, valor) } catch {}
     const params = new URLSearchParams(searchParams.toString())
     params.set('ordem', valor)
     router.replace(`${pathname}?${params.toString()}`)
+    void salvarPreferenciaTela(TELA, Object.fromEntries(params.entries())).catch(() => {})
   }
 
   return (

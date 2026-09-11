@@ -5,6 +5,7 @@ import {
   User,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import {
   format, startOfWeek, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths,
@@ -26,6 +27,7 @@ import { buildMapaMensalPorProfissional, resolverJornadaDoDia } from '@/lib/jorn
 import { podeEntrarNaAgendaOuRelatorio } from '@/lib/profissionais'
 import { ehStatusPersonalizado } from '@/lib/status-disponibilidade-regras'
 import { requireModulo } from '@/lib/guard'
+import { obterPreferenciaTela, salvarPreferenciaTela } from '@/actions/preferencias'
 import { podeGerirEquipe, isGestorSistema } from '@/lib/permissoes'
 import {
   getAtendimentoStatusKey,
@@ -130,12 +132,38 @@ export default async function AgendaPage({ searchParams }: PageProps) {
   const podeVerComercial = isGestorSistema(profile?.nivel_acesso)
 
   const params = await searchParams
+
+  if (params.clear_status_filters === 'true') {
+    await salvarPreferenciaTela('agenda', {})
+  } else if (params.status === undefined && params.profissional === undefined) {
+    const salvo = await obterPreferenciaTela<{ status?: string[]; profissional?: string }>('agenda')
+    const temStatusSalvo = !!salvo?.status && salvo.status.length > 0
+    const temProfissionalSalvo = !!salvo?.profissional
+    if (temStatusSalvo || temProfissionalSalvo) {
+      const qs = new URLSearchParams()
+      for (const [key, value] of Object.entries(params)) {
+        if (value === undefined) continue
+        if (Array.isArray(value)) {
+          for (const item of value) qs.append(key, item)
+        } else {
+          qs.set(key, value)
+        }
+      }
+      if (temStatusSalvo) {
+        for (const status of salvo!.status!) qs.append('status', status)
+      }
+      if (temProfissionalSalvo) {
+        qs.set('profissional', salvo!.profissional!)
+      }
+      redirect(`/agenda?${qs.toString()}`)
+    }
+  }
+
   const view = typeof params.view === 'string' ? params.view : 'dia'
   const dataParam = typeof params.data === 'string' ? params.data : undefined
   const myAppointmentsOnly = params.meus === 'true'
   const profissionalSelecionado = typeof params.profissional === 'string' ? params.profissional : ''
   const horarioSelecionado = typeof params.horario === 'string' ? params.horario.slice(0, 5) : ''
-  const clearPersistedStatuses = params.clear_status_filters === 'true'
   const statusParams = Array.isArray(params.status)
     ? params.status
     : typeof params.status === 'string'
@@ -658,10 +686,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
           <div className="flex-shrink-0 bg-white rounded-2xl border border-[#bcc9c4]/30 px-3 py-3 shadow-sm">
               <form method="get" className="flex flex-col gap-3">
                 <AgendaFiltrosAutoSubmit
-                  initialStatuses={statusSelecionados}
                   allStatuses={ALL_STATUS_FILTER_VALUES}
-                  initialProfessional={profissionalSelecionado}
-                  clearPersistedStatuses={clearPersistedStatuses}
                 />
                 <input type="hidden" name="view" value={view} />
                 <input type="hidden" name="data" value={dataString} />

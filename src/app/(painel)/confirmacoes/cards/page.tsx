@@ -3,9 +3,15 @@ import { CardConfirmacaoPaciente } from '@/components/features/pacientes'
 import { buildSessaoEfetivaMap } from '@/lib/sessoes'
 import { PhoneCall, CalendarDays } from 'lucide-react'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { requireModulo } from '@/lib/guard'
+import { obterPreferenciaTela } from '@/actions/preferencias'
 import { OrdenacaoCards, type OrdemCards } from './OrdenacaoCards'
+import { FiltrosCards } from './FiltrosCards'
 import { Suspense } from 'react'
+
+const TELA = 'confirmacoes_cards'
+const FILTRO_KEYS = ['ordem', 'busca', 'profissional', 'tipo', 'contato', 'periodo'] as const
 
 type Periodo = {
   dataInicio: string
@@ -25,7 +31,7 @@ type AtendimentoRow = {
   total_sessoes: number | null
   contato_confirmacao: string | null
   paciente: { id: string; nome: string; telefone: string; email: string | null } | null
-  profissional: { full_name: string } | null
+  profissional: { id: string; full_name: string } | null
 }
 
 function periodoParaContatar(): { periodos: Periodo[]; isSexta: boolean } {
@@ -113,20 +119,41 @@ function periodoParaContatar(): { periodos: Periodo[]; isSexta: boolean } {
 export default async function CardsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ordem?: string }>
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
   await requireModulo('confirmacoes:cards')
 
-  const { ordem } = await searchParams
+  const params = await searchParams
+
+  const semFiltroExplicito = FILTRO_KEYS.every((key) => params[key] === undefined)
+  if (semFiltroExplicito) {
+    const salvo = await obterPreferenciaTela<Record<string, string>>(TELA)
+    if (salvo && Object.keys(salvo).length > 0) {
+      const qs = new URLSearchParams()
+      for (const [key, value] of Object.entries(salvo)) {
+        if (value) qs.set(key, value)
+      }
+      const qsString = qs.toString()
+      if (qsString) redirect(`/confirmacoes/cards?${qsString}`)
+    }
+  }
+
+  const ordem = typeof params.ordem === 'string' ? params.ordem : undefined
   const ordemAtual: OrdemCards =
     ordem === 'data_desc' ? 'data_desc'
     : ordem === 'nome_asc' ? 'nome_asc'
     : 'data_asc'
 
+  const buscaFiltro = (typeof params.busca === 'string' ? params.busca : '').trim().toLowerCase()
+  const profissionalFiltro = typeof params.profissional === 'string' ? params.profissional : ''
+  const tipoFiltro = typeof params.tipo === 'string' ? params.tipo : ''
+  const contatoFiltro = typeof params.contato === 'string' ? params.contato : ''
+  const periodoFiltro = typeof params.periodo === 'string' ? params.periodo : ''
+
   const supabase = await createClient()
   const { periodos, isSexta } = periodoParaContatar()
 
-  const { data: atendimentos } = await supabase
+  let atendimentosQuery = supabase
     .from('atendimentos')
     .select(`
       id,
@@ -137,19 +164,58 @@ export default async function CardsPage({
       total_sessoes,
       contato_confirmacao,
       paciente:pacientes(id, nome, telefone, email),
-      profissional:profiles!profissional_id(full_name)
+      profissional:profiles!profissional_id(id, full_name)
     `)
     .eq('status', 'Aguardando')
-    .or('contato_confirmacao.is.null,contato_confirmacao.eq.nao_atendeu')
     .or(
       periodos
         .map(p => `and(data_agendamento.gte.${p.dataInicio},data_agendamento.lte.${p.dataFim})`)
         .join(',')
     )
-    .order('data_agendamento', { ascending: ordemAtual !== 'data_desc' }) as { data: AtendimentoRow[] | null }
+    .order('data_agendamento', { ascending: ordemAtual !== 'data_desc' })
+
+  if (contatoFiltro === 'pendente') {
+    atendimentosQuery = atendimentosQuery.is('contato_confirmacao', null)
+  } else if (contatoFiltro === 'nao_atendeu') {
+    atendimentosQuery = atendimentosQuery.eq('contato_confirmacao', 'nao_atendeu')
+  } else {
+    atendimentosQuery = atendimentosQuery.or('contato_confirmacao.is.null,contato_confirmacao.eq.nao_atendeu')
+  }
+
+  const { data: atendimentos } = await atendimentosQuery as { data: AtendimentoRow[] | null }
+
+  const opcoesProfissionaisMap = new Map<string, string>()
+  const opcoesTiposSet = new Set<string>()
+  for (const a of atendimentos ?? []) {
+    if (a.profissional?.id && a.profissional.full_name) {
+      opcoesProfissionaisMap.set(a.profissional.id, a.profissional.full_name)
+    }
+    if (a.tipo) opcoesTiposSet.add(a.tipo)
+  }
+  const opcoesProfissionais = [...opcoesProfissionaisMap.entries()]
+    .map(([id, nome]) => ({ id, nome }))
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+  const opcoesTipos = [...opcoesTiposSet].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+  const NOME_PERIODO: Record<string, string> = { hoje: 'Hoje', amanha: 'Amanhã', segunda: 'Segunda' }
+  const opcoesPeriodo = periodos.map((p) => ({
+    valor: p.diaSemana,
+    label: `${NOME_PERIODO[p.diaSemana] ?? p.diaSemana} (${p.dataExibicao})`,
+  }))
+
+  const atendimentosFiltrados = (atendimentos ?? []).filter((a) => {
+    if (!a.paciente) return false
+    if (buscaFiltro && !a.paciente.nome.toLowerCase().includes(buscaFiltro)) return false
+    if (profissionalFiltro && a.profissional?.id !== profissionalFiltro) return false
+    if (tipoFiltro && a.tipo !== tipoFiltro) return false
+    return true
+  })
+
+  const periodosExibidos = periodoFiltro
+    ? periodos.filter((p) => p.diaSemana === periodoFiltro)
+    : periodos
 
   const agendamentoIds = [...new Set(
-    (atendimentos ?? [])
+    atendimentosFiltrados
       .filter(a => !!a.agendamento_id && (a.total_sessoes ?? 0) > 1)
       .map(a => a.agendamento_id) as string[]
   )]
@@ -165,8 +231,8 @@ export default async function CardsPage({
   }
 
   // Mapear pacientes e associar ao período correto
-  const pacientesPorPeriodo = periodos.map(periodo => {
-    const lista = (atendimentos ?? [])
+  const pacientesPorPeriodo = periodosExibidos.map(periodo => {
+    const lista = atendimentosFiltrados
       .filter(a => {
         if (!a.paciente) return false
         const dataAt = new Date(a.data_agendamento).getTime()
@@ -228,6 +294,15 @@ export default async function CardsPage({
         </div>
       </div>
 
+      {/* Filtros */}
+      <Suspense fallback={null}>
+        <FiltrosCards
+          opcoesProfissionais={opcoesProfissionais}
+          opcoesTipos={opcoesTipos}
+          opcoesPeriodo={opcoesPeriodo}
+        />
+      </Suspense>
+
       {/* Banner contextual */}
       {isSexta ? (
         <div className="bg-linear-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
@@ -253,7 +328,11 @@ export default async function CardsPage({
       {totalConsultas === 0 ? (
         <div className="text-center py-12 bg-white rounded-xl border border-slate-100 shadow-sm">
           <PhoneCall size={48} className="mx-auto text-slate-300 mb-4" />
-          <p className="text-slate-500 font-medium">Nenhuma confirmação pendente</p>
+          <p className="text-slate-500 font-medium">
+            {buscaFiltro || profissionalFiltro || tipoFiltro || contatoFiltro || periodoFiltro
+              ? 'Nenhuma confirmação encontrada para os filtros aplicados'
+              : 'Nenhuma confirmação pendente'}
+          </p>
           <p className="text-sm text-slate-400 mt-2">Todas as consultas previstas já foram contatadas</p>
         </div>
       ) : (
