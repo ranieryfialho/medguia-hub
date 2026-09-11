@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Plus, Eye, Edit, FileText } from 'lucide-react'
+import { Plus, Eye, Edit, FileText, Info } from 'lucide-react'
 import { FiltrosVendas } from '@/components/features/vendas'
 import { BtnDeletarVenda } from '@/components/features/vendas'
 import { requireModulo } from '@/lib/guard'
@@ -96,6 +96,34 @@ function TagsItens({ itens }: { itens: { produtos: { nome: string } | null }[] }
         </span>
       )}
     </div>
+  )
+}
+
+function PagamentoLabel({
+  formaPagamento,
+  pagamentos,
+}: {
+  formaPagamento: string
+  pagamentos?: { forma_pagamento: string; valor: number }[]
+}) {
+  if (formaPagamento !== 'hibrido' || !pagamentos || pagamentos.length === 0) {
+    return <>{FORMA_PAGAMENTO_LABEL[formaPagamento] || '—'}</>
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 group relative">
+      Híbrido
+      <Info size={13} className="text-text-secondary cursor-help shrink-0" />
+      <span className="hidden group-hover:block absolute z-20 bottom-full left-0 mb-1.5 w-56 p-2.5 rounded-md bg-slate-800 text-white text-xs shadow-lg whitespace-normal">
+        <span className="block font-semibold mb-1">Formas de pagamento</span>
+        {pagamentos.map((p, idx) => (
+          <span key={idx} className="flex items-center justify-between gap-2">
+            <span>{FORMA_PAGAMENTO_LABEL[p.forma_pagamento] || p.forma_pagamento}</span>
+            <span className="font-medium">{formatarValor(p.valor)}</span>
+          </span>
+        ))}
+      </span>
+    </span>
   )
 }
 
@@ -233,6 +261,23 @@ export default async function VendasListPage({
     total = count ?? 0
   }
 
+  // Só busca o detalhamento das vendas com resumo 'hibrido' — as demais
+  // exibem a própria forma de pagamento direto de `venda.forma_pagamento`.
+  const idsHibridos = vendas.filter((v) => v.forma_pagamento === 'hibrido').map((v) => v.id)
+  if (idsHibridos.length > 0) {
+    const { data: pagamentosRaw } = await supabase
+      .from('pagamentos_venda')
+      .select('venda_id, forma_pagamento, valor')
+      .in('venda_id', idsHibridos)
+
+    const pagamentosPorVenda: Record<string, { forma_pagamento: string; valor: number }[]> = {}
+    for (const p of pagamentosRaw || []) {
+      (pagamentosPorVenda[p.venda_id] ||= []).push({ forma_pagamento: p.forma_pagamento, valor: p.valor })
+    }
+
+    vendas = vendas.map((v) => ({ ...v, pagamentos: pagamentosPorVenda[v.id] }))
+  }
+
   const totalPaginas = Math.ceil(total / limite)
 
   return (
@@ -342,7 +387,7 @@ export default async function VendasListPage({
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-text-secondary">
-                      {FORMA_PAGAMENTO_LABEL[venda.forma_pagamento] || '—'}
+                      <PagamentoLabel formaPagamento={venda.forma_pagamento} pagamentos={venda.pagamentos} />
                     </td>
                     <td className="px-6 py-4 text-sm font-semibold text-text-primary text-right">
                       {formatarValor(valorTotal)}
@@ -444,7 +489,7 @@ export default async function VendasListPage({
                   </div>
                   <p className="text-xs text-text-secondary">{dataFormatada}</p>
                   <p className="text-xs text-text-secondary">
-                    {FORMA_PAGAMENTO_LABEL[venda.forma_pagamento] || 'Forma não informada'}
+                    <PagamentoLabel formaPagamento={venda.forma_pagamento} pagamentos={venda.pagamentos} />
                   </p>
                   {venda.medico_referenciador_nome && (
                     <p className="text-xs text-text-secondary">Dr. {venda.medico_referenciador_nome}</p>
