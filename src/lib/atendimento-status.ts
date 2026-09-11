@@ -7,18 +7,23 @@ export type AtendimentoStatusKey =
   | 'cancelado'
   | 'falta'
   | 'reagendado'
+  | 'aguardando_fisioterapeuta'
   | 'desconhecido'
 
 // Transições válidas por status atual
 export const TRANSICOES_VALIDAS: Record<Exclude<AtendimentoStatusKey, 'desconhecido'>, AtendimentoStatusKey[]> = {
-  aguardando:          ['confirmado', 'aguardando_consulta', 'cancelado', 'falta', 'reagendado'],
-  confirmado:          ['aguardando', 'aguardando_consulta', 'cancelado', 'falta', 'reagendado'],
-  aguardando_consulta: ['em_atendimento', 'cancelado', 'falta'],
-  em_atendimento:      ['concluido'],
-  concluido:           [],
-  cancelado:           [],
-  falta:               ['reagendado'],
-  reagendado:          [],
+  aguardando:                ['confirmado', 'aguardando_consulta', 'cancelado', 'falta', 'reagendado'],
+  confirmado:                ['aguardando', 'aguardando_consulta', 'cancelado', 'falta', 'reagendado'],
+  aguardando_consulta:       ['em_atendimento', 'cancelado', 'falta'],
+  em_atendimento:            ['concluido'],
+  concluido:                 [],
+  cancelado:                 [],
+  falta:                     ['reagendado'],
+  reagendado:                [],
+  // Pré-consulta de fisio criada sem profissional/horário ainda — só sai
+  // desse estado quando a recepção atribui o fisioterapeuta (vira
+  // "Aguardando", fluxo normal) ou cancela o encaminhamento.
+  aguardando_fisioterapeuta: ['aguardando', 'cancelado'],
 }
 
 // Retorna o status que precisa vir antes de `para`, dado o status atual
@@ -42,14 +47,15 @@ export const STATUS_PENDENTE_KEYS = [
 ] as const satisfies readonly Exclude<AtendimentoStatusKey, 'desconhecido'>[]
 
 const STATUS_LABELS: Record<Exclude<AtendimentoStatusKey, 'desconhecido'>, string> = {
-  confirmado:          'Confirmado',
-  aguardando:          'Aguardando',
-  aguardando_consulta: 'Aguardando Consulta',
-  em_atendimento:      'Em Atendimento',
-  concluido:           'Concluído',
-  cancelado:           'Cancelado',
-  falta:               'Falta',
-  reagendado:          'Reagendado',
+  confirmado:                'Confirmado',
+  aguardando:                'Aguardando',
+  aguardando_consulta:       'Aguardando Consulta',
+  em_atendimento:            'Em Atendimento',
+  concluido:                 'Concluído',
+  cancelado:                 'Cancelado',
+  falta:                     'Falta',
+  reagendado:                'Reagendado',
+  aguardando_fisioterapeuta: 'Aguardando Fisioterapeuta',
 }
 
 function lowerSafe(value: string | null | undefined) {
@@ -91,6 +97,8 @@ export function getAtendimentoStatusKey(value: string | null | undefined): Atend
       return 'reagendado'
     case 'reagendado':
       return 'reagendado'
+    case 'aguardando fisioterapeuta':
+      return 'aguardando_fisioterapeuta'
     default:
       return 'desconhecido'
   }
@@ -134,14 +142,15 @@ export function isStatusFabril(value: string | null | undefined) {
 }
 
 export const STATUS_RAW_VALUES_BY_KEY: Record<Exclude<AtendimentoStatusKey, 'desconhecido'>, string[]> = {
-  confirmado:          ['Confirmado', 'confirmado'],
-  aguardando:          ['Aguardando', 'aguardando'],
-  aguardando_consulta: ['Aguardando Consulta', 'aguardando consulta'],
-  em_atendimento:      ['Em Atendimento', 'em atendimento'],
-  concluido:           ['Concluído', 'Concluido', 'concluído', 'concluido'],
-  cancelado:           ['Cancelado', 'cancelado'],
-  falta:               ['Falta', 'falta'],
-  reagendado:          ['Reagendado', 'reagendado', 'Reposição', 'reposição', 'reposicao', 'reposiçao'],
+  confirmado:                ['Confirmado', 'confirmado'],
+  aguardando:                ['Aguardando', 'aguardando'],
+  aguardando_consulta:       ['Aguardando Consulta', 'aguardando consulta'],
+  em_atendimento:            ['Em Atendimento', 'em atendimento'],
+  concluido:                 ['Concluído', 'Concluido', 'concluído', 'concluido'],
+  cancelado:                 ['Cancelado', 'cancelado'],
+  falta:                     ['Falta', 'falta'],
+  reagendado:                ['Reagendado', 'reagendado', 'Reposição', 'reposição', 'reposicao', 'reposiçao'],
+  aguardando_fisioterapeuta: ['Aguardando Fisioterapeuta', 'aguardando fisioterapeuta'],
 }
 
 export function getStatusRawValuesForKeys(keys: AtendimentoStatusKey[]) {

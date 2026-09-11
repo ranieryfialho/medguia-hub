@@ -6,6 +6,8 @@ import { formatarFaixasJornada } from '@/lib/jornada'
 import { useAgendamentoForm, type SlideProps } from './useAgendamentoForm'
 import { SlideRecorrencia } from './SlideRecorrencia'
 import { SlideProtocolo } from './SlideProtocolo'
+import { PromptPreConsultaModal } from './PromptPreConsultaModal'
+import { formatAppDate, formatAppTime } from '@/lib/datetime'
 
 export type { SlideProps }
 
@@ -97,6 +99,18 @@ export function SlideNovoAgendamento(props: SlideProps) {
     loadingDetalhesAtendimento,
     planos,
     protocolosAtendimento,
+    // Prompt "Tem pré-consulta?"
+    promptPreConsultaAtendimentoId,
+    criandoPreConsultaPendente,
+    erroPreConsultaPendente,
+    confirmarPreConsultaPendente,
+    fecharPromptPreConsulta,
+    // Sugestão de vínculo pós-consulta
+    sugestaoConsultaOrigem,
+    origemConfirmadaId,
+    sugestaoDispensada,
+    confirmarVinculoOrigem,
+    dispensarVinculoOrigem,
   } = useAgendamentoForm(props)
 
   const slide = open ? (
@@ -321,6 +335,33 @@ export function SlideNovoAgendamento(props: SlideProps) {
                 )
               })()}
 
+              {/* Sugestão de vínculo com consulta médica recente (pós-consulta) */}
+              {!modoEdicao && sugestaoConsultaOrigem && !sugestaoDispensada && (
+                <div className="px-3 py-2.5 rounded-lg border bg-[#f0fcf9] border-[#006b5a]/20 text-xs text-[#083142]">
+                  {origemConfirmadaId === sugestaoConsultaOrigem.id ? (
+                    <p className="font-semibold text-[#006b5a]">
+                      Vinculado à consulta médica de {formatAppDate(sugestaoConsultaOrigem.data_agendamento)} às {formatAppTime(sugestaoConsultaOrigem.data_agendamento)}
+                      {sugestaoConsultaOrigem.profissionalNome ? ` (${sugestaoConsultaOrigem.profissionalNome})` : ''}.
+                    </p>
+                  ) : (
+                    <>
+                      <p>
+                        Consulta médica recente sem pré-consulta vinculada — {formatAppDate(sugestaoConsultaOrigem.data_agendamento)} às {formatAppTime(sugestaoConsultaOrigem.data_agendamento)}
+                        {sugestaoConsultaOrigem.profissionalNome ? ` (${sugestaoConsultaOrigem.profissionalNome})` : ''}. Vincular esse agendamento a ela?
+                      </p>
+                      <div className="flex gap-2 mt-2">
+                        <button type="button" onClick={dispensarVinculoOrigem} className="px-3 py-1 rounded-md font-semibold text-[#3d4945] bg-white border border-[#bcc9c4] hover:bg-[#dee3e3]">
+                          Não
+                        </button>
+                        <button type="button" onClick={confirmarVinculoOrigem} className="px-3 py-1 rounded-md font-semibold text-white bg-[#006b5a] hover:bg-[#004f43]">
+                          Vincular
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
               {/* Recorrência */}
               {!modoEdicao && (
                 <SlideRecorrencia
@@ -410,6 +451,14 @@ export function SlideNovoAgendamento(props: SlideProps) {
         </button>
       )}
       {typeof document !== 'undefined' ? createPortal(slide, document.body) : null}
+      <PromptPreConsultaModal
+        aberto={Boolean(promptPreConsultaAtendimentoId)}
+        tiposAtivos={tiposAtivos}
+        loading={criandoPreConsultaPendente}
+        error={erroPreConsultaPendente}
+        onConfirmar={confirmarPreConsultaPendente}
+        onFechar={fecharPromptPreConsulta}
+      />
     </>
   )
 }

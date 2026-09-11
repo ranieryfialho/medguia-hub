@@ -40,6 +40,8 @@ type AgendamentoResumo = {
 type AtendimentoResumo = {
   id: string
   agendamento_id: string | null
+  agendamento_origem_id: string | null
+  direcao_encaminhamento: 'pre' | 'pos' | null
   profissional_id: string | null
   fisioterapeuta_id: string | null
   tipo: string | null
@@ -48,6 +50,12 @@ type AtendimentoResumo = {
   marcou_retorno?: boolean | null
   profissional?: { full_name: string | null } | Array<{ full_name: string | null }> | null
   pacientes?: { nome: string | null; telefone: string | null; email: string | null; origem: string | null; indicado_por: string | null } | Array<{ nome: string | null; telefone: string | null; email: string | null; origem: string | null; indicado_por: string | null }> | null
+}
+
+type CorrelacaoPreConsulta = {
+  direcao: 'pre' | 'pos'
+  outroNome: string
+  outroQuando: string
 }
 
 type MetricaTipo = {
@@ -303,6 +311,8 @@ export default async function RelatorioConsultasPage({
     .select(`
       id,
       agendamento_id,
+      agendamento_origem_id,
+      direcao_encaminhamento,
       profissional_id,
       fisioterapeuta_id,
       tipo,
@@ -376,6 +386,84 @@ export default async function RelatorioConsultasPage({
     : { data: [] }
   const agendamentos = (agendamentosRaw ?? []) as AgendamentoResumo[]
   const agendamentosMap = new Map(agendamentos.map((agendamento) => [agendamento.id, agendamento]))
+
+  // Encaminhamento consulta médica <-> pré/pós-consulta de fisioterapia
+  // (database/pre_consulta_fisio_migration.sql): a consulta médica de origem
+  // e a pré/pós-consulta encaminhada podem cair fora uma da outra no
+  // filtro/período atual, então buscamos os dois lados por fora do
+  // `atendimentosQuery` acima.
+  const origemMedicaIds = [...new Set(
+    atendimentos
+      .map((atendimento) => atendimento.agendamento_origem_id)
+      .filter((id): id is string => !!id),
+  )]
+  const idsAtendimentosListados = atendimentos.map((atendimento) => atendimento.id)
+
+  const [{ data: origensMedicasRaw }, { data: encaminhadosRaw }] = await Promise.all([
+    origemMedicaIds.length > 0
+      ? supabase
+          .from('atendimentos')
+          .select('id, data_agendamento, profissional:profiles!profissional_id(full_name)')
+          .in('id', origemMedicaIds)
+      : Promise.resolve({ data: [] as unknown[] }),
+    idsAtendimentosListados.length > 0
+      ? supabase
+          .from('atendimentos')
+          .select('agendamento_origem_id, data_agendamento, direcao_encaminhamento, profissional:profiles!profissional_id(full_name), fisioterapeuta:profiles!fisioterapeuta_id(full_name)')
+          .in('agendamento_origem_id', idsAtendimentosListados)
+      : Promise.resolve({ data: [] as unknown[] }),
+  ])
+
+  const origensMedicasMap = new Map<string, { data_agendamento: string; profissionalNome: string | null }>()
+  for (const origem of (origensMedicasRaw ?? []) as Array<{
+    id: string
+    data_agendamento: string
+    profissional: { full_name: string | null } | Array<{ full_name: string | null }> | null
+  }>) {
+    origensMedicasMap.set(origem.id, {
+      data_agendamento: origem.data_agendamento,
+      profissionalNome: firstRelation(origem.profissional)?.full_name ?? null,
+    })
+  }
+
+  const encaminhadosMap = new Map<string, { data_agendamento: string; direcao: 'pre' | 'pos' | null; responsavelNome: string | null }>()
+  for (const encaminhado of (encaminhadosRaw ?? []) as Array<{
+    agendamento_origem_id: string | null
+    data_agendamento: string
+    direcao_encaminhamento: 'pre' | 'pos' | null
+    profissional: { full_name: string | null } | Array<{ full_name: string | null }> | null
+    fisioterapeuta: { full_name: string | null } | Array<{ full_name: string | null }> | null
+  }>) {
+    if (!encaminhado.agendamento_origem_id) continue
+    const responsavelNome = firstRelation(encaminhado.fisioterapeuta)?.full_name
+      ?? firstRelation(encaminhado.profissional)?.full_name
+      ?? null
+    encaminhadosMap.set(encaminhado.agendamento_origem_id, {
+      data_agendamento: encaminhado.data_agendamento,
+      direcao: encaminhado.direcao_encaminhamento,
+      responsavelNome,
+    })
+  }
+
+  function correlacaoPreConsultaDe(atendimento: AtendimentoResumo): CorrelacaoPreConsulta | null {
+    if (atendimento.agendamento_origem_id) {
+      const origemMedica = origensMedicasMap.get(atendimento.agendamento_origem_id)
+      if (!origemMedica) return null
+      return {
+        direcao: atendimento.direcao_encaminhamento === 'pos' ? 'pos' : 'pre',
+        outroNome: origemMedica.profissionalNome ?? 'médico',
+        outroQuando: formatAppDate(origemMedica.data_agendamento),
+      }
+    }
+
+    const encaminhado = encaminhadosMap.get(atendimento.id)
+    if (!encaminhado) return null
+    return {
+      direcao: encaminhado.direcao === 'pos' ? 'pos' : 'pre',
+      outroNome: encaminhado.responsavelNome ?? 'fisioterapeuta',
+      outroQuando: formatAppDate(encaminhado.data_agendamento),
+    }
+  }
 
   const tiposMap = new Map<string, MetricaTipo>()
   const linhasProfissional = new Map<string, LinhaProfissional>()
@@ -486,6 +574,7 @@ export default async function RelatorioConsultasPage({
       medicoParceiroNome: medicoParceiroDetalhamento(paciente?.origem?.trim() || 'Sem origem', paciente?.indicado_por),
       marcouRetorno: isRetorno(atendimento),
       realizado: isStatusFabril(atendimento.status),
+      correlacaoPreConsulta: correlacaoPreConsultaDe(atendimento),
     }
   })
   const detalhamentoConsultasOrdenado = [...detalhamentoConsultas].sort((a, b) => {
@@ -732,6 +821,9 @@ export default async function RelatorioConsultasPage({
                 contato: consulta.contato,
                 origem: consulta.origem,
                 medicoParceiroNome: consulta.medicoParceiroNome,
+                correlacaoPreConsultaLabel: consulta.correlacaoPreConsulta
+                  ? `${consulta.correlacaoPreConsulta.direcao === 'pos' ? 'Pós' : 'Pré'}: ${consulta.correlacaoPreConsulta.outroNome} ${consulta.correlacaoPreConsulta.outroQuando}`
+                  : null,
               }))}
             />
           )}
@@ -1182,7 +1274,24 @@ export default async function RelatorioConsultasPage({
                           Retorno
                         </span>
                       )}
+                      {consulta.correlacaoPreConsulta && (
+                        <span
+                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap ${
+                            consulta.correlacaoPreConsulta.direcao === 'pos'
+                              ? 'border border-amber-200 bg-amber-100 text-amber-700'
+                              : 'border border-[#bcdfd7] bg-[#e6f4f1] text-[#006b5a]'
+                          }`}
+                        >
+                          {consulta.correlacaoPreConsulta.direcao === 'pos' ? 'Pós-consulta' : 'Pré-consulta'}
+                        </span>
+                      )}
                     </div>
+                    {consulta.correlacaoPreConsulta && (
+                      <span className="block text-xs text-slate-400 mt-0.5">
+                        {consulta.correlacaoPreConsulta.direcao === 'pos' ? 'Pós' : 'Pré'}-consulta com{' '}
+                        {consulta.correlacaoPreConsulta.outroNome} em {consulta.correlacaoPreConsulta.outroQuando}
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-slate-700">{consulta.profissionalNome}</td>
                   <td className="px-4 py-3 text-slate-700 whitespace-nowrap">

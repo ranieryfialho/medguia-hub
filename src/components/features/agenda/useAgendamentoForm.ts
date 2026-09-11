@@ -1,6 +1,7 @@
 import { useState, useEffect, useId, useMemo, useRef } from 'react'
 import { format } from 'date-fns'
 import { buscarDetalhesAgendamento, criarAgendamento, editarAtendimento } from '@/actions/agenda'
+import { criarPreConsultaPendente, buscarConsultaMedicaSemVinculo, type ConsultaMedicaSemVinculo } from '@/actions/pre-consultas'
 import { createClient } from '@/lib/supabase/client'
 import { useProtocolosAtendimento } from '@/components/layout/ProtocolosAtendimentoContext'
 import { useTiposConsulta } from '@/components/layout/TiposConsultaContext'
@@ -97,6 +98,16 @@ export function useAgendamentoForm({
   const [observacoesValue, setObservacoesValue] = useState('')
   const [selectedPlanoSaude, setSelectedPlanoSaude] = useState('')
   const [marcouRetorno, setMarcouRetorno] = useState(false)
+
+  // Prompt "Tem pré-consulta?" — aberto depois de criar uma consulta médica
+  const [promptPreConsultaAtendimentoId, setPromptPreConsultaAtendimentoId] = useState<string | null>(null)
+  const [criandoPreConsultaPendente, setCriandoPreConsultaPendente] = useState(false)
+  const [erroPreConsultaPendente, setErroPreConsultaPendente] = useState('')
+
+  // Sugestão automática de vínculo pós-consulta (fisio -> consulta médica recente sem vínculo)
+  const [sugestaoConsultaOrigem, setSugestaoConsultaOrigem] = useState<ConsultaMedicaSemVinculo | null>(null)
+  const [origemConfirmadaId, setOrigemConfirmadaId] = useState<string | null>(null)
+  const [sugestaoDispensada, setSugestaoDispensada] = useState(false)
 
   // Recorrência
   const [isRecorrente, setIsRecorrente] = useState(false)
@@ -299,6 +310,18 @@ export function useAgendamentoForm({
   }, [isControlled, open, defaultPacienteId, defaultData, defaultHora, pacientes])
 
   useEffect(() => {
+    setSugestaoConsultaOrigem(null)
+    setOrigemConfirmadaId(null)
+    setSugestaoDispensada(false)
+    if (modoEdicao || tipoProfissional !== 'fisioterapeuta' || !selectedPacienteId) return
+    let active = true
+    buscarConsultaMedicaSemVinculo(selectedPacienteId).then((consulta) => {
+      if (active) setSugestaoConsultaOrigem(consulta)
+    })
+    return () => { active = false }
+  }, [modoEdicao, tipoProfissional, selectedPacienteId])
+
+  useEffect(() => {
     if (!open) return
     const orig = document.body.style.overflow
     document.body.style.overflow = 'hidden'
@@ -421,6 +444,35 @@ export function useAgendamentoForm({
     }))
   }
 
+  function confirmarVinculoOrigem() {
+    if (sugestaoConsultaOrigem) setOrigemConfirmadaId(sugestaoConsultaOrigem.id)
+  }
+
+  function dispensarVinculoOrigem() {
+    setSugestaoDispensada(true)
+  }
+
+  function fecharPromptPreConsulta() {
+    setPromptPreConsultaAtendimentoId(null)
+    setErroPreConsultaPendente('')
+  }
+
+  async function confirmarPreConsultaPendente(tipoPreConsultaNome: string) {
+    if (!promptPreConsultaAtendimentoId) return
+    setCriandoPreConsultaPendente(true)
+    setErroPreConsultaPendente('')
+    const res = await criarPreConsultaPendente({
+      consultaMedicaAtendimentoId: promptPreConsultaAtendimentoId,
+      tipoPreConsultaNome,
+    })
+    setCriandoPreConsultaPendente(false)
+    if (res.error) {
+      setErroPreConsultaPendente(res.error)
+      return
+    }
+    fecharPromptPreConsulta()
+  }
+
   function handleClose() {
     if (isControlled && onControlledClose) onControlledClose()
     else setIsOpen(false)
@@ -443,6 +495,9 @@ export function useAgendamentoForm({
     setSelectedTipo(primeiroTipoDisponivel)
     setTipoProfissional('fisioterapeuta')
     setSelectedPlanoSaude('')
+    setSugestaoConsultaOrigem(null)
+    setOrigemConfirmadaId(null)
+    setSugestaoDispensada(false)
   }
 
   function aplicarProtocoloAtendimento(protocoloId: string) {
@@ -543,6 +598,9 @@ export function useAgendamentoForm({
     formData.set('observacoes', observacoesValue)
     formData.set('marcou_retorno', marcouRetorno ? 'on' : 'off')
     if (tipoProfissional === 'medico') formData.set('plano_saude', selectedPlanoSaude)
+    if (tipoProfissional === 'fisioterapeuta' && origemConfirmadaId && !sugestaoDispensada) {
+      formData.set('agendamento_origem_id', origemConfirmadaId)
+    }
 
     if (!selectedPacienteId || !selectedProfissionalId) {
       setError('Preencha todos os campos obrigatórios.')
@@ -610,6 +668,10 @@ export function useAgendamentoForm({
       setError(res.error ?? 'Não foi possível salvar o agendamento.')
       setLoading(false)
     } else {
+      const atendimentoCriadoId = (res as { atendimentoCriadoId?: string } | undefined)?.atendimentoCriadoId
+      if (!modoEdicao && profissionalSelecionadoEhMedico && atendimentoCriadoId) {
+        setPromptPreConsultaAtendimentoId(atendimentoCriadoId)
+      }
       handleClose()
       setLoading(false)
       if (!modoEdicao) resetForm()
@@ -706,5 +768,17 @@ export function useAgendamentoForm({
     loadingDetalhesAtendimento,
     planos,
     protocolosAtendimento,
+    // Prompt "Tem pré-consulta?"
+    promptPreConsultaAtendimentoId,
+    criandoPreConsultaPendente,
+    erroPreConsultaPendente,
+    confirmarPreConsultaPendente,
+    fecharPromptPreConsulta,
+    // Sugestão de vínculo pós-consulta
+    sugestaoConsultaOrigem,
+    origemConfirmadaId,
+    sugestaoDispensada,
+    confirmarVinculoOrigem,
+    dispensarVinculoOrigem,
   }
 }

@@ -37,12 +37,14 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
-  v_exige_observacao BOOLEAN;
-  v_qtd_concluidos    INT;
-  v_qtd_excluidos     INT;
-  v_agendamento_ids   UUID[];
-  v_agendamento_id    UUID;
-  v_serie_removida    BOOLEAN := false;
+  v_exige_observacao   BOOLEAN;
+  v_qtd_concluidos     INT;
+  v_qtd_excluidos      INT;
+  v_agendamento_ids    UUID[];
+  v_agendamento_id     UUID;
+  v_serie_removida     BOOLEAN := false;
+  v_encaminhados_ids   UUID[];
+  v_ids_completo       UUID[];
 BEGIN
   -- 1. AC-056: exclusão anônima é proibida — operador nulo ou inexistente
   -- na base de perfis bloqueia a operação inteira antes de qualquer leitura
@@ -74,12 +76,24 @@ BEGIN
     RAISE EXCEPTION 'Observação obrigatória para a categoria "%".', p_motivo_categoria;
   END IF;
 
+  -- Encaminhamento consulta médica -> pré/pós-consulta de fisioterapia
+  -- (database/pre_consulta_fisio_migration.sql): excluir a consulta médica de
+  -- origem precisa levar a pré/pós-consulta pendente junto, senão ela fica
+  -- órfã na fila de /pre-consultas. Se a pré/pós-consulta já foi realizada,
+  -- vale a mesma trava de "Concluído" abaixo — nesse caso a exclusão da
+  -- origem é recusada por inteiro, em vez de apagar um atendimento já feito.
+  SELECT ARRAY_AGG(DISTINCT id) INTO v_encaminhados_ids
+  FROM atendimentos
+  WHERE agendamento_origem_id = ANY(p_ids);
+
+  v_ids_completo := p_ids || COALESCE(v_encaminhados_ids, ARRAY[]::UUID[]);
+
   -- 4. AC-049, AC-050, AC-052: bloqueio absoluto de "Concluído" (ASM-011) —
-  -- qualquer alvo concluído no escopo aborta a operação inteira, sem exclusão
-  -- parcial dos demais.
+  -- qualquer alvo concluído no escopo (incluindo pré/pós-consultas
+  -- encaminhadas) aborta a operação inteira, sem exclusão parcial dos demais.
   SELECT COUNT(*) INTO v_qtd_concluidos
   FROM atendimentos
-  WHERE id = ANY(p_ids) AND status = 'Concluído';
+  WHERE id = ANY(v_ids_completo) AND status = 'Concluído';
 
   IF v_qtd_concluidos > 0 THEN
     RAISE EXCEPTION 'Exclusão recusada: % atendimento(s) já concluído(s) no escopo.', v_qtd_concluidos;
@@ -90,7 +104,7 @@ BEGIN
   -- elas vieram.
   SELECT ARRAY_AGG(DISTINCT agendamento_id) INTO v_agendamento_ids
   FROM atendimentos
-  WHERE id = ANY(p_ids) AND agendamento_id IS NOT NULL;
+  WHERE id = ANY(v_ids_completo) AND agendamento_id IS NOT NULL;
 
   -- 5. AC-053: o snapshot é gravado ANTES do delete, com os dados do
   -- atendimento como estavam. O log entra na mesma transação da exclusão —
@@ -125,11 +139,12 @@ BEGIN
   FROM atendimentos a
   LEFT JOIN pacientes pac ON pac.id = a.paciente_id
   LEFT JOIN profiles prof ON prof.id = a.profissional_id
-  WHERE a.id = ANY(p_ids);
+  WHERE a.id = ANY(v_ids_completo);
 
-  -- 6. AC-046, AC-048, AC-051: exclusão física do escopo, depois do log já
-  -- gravado na mesma transação.
-  DELETE FROM atendimentos WHERE id = ANY(p_ids);
+  -- 6. AC-046, AC-048, AC-051: exclusão física do escopo (incluindo
+  -- pré/pós-consultas encaminhadas pelas consultas médicas do escopo),
+  -- depois do log já gravado na mesma transação.
+  DELETE FROM atendimentos WHERE id = ANY(v_ids_completo);
   GET DIAGNOSTICS v_qtd_excluidos = ROW_COUNT;
 
   IF v_qtd_excluidos = 0 THEN

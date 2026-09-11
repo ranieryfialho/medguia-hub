@@ -37,6 +37,7 @@ import {
   ShieldAlert,
   TrendingUp,
   MessageCircleWarning,
+  Stethoscope,
 } from 'lucide-react'
 import { ProntuariosBadge } from './ProntuariosBadge'
 import { FollowUpsBadge } from './FollowUpsBadge'
@@ -130,6 +131,13 @@ export function Sidebar({
           <Link href="/agenda" onClick={handleNavClick} className={linkCls(!!isActive('/agenda'))}>
             <CalendarDays size={20} />
             <span>Agenda</span>
+          </Link>
+        )}
+
+        {pv('pre_consultas') && (
+          <Link href="/pre-consultas" onClick={handleNavClick} className={linkCls(!!isActive('/pre-consultas'))}>
+            <Stethoscope size={20} />
+            <span>Pré-consultas</span>
           </Link>
         )}
 

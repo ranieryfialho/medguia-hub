@@ -46,7 +46,7 @@ export type MotivoExclusao = {
   observacao?: string
 }
 
-async function requirePermissaoAgendaAdmin() {
+export async function requirePermissaoAgendaAdmin() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -271,6 +271,7 @@ export async function criarAgendamento(formData: FormData) {
   const plano_saude = ((formData.get('plano_saude') as string) || '').trim()
   const gerou_venda = formData.get('gerou_venda') === 'on'
   const marcou_retorno = formData.get('marcou_retorno') === 'on'
+  const agendamentoOrigemId = ((formData.get('agendamento_origem_id') as string) || '').trim() || null
 
   // Campos de recorrência
   const isRecorrente = formData.get('is_recorrente') === 'true'
@@ -323,6 +324,32 @@ export async function criarAgendamento(formData: FormData) {
     return { error: 'Você só pode criar agendamentos para a sua própria agenda.' }
   }
 
+  // Vínculo pré/pós-consulta -> consulta médica: só faz sentido para um
+  // agendamento pontual (1:1), então não é aceito em série recorrente.
+  if (agendamentoOrigemId && isRecorrente) {
+    return { error: 'Não é possível vincular a uma consulta de origem num agendamento recorrente.' }
+  }
+  if (agendamentoOrigemId) {
+    const { data: origem, error: erroOrigem } = await supabaseAdmin
+      .from('atendimentos')
+      .select('id, paciente_id')
+      .eq('id', agendamentoOrigemId)
+      .maybeSingle()
+    if (erroOrigem || !origem) {
+      return { error: 'A consulta de origem informada não foi encontrada.' }
+    }
+    if (origem.paciente_id !== paciente_id) {
+      return { error: 'A consulta de origem informada pertence a outro paciente.' }
+    }
+    const { count: vinculoExistente } = await supabaseAdmin
+      .from('atendimentos')
+      .select('id', { count: 'exact', head: true })
+      .eq('agendamento_origem_id', agendamentoOrigemId)
+    if ((vinculoExistente ?? 0) > 0) {
+      return { error: 'Essa consulta de origem já possui um agendamento vinculado.' }
+    }
+  }
+
   const roleProfissional = await carregarRoleProfissional(profissional_id)
   const exigeDisponibilidade = roleProfissional !== 'medico'
 
@@ -344,6 +371,7 @@ export async function criarAgendamento(formData: FormData) {
     gerou_venda: boolean
     marcou_retorno: boolean
     agendamento_id: string
+    agendamento_origem_id?: string | null
     numero_sessao?: number
     total_sessoes?: number
     data: string
@@ -365,6 +393,7 @@ export async function criarAgendamento(formData: FormData) {
       gerou_venda,
       marcou_retorno,
       agendamento_id: '',
+      agendamento_origem_id: agendamentoOrigemId,
       data: dataStr,
       hora_inicio: horaInicio,
       hora_fim: horaFim,
@@ -555,7 +584,12 @@ export async function criarAgendamento(formData: FormData) {
   }
 
   revalidatePath('/agenda')
-  return { success: true }
+  return {
+    success: true as const,
+    // Só relevante pra agendamento pontual (não recorrente) — usado pra
+    // abrir o prompt "Tem pré-consulta?" logo após criar uma consulta médica.
+    atendimentoCriadoId: !isRecorrente ? atendimentosCriados?.[0]?.id : undefined,
+  }
 }
 
 export async function buscarDetalhesAgendamento(atendimentoId: string) {
@@ -1376,6 +1410,25 @@ export async function mudarStatusAgendamento(id: string, novoStatus: string) {
 
   if (!updatedRows || updatedRows.length === 0) {
     return { error: 'O status não foi alterado. Atualize a agenda e tente novamente.' }
+  }
+
+  // Encaminhamento consulta médica -> pré-consulta de fisioterapia: se a
+  // consulta médica de origem foi concluída antes da pré-consulta ter
+  // acontecido, a pré-consulta pendente vira pós-consulta (best-effort — não
+  // desfaz a mudança de status já confirmada acima caso falhe).
+  if (statusKey === 'concluido') {
+    const { error: erroPosConsulta } = await supabaseAdmin
+      .from('atendimentos')
+      .update({ direcao_encaminhamento: 'pos' })
+      .eq('agendamento_origem_id', id)
+      .eq('direcao_encaminhamento', 'pre')
+      .neq('status', 'Concluído')
+
+    if (erroPosConsulta) {
+      console.error('Erro ao converter pré-consulta em pós-consulta:', erroPosConsulta.message)
+    } else {
+      revalidatePath('/pre-consultas')
+    }
   }
 
   revalidatePath('/agenda')

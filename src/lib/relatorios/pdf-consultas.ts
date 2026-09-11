@@ -35,6 +35,7 @@ export type PdfDetalheConsulta = {
   contato: string
   origem: string
   medicoParceiroNome?: string | null
+  correlacaoPreConsultaLabel?: string | null
 }
 
 export type PdfRetornoConsulta = {
@@ -320,8 +321,10 @@ function desenharPaginaDetalhamento(doc: jsPDF, detalhamento: PdfDetalheConsulta
 
 function desenharLinhaDetalhamento(doc: jsPDF, y: number, consulta: PdfDetalheConsulta, widths: number[]) {
   const temMedicoParceiro = !!consulta.medicoParceiroNome
-  const height = temMedicoParceiro ? 12 : 8
+  const temCorrelacao = !!consulta.correlacaoPreConsultaLabel
+  const height = (temMedicoParceiro || temCorrelacao) ? 12 : 8
   let x = MARGIN_X
+  let tipoColX = x
 
   doc.setDrawColor(...LINE)
   doc.setTextColor(...TEXT)
@@ -333,8 +336,16 @@ function desenharLinhaDetalhamento(doc: jsPDF, y: number, consulta: PdfDetalheCo
     const width = widths[index]
     doc.rect(x, y, width, height, 'S')
     doc.text(String(col), x + 2, y + 5.2, { maxWidth: width - 4 })
+    if (index === 1) tipoColX = x
     x += width
   })
+
+  if (temCorrelacao) {
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(6.5)
+    doc.setTextColor(...MUTED)
+    doc.text(consulta.correlacaoPreConsultaLabel as string, tipoColX + 2, y + 9.8, { maxWidth: widths[1] - 4 })
+  }
 
   const origemWidth = widths[5]
   doc.rect(x, y, origemWidth, height, 'S')

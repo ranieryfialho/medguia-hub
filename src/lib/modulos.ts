@@ -1,6 +1,7 @@
 export type ModuloChave =
   | 'dashboard'
   | 'agenda'
+  | 'pre_consultas'
   | 'confirmacoes:cards'
   | 'confirmacoes:semana'
   | 'confirmacoes:mensagens'
@@ -47,6 +48,7 @@ export const GRUPOS_MODULOS: GrupoModulos[] = [
     modulos: [
       { chave: 'dashboard', label: 'Dashboard', rota: '/dashboard' },
       { chave: 'agenda', label: 'Agenda', rota: '/agenda' },
+      { chave: 'pre_consultas', label: 'Pré-consultas pendentes', rota: '/pre-consultas' },
       { chave: 'pacientes', label: 'Pacientes', rota: '/pacientes' },
     ],
   },
@@ -135,6 +137,7 @@ export const TEMPLATES_PERFIL: Record<TemplatePerfilChave, { label: string; modu
     modulos: [
       'dashboard',
       'agenda',
+      'pre_consultas',
       'confirmacoes:cards',
       'confirmacoes:semana',
       'confirmacoes:mensagens',
@@ -150,7 +153,7 @@ export const TEMPLATES_PERFIL: Record<TemplatePerfilChave, { label: string; modu
   gestor: {
     label: 'Gestor',
     modulos: [
-      'dashboard', 'agenda',
+      'dashboard', 'agenda', 'pre_consultas',
       'confirmacoes:cards', 'confirmacoes:semana', 'confirmacoes:mensagens', 'confirmacoes:historico',
       'contatos:base', 'contatos:relatorio',
       'pacientes', 'prontuarios', 'follow_ups', 'follow_ups:tipos', 'follow_ups:templates',
