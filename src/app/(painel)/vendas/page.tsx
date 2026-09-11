@@ -54,6 +54,27 @@ const SELECT_VENDAS_SEM_TIPO = `
   itens_venda(quantidade, preco_unitario, produtos(nome))
 `
 
+function buildPaginaUrl(
+  params: { [key: string]: string | string[] | undefined },
+  pagina: number
+) {
+  const query = new URLSearchParams()
+
+  for (const [key, value] of Object.entries(params)) {
+    if (key === 'pagina') continue
+    if (Array.isArray(value)) {
+      for (const v of value) query.append(key, v)
+    } else if (value) {
+      query.set(key, value)
+    }
+  }
+
+  if (pagina > 1) query.set('pagina', String(pagina))
+
+  const queryString = query.toString()
+  return queryString ? `?${queryString}` : '?'
+}
+
 function formatarValor(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
@@ -95,7 +116,7 @@ export default async function VendasListPage({
   const status = (resolvedParams.status as string) || ''
   const produtoIdsParam = (resolvedParams.produto_ids as string) || ''
   const produtoIdsFiltro = produtoIdsParam ? produtoIdsParam.split(',').filter(Boolean) : []
-  const limite = Math.max(1, parseInt((resolvedParams.limite as string) || '25'))
+  const limite = Math.max(1, parseInt((resolvedParams.limite as string) || '50'))
   const pagina = Math.max(1, parseInt((resolvedParams.pagina as string) || '1'))
   const offset = (pagina - 1) * limite
   const buscaNormalizada = busca.toLowerCase()
@@ -466,7 +487,7 @@ export default async function VendasListPage({
           <div className="px-6 py-4 border-t border-border flex items-center justify-center gap-2 flex-wrap">
             {pagina > 1 && (
               <Link
-                href={`?pagina=${pagina - 1}${origem ? `&origem=${origem}` : ''}${busca ? `&busca=${busca}` : ''}${data_inicio ? `&data_inicio=${data_inicio}` : ''}${data_fim ? `&data_fim=${data_fim}` : ''}`}
+                href={buildPaginaUrl(resolvedParams, pagina - 1)}
                 className="px-3 py-1 rounded-md bg-page text-text-primary hover:bg-page/80 transition-colors text-sm"
               >
                 ← Anterior
@@ -476,7 +497,7 @@ export default async function VendasListPage({
             {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((p) => (
               <Link
                 key={p}
-                href={`?pagina=${p}${origem ? `&origem=${origem}` : ''}${busca ? `&busca=${busca}` : ''}${data_inicio ? `&data_inicio=${data_inicio}` : ''}${data_fim ? `&data_fim=${data_fim}` : ''}`}
+                href={buildPaginaUrl(resolvedParams, p)}
                 className={`px-3 py-1 rounded-md text-sm transition-colors ${
                   p === pagina
                     ? 'bg-primary-500 text-white font-medium'
@@ -489,7 +510,7 @@ export default async function VendasListPage({
 
             {pagina < totalPaginas && (
               <Link
-                href={`?pagina=${pagina + 1}${origem ? `&origem=${origem}` : ''}${busca ? `&busca=${busca}` : ''}${data_inicio ? `&data_inicio=${data_inicio}` : ''}${data_fim ? `&data_fim=${data_fim}` : ''}`}
+                href={buildPaginaUrl(resolvedParams, pagina + 1)}
                 className="px-3 py-1 rounded-md bg-page text-text-primary hover:bg-page/80 transition-colors text-sm"
               >
                 Próxima →

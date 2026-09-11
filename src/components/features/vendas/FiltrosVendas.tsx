@@ -4,7 +4,7 @@ import { ChevronDown, Search, X } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 
-const OPCOES_LIMITE = [10, 25, 50]
+const OPCOES_LIMITE = [10, 25, 50, 100]
 const OPCOES_ORIGEM = [
   { value: 'medico', label: 'Médico' },
   { value: 'leads', label: 'Leads' },
@@ -28,7 +28,7 @@ export function FiltrosVendas({ produtos = [] }: { produtos?: Produto[] }) {
   const origemAtual = searchParams.get('origem') || ''
   const dataInicioAtual = searchParams.get('data_inicio') || ''
   const dataFimAtual = searchParams.get('data_fim') || ''
-  const limiteAtual = searchParams.get('limite') || '25'
+  const limiteAtual = searchParams.get('limite') || '50'
   const statusAtual = searchParams.get('status') || ''
   const produtoIdsAtual = searchParams.get('produto_ids')?.split(',').filter(Boolean) ?? []
 
