@@ -144,17 +144,23 @@ export default async function EditarVendaPage({
       : fallback.data
   }
 
-  // Carregar itens da venda
-  const { data: itensVenda } = await supabase
-    .from('itens_venda')
-    .select(`
-      id,
-      produto_id,
-      quantidade,
-      preco_unitario,
-      numero_atendimentos
-    `)
-    .eq('venda_id', id)
+  // Carregar itens e pagamentos da venda
+  const [{ data: itensVenda }, { data: pagamentosVenda }] = await Promise.all([
+    supabase
+      .from('itens_venda')
+      .select(`
+        id,
+        produto_id,
+        quantidade,
+        preco_unitario,
+        numero_atendimentos
+      `)
+      .eq('venda_id', id),
+    supabase
+      .from('pagamentos_venda')
+      .select('forma_pagamento, valor, parcelas, valor_com_juros')
+      .eq('venda_id', id),
+  ])
 
   // Carregar dados de referência
   const [{ data: profiles }, { data: produtos }, { data: medicos }] = await Promise.all([
@@ -213,6 +219,13 @@ export default async function EditarVendaPage({
     pacientes: firstRelation(venda.pacientes as VendaRow['pacientes'] | VendaRow['pacientes'][]),
   }
 
+  const pagamentosNormalizados = (pagamentosVenda || []).map((p) => ({
+    formaPagamento: p.forma_pagamento,
+    valor: p.valor,
+    parcelas: p.parcelas,
+    valorComJuros: p.valor_com_juros ?? null,
+  }))
+
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
@@ -237,7 +250,7 @@ export default async function EditarVendaPage({
       <div className="bg-surface rounded-lg border border-border shadow-sm p-6">
         <FormEditarVenda
           vendaId={id}
-          vendaInicial={vendaNormalizada}
+          vendaInicial={{ ...vendaNormalizada, pagamentos: pagamentosNormalizados }}
           itensInicial={itensVenda || []}
           profissionais={((profiles || []) as ProfileRow[]).map(formatProfile)}
           produtos={produtos || []}

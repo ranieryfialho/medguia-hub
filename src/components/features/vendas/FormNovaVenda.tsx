@@ -6,7 +6,8 @@ import { ChevronRight, ChevronLeft, LoaderCircle, Plus, Trash2, Layers } from 'l
 import { ComboboxPaciente } from '@/components/features/pacientes'
 import { UploadComprovantesVenda } from './UploadComprovantesVenda'
 import { serializarComprovantes, type ComprovanteVenda } from '@/lib/comprovantes-venda'
-import { FORMAS_PAGAMENTO, TIPO_VENDA } from '@/lib/vendas'
+import { FormaPagamentoSplit, pagamentosValidosParaEnvio, type PagamentoVendaForm } from './FormaPagamentoSplit'
+import { TIPO_VENDA } from '@/lib/vendas'
 import { createClient } from '@/lib/supabase/client'
 import { formatAppDateKey } from '@/lib/datetime'
 import type { Protocolo } from '@/actions/protocolos'
@@ -84,7 +85,6 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
   const [vendaEmConsultorio, setVendaEmConsultorio] = useState(false)
   const [medicoReferenciadorId, setMedicoReferenciadorId] = useState('')
   const [buscaMedico, setBuscaMedico] = useState('')
-  const [formaPagamento, setFormaPagamento] = useState('')
   const [dataVenda, setDataVenda] = useState(() => formatAppDateKey(new Date()))
   const [observacoes, setObservacoes] = useState('')
   const [statusVenda, setStatusVenda] = useState<'venda_confirmada' | 'orcamento_pendente'>('venda_confirmada')
@@ -95,6 +95,7 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
   const [nome, setNome] = useState('')
   const [protocoloId, setProtocoloId] = useState('')
   const [itens, setItens] = useState<ItemVenda[]>([])
+  const [pagamentos, setPagamentos] = useState<PagamentoVendaForm[]>([{ formaPagamento: '', valor: 0, parcelas: 1, valorComJuros: null }])
   const [produtoSelecionado, setProdutoSelecionado] = useState('')
   const [quantidadeSelecionada, setQuantidadeSelecionada] = useState(1)
   const [precoUnitario, setPrecoUnitario] = useState<number>(0)
@@ -143,7 +144,7 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
   }
 
   const podeAvancar0 = !!pacienteId && (!!profissionalId || semProfissional)
-  const podeAvancar1 = !!origem && !!formaPagamento && !!tipoVenda && (origem !== 'medico' || !!medicoReferenciadorId)
+  const podeAvancar1 = !!origem && !!tipoVenda && (origem !== 'medico' || !!medicoReferenciadorId)
 
   const medicosFiltrados = buscaMedico.trim()
     ? medicos.filter((p) => p.nome.toLowerCase().includes(buscaMedico.toLowerCase()))
@@ -217,6 +218,12 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
 
     if (comprovantes.length === 0) {
       setErroLocal('Anexe o comprovante de pagamento para confirmar a venda.')
+      setOcultarErroSenhaAction(true)
+      return
+    }
+
+    if (total > 0 && !pagamentosValidosParaEnvio(pagamentos, total, true)) {
+      setErroLocal('A soma dos pagamentos precisa ser igual ao total da venda.')
       setOcultarErroSenhaAction(true)
       return
     }
@@ -524,22 +531,6 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
             <h2 className="text-base font-semibold text-text-primary border-b border-border pb-2">Data e Observações</h2>
 
             <div>
-              <label className="block text-sm font-medium text-text-primary mb-2">Forma de Pagamento</label>
-              <select
-                value={formaPagamento}
-                onChange={(e) => setFormaPagamento(e.target.value)}
-                className="w-full px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
-              >
-                <option value="">Selecione a forma de pagamento...</option>
-                {FORMAS_PAGAMENTO.map((forma) => (
-                  <option key={forma.value} value={forma.value}>
-                    {forma.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
               <label className="block text-sm font-medium text-text-primary mb-2">Data da Venda</label>
               <input
                 type="date"
@@ -625,6 +616,9 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
               />
               {!pacienteId && comprovantes.length === 0 && (
                 <p className="text-xs text-text-secondary mt-1.5">Selecione o paciente na primeira etapa para anexar o comprovante.</p>
+              )}
+              {pacienteId && statusVenda === 'venda_confirmada' && comprovantes.length === 0 && (
+                <p className="text-xs text-red-600 mt-1.5">Obrigatório para confirmar a venda — a venda não será criada sem um comprovante.</p>
               )}
             </div>
           </div>
@@ -869,6 +863,12 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
             )}
           </div>
           </div>
+
+          {/* Forma de Pagamento */}
+          <div className="space-y-3 pt-2">
+            <h2 className="text-base font-semibold text-text-primary border-b border-border pb-2">Forma de Pagamento</h2>
+            <FormaPagamentoSplit pagamentos={pagamentos} onChange={setPagamentos} total={total} />
+          </div>
         </div>
       )}
 
@@ -888,7 +888,16 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
           return valor === null ? '' : String(valor)
         })()}
       />
-      <input type="hidden" name="forma_pagamento" value={formaPagamento} />
+      <input
+        type="hidden"
+        name="pagamentos_venda_json"
+        value={JSON.stringify(pagamentos.map((p) => ({
+          forma_pagamento: p.formaPagamento,
+          valor: p.valor,
+          parcelas: p.parcelas,
+          valor_com_juros: p.valorComJuros,
+        })))}
+      />
       <input type="hidden" name="data_venda" value={dataVenda} />
       <input type="hidden" name="observacoes" value={observacoes} />
       <input type="hidden" name="itens_venda_json" value={JSON.stringify(itens)} />
@@ -931,8 +940,19 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
         ) : (
           <button
             type="submit"
-            disabled={itens.length === 0 || total >= 999999.99 || isProcessing}
-            title={total >= 999999.99 ? 'Valor máximo é R$ 999.999,99' : ''}
+            disabled={
+              itens.length === 0 ||
+              total >= 999999.99 ||
+              (statusVenda === 'venda_confirmada' && comprovantes.length === 0) ||
+              isProcessing
+            }
+            title={
+              total >= 999999.99
+                ? 'Valor máximo é R$ 999.999,99'
+                : statusVenda === 'venda_confirmada' && comprovantes.length === 0
+                  ? 'Anexe o comprovante de pagamento para confirmar a venda'
+                  : ''
+            }
             className="px-6 py-2.5 rounded-md bg-green-600 hover:bg-green-700 text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-2"
           >
             {isSubmitting ? (
@@ -940,7 +960,11 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
                 <LoaderCircle size={16} className="animate-spin" />
                 Criando venda...
               </>
-            ) : total >= 999999.99 ? 'Valor muito alto' : 'Criar Venda'}
+            ) : total >= 999999.99
+              ? 'Valor muito alto'
+              : statusVenda === 'venda_confirmada' && comprovantes.length === 0
+                ? 'Anexe o comprovante para continuar'
+                : 'Criar Venda'}
           </button>
         )}
       </div>

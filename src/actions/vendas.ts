@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { FORMAS_PAGAMENTO, STATUS_VENDA, TIPO_VENDA } from '@/lib/vendas'
+import { STATUS_VENDA, TIPO_VENDA } from '@/lib/vendas'
 import {
   MAX_COMPROVANTES_VENDA,
   parseComprovantesJson,
@@ -11,6 +11,12 @@ import {
   serializarComprovantes,
   type ComprovanteVenda,
 } from '@/lib/comprovantes-venda'
+import {
+  parsePagamentosJson,
+  resumoFormaPagamento,
+  serializarPagamentos,
+  validarPagamentos,
+} from '@/lib/pagamentos-venda'
 import { formatAppDateKey, getAppDayRangeUTC, parseAppDate } from '@/lib/datetime'
 
 const USUARIO_AUTORIZADO_VENDA_ZERADA = '46581234-19dd-4e7d-904d-db0357fa2219'
@@ -92,10 +98,6 @@ function somarTotaisPorVenda(
     acc[item.venda_id] = (acc[item.venda_id] || 0) + subtotal
     return acc
   }, {})
-}
-
-function formaPagamentoValida(value: string) {
-  return FORMAS_PAGAMENTO.some((forma) => forma.value === value)
 }
 
 function statusValido(value: string) {
@@ -210,7 +212,7 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
   const paciente_id = formData.get('paciente_id') as string
   const profissional_id = formData.get('profissional_id') as string
   const origem = formData.get('origem') as string
-  const forma_pagamento = formData.get('forma_pagamento') as string
+  const pagamentosJson = formData.get('pagamentos_venda_json') as string
   const medico_referenciador_id = origem === 'medico' ? (formData.get('medico_referenciador_id') as string) : null
   const data_venda = formData.get('data_venda') as string
   const observacoes = formData.get('observacoes') as string
@@ -225,13 +227,10 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
   const objecao_observacao = ((formData.get('objecao_observacao') as string) || '').trim() || null
   const tipo_venda = ((formData.get('tipo_venda') as string) || '').trim() || null
   const comprovantes = lerComprovantesDoFormData(formData)
+  const pagamentos = parsePagamentosJson(pagamentosJson)
 
-  if (!paciente_id || !origem || !forma_pagamento) {
+  if (!paciente_id || !origem || pagamentos.length === 0) {
     return { error: 'Paciente, origem e forma de pagamento são obrigatórios.' }
-  }
-
-  if (!formaPagamentoValida(forma_pagamento)) {
-    return { error: 'Forma de pagamento inválida.' }
   }
 
   if (!tipo_venda || !tipoVendaValido(tipo_venda)) {
@@ -276,6 +275,15 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
   if (total >= 999999.99) {
     return { error: 'O valor da venda não pode ser maior ou igual a R$ 999.999,99.' }
   }
+
+  const erroPagamentos = validarPagamentos(pagamentos, total, {
+    exigirSoma: status === 'venda_confirmada' && total > 0,
+    exigirValorPositivo: total > 0,
+  })
+  if (erroPagamentos) {
+    return { error: erroPagamentos }
+  }
+  const forma_pagamento = resumoFormaPagamento(pagamentos)
 
   if (total === 0 && status === 'venda_confirmada') {
     const { data: { user }, error: userError } = await supabase.auth.getUser()
@@ -432,6 +440,21 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
     return { error: `Erro ao adicionar itens: ${erroItens.message}` }
   }
 
+  const pagamentosComVendaId = serializarPagamentos(pagamentos).map((pagamento) => ({
+    venda_id: vendaInserida.id,
+    ...pagamento,
+  }))
+
+  const { error: erroPagamentosInsert } = await supabase
+    .from('pagamentos_venda')
+    .insert(pagamentosComVendaId)
+
+  if (erroPagamentosInsert) {
+    // Deletar venda se falhar inserir pagamentos (cascata remove os itens já inseridos)
+    await supabase.from('vendas').delete().eq('id', vendaInserida.id)
+    return { error: `Erro ao adicionar pagamentos: ${erroPagamentosInsert.message}` }
+  }
+
   revalidatePath('/vendas')
   redirect(`/vendas/${vendaInserida.id}`)
 }
@@ -442,7 +465,7 @@ export async function editarVenda(_prevState: unknown, formData: FormData) {
   const id = formData.get('id') as string
   const paciente_id = formData.get('paciente_id') as string
   const origem = formData.get('origem') as string
-  const forma_pagamento = formData.get('forma_pagamento') as string
+  const pagamentosJson = formData.get('pagamentos_venda_json') as string
   const medico_referenciador_id = origem === 'medico' ? (formData.get('medico_referenciador_id') as string) : null
   const data_venda = formData.get('data_venda') as string
   const observacoes = formData.get('observacoes') as string
@@ -454,13 +477,10 @@ export async function editarVenda(_prevState: unknown, formData: FormData) {
   const status = statusValido(statusRaw) ? statusRaw : 'venda_confirmada'
   const tipo_venda = ((formData.get('tipo_venda') as string) || '').trim() || null
   const comprovantes = lerComprovantesDoFormData(formData)
+  const pagamentos = parsePagamentosJson(pagamentosJson)
 
-  if (!paciente_id || !origem || !forma_pagamento) {
+  if (!paciente_id || !origem || pagamentos.length === 0) {
     return { error: 'Paciente, origem e forma de pagamento são obrigatórios.' }
-  }
-
-  if (!formaPagamentoValida(forma_pagamento)) {
-    return { error: 'Forma de pagamento inválida.' }
   }
 
   if (!tipo_venda || !tipoVendaValido(tipo_venda)) {
@@ -505,6 +525,15 @@ export async function editarVenda(_prevState: unknown, formData: FormData) {
   if (total >= 999999.99) {
     return { error: 'O valor da venda não pode ser maior ou igual a R$ 999.999,99.' }
   }
+
+  const erroPagamentos = validarPagamentos(pagamentos, total, {
+    exigirSoma: status === 'venda_confirmada' && total > 0,
+    exigirValorPositivo: total > 0,
+  })
+  if (erroPagamentos) {
+    return { error: erroPagamentos }
+  }
+  const forma_pagamento = resumoFormaPagamento(pagamentos)
 
   if (total === 0 && status === 'venda_confirmada') {
     const { data: { user }, error: userError } = await supabase.auth.getUser()
@@ -632,6 +661,22 @@ export async function editarVenda(_prevState: unknown, formData: FormData) {
     return { error: `Erro ao atualizar itens: ${erroItens.message}` }
   }
 
+  // Deletar pagamentos antigos e inserir os novos
+  await supabase.from('pagamentos_venda').delete().eq('venda_id', id)
+
+  const pagamentosComVendaId = serializarPagamentos(pagamentos).map((pagamento) => ({
+    venda_id: id,
+    ...pagamento,
+  }))
+
+  const { error: erroPagamentosUpdate } = await supabase
+    .from('pagamentos_venda')
+    .insert(pagamentosComVendaId)
+
+  if (erroPagamentosUpdate) {
+    return { error: `Erro ao atualizar pagamentos: ${erroPagamentosUpdate.message}` }
+  }
+
   revalidatePath('/vendas')
   redirect(`/vendas/${id}`)
 }
@@ -639,7 +684,7 @@ export async function editarVenda(_prevState: unknown, formData: FormData) {
 export async function deletarVenda(id: string) {
   const supabase = await createClient()
 
-  // Deletar venda (cascata: itens_venda também serão deletados)
+  // Deletar venda (cascata: itens_venda e pagamentos_venda também serão deletados)
   const { error } = await supabase
     .from('vendas')
     .delete()
@@ -680,6 +725,19 @@ export async function listarVendas(filtros: FiltrosVendas = {}) {
     limit = 20,
   } = filtros
 
+  // Uma venda híbrida com uma perna em "pix" precisa aparecer no filtro
+  // "pix" mesmo com resumo 'hibrido' em vendas.forma_pagamento — por isso o
+  // filtro passa por pagamentos_venda em vez de um .eq() direto em vendas.
+  let vendaIdsComFormaPagamento: string[] | null = null
+  if (forma_pagamento) {
+    const { data: pagamentosComForma } = await supabase
+      .from('pagamentos_venda')
+      .select('venda_id')
+      .eq('forma_pagamento', forma_pagamento)
+
+    vendaIdsComFormaPagamento = [...new Set((pagamentosComForma || []).map((p) => p.venda_id))]
+  }
+
   let query = supabase
     .from('vendas')
     .select(
@@ -707,8 +765,10 @@ export async function listarVendas(filtros: FiltrosVendas = {}) {
     query = query.eq('origem', origem)
   }
 
-  if (forma_pagamento) {
-    query = query.eq('forma_pagamento', forma_pagamento)
+  if (vendaIdsComFormaPagamento !== null) {
+    query = vendaIdsComFormaPagamento.length > 0
+      ? query.in('id', vendaIdsComFormaPagamento)
+      : query.in('id', ['00000000-0000-0000-0000-000000000000'])
   }
 
   if (paciente_id) {
@@ -850,6 +910,19 @@ export async function gerarRelatorioVendas(filtros: FiltrosRelatorio = {}) {
 
   const { data_inicio, data_fim, origem, forma_pagamento } = filtros
 
+  // Uma venda híbrida com uma perna em "pix" precisa aparecer no filtro
+  // "pix" mesmo com resumo 'hibrido' em vendas.forma_pagamento — por isso o
+  // filtro passa por pagamentos_venda em vez de um .eq() direto em vendas.
+  let vendaIdsComFormaPagamento: string[] | null = null
+  if (forma_pagamento) {
+    const { data: pagamentosComForma } = await supabase
+      .from('pagamentos_venda')
+      .select('venda_id')
+      .eq('forma_pagamento', forma_pagamento)
+
+    vendaIdsComFormaPagamento = [...new Set((pagamentosComForma || []).map((p) => p.venda_id))]
+  }
+
   let query = supabase
     .from('vendas')
     .select('id, origem, forma_pagamento, data_venda')
@@ -866,8 +939,10 @@ export async function gerarRelatorioVendas(filtros: FiltrosRelatorio = {}) {
     query = query.eq('origem', origem)
   }
 
-  if (forma_pagamento) {
-    query = query.eq('forma_pagamento', forma_pagamento)
+  if (vendaIdsComFormaPagamento !== null) {
+    query = vendaIdsComFormaPagamento.length > 0
+      ? query.in('id', vendaIdsComFormaPagamento)
+      : query.in('id', ['00000000-0000-0000-0000-000000000000'])
   }
 
   const { data: vendas, error } = await query
@@ -878,18 +953,35 @@ export async function gerarRelatorioVendas(filtros: FiltrosRelatorio = {}) {
 
   const idsVendas = (vendas || []).map((venda) => venda.id)
   let totaisPorVenda: Record<string, number> = {}
+  let pagamentosPorVenda: Record<string, { forma_pagamento: string; valor: number }[]> = {}
 
   if (idsVendas.length > 0) {
-    const { data: itens, error: itensError } = await supabase
-      .from('itens_venda')
-      .select('venda_id, quantidade, preco_unitario')
-      .in('venda_id', idsVendas)
+    const [{ data: itens, error: itensError }, { data: pagamentos, error: pagamentosError }] = await Promise.all([
+      supabase
+        .from('itens_venda')
+        .select('venda_id, quantidade, preco_unitario')
+        .in('venda_id', idsVendas),
+      supabase
+        .from('pagamentos_venda')
+        .select('venda_id, forma_pagamento, valor')
+        .in('venda_id', idsVendas),
+    ])
 
     if (itensError) {
       return { error: `Erro ao gerar relatório: ${itensError.message}`, relatorio: null }
     }
+    if (pagamentosError) {
+      return { error: `Erro ao gerar relatório: ${pagamentosError.message}`, relatorio: null }
+    }
 
     totaisPorVenda = somarTotaisPorVenda(itens || [])
+    pagamentosPorVenda = (pagamentos || []).reduce<Record<string, { forma_pagamento: string; valor: number }[]>>(
+      (acc, p) => {
+        (acc[p.venda_id] ||= []).push({ forma_pagamento: p.forma_pagamento, valor: p.valor })
+        return acc
+      },
+      {}
+    )
   }
 
   const vendasComTotais = (vendas || []).map((venda) => ({
@@ -907,19 +999,26 @@ export async function gerarRelatorioVendas(filtros: FiltrosRelatorio = {}) {
 
   // Por origem
   const porOrigem: Record<string, { quantidade: number; faturamento: number }> = {}
-  const porFormaPagamento: Record<string, { quantidade: number; faturamento: number }> = {}
   vendasComTotais.forEach((venda) => {
     if (!porOrigem[venda.origem]) {
       porOrigem[venda.origem] = { quantidade: 0, faturamento: 0 }
     }
     porOrigem[venda.origem].quantidade += 1
     porOrigem[venda.origem].faturamento += venda.total
+  })
 
-    if (!porFormaPagamento[venda.forma_pagamento]) {
-      porFormaPagamento[venda.forma_pagamento] = { quantidade: 0, faturamento: 0 }
-    }
-    porFormaPagamento[venda.forma_pagamento].quantidade += 1
-    porFormaPagamento[venda.forma_pagamento].faturamento += venda.total
+  // Por forma de pagamento — uma venda híbrida contribui uma fração para
+  // cada forma usada, em vez do total inteiro só para o resumo 'hibrido'.
+  const porFormaPagamento: Record<string, { quantidade: number; faturamento: number }> = {}
+  vendasComTotais.forEach((venda) => {
+    const pagamentos = pagamentosPorVenda[venda.id] || []
+    pagamentos.forEach((pagamento) => {
+      if (!porFormaPagamento[pagamento.forma_pagamento]) {
+        porFormaPagamento[pagamento.forma_pagamento] = { quantidade: 0, faturamento: 0 }
+      }
+      porFormaPagamento[pagamento.forma_pagamento].quantidade += 1
+      porFormaPagamento[pagamento.forma_pagamento].faturamento += pagamento.valor
+    })
   })
 
   // Por período (últimos 90 dias)

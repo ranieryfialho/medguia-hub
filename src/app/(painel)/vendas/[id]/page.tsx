@@ -142,6 +142,12 @@ export default async function VendaDetalhePage({
     .eq('venda_id', id)
     .order('criado_em')
 
+  const { data: pagamentos } = await supabase
+    .from('pagamentos_venda')
+    .select('id, forma_pagamento, valor, parcelas, valor_com_juros')
+    .eq('venda_id', id)
+    .order('criado_em')
+
   if (!venda) {
     return (
       <div className="space-y-4">
@@ -268,8 +274,37 @@ export default async function VendaDetalhePage({
               </span>
             </div>
             <div>
-              <p className="text-xs text-text-secondary uppercase">Forma de Pagamento</p>
-              <p className="text-text-primary">{FORMA_PAGAMENTO_LABEL[venda.forma_pagamento] || 'Não informada'}</p>
+              <p className="text-xs text-text-secondary uppercase mb-1">
+                {(pagamentos?.length ?? 0) > 1 ? 'Formas de Pagamento' : 'Forma de Pagamento'}
+              </p>
+              {pagamentos && pagamentos.length > 0 ? (
+                <div className="space-y-1">
+                  {pagamentos.map((pagamento) => (
+                    <div key={pagamento.id} className="flex items-center justify-between text-sm bg-page border border-border rounded-md px-3 py-1.5">
+                      <span className="text-text-primary flex items-center gap-2">
+                        {FORMA_PAGAMENTO_LABEL[pagamento.forma_pagamento] || pagamento.forma_pagamento}
+                        {pagamento.parcelas > 1 && (
+                          <span className="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-sky-100 text-sky-700">
+                            {pagamento.parcelas}x
+                          </span>
+                        )}
+                      </span>
+                      <span className="text-right">
+                        <span className="font-medium text-text-primary block">
+                          {pagamento.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </span>
+                        {pagamento.valor_com_juros && (
+                          <span className="text-[11px] text-text-secondary block">
+                            cliente pagou {pagamento.valor_com_juros.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} com juros
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-text-primary">{FORMA_PAGAMENTO_LABEL[venda.forma_pagamento] || 'Não informada'}</p>
+              )}
             </div>
             {protocoloNome && (
               <div>

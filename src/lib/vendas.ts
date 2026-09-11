@@ -19,9 +19,10 @@ export const FORMAS_PAGAMENTO = [
   { value: 'boleto', label: 'Boleto' },
 ] as const
 
-export const FORMA_PAGAMENTO_LABEL: Record<string, string> = Object.fromEntries(
-  FORMAS_PAGAMENTO.map((forma) => [forma.value, forma.label]),
-)
+export const FORMA_PAGAMENTO_LABEL: Record<string, string> = {
+  ...Object.fromEntries(FORMAS_PAGAMENTO.map((forma) => [forma.value, forma.label])),
+  hibrido: 'Híbrido',
+}
 
 export const TIPO_VENDA = [
   { value: 'fisioterapica', label: 'Fisioterápica' },

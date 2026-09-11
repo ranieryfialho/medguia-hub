@@ -6,7 +6,8 @@ import { LoaderCircle, Plus, Trash2 } from 'lucide-react'
 import { ComboboxPaciente } from '@/components/features/pacientes'
 import { UploadComprovantesVenda } from './UploadComprovantesVenda'
 import { parseComprovantesVenda, serializarComprovantes, type ComprovanteVenda } from '@/lib/comprovantes-venda'
-import { FORMAS_PAGAMENTO, TIPO_VENDA } from '@/lib/vendas'
+import { FormaPagamentoSplit, pagamentosValidosParaEnvio, type PagamentoVendaForm } from './FormaPagamentoSplit'
+import { TIPO_VENDA } from '@/lib/vendas'
 import { createClient } from '@/lib/supabase/client'
 import { formatAppDateKey } from '@/lib/datetime'
 
@@ -37,6 +38,7 @@ interface VendaInicial {
   profissional_id: string | null
   origem: string
   forma_pagamento: string
+  pagamentos?: PagamentoVendaForm[]
   protocolo_id?: string | null
   protocolo_nome?: string | null
   medico_referenciador_nome?: string | null
@@ -94,7 +96,11 @@ export function FormEditarVenda({
   const [profissionalId] = useState(vendaInicial.profissional_id)
   const [origem, setOrigem] = useState(vendaInicial.origem)
   const [vendaEmConsultorio, setVendaEmConsultorio] = useState(vendaInicial.venda_em_consultorio ?? false)
-  const [formaPagamento, setFormaPagamento] = useState(vendaInicial.forma_pagamento)
+  const [pagamentos, setPagamentos] = useState<PagamentoVendaForm[]>(
+    vendaInicial.pagamentos && vendaInicial.pagamentos.length > 0
+      ? vendaInicial.pagamentos
+      : [{ formaPagamento: vendaInicial.forma_pagamento, valor: 0, parcelas: 1, valorComJuros: null }]
+  )
 
   // Encontrar ID do médico baseado no nome
   const medicoInicialId = medicos.find(
@@ -187,6 +193,12 @@ export function FormEditarVenda({
 
     if (statusVenda === 'venda_confirmada' && comprovantes.length === 0) {
       setErroLocal('Anexe o comprovante de pagamento para confirmar a venda.')
+      setOcultarErroSenhaAction(true)
+      return
+    }
+
+    if (total > 0 && !pagamentosValidosParaEnvio(pagamentos, total, true)) {
+      setErroLocal('A soma dos pagamentos precisa ser igual ao total da venda.')
       setOcultarErroSenhaAction(true)
       return
     }
@@ -386,24 +398,14 @@ export function FormEditarVenda({
         </div>
       )}
 
+      {/* Forma de Pagamento */}
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold text-text-primary">Forma de Pagamento</h3>
+        <FormaPagamentoSplit pagamentos={pagamentos} onChange={setPagamentos} total={total} />
+      </div>
+
       {/* Data e Observações */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-text-primary mb-2">Forma de Pagamento</label>
-          <select
-            value={formaPagamento}
-            onChange={(e) => setFormaPagamento(e.target.value)}
-            className="w-full px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
-          >
-            <option value="">Selecione a forma de pagamento...</option>
-            {FORMAS_PAGAMENTO.map((forma) => (
-              <option key={forma.value} value={forma.value}>
-                {forma.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
         <div>
           <label className="block text-sm font-medium text-text-primary mb-2">{isOrcamento ? 'Data do Orçamento' : 'Data da Venda'}</label>
           <input
@@ -480,6 +482,9 @@ export function FormEditarVenda({
           comprovantes={comprovantes}
           onChange={setComprovantes}
         />
+        {statusVenda === 'venda_confirmada' && comprovantes.length === 0 && (
+          <p className="text-xs text-red-600 mt-1.5">Obrigatório para confirmar a venda — as alterações não serão salvas sem um comprovante.</p>
+        )}
       </div>
 
       {/* Produtos */}
@@ -625,7 +630,16 @@ export function FormEditarVenda({
       <input type="hidden" name="protocolo_nome" value={vendaInicial.protocolo_nome ?? ''} />
       <input type="hidden" name="profissional_id" value={profissionalId ?? ''} />
       <input type="hidden" name="origem" value={origem} />
-      <input type="hidden" name="forma_pagamento" value={formaPagamento} />
+      <input
+        type="hidden"
+        name="pagamentos_venda_json"
+        value={JSON.stringify(pagamentos.map((p) => ({
+          forma_pagamento: p.formaPagamento,
+          valor: p.valor,
+          parcelas: p.parcelas,
+          valor_com_juros: p.valorComJuros,
+        })))}
+      />
       <input type="hidden" name="medico_referenciador_id" value={medicoReferenciadorId} />
       <input
         type="hidden"
@@ -650,11 +664,24 @@ export function FormEditarVenda({
       <div className="flex items-center justify-end gap-4 pt-4 border-t border-border">
         <button
           type="submit"
-          disabled={total >= 999999.99}
-          title={total >= 999999.99 ? 'Valor máximo é R$ 999.999,99' : ''}
+          disabled={
+            total >= 999999.99 ||
+            (statusVenda === 'venda_confirmada' && comprovantes.length === 0)
+          }
+          title={
+            total >= 999999.99
+              ? 'Valor máximo é R$ 999.999,99'
+              : statusVenda === 'venda_confirmada' && comprovantes.length === 0
+                ? 'Anexe o comprovante de pagamento para confirmar a venda'
+                : ''
+          }
           className="px-6 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-md font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {total >= 999999.99 ? 'Valor muito alto' : 'Salvar Alterações'}
+          {total >= 999999.99
+            ? 'Valor muito alto'
+            : statusVenda === 'venda_confirmada' && comprovantes.length === 0
+              ? 'Anexe o comprovante para continuar'
+              : 'Salvar Alterações'}
         </button>
       </div>
 

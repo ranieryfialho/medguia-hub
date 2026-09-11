@@ -54,6 +54,7 @@ type VendaRow = {
   motivo_recusa: string | null
   objecao_motivo_nome: string | null
   objecao_observacao: string | null
+  pagamentos_venda: { forma_pagamento: string; valor: number }[] | null
   pacientes: PacienteVenda | PacienteVenda[] | null
   profiles: PerfilVenda | PerfilVenda[] | null
   itens_venda: ItemVendaRow[] | null
@@ -128,6 +129,19 @@ export default async function RelatorioVendasPage({
     return qs ? `/relatorios/vendas?${qs}` : '/relatorios/vendas'
   }
 
+  // Uma venda híbrida com uma perna em "pix" precisa aparecer no filtro
+  // "pix" mesmo com resumo 'hibrido' em vendas.forma_pagamento — por isso o
+  // filtro passa por pagamentos_venda em vez de um .eq() direto em vendas.
+  let vendaIdsComFormaPagamento: string[] | null = null
+  if (forma_pagamento) {
+    const { data: pagamentosComForma } = await supabase
+      .from('pagamentos_venda')
+      .select('venda_id')
+      .eq('forma_pagamento', forma_pagamento)
+
+    vendaIdsComFormaPagamento = [...new Set((pagamentosComForma || []).map((p) => p.venda_id))]
+  }
+
   // Query única com join em profissional e itens+produto. count: 'exact'
   // sustenta a checagem de truncamento abaixo (AC-077).
   let query = supabase
@@ -136,13 +150,18 @@ export default async function RelatorioVendasPage({
       id, origem, forma_pagamento, data_venda, profissional_id, paciente_id, medico_referenciador_nome, venda_em_consultorio, status, tipo_venda, nome, motivo_recusa, objecao_motivo_nome, objecao_observacao,
       pacientes:paciente_id ( nome, origem ),
       profiles:profissional_id ( full_name, role ),
-      itens_venda ( quantidade, preco_unitario, produtos:produto_id ( id, nome, categoria ) )
+      itens_venda ( quantidade, preco_unitario, produtos:produto_id ( id, nome, categoria ) ),
+      pagamentos_venda ( forma_pagamento, valor )
     `, { count: 'exact' })
 
   if (data_inicio) query = query.gte('data_venda', getAppDayRangeUTC(data_inicio).start)
   if (data_fim) query = query.lte('data_venda', getAppDayRangeUTC(data_fim).end)
   if (origem) query = query.eq('origem', origem)
-  if (forma_pagamento) query = query.eq('forma_pagamento', forma_pagamento)
+  if (vendaIdsComFormaPagamento !== null) {
+    query = vendaIdsComFormaPagamento.length > 0
+      ? query.in('id', vendaIdsComFormaPagamento)
+      : query.in('id', ['00000000-0000-0000-0000-000000000000'])
+  }
   if (profissional_id) query = query.eq('profissional_id', profissional_id)
   if (nome_protocolo === '__sem_protocolo__') {
     query = query.is('nome', null)
@@ -334,9 +353,20 @@ export default async function RelatorioVendasPage({
       }
     }
 
-    if (!porFormaPagamento[venda.forma_pagamento]) porFormaPagamento[venda.forma_pagamento] = { quantidade: 0, faturamento: 0 }
-    porFormaPagamento[venda.forma_pagamento].quantidade += 1
-    porFormaPagamento[venda.forma_pagamento].faturamento += totalVenda
+    // Por forma de pagamento — uma venda híbrida contribui uma fração para
+    // cada forma usada. Quando um filtro de produto reduz os itens
+    // considerados, o valor de cada pagamento é proporcionalizado pelo
+    // total original da venda, para que a soma continue batendo com
+    // `totalVenda` (já filtrado).
+    const totalVendaBruto = itensOriginais.reduce((s, item) => s + item.quantidade * item.preco_unitario, 0)
+    const proporcaoFiltro = totalVendaBruto > 0 ? totalVenda / totalVendaBruto : 0
+    ;(venda.pagamentos_venda ?? []).forEach((pagamento) => {
+      if (!porFormaPagamento[pagamento.forma_pagamento]) {
+        porFormaPagamento[pagamento.forma_pagamento] = { quantidade: 0, faturamento: 0 }
+      }
+      porFormaPagamento[pagamento.forma_pagamento].quantidade += 1
+      porFormaPagamento[pagamento.forma_pagamento].faturamento += pagamento.valor * proporcaoFiltro
+    })
 
     // Por profissional
     const profNome = perfil?.full_name || 'Desconhecido'
