@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import Link from 'next/link'
 import { requireModulo } from '@/lib/guard'
 import { formatAppDate, formatAppTime, getAppDayRangeUTC } from '@/lib/datetime'
 import { ClipboardCheck, Clock, Users } from 'lucide-react'
@@ -11,6 +12,20 @@ type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>
 
 const STATUS_CONCLUIDO = ['Concluído', 'Concluido', 'concluído', 'concluido']
 const STATUS_CANCELADO = ['Cancelado', 'cancelado', 'Cancelada', 'cancelada']
+
+function buildConferenciaUrl(overrides: {
+  visao?: 'fisioterapia' | 'medicos'
+  data_inicio?: string
+  data_fim?: string
+  tipo?: string
+}) {
+  const query = new URLSearchParams()
+  if (overrides.visao) query.set('visao', overrides.visao)
+  if (overrides.data_inicio) query.set('data_inicio', overrides.data_inicio)
+  if (overrides.data_fim) query.set('data_fim', overrides.data_fim)
+  if (overrides.tipo) query.set('tipo', overrides.tipo)
+  return `/relatorios/conferencia-agendamentos?${query.toString()}`
+}
 
 function formatarMinutos(minutos: number): string {
   if (minutos <= 0) return '—'
@@ -37,16 +52,28 @@ export default async function ConferenciaAgendamentosPage({
   const dataInicio = (params.data_inicio as string) || dataInicioPadrao
   const dataFim = (params.data_fim as string) || dataFimPadrao
   const profissionalId = (params.profissional_id as string) || ''
+  const visao: 'fisioterapia' | 'medicos' = params.visao === 'medicos' ? 'medicos' : 'fisioterapia'
+  const tipoFiltro = (params.tipo as string) || ''
+  const roleFiltro = visao === 'medicos' ? 'medico' : 'fisioterapeuta'
 
   const dataInicioIso = getAppDayRangeUTC(dataInicio).start
   const dataFimIso = getAppDayRangeUTC(dataFim).end
 
-  const { data: perfisProfissionaisRaw } = await supabase
-    .from('profiles')
-    .select('id, full_name, role')
-    .eq('role', 'fisioterapeuta')
-    .eq('ativo', true)
-    .order('full_name')
+  const [{ data: perfisProfissionaisRaw }, { data: tiposConsultaRaw }] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('id, full_name, role')
+      .eq('role', roleFiltro)
+      .eq('ativo', true)
+      .order('full_name'),
+    supabase
+      .from('tipos_consulta')
+      .select('nome')
+      .eq('ativo', true)
+      .order('ordem'),
+  ])
+
+  const opcoesTipos = (tiposConsultaRaw ?? []).map((t: { nome: string }) => t.nome)
 
   const profissionais = (perfisProfissionaisRaw ?? []) as Array<{
     id: string
@@ -82,6 +109,10 @@ export default async function ConferenciaAgendamentosPage({
     }
   }
 
+  if (tipoFiltro) {
+    query = query.eq('tipo', tipoFiltro)
+  }
+
   const { data: atendimentosRaw } = await query
   const atendimentos = (atendimentosRaw ?? []) as any[]
 
@@ -110,6 +141,10 @@ export default async function ConferenciaAgendamentosPage({
     if (idsFisios.length > 0) {
       queryPendentes = queryPendentes.in('profissional_id', idsFisios)
     }
+  }
+
+  if (tipoFiltro) {
+    queryPendentes = queryPendentes.eq('tipo', tipoFiltro)
   }
 
   const { data: pendentesRaw } = await queryPendentes
@@ -230,7 +265,9 @@ export default async function ConferenciaAgendamentosPage({
           </div>
           <div>
             <h2 className="text-xl font-bold text-[#006b5a]">Conferência de Agendamentos</h2>
-            <p className="text-xs text-slate-500">Atendimentos concluídos por profissional e dia</p>
+            <p className="text-xs text-slate-500">
+              Atendimentos concluídos por profissional e dia — {visao === 'medicos' ? 'Médicos' : 'Fisioterapia'}
+            </p>
           </div>
         </div>
         {totalGeralSessoes > 0 && (
@@ -241,12 +278,37 @@ export default async function ConferenciaAgendamentosPage({
         )}
       </div>
 
+      {/* Visão */}
+      <div className="inline-flex rounded-2xl bg-[#dee3e3] p-1">
+        <Link
+          href={buildConferenciaUrl({ visao: 'fisioterapia', data_inicio: dataInicio, data_fim: dataFim, tipo: tipoFiltro })}
+          className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+            visao === 'fisioterapia'
+              ? 'bg-white text-[#006b5a] shadow-sm'
+              : 'text-[#3d4945] hover:text-[#171d1c]'
+          }`}
+        >
+          Equipe de fisioterapia
+        </Link>
+        <Link
+          href={buildConferenciaUrl({ visao: 'medicos', data_inicio: dataInicio, data_fim: dataFim, tipo: tipoFiltro })}
+          className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+            visao === 'medicos'
+              ? 'bg-white text-[#006b5a] shadow-sm'
+              : 'text-[#3d4945] hover:text-[#171d1c]'
+          }`}
+        >
+          Médicos
+        </Link>
+      </div>
+
       {/* Filtros */}
       <form
         method="get"
         action="/relatorios/conferencia-agendamentos"
         className="flex flex-wrap items-end gap-3"
       >
+        <input type="hidden" name="visao" value={visao} />
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-slate-500">Data início</label>
           <input
@@ -275,6 +337,19 @@ export default async function ConferenciaAgendamentosPage({
             <option value="">Todos</option>
             {profissionais.map(p => (
               <option key={p.id} value={p.id}>{p.full_name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-slate-500">Tipo</label>
+          <select
+            name="tipo"
+            defaultValue={tipoFiltro}
+            className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#006b5a]/50 shadow-sm"
+          >
+            <option value="">Todos</option>
+            {opcoesTipos.map(tipo => (
+              <option key={tipo} value={tipo}>{tipo}</option>
             ))}
           </select>
         </div>
