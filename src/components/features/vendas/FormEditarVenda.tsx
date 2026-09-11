@@ -197,7 +197,7 @@ export function FormEditarVenda({
       return
     }
 
-    if (total > 0 && !pagamentosValidosParaEnvio(pagamentos, total, true)) {
+    if (statusVenda === 'venda_confirmada' && total > 0 && !pagamentosValidosParaEnvio(pagamentos, total, true)) {
       setErroLocal('A soma dos pagamentos precisa ser igual ao total da venda.')
       setOcultarErroSenhaAction(true)
       return

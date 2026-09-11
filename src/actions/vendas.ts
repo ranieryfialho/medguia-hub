@@ -839,6 +839,26 @@ export async function atualizarStatusVenda(
 
   const supabase = await createClient()
 
+  // Confirmar um orçamento vira uma venda_confirmada, e essa transição não
+  // passa pelo formulário de edição — então a soma dos pagamentos (que um
+  // orçamento pode ter deixado incompleta, de propósito) precisa ser
+  // validada aqui antes de aceitar a confirmação.
+  if (novoStatus === 'venda_confirmada') {
+    const [{ data: itens }, { data: pagamentos }] = await Promise.all([
+      supabase.from('itens_venda').select('quantidade, preco_unitario').eq('venda_id', id),
+      supabase.from('pagamentos_venda').select('valor').eq('venda_id', id),
+    ])
+
+    const total = (itens || []).reduce((sum, item) => sum + item.quantidade * item.preco_unitario, 0)
+    const somaPagamentos = (pagamentos || []).reduce((sum, p) => sum + p.valor, 0)
+
+    if (total > 0 && Math.abs(somaPagamentos - total) > 0.01) {
+      return {
+        error: `A soma dos pagamentos (R$ ${somaPagamentos.toFixed(2)}) não bate com o total da venda (R$ ${total.toFixed(2)}). Edite a venda para ajustar a forma de pagamento antes de confirmar.`,
+      }
+    }
+  }
+
   const anexados: ComprovanteVenda[] = (novosComprovantes ?? [])
     .filter((c) => c?.fileId?.trim())
     .map((c) => ({
