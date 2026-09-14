@@ -4,9 +4,13 @@ import { revalidatePath } from 'next/cache'
 import { requirePermissaoAgendaAdmin, editarAtendimento } from '@/actions/agenda'
 import { createClient } from '@/lib/supabase/server'
 
+// Tipo fixo de toda pré-consulta gerada por este fluxo — a pré-consulta já
+// é, por definição, esse tipo, então não faz sentido pedir para o usuário
+// escolher entre os tipos de consulta cadastrados.
+const TIPO_PRE_CONSULTA = 'Pré-consulta'
+
 export type CriarPreConsultaPendenteInput = {
   consultaMedicaAtendimentoId: string
-  tipoPreConsultaNome: string
 }
 
 export async function criarPreConsultaPendente(
@@ -17,10 +21,9 @@ export async function criarPreConsultaPendente(
   const { supabaseAdmin, userId } = ctx
 
   const consultaMedicaAtendimentoId = input.consultaMedicaAtendimentoId.trim()
-  const tipoPreConsultaNome = input.tipoPreConsultaNome.trim()
 
-  if (!consultaMedicaAtendimentoId || !tipoPreConsultaNome) {
-    return { error: 'Selecione o tipo de pré-consulta.' }
+  if (!consultaMedicaAtendimentoId) {
+    return { error: 'Consulta médica de origem não informada.' }
   }
 
   const { data: origem, error: erroOrigem } = await supabaseAdmin
@@ -50,7 +53,7 @@ export async function criarPreConsultaPendente(
       profissional_id: null,
       fisioterapeuta_id: null,
       data_agendamento: null,
-      tipo: tipoPreConsultaNome,
+      tipo: TIPO_PRE_CONSULTA,
       status: 'Aguardando Fisioterapeuta',
       tipo_evento: 'agendamento',
       agendamento_id: null,
@@ -98,6 +101,38 @@ export async function atribuirFisioterapeutaPreConsulta(
   revalidatePath('/pre-consultas')
   revalidatePath('/agenda')
   return { success: true }
+}
+
+export async function buscarOcultarAvisoPreConsulta(): Promise<boolean> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return false
+
+  const { data } = await supabase
+    .from('profiles')
+    .select('ocultar_aviso_pre_consulta')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  return data?.ocultar_aviso_pre_consulta ?? false
+}
+
+export async function salvarOcultarAvisoPreConsulta(ocultar: boolean): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado.' }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ ocultar_aviso_pre_consulta: ocultar })
+    .eq('id', user.id)
+
+  if (error) {
+    console.error('Erro ao salvar preferência de aviso de pré-consulta:', error.message)
+    return { error: 'Não foi possível salvar a preferência.' }
+  }
+
+  return {}
 }
 
 export type ConsultaMedicaSemVinculo = {

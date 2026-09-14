@@ -3,40 +3,41 @@
 import { createPortal } from 'react-dom'
 import { useState } from 'react'
 import { X, Stethoscope } from 'lucide-react'
-import type { TipoConsulta } from '@/actions/tipos-consulta'
 
 export interface PromptPreConsultaModalProps {
   aberto: boolean
-  tiposAtivos: TipoConsulta[]
   loading: boolean
   error: string
-  onConfirmar: (tipoPreConsultaNome: string) => void
+  ocultarAviso: boolean
+  onConfirmar: (naoMostrarNovamente: boolean) => void
   onFechar: () => void
 }
 
 export function PromptPreConsultaModal({
   aberto,
-  tiposAtivos,
   loading,
   error,
+  ocultarAviso,
   onConfirmar,
   onFechar,
 }: PromptPreConsultaModalProps) {
-  const [etapa, setEtapa] = useState<'pergunta' | 'tipo'>('pergunta')
-  const [tipoSelecionado, setTipoSelecionado] = useState('')
+  const [etapa, setEtapa] = useState<'pergunta' | 'aviso'>('pergunta')
+  const [naoMostrarNovamente, setNaoMostrarNovamente] = useState(false)
 
   if (!aberto) return null
 
   function handleFechar() {
     setEtapa('pergunta')
-    setTipoSelecionado('')
+    setNaoMostrarNovamente(false)
     onFechar()
   }
 
-  function avancarParaTipo() {
-    const tipoPadrao = tiposAtivos.find((t) => t.nome === 'Pré-consulta')?.nome ?? tiposAtivos[0]?.nome ?? ''
-    setTipoSelecionado(tipoPadrao)
-    setEtapa('tipo')
+  function handleSim() {
+    if (ocultarAviso) {
+      onConfirmar(false)
+      return
+    }
+    setEtapa('aviso')
   }
 
   const conteudo = (
@@ -54,9 +55,7 @@ export function PromptPreConsultaModal({
 
         <div className="flex items-center gap-2 text-[#006b5a]">
           <Stethoscope size={20} />
-          <h3 className="font-bold text-[#083142]">
-            {etapa === 'pergunta' ? 'Tem pré-consulta de fisioterapia?' : 'Selecione o tipo de pré-consulta'}
-          </h3>
+          <h3 className="font-bold text-[#083142]">Tem pré-consulta de fisioterapia?</h3>
         </div>
 
         {etapa === 'pergunta' ? (
@@ -70,7 +69,7 @@ export function PromptPreConsultaModal({
             </button>
             <button
               type="button"
-              onClick={avancarParaTipo}
+              onClick={handleSim}
               className="flex-1 px-4 py-2.5 rounded-lg font-bold text-white bg-[#006b5a] hover:bg-[#004f43] transition-colors"
             >
               Sim
@@ -81,16 +80,15 @@ export function PromptPreConsultaModal({
             <p className="text-xs text-[#6d7a75]">
               A pré-consulta ficará pendente até um fisioterapeuta ser atribuído a ela na fila de pré-consultas.
             </p>
-            <select
-              value={tipoSelecionado}
-              onChange={(e) => setTipoSelecionado(e.target.value)}
-              className="w-full bg-white border border-[#bcc9c4] rounded-lg px-4 py-2.5 text-[#171d1c] focus:ring-2 focus:ring-[#006b5a]/50 focus:border-[#006b5a] transition-all font-medium appearance-none shadow-sm"
-            >
-              <option value="">Selecione o tipo de pré-consulta</option>
-              {tiposAtivos.map((t) => (
-                <option key={t.id} value={t.nome}>{t.nome}</option>
-              ))}
-            </select>
+            <label className="flex items-center gap-2 text-xs font-medium text-[#3d4945]">
+              <input
+                type="checkbox"
+                checked={naoMostrarNovamente}
+                onChange={(e) => setNaoMostrarNovamente(e.target.checked)}
+                className="rounded border-[#bcc9c4] text-[#006b5a] focus:ring-[#006b5a]/50"
+              />
+              Não mostrar esta mensagem novamente
+            </label>
             {error && <p className="text-sm text-red-600 font-medium">{error}</p>}
             <div className="flex gap-3 pt-1">
               <button
@@ -102,8 +100,8 @@ export function PromptPreConsultaModal({
               </button>
               <button
                 type="button"
-                disabled={!tipoSelecionado || loading}
-                onClick={() => onConfirmar(tipoSelecionado)}
+                disabled={loading}
+                onClick={() => onConfirmar(naoMostrarNovamente)}
                 className="flex-1 px-4 py-2.5 rounded-lg font-bold text-white bg-[#006b5a] hover:bg-[#004f43] transition-colors disabled:opacity-60"
               >
                 {loading ? 'Criando...' : 'Criar pré-consulta'}

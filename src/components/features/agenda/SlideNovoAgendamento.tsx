@@ -103,6 +103,7 @@ export function SlideNovoAgendamento(props: SlideProps) {
     promptPreConsultaAtendimentoId,
     criandoPreConsultaPendente,
     erroPreConsultaPendente,
+    ocultarAvisoPreConsulta,
     confirmarPreConsultaPendente,
     fecharPromptPreConsulta,
     // Sugestão de vínculo pós-consulta
@@ -453,9 +454,9 @@ export function SlideNovoAgendamento(props: SlideProps) {
       {typeof document !== 'undefined' ? createPortal(slide, document.body) : null}
       <PromptPreConsultaModal
         aberto={Boolean(promptPreConsultaAtendimentoId)}
-        tiposAtivos={tiposAtivos}
         loading={criandoPreConsultaPendente}
         error={erroPreConsultaPendente}
+        ocultarAviso={ocultarAvisoPreConsulta}
         onConfirmar={confirmarPreConsultaPendente}
         onFechar={fecharPromptPreConsulta}
       />

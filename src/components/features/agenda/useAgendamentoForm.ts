@@ -1,7 +1,13 @@
 import { useState, useEffect, useId, useMemo, useRef } from 'react'
 import { format } from 'date-fns'
 import { buscarDetalhesAgendamento, criarAgendamento, editarAtendimento } from '@/actions/agenda'
-import { criarPreConsultaPendente, buscarConsultaMedicaSemVinculo, type ConsultaMedicaSemVinculo } from '@/actions/pre-consultas'
+import {
+  criarPreConsultaPendente,
+  buscarConsultaMedicaSemVinculo,
+  buscarOcultarAvisoPreConsulta,
+  salvarOcultarAvisoPreConsulta,
+  type ConsultaMedicaSemVinculo,
+} from '@/actions/pre-consultas'
 import { createClient } from '@/lib/supabase/client'
 import { useProtocolosAtendimento } from '@/components/layout/ProtocolosAtendimentoContext'
 import { useTiposConsulta } from '@/components/layout/TiposConsultaContext'
@@ -103,6 +109,7 @@ export function useAgendamentoForm({
   const [promptPreConsultaAtendimentoId, setPromptPreConsultaAtendimentoId] = useState<string | null>(null)
   const [criandoPreConsultaPendente, setCriandoPreConsultaPendente] = useState(false)
   const [erroPreConsultaPendente, setErroPreConsultaPendente] = useState('')
+  const [ocultarAvisoPreConsulta, setOcultarAvisoPreConsulta] = useState(false)
 
   // Sugestão automática de vínculo pós-consulta (fisio -> consulta médica recente sem vínculo)
   const [sugestaoConsultaOrigem, setSugestaoConsultaOrigem] = useState<ConsultaMedicaSemVinculo | null>(null)
@@ -322,6 +329,12 @@ export function useAgendamentoForm({
   }, [modoEdicao, tipoProfissional, selectedPacienteId])
 
   useEffect(() => {
+    let active = true
+    buscarOcultarAvisoPreConsulta().then((ocultar) => { if (active) setOcultarAvisoPreConsulta(ocultar) })
+    return () => { active = false }
+  }, [])
+
+  useEffect(() => {
     if (!open) return
     const orig = document.body.style.overflow
     document.body.style.overflow = 'hidden'
@@ -457,18 +470,21 @@ export function useAgendamentoForm({
     setErroPreConsultaPendente('')
   }
 
-  async function confirmarPreConsultaPendente(tipoPreConsultaNome: string) {
+  async function confirmarPreConsultaPendente(naoMostrarNovamente: boolean) {
     if (!promptPreConsultaAtendimentoId) return
     setCriandoPreConsultaPendente(true)
     setErroPreConsultaPendente('')
     const res = await criarPreConsultaPendente({
       consultaMedicaAtendimentoId: promptPreConsultaAtendimentoId,
-      tipoPreConsultaNome,
     })
     setCriandoPreConsultaPendente(false)
     if (res.error) {
       setErroPreConsultaPendente(res.error)
       return
+    }
+    if (naoMostrarNovamente) {
+      setOcultarAvisoPreConsulta(true)
+      salvarOcultarAvisoPreConsulta(true)
     }
     fecharPromptPreConsulta()
   }
@@ -772,6 +788,7 @@ export function useAgendamentoForm({
     promptPreConsultaAtendimentoId,
     criandoPreConsultaPendente,
     erroPreConsultaPendente,
+    ocultarAvisoPreConsulta,
     confirmarPreConsultaPendente,
     fecharPromptPreConsulta,
     // Sugestão de vínculo pós-consulta
