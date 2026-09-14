@@ -8,6 +8,8 @@ import { PaginacaoPacientes } from '@/components/features/pacientes'
 import { requireModulo } from '@/lib/guard'
 import { extrairMetadataInativacao } from '@/lib/paciente-inativacao'
 import AvatarPaciente from '@/components/features/pacientes/AvatarPaciente'
+import { SeletorTagsPaciente } from '@/components/features/pacientes'
+import { listarTagsPacienteAtivas, listarTagsPorPacientes } from '@/actions/paciente-tags'
 
 export default async function PacientesListPage({
   searchParams,
@@ -47,6 +49,11 @@ export default async function PacientesListPage({
 
   const total = count ?? 0
   const totalPaginas = Math.ceil(total / limite)
+
+  const [tagsCatalogo, tagsPorPaciente] = await Promise.all([
+    listarTagsPacienteAtivas(),
+    listarTagsPorPacientes((pacientes ?? []).map((p) => p.id)),
+  ])
 
   return (
     <div className="space-y-6">
@@ -130,14 +137,15 @@ export default async function PacientesListPage({
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex flex-wrap gap-2">
-                        {paciente.recuperacao_base ? (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <SeletorTagsPaciente
+                          pacienteId={paciente.id}
+                          tagsAtuais={tagsPorPaciente[paciente.id] ?? []}
+                          catalogo={tagsCatalogo}
+                        />
+                        {paciente.recuperacao_base && (
                           <span className="inline-block px-3 py-1 bg-[#f5f3ff] text-[#4f46e5] text-xs font-semibold rounded-full border border-[#ddd6fe]">
                             Recuperação de Base
-                          </span>
-                        ) : (
-                          <span className="inline-block px-3 py-1 bg-[#E8F0FE] text-[#1A73E8] text-xs font-semibold rounded-full">
-                            {paciente.convenio || 'Sem tags'}
                           </span>
                         )}
                         {!isAtivo && metaInativacao.obito && (
@@ -208,6 +216,13 @@ export default async function PacientesListPage({
                       Óbito
                     </span>
                   )}
+                  <div className="mt-1.5">
+                    <SeletorTagsPaciente
+                      pacienteId={paciente.id}
+                      tagsAtuais={tagsPorPaciente[paciente.id] ?? []}
+                      catalogo={tagsCatalogo}
+                    />
+                  </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0 text-text-tertiary">
                   <Link href={`/pacientes/${paciente.id}`} title="Visualizar">

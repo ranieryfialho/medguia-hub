@@ -6,3 +6,5 @@ export { FiltrosPacientes } from './FiltrosPacientes';
 export { PaginacaoPacientes } from './PaginacaoPacientes';
 export { BtnArquivarPaciente } from './BtnArquivarPaciente';
 export { CardContatosPaciente } from './CardContatosPaciente';
+export { SeletorTagsPaciente } from './SeletorTagsPaciente';
+export { GerenciadorTagsPaciente } from './GerenciadorTagsPaciente';

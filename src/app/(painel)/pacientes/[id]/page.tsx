@@ -13,7 +13,9 @@ import { listarFollowUpsPaciente, listarTipos } from '@/actions/follow-ups'
 import { SecaoFollowUpsPaciente } from '@/components/features/follow-ups/SecaoFollowUpsPaciente'
 import { PacienteTabsClient } from '@/components/features/pacientes/PacienteTabsClient'
 import { CardContatosPaciente } from '@/components/features/pacientes/CardContatosPaciente'
+import { SeletorTagsPaciente } from '@/components/features/pacientes/SeletorTagsPaciente'
 import AvatarPaciente from '@/components/features/pacientes/AvatarPaciente'
+import { listarTagsDoPaciente, listarTagsPacienteAtivas } from '@/actions/paciente-tags'
 import { extrairMetadataInativacao } from '@/lib/paciente-inativacao'
 import { buildSessaoEfetivaMap } from '@/lib/sessoes'
 import {
@@ -132,6 +134,11 @@ export default async function PacienteDetailsPage({
     listarFollowUpsPaciente(pacienteId),
     listarTipos(),
     supabase.from('profiles').select('id, full_name').order('full_name'),
+  ])
+
+  const [tagsPaciente, tagsCatalogo] = await Promise.all([
+    listarTagsDoPaciente(pacienteId),
+    listarTagsPacienteAtivas(),
   ])
 
   const prontuarios = prontuariosRaw.map((p) => ({
@@ -385,8 +392,17 @@ export default async function PacienteDetailsPage({
                 />
               </div>
               <h3 className="text-xl font-extrabold text-slate-900 leading-tight">{paciente.nome}</h3>
-              <p className="text-slate-500 text-sm font-medium mt-1 mb-4">CPF: {paciente.cpf || 'Não informado'}</p>
-              
+              <p className="text-slate-500 text-sm font-medium mt-1 mb-3">CPF: {paciente.cpf || 'Não informado'}</p>
+
+              <div className="flex justify-center mb-4">
+                <SeletorTagsPaciente
+                  pacienteId={paciente.id}
+                  tagsAtuais={tagsPaciente}
+                  catalogo={tagsCatalogo}
+                  size="md"
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-3 w-full">
                 <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
                   <span className="text-[9px] uppercase tracking-widest text-slate-500 font-bold block mb-1">Idade</span>

@@ -38,6 +38,7 @@ import {
   TrendingUp,
   MessageCircleWarning,
   Stethoscope,
+  Tag,
 } from 'lucide-react'
 import { ProntuariosBadge } from './ProntuariosBadge'
 import { FollowUpsBadge } from './FollowUpsBadge'
@@ -208,9 +209,13 @@ export function Sidebar({
             </button>
             {pacientesOpen && (
               <div className="mt-1 ml-4 space-y-0.5 border-l-2 border-[#bcc9c4]/40 pl-3">
-                <Link href="/pacientes" onClick={handleNavClick} className={subLinkCls(!!isActive('/pacientes') && !isActive('/pacientes/origens') && !isActive('/pacientes/tipos-consulta') && !isActive('/pacientes/planos-saude') && !isActive('/pacientes/relatorio-consultas') && !isActive('/pacientes/relatorio-cadastros') && !isActive('/pacientes/relatorio-aniversariantes'))}>
+                <Link href="/pacientes" onClick={handleNavClick} className={subLinkCls(!!isActive('/pacientes') && !isActive('/pacientes/origens') && !isActive('/pacientes/tipos-consulta') && !isActive('/pacientes/planos-saude') && !isActive('/pacientes/tags') && !isActive('/pacientes/relatorio-consultas') && !isActive('/pacientes/relatorio-cadastros') && !isActive('/pacientes/relatorio-aniversariantes'))}>
                   <Users size={14} />
                   Listar Pacientes
+                </Link>
+                <Link href="/pacientes/tags" onClick={handleNavClick} className={subLinkCls(!!isActive('/pacientes/tags'))}>
+                  <Tag size={14} />
+                  Tags
                 </Link>
                 <Link href="/pacientes/origens" onClick={handleNavClick} className={subLinkCls(!!isActive('/pacientes/origens'))}>
                   <Target size={14} />
