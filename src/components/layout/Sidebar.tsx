@@ -137,7 +137,7 @@ export function Sidebar({
         {pv('pre_consultas') && (
           <Link href="/pre-consultas" onClick={handleNavClick} className={linkCls(!!isActive('/pre-consultas'))}>
             <Stethoscope size={20} />
-            <span>Pré-consultas</span>
+            <span>Pré/Pós-consultas</span>
           </Link>
         )}
 

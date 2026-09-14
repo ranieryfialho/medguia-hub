@@ -33,6 +33,12 @@ export function PromptPreConsultaModal({
     onFechar()
   }
 
+  function avancarParaTipo() {
+    const tipoPadrao = tiposAtivos.find((t) => t.nome === 'Pré-consulta')?.nome ?? tiposAtivos[0]?.nome ?? ''
+    setTipoSelecionado(tipoPadrao)
+    setEtapa('tipo')
+  }
+
   const conteudo = (
     <div className="fixed inset-0 z-[600] flex items-center justify-center p-4">
       <button
@@ -64,7 +70,7 @@ export function PromptPreConsultaModal({
             </button>
             <button
               type="button"
-              onClick={() => setEtapa('tipo')}
+              onClick={avancarParaTipo}
               className="flex-1 px-4 py-2.5 rounded-lg font-bold text-white bg-[#006b5a] hover:bg-[#004f43] transition-colors"
             >
               Sim

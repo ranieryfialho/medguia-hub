@@ -74,7 +74,7 @@ export default async function PreConsultasPage() {
       <div className="flex items-center gap-3 bg-white/80 backdrop-blur-md p-4 rounded-xl shadow-sm border border-slate-100">
         <Stethoscope size={22} className="text-[#006b5a] shrink-0" />
         <div>
-          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#006b5a]">Pré-consultas pendentes</h2>
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#006b5a]">Pré/Pós-consultas</h2>
           <p className="text-xs text-slate-500 mt-0.5">
             {preConsultas.length} {preConsultas.length === 1 ? 'pendente' : 'pendentes'} aguardando atribuição de fisioterapeuta
             {totalPos > 0 ? ` — ${totalPos} ${totalPos === 1 ? 'já é pós-consulta' : 'já são pós-consulta'}` : ''}

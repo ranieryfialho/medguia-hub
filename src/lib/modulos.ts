@@ -48,7 +48,7 @@ export const GRUPOS_MODULOS: GrupoModulos[] = [
     modulos: [
       { chave: 'dashboard', label: 'Dashboard', rota: '/dashboard' },
       { chave: 'agenda', label: 'Agenda', rota: '/agenda' },
-      { chave: 'pre_consultas', label: 'Pré-consultas pendentes', rota: '/pre-consultas' },
+      { chave: 'pre_consultas', label: 'Pré/Pós-consultas', rota: '/pre-consultas' },
       { chave: 'pacientes', label: 'Pacientes', rota: '/pacientes' },
     ],
   },
