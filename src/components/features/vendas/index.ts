@@ -4,5 +4,8 @@ export { CartaoVenda, type VendaTimeline } from './CartaoVenda';
 export { FiltrosVendas } from './FiltrosVendas';
 export { BtnDeletarVenda } from './BtnDeletarVenda';
 export { BtnAtualizarStatusVenda } from './BtnAtualizarStatusVenda';
+export { BtnMarcarPagamentoRecebido } from './BtnMarcarPagamentoRecebido';
+export { SeletorTagsVenda } from './SeletorTagsVenda';
+export { GerenciadorTagsVenda } from './GerenciadorTagsVenda';
 export { ComprovanteVendaPreview } from './ComprovanteVendaPreview';
 export { UploadComprovantesVenda } from './UploadComprovantesVenda';

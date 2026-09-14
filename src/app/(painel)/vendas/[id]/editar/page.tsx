@@ -158,7 +158,7 @@ export default async function EditarVendaPage({
       .eq('venda_id', id),
     supabase
       .from('pagamentos_venda')
-      .select('forma_pagamento, valor, parcelas, valor_com_juros')
+      .select('forma_pagamento, valor, parcelas, valor_com_juros, status, data_vencimento')
       .eq('venda_id', id),
   ])
 
@@ -224,6 +224,8 @@ export default async function EditarVendaPage({
     valor: p.valor,
     parcelas: p.parcelas,
     valorComJuros: p.valor_com_juros ?? null,
+    status: (p.status === 'pendente' ? 'pendente' : 'pago') as 'pago' | 'pendente',
+    dataVencimento: p.data_vencimento ?? null,
   }))
 
   return (

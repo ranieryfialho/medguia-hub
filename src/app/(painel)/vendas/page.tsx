@@ -3,6 +3,8 @@ import Link from 'next/link'
 import { Plus, Eye, Edit, FileText, Info } from 'lucide-react'
 import { FiltrosVendas } from '@/components/features/vendas'
 import { BtnDeletarVenda } from '@/components/features/vendas'
+import { SeletorTagsVenda } from '@/components/features/vendas'
+import { listarTagsVendaAtivas, listarTagsPorVendas } from '@/actions/venda-tags'
 import { requireModulo } from '@/lib/guard'
 import { FORMA_PAGAMENTO_LABEL, TIPO_VENDA_LABEL } from '@/lib/vendas'
 import { formatAppDate, getAppDayRangeUTC } from '@/lib/datetime'
@@ -280,6 +282,11 @@ export default async function VendasListPage({
 
   const totalPaginas = Math.ceil(total / limite)
 
+  const [tagsCatalogo, tagsPorVenda] = await Promise.all([
+    listarTagsVendaAtivas(),
+    listarTagsPorVendas(vendas.map((v) => v.id)),
+  ])
+
   return (
     <div className="space-y-6">
       {/* Breadcrumb e Título */}
@@ -350,6 +357,11 @@ export default async function VendasListPage({
                           </span>
                         )}
                         <TagsItens itens={venda.itens_venda ?? []} />
+                        <SeletorTagsVenda
+                          vendaId={venda.id}
+                          tagsAtuais={tagsPorVenda[venda.id] ?? []}
+                          catalogo={tagsCatalogo}
+                        />
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-text-primary">{venda.profiles?.full_name || '—'}</td>
@@ -457,6 +469,13 @@ export default async function VendasListPage({
                         </p>
                       )}
                       <TagsItens itens={venda.itens_venda ?? []} />
+                      <div className="mt-1">
+                        <SeletorTagsVenda
+                          vendaId={venda.id}
+                          tagsAtuais={tagsPorVenda[venda.id] ?? []}
+                          catalogo={tagsCatalogo}
+                        />
+                      </div>
                       <p className="text-xs text-text-secondary">{venda.profiles?.full_name}</p>
                     </div>
                     <div className="flex flex-col items-end gap-1">

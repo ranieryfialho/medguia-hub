@@ -9,6 +9,10 @@ export interface PagamentoVendaForm {
   parcelas: number
   /** Valor efetivamente cobrado do cliente com juros do parcelamento — informativo, nunca soma no faturamento. */
   valorComJuros: number | null
+  /** 'pago' (padrão) ou 'pendente' — combinado com o paciente mas ainda não recebido. */
+  status: 'pago' | 'pendente'
+  /** Data combinada para o recebimento. Só existe (e é obrigatória) quando status é 'pendente'. */
+  dataVencimento: string | null
 }
 
 export function pagamentosValidosParaEnvio(
@@ -19,6 +23,7 @@ export function pagamentosValidosParaEnvio(
   if (pagamentos.length === 0) return false
   if (pagamentos.some((p) => !p.formaPagamento || !(p.valor > 0))) return false
   if (pagamentos.some((p) => p.valorComJuros !== null && p.valorComJuros < p.valor)) return false
+  if (pagamentos.some((p) => p.status === 'pendente' && !p.dataVencimento)) return false
   if (!exigirSoma) return true
   const soma = pagamentos.reduce((acc, p) => acc + p.valor, 0)
   return Math.abs(soma - total) < 0.01
@@ -36,6 +41,7 @@ function formatarValor(v: number) {
 
 export function FormaPagamentoSplit({ pagamentos, onChange, total }: FormaPagamentoSplitProps) {
   const totalAlocado = pagamentos.reduce((acc, p) => acc + (p.valor || 0), 0)
+  const totalPendente = pagamentos.reduce((acc, p) => acc + (p.status === 'pendente' ? (p.valor || 0) : 0), 0)
   const restante = parseFloat((total - totalAlocado).toFixed(2))
   const bateCerto = Math.abs(restante) < 0.01
   const isHibrido = pagamentos.length > 1
@@ -45,7 +51,7 @@ export function FormaPagamentoSplit({ pagamentos, onChange, total }: FormaPagame
   }
 
   const adicionarLinha = () => {
-    onChange([...pagamentos, { formaPagamento: '', valor: Math.max(restante, 0), parcelas: 1, valorComJuros: null }])
+    onChange([...pagamentos, { formaPagamento: '', valor: Math.max(restante, 0), parcelas: 1, valorComJuros: null, status: 'pago', dataVencimento: null }])
   }
 
   const removerLinha = (idx: number) => {
@@ -184,6 +190,54 @@ export function FormaPagamentoSplit({ pagamentos, onChange, total }: FormaPagame
                 </div>
               </div>
             )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 border-t border-border">
+              <div className={pagamento.status === 'pendente' ? '' : 'sm:col-span-3'}>
+                <label className="block text-xs font-medium text-text-secondary mb-1">Situação</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => atualizarLinha(idx, { status: 'pago', dataVencimento: null })}
+                    className={`px-3 py-2 rounded-md border text-xs font-medium transition-colors ${
+                      pagamento.status !== 'pendente'
+                        ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                        : 'border-border hover:bg-page text-text-secondary'
+                    }`}
+                  >
+                    Pago agora
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => atualizarLinha(idx, { status: 'pendente' })}
+                    className={`px-3 py-2 rounded-md border text-xs font-medium transition-colors ${
+                      pagamento.status === 'pendente'
+                        ? 'border-amber-500 bg-amber-50 text-amber-700'
+                        : 'border-border hover:bg-page text-text-secondary'
+                    }`}
+                  >
+                    Pendente (a receber)
+                  </button>
+                </div>
+              </div>
+
+              {pagamento.status === 'pendente' && (
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-text-secondary mb-1">Data combinada para o recebimento</label>
+                  <input
+                    type="date"
+                    value={pagamento.dataVencimento ?? ''}
+                    onChange={(e) => atualizarLinha(idx, { dataVencimento: e.target.value || null })}
+                    className="w-full px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
+                  />
+                </div>
+              )}
+            </div>
+
+            {pagamento.status === 'pendente' && (
+              <p className="text-xs text-amber-700">
+                Esse valor entra no total da venda, mas fica marcado como pendente até você registrar o recebimento.
+              </p>
+            )}
           </div>
         ))}
       </div>
@@ -210,6 +264,13 @@ export function FormaPagamentoSplit({ pagamentos, onChange, total }: FormaPagame
               : `Excedeu em ${formatarValor(Math.abs(restante))}`}
         </span>
       </div>
+
+      {totalPendente > 0 && (
+        <div className="p-3 rounded-md border border-amber-200 bg-amber-50 text-xs text-amber-800 flex flex-wrap items-center gap-x-4 gap-y-1 justify-between">
+          <span>Recebido agora: <strong>{formatarValor(totalAlocado - totalPendente)}</strong></span>
+          <span>Pendente (a receber depois): <strong>{formatarValor(totalPendente)}</strong></span>
+        </div>
+      )}
     </div>
   )
 }

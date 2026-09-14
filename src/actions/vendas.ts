@@ -918,6 +918,40 @@ export async function atualizarStatusVenda(
   return { success: true }
 }
 
+// Baixa um pagamento pendente (sinal + resto combinado para depois): marca
+// como recebido e registra quando. Não mexe no total da venda — o valor já
+// contava para o total desde que a venda foi criada, só a situação muda.
+export async function marcarPagamentoRecebido(pagamentoId: string, vendaId: string) {
+  const supabase = await createClient()
+
+  const { data: pagamento, error: erroBusca } = await supabase
+    .from('pagamentos_venda')
+    .select('id, status')
+    .eq('id', pagamentoId)
+    .maybeSingle()
+
+  if (erroBusca || !pagamento) {
+    return { error: 'Pagamento não encontrado.' }
+  }
+
+  if (pagamento.status !== 'pendente') {
+    return { error: 'Este pagamento já está marcado como recebido.' }
+  }
+
+  const { error } = await supabase
+    .from('pagamentos_venda')
+    .update({ status: 'pago', pago_em: new Date().toISOString() })
+    .eq('id', pagamentoId)
+
+  if (error) {
+    return { error: `Erro ao marcar pagamento como recebido: ${error.message}` }
+  }
+
+  revalidatePath(`/vendas/${vendaId}`)
+  revalidatePath('/vendas')
+  return { success: true }
+}
+
 interface FiltrosRelatorio {
   data_inicio?: string
   data_fim?: string

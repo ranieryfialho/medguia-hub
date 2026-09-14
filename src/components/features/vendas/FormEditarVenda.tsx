@@ -99,7 +99,7 @@ export function FormEditarVenda({
   const [pagamentos, setPagamentos] = useState<PagamentoVendaForm[]>(
     vendaInicial.pagamentos && vendaInicial.pagamentos.length > 0
       ? vendaInicial.pagamentos
-      : [{ formaPagamento: vendaInicial.forma_pagamento, valor: 0, parcelas: 1, valorComJuros: null }]
+      : [{ formaPagamento: vendaInicial.forma_pagamento, valor: 0, parcelas: 1, valorComJuros: null, status: 'pago', dataVencimento: null }]
   )
 
   // Encontrar ID do médico baseado no nome
@@ -638,6 +638,8 @@ export function FormEditarVenda({
           valor: p.valor,
           parcelas: p.parcelas,
           valor_com_juros: p.valorComJuros,
+          status: p.status,
+          data_vencimento: p.dataVencimento,
         })))}
       />
       <input type="hidden" name="medico_referenciador_id" value={medicoReferenciadorId} />

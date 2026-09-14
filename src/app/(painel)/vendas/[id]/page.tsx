@@ -1,11 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { ArrowLeft, Edit, AlertTriangle } from 'lucide-react'
-import { BtnDeletarVenda, BtnAtualizarStatusVenda, ComprovanteVendaPreview } from '@/components/features/vendas'
+import { BtnDeletarVenda, BtnAtualizarStatusVenda, BtnMarcarPagamentoRecebido, SeletorTagsVenda, ComprovanteVendaPreview } from '@/components/features/vendas'
+import { listarTagsDaVenda, listarTagsVendaAtivas } from '@/actions/venda-tags'
 import { requireModulo } from '@/lib/guard'
 import { FORMA_PAGAMENTO_LABEL, STATUS_VENDA_LABEL, TIPO_VENDA_LABEL } from '@/lib/vendas'
 import { parseComprovantesVenda } from '@/lib/comprovantes-venda'
-import { formatAppDate } from '@/lib/datetime'
+import { formatAppDate, formatAppDateKey, parseAppDate } from '@/lib/datetime'
 
 const STATUS_BADGE: Record<string, { classes: string }> = {
   venda_confirmada:   { classes: 'bg-emerald-100 text-emerald-800' },
@@ -144,9 +145,19 @@ export default async function VendaDetalhePage({
 
   const { data: pagamentos } = await supabase
     .from('pagamentos_venda')
-    .select('id, forma_pagamento, valor, parcelas, valor_com_juros')
+    .select('id, forma_pagamento, valor, parcelas, valor_com_juros, status, data_vencimento')
     .eq('venda_id', id)
     .order('criado_em')
+
+  const hojeKey = formatAppDateKey(new Date())
+  const totalPendente = (pagamentos || [])
+    .filter((p) => p.status === 'pendente')
+    .reduce((sum, p) => sum + p.valor, 0)
+
+  const [tagsVenda, tagsCatalogo] = await Promise.all([
+    listarTagsDaVenda(id),
+    listarTagsVendaAtivas(),
+  ])
 
   if (!venda) {
     return (
@@ -220,6 +231,7 @@ export default async function VendaDetalhePage({
                 {TIPO_VENDA_LABEL[tipoVenda] ?? tipoVenda}
               </span>
             )}
+            <SeletorTagsVenda vendaId={id} tagsAtuais={tagsVenda} catalogo={tagsCatalogo} size="md" />
           </div>
           <div className="flex items-center gap-2">
             <Link
@@ -279,31 +291,57 @@ export default async function VendaDetalhePage({
               </p>
               {pagamentos && pagamentos.length > 0 ? (
                 <div className="space-y-1">
-                  {pagamentos.map((pagamento) => (
-                    <div key={pagamento.id} className="flex items-center justify-between text-sm bg-page border border-border rounded-md px-3 py-1.5">
-                      <span className="text-text-primary flex items-center gap-2">
-                        {FORMA_PAGAMENTO_LABEL[pagamento.forma_pagamento] || pagamento.forma_pagamento}
-                        {pagamento.parcelas > 1 && (
-                          <span className="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-sky-100 text-sky-700">
-                            {pagamento.parcelas}x
-                          </span>
-                        )}
-                      </span>
-                      <span className="text-right">
-                        <span className="font-medium text-text-primary block">
-                          {pagamento.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  {pagamentos.map((pagamento) => {
+                    const pendente = pagamento.status === 'pendente'
+                    const atrasado = pendente && !!pagamento.data_vencimento && pagamento.data_vencimento < hojeKey
+                    return (
+                      <div key={pagamento.id} className="flex items-center justify-between gap-2 text-sm bg-page border border-border rounded-md px-3 py-1.5">
+                        <span className="text-text-primary flex items-center gap-2 flex-wrap">
+                          {FORMA_PAGAMENTO_LABEL[pagamento.forma_pagamento] || pagamento.forma_pagamento}
+                          {pagamento.parcelas > 1 && (
+                            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-sky-100 text-sky-700">
+                              {pagamento.parcelas}x
+                            </span>
+                          )}
+                          {pendente ? (
+                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+                              atrasado ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                            }`}>
+                              {atrasado ? 'Atrasado' : 'Pendente'}
+                              {pagamento.data_vencimento && ` — vence ${formatAppDate(parseAppDate(pagamento.data_vencimento), 'pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}`}
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-100 text-emerald-700">
+                              Recebido
+                            </span>
+                          )}
                         </span>
-                        {pagamento.valor_com_juros && (
-                          <span className="text-[11px] text-text-secondary block">
-                            cliente pagou {pagamento.valor_com_juros.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} com juros
+                        <span className="text-right shrink-0">
+                          <span className="font-medium text-text-primary block">
+                            {pagamento.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                           </span>
-                        )}
-                      </span>
-                    </div>
-                  ))}
+                          {pagamento.valor_com_juros && (
+                            <span className="text-[11px] text-text-secondary block">
+                              cliente pagou {pagamento.valor_com_juros.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} com juros
+                            </span>
+                          )}
+                          {pendente && (
+                            <span className="block mt-1">
+                              <BtnMarcarPagamentoRecebido pagamentoId={pagamento.id} vendaId={id} />
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    )
+                  })}
                 </div>
               ) : (
                 <p className="text-text-primary">{FORMA_PAGAMENTO_LABEL[venda.forma_pagamento] || 'Não informada'}</p>
+              )}
+              {totalPendente > 0 && (
+                <p className="text-xs text-amber-700 mt-2">
+                  Total pendente a receber: <strong>{totalPendente.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
+                </p>
               )}
             </div>
             {protocoloNome && (

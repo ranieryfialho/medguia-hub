@@ -95,7 +95,7 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
   const [nome, setNome] = useState('')
   const [protocoloId, setProtocoloId] = useState('')
   const [itens, setItens] = useState<ItemVenda[]>([])
-  const [pagamentos, setPagamentos] = useState<PagamentoVendaForm[]>([{ formaPagamento: '', valor: 0, parcelas: 1, valorComJuros: null }])
+  const [pagamentos, setPagamentos] = useState<PagamentoVendaForm[]>([{ formaPagamento: '', valor: 0, parcelas: 1, valorComJuros: null, status: 'pago', dataVencimento: null }])
   const [produtoSelecionado, setProdutoSelecionado] = useState('')
   const [quantidadeSelecionada, setQuantidadeSelecionada] = useState(1)
   const [precoUnitario, setPrecoUnitario] = useState<number>(0)
@@ -896,6 +896,8 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
           valor: p.valor,
           parcelas: p.parcelas,
           valor_com_juros: p.valorComJuros,
+          status: p.status,
+          data_vencimento: p.dataVencimento,
         })))}
       />
       <input type="hidden" name="data_venda" value={dataVenda} />

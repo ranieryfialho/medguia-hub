@@ -17,6 +17,10 @@ export interface PagamentoVenda {
   parcelas: number
   /** Valor efetivamente cobrado do cliente com juros do parcelamento — informativo, nunca entra no faturamento. */
   valorComJuros: number | null
+  /** 'pago' (padrão) ou 'pendente' — combinado com o paciente mas ainda não recebido. */
+  status: 'pago' | 'pendente'
+  /** Data combinada para o recebimento. Só existe (e é obrigatória) quando status é 'pendente'. */
+  dataVencimento: string | null
 }
 
 /** Formato persistido em `pagamentos_venda`. */
@@ -25,6 +29,8 @@ export interface PagamentoVendaRow {
   valor: number
   parcelas: number
   valor_com_juros: number | null
+  status: 'pago' | 'pendente'
+  data_vencimento: string | null
 }
 
 function formaPagamentoValida(value: string) {
@@ -48,6 +54,14 @@ function normalizarItem(valor: unknown): PagamentoVenda | null {
   const valorComJurosRaw = record.valor_com_juros ?? record.valorComJuros
   const valorComJurosNumerico = Number(valorComJurosRaw)
 
+  const statusRaw = typeof record.status === 'string' ? record.status : 'pago'
+  const status = statusRaw === 'pendente' ? 'pendente' : 'pago'
+
+  const dataVencimentoRaw = record.data_vencimento ?? record.dataVencimento
+  const dataVencimento = typeof dataVencimentoRaw === 'string' && dataVencimentoRaw.trim()
+    ? dataVencimentoRaw.trim()
+    : null
+
   return {
     formaPagamento: formaPagamento.trim(),
     valor: Number.isFinite(valorNumerico) ? valorNumerico : 0,
@@ -57,6 +71,8 @@ function normalizarItem(valor: unknown): PagamentoVenda | null {
     valorComJuros: valorComJurosRaw != null && Number.isFinite(valorComJurosNumerico) && valorComJurosNumerico > 0
       ? valorComJurosNumerico
       : null,
+    status,
+    dataVencimento: status === 'pendente' ? dataVencimento : null,
   }
 }
 
@@ -85,6 +101,8 @@ export function serializarPagamentos(pagamentos: PagamentoVenda[]): PagamentoVen
     valor: p.valor,
     parcelas: p.parcelas,
     valor_com_juros: p.formaPagamento === 'cartao_credito' ? p.valorComJuros : null,
+    status: p.status,
+    data_vencimento: p.status === 'pendente' ? p.dataVencimento : null,
   }))
 }
 
@@ -118,6 +136,9 @@ export function validarPagamentos(
     }
     if (pagamento.valorComJuros !== null && pagamento.valorComJuros < pagamento.valor) {
       return 'O valor com juros não pode ser menor que o valor do pagamento.'
+    }
+    if (pagamento.status === 'pendente' && !pagamento.dataVencimento) {
+      return 'Todo pagamento pendente precisa de uma data combinada para o recebimento.'
     }
   }
 
