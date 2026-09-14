@@ -13,7 +13,7 @@ import {
 } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
-import { AgendaFiltrosAutoSubmit, SlideNovoAgendamento, AgendaDatePicker } from '@/components/features/agenda'
+import { AgendaFiltrosAutoSubmit, BotaoAbrirNovoAgendamento, AgendaDatePicker } from '@/components/features/agenda'
 import { AgendamentoItemDia, AgendamentoItemSemana } from '@/components/features/agenda'
 import type { AgendamentoDetalhe } from '@/components/features/agenda'
 import { CardStatusEquipe, type StatusEquipeDeclaracaoRow } from '@/components/features/agenda/CardStatusEquipe'
@@ -976,12 +976,7 @@ export default async function AgendaPage({ searchParams }: PageProps) {
               </div>
             </div>
 
-            <SlideNovoAgendamento
-              profissionais={profissionaisElegiveisAgenda}
-              disponibilidades={disponibilidadesMap}
-              disponibilidadesMensais={disponibilidadesMensaisMap}
-              planos={planosSaude}
-            />
+            <BotaoAbrirNovoAgendamento />
           </div>
 
           {/* Status ao vivo da equipe (US-003) */}

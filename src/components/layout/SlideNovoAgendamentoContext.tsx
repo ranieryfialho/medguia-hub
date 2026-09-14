@@ -2,22 +2,36 @@
 
 import { createContext, useContext } from 'react'
 
-const SlideNovoAgendamentoContext = createContext(false)
+type SlideNovoAgendamentoContextValue = {
+  aberto: boolean
+  abrir: () => void
+}
+
+const SlideNovoAgendamentoContext = createContext<SlideNovoAgendamentoContextValue>({
+  aberto: false,
+  abrir: () => {},
+})
 
 export function SlideNovoAgendamentoProvider({
   aberto,
+  abrir,
   children,
 }: {
   aberto: boolean
+  abrir: () => void
   children: React.ReactNode
 }) {
   return (
-    <SlideNovoAgendamentoContext.Provider value={aberto}>
+    <SlideNovoAgendamentoContext.Provider value={{ aberto, abrir }}>
       {children}
     </SlideNovoAgendamentoContext.Provider>
   )
 }
 
 export function useSlideNovoAgendamentoAberto() {
-  return useContext(SlideNovoAgendamentoContext)
+  return useContext(SlideNovoAgendamentoContext).aberto
+}
+
+export function useAbrirNovoAgendamento() {
+  return useContext(SlideNovoAgendamentoContext).abrir
 }

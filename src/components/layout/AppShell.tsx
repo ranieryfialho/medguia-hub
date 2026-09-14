@@ -54,7 +54,7 @@ export function AppShell({
   const [slideNovoAberto, setSlideNovoAberto] = useState(false)
 
   return (
-    <SlideNovoAgendamentoProvider aberto={slideNovoAberto}>
+    <SlideNovoAgendamentoProvider aberto={slideNovoAberto} abrir={() => setSlideNovoAberto(true)}>
       <TiposConsultaProvider tiposConsulta={tiposConsulta}>
       <ProtocolosAtendimentoProvider protocolosAtendimento={protocolosAtendimento}>
         <div className="flex min-h-[100dvh] bg-[#f5faf9]">
