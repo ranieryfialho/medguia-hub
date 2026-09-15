@@ -1,9 +1,13 @@
 import { createClient } from '@/lib/supabase/server'
-import { format, startOfMonth, addDays, subDays } from 'date-fns'
+import { format, startOfMonth, startOfDay, startOfWeek, addDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { TrendingUp, Users, BarChart3 } from 'lucide-react'
-import { Suspense } from 'react'
-import { calcularKPIs, type JornadaPlanejada } from '@/lib/relatorios/kpis-tempo-fabril'
+import {
+  calcularKPIs,
+  type JornadaPlanejada,
+  type Reuniao,
+  type HistoricoStatus,
+  type HistoricoStatusAberto,
+} from '@/lib/relatorios/kpis-tempo-fabril'
 import { formatAppDateKey, getAppDayRangeUTC } from '@/lib/datetime'
 import { requireModulo } from '@/lib/guard'
 import { isGestorSistema } from '@/lib/permissoes'
@@ -12,7 +16,17 @@ import {
   isStatusConcluido,
   STATUS_PENDENTE_KEYS,
 } from '@/lib/atendimento-status'
-import FunilContatos from './FunilContatos'
+import { criarContagemStatusContato, LABEL_POR_STATUS_CONTATO } from '@/lib/contatos-kanban'
+import VisaoGeralKPIs, { type PeriodoDashboardData } from './VisaoGeralKPIs'
+
+const COR_STATUS_CONTATO: Record<string, string> = {
+  a_contactar: 'bg-gray-100 text-gray-700',
+  recuperacao_base: 'bg-indigo-100 text-indigo-700',
+  tentativa: 'bg-amber-100 text-amber-700',
+  em_conversa: 'bg-teal-100 text-teal-700',
+  sem_interesse: 'bg-red-100 text-red-700',
+  agendou: 'bg-green-100 text-green-700',
+}
 
 type Atendimento = {
   id: string
@@ -40,18 +54,39 @@ type Profissional = {
   role: string | null
 }
 
-type TendenciaDia = {
-  dia: string
-  count: number
-  concluidos: number
+type PageProps = {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: PageProps) {
   const { user, profile } = await requireModulo('dashboard')
 
+  const params = await searchParams
   const supabase = await createClient()
   const hoje = new Date()
+  const inicioDia = startOfDay(hoje)
+  const inicioSemana = startOfWeek(hoje, { weekStartsOn: 0 })
   const inicioMes = startOfMonth(hoje)
+
+  const hojeKey = formatAppDateKey(hoje)
+  const inicioSemanaKey = formatAppDateKey(inicioSemana)
+  const inicioMesKey = formatAppDateKey(inicioMes)
+
+  // Período personalizado (?periodo=personalizado&de=...&ate=...), vindo do filtro de range de datas
+  const periodoParam = typeof params.periodo === 'string' ? params.periodo : 'mes'
+  const isPersonalizado = periodoParam === 'personalizado'
+  const deCustomKeyRaw = typeof params.de === 'string' ? params.de : hojeKey
+  const ateCustomKeyRaw = typeof params.ate === 'string' ? params.ate : hojeKey
+  const deCustomKey = deCustomKeyRaw <= ateCustomKeyRaw ? deCustomKeyRaw : ateCustomKeyRaw
+  const ateCustomKey = deCustomKeyRaw <= ateCustomKeyRaw ? ateCustomKeyRaw : deCustomKeyRaw
+  const inicioCustom = new Date(`${deCustomKey}T00:00:00`)
+  const fimCustom = new Date(`${ateCustomKey}T23:59:59.999`)
+
+  // Range de busca amplo: cobre dia/semana/mês e, se houver, o período personalizado
+  const candidatosInicio = [inicioSemana, inicioMes, ...(isPersonalizado ? [inicioCustom] : [])]
+  const inicioRange = candidatosInicio.reduce((min, d) => (d < min ? d : min))
+  const inicioRangeKey = formatAppDateKey(inicioRange)
+  const fimRangeKey = isPersonalizado && ateCustomKey > hojeKey ? ateCustomKey : hojeKey
 
   const isGestorOuMaster = isGestorSistema(profile?.nivel_acesso)
 
@@ -78,17 +113,26 @@ export default async function DashboardPage() {
     profissionaisParaKPI = [{ id: user.id, nome: profile?.full_name || 'Você' }]
   }
 
-  // 3. Buscar dados em paralelo
-  const inicioMes_UTC = getAppDayRangeUTC(formatAppDateKey(inicioMes)).start
-  const hoje_UTC = getAppDayRangeUTC(formatAppDateKey(hoje)).end
+  // 3. Buscar dados em paralelo (range amplo cobrindo dia/semana/mês/personalizado numa única busca)
+  const inicioRange_UTC = getAppDayRangeUTC(inicioRangeKey).start
+  const fimRange_UTC = getAppDayRangeUTC(fimRangeKey).end
 
-  const [atendimentosRes, jornadasRes, jornadasMensaisRes, pacientesNovosRes] = await Promise.all([
+  const [
+    atendimentosRes,
+    jornadasRes,
+    jornadasMensaisRes,
+    pacientesNovosRes,
+    contatosBaseRes,
+    reunioesRes,
+    historicoRes,
+    historicoAbertoRes,
+  ] = await Promise.all([
     supabase
       .from('atendimentos')
       .select('id, profissional_id, data_agendamento, duracao_minutos, status, tipo, numero_sessao, paciente_id')
       .in('profissional_id', profIds)
-      .gte('data_agendamento', inicioMes_UTC)
-      .lte('data_agendamento', hoje_UTC)
+      .gte('data_agendamento', inicioRange_UTC)
+      .lte('data_agendamento', fimRange_UTC)
       .order('data_agendamento', { ascending: true }),
     supabase
       .from('disponibilidade_profissional')
@@ -99,19 +143,51 @@ export default async function DashboardPage() {
       .from('jornada_mensal_profissional')
       .select('profissional_id, data, jornada_inicio, jornada_fim, intervalo_inicio, intervalo_fim, ativo')
       .in('profissional_id', profIds)
-      .gte('data', formatAppDateKey(inicioMes))
-      .lte('data', formatAppDateKey(hoje)),
+      .gte('data', inicioRangeKey)
+      .lte('data', fimRangeKey),
     supabase
       .from('pacientes')
       .select('id, created_at')
-      .gte('created_at', inicioMes_UTC)
-      .lte('created_at', hoje_UTC),
+      .gte('created_at', inicioRange_UTC)
+      .lte('created_at', fimRange_UTC),
+    isGestorOuMaster
+      ? supabase
+          .from('contatos_base')
+          .select('status, responsavel_id, criado_em')
+          .gte('criado_em', inicioRange_UTC)
+          .lte('criado_em', fimRange_UTC)
+      : Promise.resolve({ data: [] as { status: string; responsavel_id: string | null; criado_em: string }[] }),
+    // Reuniões legadas + histórico de status personalizados (hora administrativa, reunião, etc.)
+    // — sem isso o Tempo Fábril/Taxa de Ocupação conta só atendimentos, igual /relatorios/tempo-fabril evita.
+    supabase
+      .from('historico_reunioes')
+      .select('profissional_id, inicio, fim, duracao_minutos')
+      .in('profissional_id', profIds)
+      .gte('inicio', inicioRange_UTC)
+      .lte('inicio', fimRange_UTC)
+      .not('fim', 'is', null),
+    supabase
+      .from('historico_status_disponibilidade')
+      .select('id, profissional_id, status, observacao, inicio, fim, duracao_minutos')
+      .in('profissional_id', profIds)
+      .gte('inicio', inicioRange_UTC)
+      .lte('inicio', fimRange_UTC)
+      .not('fim', 'is', null),
+    supabase
+      .from('historico_status_disponibilidade')
+      .select('id, profissional_id, status, observacao, inicio')
+      .in('profissional_id', profIds)
+      .is('fim', null),
   ])
 
   const atendimentos: Atendimento[] = atendimentosRes.data || []
   const jornadas: Jornada[] = jornadasRes.data || []
   const jornadasMensais: JornadaPlanejada[] = jornadasMensaisRes.data || []
   const pacientesNovos = pacientesNovosRes.data || []
+  const contatosBase = contatosBaseRes.data || []
+  const reunioes: Reuniao[] = reunioesRes.data || []
+  const historico: HistoricoStatus[] = historicoRes.data || []
+  const historicoAberto: HistoricoStatusAberto[] = historicoAbertoRes.data || []
 
   // 4. Filtrar profissionais que têm jornada configurada
   const profIdsComJornada = new Set([
@@ -120,71 +196,181 @@ export default async function DashboardPage() {
   ])
   const profissionaisComJornada = profissionaisParaKPI.filter(p => profIdsComJornada.has(p.id))
 
-  // 5. Calcular KPIs usando função existente (apenas profissionais com jornada)
-  const kpis = calcularKPIs(
-    profissionaisComJornada,
-    atendimentos,
-    jornadas,
-    jornadasMensais,
-    inicioMes,
-    hoje
-  )
-
-  // 6. Bloco 1: Produtividade / Fábril
-  const totalJornadaMin = kpis.reduce((s, k) => s + k.jornadaContratadaMin, 0)
-  const totalFabrilMin = kpis.reduce((s, k) => s + k.tempoFabrilMin, 0)
-  const taxaOcupacaoGlobal = totalJornadaMin > 0 ? Math.round((totalFabrilMin / totalJornadaMin) * 100) : 0
-
-  const tendenciaSeed = new Map<string, TendenciaDia>()
-  for (let i = 0; i < 7; i++) {
-    const dia = addDays(subDays(hoje, 6), i)
-    const diaKey = formatAppDateKey(dia)
-    tendenciaSeed.set(diaKey, {
-      dia: format(dia, 'EEE', { locale: ptBR }),
-      count: 0,
-      concluidos: 0,
-    })
+  // 5. Visão Geral: recalcula TODOS os KPIs (cards, distribuição, tendência e ranking)
+  // para hoje / semana / mês / personalizado — tudo reage ao mesmo filtro de período.
+  function buildDiasDoPeriodo(inicioDate: Date, fimDate: Date): Date[] {
+    const dias: Date[] = []
+    let cursor = startOfDay(inicioDate)
+    const fim = startOfDay(fimDate)
+    while (cursor <= fim) {
+      dias.push(cursor)
+      cursor = addDays(cursor, 1)
+    }
+    return dias
   }
 
-  let concluidos = 0
-  let cancelados = 0
-  let faltas = 0
-  let emAberto = 0
-  const pacientesAtivosIds = new Set<string>()
+  function calcularPeriodoCompleto(
+    inicioKey: string,
+    fimKey: string,
+    inicioDate: Date,
+    fimDate: Date,
+    agendaHref: string,
+    ocupacaoHref: string
+  ): PeriodoDashboardData {
+    const atendPeriodo = atendimentos.filter(a => {
+      const k = formatAppDateKey(a.data_agendamento)
+      return k >= inicioKey && k <= fimKey
+    })
+    const pacientesAtivosPeriodo = new Set(atendPeriodo.map(a => a.paciente_id))
+    const pacientesCadastradosPeriodo = pacientesNovos.filter(p => {
+      const k = formatAppDateKey(p.created_at)
+      return k >= inicioKey && k <= fimKey
+    }).length
 
-  for (const atendimento of atendimentos) {
-    pacientesAtivosIds.add(atendimento.paciente_id)
+    // Distribuição de status
+    let concluidos = 0
+    let cancelados = 0
+    let faltas = 0
+    let emAberto = 0
+    for (const a of atendPeriodo) {
+      const statusKey = getAtendimentoStatusKey(a.status)
+      if (isStatusConcluido(a.status)) concluidos++
+      if (statusKey === 'cancelado') cancelados++
+      if (statusKey === 'falta') faltas++
+      if (STATUS_PENDENTE_KEYS.includes(statusKey as (typeof STATUS_PENDENTE_KEYS)[number])) emAberto++
+    }
+    const taxaConclusaoPeriodo = atendPeriodo.length > 0
+      ? Math.round((concluidos / atendPeriodo.length) * 100)
+      : 0
 
-    const statusKey = getAtendimentoStatusKey(atendimento.status)
-    const concluido = isStatusConcluido(atendimento.status)
+    // Tendência: um ponto por dia dentro do período selecionado
+    const diasPeriodo = buildDiasDoPeriodo(inicioDate, fimDate)
+    const formatoLabel = diasPeriodo.length > 14 ? 'dd/MM' : 'EEE'
+    const tendenciaMap = new Map<string, { label: string; labelCompleto: string; count: number; concluidos: number }>()
+    for (const dia of diasPeriodo) {
+      tendenciaMap.set(formatAppDateKey(dia), {
+        label: format(dia, formatoLabel, { locale: ptBR }),
+        labelCompleto: format(dia, 'EEEE, dd/MM', { locale: ptBR }),
+        count: 0,
+        concluidos: 0,
+      })
+    }
+    for (const a of atendPeriodo) {
+      const bucket = tendenciaMap.get(formatAppDateKey(a.data_agendamento))
+      if (bucket) {
+        bucket.count++
+        if (isStatusConcluido(a.status)) bucket.concluidos++
+      }
+    }
 
-    if (concluido) concluidos++
-    if (statusKey === 'cancelado') cancelados++
-    if (statusKey === 'falta') faltas++
-    if (STATUS_PENDENTE_KEYS.includes(statusKey as (typeof STATUS_PENDENTE_KEYS)[number])) emAberto++
+    // Ocupação + ranking por profissional (inclui status personalizados: reunião, hora administrativa, etc.)
+    const kpisPeriodo = calcularKPIs(
+      profissionaisComJornada,
+      atendPeriodo,
+      jornadas,
+      jornadasMensais,
+      inicioDate,
+      fimDate,
+      reunioes,
+      historico,
+      historicoAberto,
+    )
+    const jornadaMin = kpisPeriodo.reduce((s, k) => s + k.jornadaContratadaMin, 0)
+    const fabrilMin = kpisPeriodo.reduce((s, k) => s + k.tempoFabrilMin, 0)
+    const taxaOcupacao = jornadaMin > 0 ? Math.round((fabrilMin / jornadaMin) * 100) : 0
 
-    const diaKey = formatAppDateKey(atendimento.data_agendamento)
-    const tendenciaDia = tendenciaSeed.get(diaKey)
-    if (tendenciaDia) {
-      tendenciaDia.count++
-      if (concluido) tendenciaDia.concluidos++
+    // Contatos da base atribuídos a cada profissional, criados dentro do período
+    const contatosPeriodo = contatosBase.filter(c => {
+      const k = formatAppDateKey(c.criado_em)
+      return k >= inicioKey && k <= fimKey
+    })
+    const contatosPorResponsavel = new Map<string, number>()
+    for (const c of contatosPeriodo) {
+      if (!c.responsavel_id) continue
+      contatosPorResponsavel.set(c.responsavel_id, (contatosPorResponsavel.get(c.responsavel_id) ?? 0) + 1)
+    }
+
+    // Funil de Contatos (apenas Gestor/Master)
+    let funil: PeriodoDashboardData['funil'] = null
+    if (isGestorOuMaster) {
+      const contagem = criarContagemStatusContato()
+      for (const c of contatosPeriodo) {
+        if (c.status in contagem) contagem[c.status as keyof typeof contagem]++
+      }
+      const semResponsavel = contatosPeriodo.filter(c => !c.responsavel_id).length
+      funil = {
+        total: contatosPeriodo.length,
+        semResponsavel,
+        itens: Object.entries(contagem).map(([status, value]) => ({
+          label: LABEL_POR_STATUS_CONTATO[status as keyof typeof contagem],
+          value,
+          cor: COR_STATUS_CONTATO[status] ?? 'bg-gray-100 text-gray-700',
+        })),
+      }
+    }
+
+    return {
+      agendamentos: atendPeriodo.length,
+      taxaConclusao: taxaConclusaoPeriodo,
+      pacientesAtivos: pacientesAtivosPeriodo.size,
+      pacientesCadastrados: pacientesCadastradosPeriodo,
+      taxaOcupacao,
+      fabrilMin,
+      jornadaMin,
+      agendaHref,
+      ocupacaoHref,
+      distribuicao: { concluidos, cancelados, faltas, emAberto, total: atendPeriodo.length },
+      tendencia: Array.from(tendenciaMap.values()),
+      ranking: kpisPeriodo.map(k => ({
+        profissionalId: k.profissionalId,
+        nome: k.nome,
+        taxaOcupacao: k.taxaOcupacao,
+        qtdAtendimentos: k.qtdAtendimentos,
+        qtdContatos: contatosPorResponsavel.get(k.profissionalId) ?? 0,
+      })),
+      funil,
     }
   }
 
-  // 7. Bloco 2: Volume de Atendimentos
-  const totalAtend = atendimentos.length
-  const taxaConclusao = totalAtend > 0 ? Math.round((concluidos / totalAtend) * 100) : 0
+  const dadosPorPeriodo: Partial<Record<'dia' | 'semana' | 'mes' | 'personalizado', PeriodoDashboardData>> = {
+    dia: calcularPeriodoCompleto(
+      hojeKey,
+      hojeKey,
+      inicioDia,
+      hoje,
+      `/agenda?view=dia&data=${hojeKey}`,
+      `/relatorios/tempo-fabril?periodo=personalizado&de=${hojeKey}&ate=${hojeKey}`
+    ),
+    semana: calcularPeriodoCompleto(
+      inicioSemanaKey,
+      hojeKey,
+      inicioSemana,
+      hoje,
+      `/agenda?view=semana&data=${hojeKey}`,
+      '/relatorios/tempo-fabril?periodo=esta-semana'
+    ),
+    mes: calcularPeriodoCompleto(
+      inicioMesKey,
+      hojeKey,
+      inicioMes,
+      hoje,
+      `/agenda?view=mes&data=${hojeKey}`,
+      '/relatorios/tempo-fabril'
+    ),
+  }
 
-  // 8. Bloco 3: Pacientes
-  const pacientesComAtendimento = pacientesAtivosIds.size
-  const novosPacientes = pacientesNovos.length
+  if (isPersonalizado) {
+    dadosPorPeriodo.personalizado = calcularPeriodoCompleto(
+      deCustomKey,
+      ateCustomKey,
+      inicioCustom,
+      fimCustom,
+      `/agenda?view=mes&data=${deCustomKey}`,
+      `/relatorios/tempo-fabril?periodo=personalizado&de=${deCustomKey}&ate=${ateCustomKey}`
+    )
+  }
 
-  // 9. Bloco 4: Tendência 7 dias
-  const tendencia7Dias = Array.from(tendenciaSeed.values())
-
-  const maxTendencia = Math.max(...tendencia7Dias.map(d => d.count), 1)
-
-  // 10. Formatar período para display
+  // 6. Formatar período para display
   const mesAno = format(hoje, 'MMMM yyyy', { locale: ptBR })
 
   return (
@@ -196,150 +382,14 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {/* BLOCO 1: PRODUTIVIDADE */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-gradient-to-br from-[#006b5a] to-[#33a68f] p-6 rounded-3xl shadow-lg text-white">
-          <div className="flex justify-between items-start mb-4">
-            <h3 className="text-xs font-bold uppercase tracking-widest opacity-80">Taxa de Ocupação</h3>
-            <div className="bg-white/20 p-2 rounded-lg">
-              <TrendingUp size={18} />
-            </div>
-          </div>
-          <p className="text-3xl font-bold">{taxaOcupacaoGlobal}%</p>
-          <p className="text-xs mt-2 opacity-75">
-            {totalFabrilMin > 0 ? `${Math.round(totalFabrilMin / 60)}h ${totalFabrilMin % 60}m / ${Math.round(totalJornadaMin / 60)}h` : '0 / 0'}
-          </p>
-        </div>
-
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#bcc9c4]/30">
-          <div className="flex justify-between items-start mb-4">
-            <h3 className="text-xs font-bold text-[#3d4945] uppercase tracking-widest">Total de Atendimentos</h3>
-            <BarChart3 size={18} className="text-[#006b5a]" />
-          </div>
-          <p className="text-3xl font-bold text-[#171d1c]">{totalAtend}</p>
-          <p className="text-xs mt-2 text-[#3d4945]/70">{taxaConclusao}% concluídos</p>
-        </div>
-
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#bcc9c4]/30">
-          <div className="flex justify-between items-start mb-4">
-            <h3 className="text-xs font-bold text-[#3d4945] uppercase tracking-widest">Pacientes Ativos</h3>
-            <Users size={18} className="text-[#006b5a]" />
-          </div>
-          <p className="text-3xl font-bold text-[#171d1c]">{pacientesComAtendimento}</p>
-          <p className="text-xs mt-2 text-[#3d4945]/70">{novosPacientes} novos este mês</p>
-        </div>
-      </div>
-
-      {/* BLOCO 1B: FUNIL DE CONTATOS (Apenas Gestor/Master) — streamado à parte para não bloquear o resto do dashboard */}
-      {isGestorOuMaster && (
-        <Suspense fallback={<div className="bg-white p-6 rounded-3xl shadow-sm border border-[#bcc9c4]/30 h-50 animate-pulse" />}>
-          <FunilContatos userId={user.id} isGestorOuMaster={isGestorOuMaster} />
-        </Suspense>
-      )}
-
-      {/* BLOCO 2: DISTRIBUIÇÃO DE STATUS + TENDÊNCIA */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Distribuição de Status */}
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#bcc9c4]/30">
-          <h3 className="text-sm font-bold text-[#171d1c] uppercase tracking-widest mb-4">Distribuição de Status</h3>
-          <div className="space-y-3">
-            {[
-              { label: 'Concluído', count: concluidos, cor: 'bg-green-500' },
-              { label: 'Cancelado', count: cancelados, cor: 'bg-red-500' },
-              { label: 'Falta', count: faltas, cor: 'bg-gray-500' },
-              { label: 'Em Aberto', count: emAberto, cor: 'bg-amber-500' },
-            ].map((item) => {
-              const pct = totalAtend > 0 ? Math.round((item.count / totalAtend) * 100) : 0
-              return (
-                <div key={item.label}>
-                  <div className="flex justify-between items-center text-sm mb-1">
-                    <div className="flex items-center gap-2">
-                      <span className={`w-3 h-3 rounded-full ${item.cor}`} />
-                      <span className="text-[#3d4945] font-medium">{item.label}</span>
-                    </div>
-                    <span className="text-[#171d1c] font-bold">{item.count} ({pct}%)</span>
-                  </div>
-                  <div className="w-full bg-[#f0f5f4] rounded-full h-1.5">
-                    <div
-                      className={`${item.cor} h-1.5 rounded-full transition-all`}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Tendência 7 dias */}
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#bcc9c4]/30">
-          <h3 className="text-sm font-bold text-[#171d1c] uppercase tracking-widest mb-4">Tendência (7 dias)</h3>
-          <div className="flex items-end justify-between gap-1 h-32">
-            {tendencia7Dias.map((dia, i) => {
-              const alturaTotal = dia.count > 0 ? (dia.count / maxTendencia) * 100 : 5
-              const alturaConcluida = dia.concluidos > 0 ? (dia.concluidos / maxTendencia) * 100 : 0
-
-              return (
-                <div key={i} className="flex flex-col items-center gap-2 flex-1">
-                  <div className="relative w-full h-24 flex items-end justify-center">
-                    {/* Barra total */}
-                    <div
-                      className="absolute bottom-0 w-full bg-[#cce2da] rounded-sm transition-all"
-                      style={{ height: `${alturaTotal}%` }}
-                    />
-                    {/* Barra concluída */}
-                    {alturaConcluida > 0 && (
-                      <div
-                        className="absolute bottom-0 w-full bg-[#006b5a] rounded-sm transition-all"
-                        style={{ height: `${alturaConcluida}%` }}
-                      />
-                    )}
-                  </div>
-                  <span className="text-xs font-semibold text-[#3d4945]/60 capitalize">
-                    {dia.dia.slice(0, 3)}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-          <div className="flex items-center gap-3 mt-3 text-xs text-[#3d4945]/60">
-            <div className="flex items-center gap-1">
-              <span className="inline-block w-2 h-2 bg-[#cce2da] rounded-sm" />
-              Total
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="inline-block w-2 h-2 bg-[#006b5a] rounded-sm" />
-              Concluído
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* BLOCO 3: RANKING DA EQUIPE (Apenas Gestor/Master) */}
-      {isGestorOuMaster && kpis.length > 1 && (
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-[#bcc9c4]/30">
-          <h3 className="text-sm font-bold text-[#171d1c] uppercase tracking-widest mb-4">Ranking da Equipe</h3>
-          <div className="space-y-3">
-            {kpis
-              .sort((a, b) => b.taxaOcupacao - a.taxaOcupacao)
-              .map((kpi, idx) => (
-                <div key={kpi.profissionalId} className="flex items-center justify-between p-3 bg-[#f9faf8] rounded-xl border border-[#bcc9c4]/20">
-                  <div className="flex items-center gap-3">
-                    <span className="font-bold text-[#006b5a] text-sm">{idx + 1}º</span>
-                    <div>
-                      <p className="text-sm font-bold text-[#171d1c]">{kpi.nome}</p>
-                      <p className="text-xs text-[#3d4945]/60">{kpi.qtdAtendimentos} atendimentos</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold text-[#006b5a]">{kpi.taxaOcupacao}%</p>
-                    <p className="text-xs text-[#3d4945]/60">ocupação</p>
-                  </div>
-                </div>
-              ))}
-          </div>
-        </div>
-      )}
+      {/* VISÃO GERAL — interativo (Hoje/Semana/Mês/Personalizado): cards, distribuição, tendência e ranking */}
+      <VisaoGeralKPIs
+        dados={dadosPorPeriodo}
+        periodoInicial={isPersonalizado ? 'personalizado' : 'mes'}
+        deInicial={deCustomKey}
+        ateInicial={ateCustomKey}
+        isGestorOuMaster={isGestorOuMaster}
+      />
     </div>
   )
 }
