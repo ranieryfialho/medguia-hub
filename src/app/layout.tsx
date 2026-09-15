@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { PageTransitionLoader } from '@/components/layout/PageTransitionLoader'
+import { StaleServerActionWatcher } from '@/components/layout/StaleServerActionWatcher'
 
 export const metadata: Metadata = {
   title: 'MedGuia Hub',
@@ -27,6 +28,7 @@ export default function RootLayout({
     <html lang="pt-BR" suppressHydrationWarning>
       <body>
         <PageTransitionLoader />
+        <StaleServerActionWatcher />
         {children}
       </body>
     </html>
