@@ -264,6 +264,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     }
 
     // Ocupação + ranking por profissional (inclui status personalizados: reunião, hora administrativa, etc.)
+    // leve:true pula evolução semanal e detalhamentos que o dashboard não usa —
+    // sem isso, calcularKPIs roda 3-4x (uma por período) fazendo trabalho descartado.
     const kpisPeriodo = calcularKPIs(
       profissionaisComJornada,
       atendPeriodo,
@@ -274,6 +276,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       reunioes,
       historico,
       historicoAberto,
+      { leve: true },
     )
     const jornadaMin = kpisPeriodo.reduce((s, k) => s + k.jornadaContratadaMin, 0)
     const fabrilMin = kpisPeriodo.reduce((s, k) => s + k.tempoFabrilMin, 0)

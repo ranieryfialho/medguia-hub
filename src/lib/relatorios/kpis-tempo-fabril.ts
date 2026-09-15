@@ -338,7 +338,12 @@ export function calcularKPIs(
   reunioes: Reuniao[] = [],
   historico: HistoricoStatus[] = [],
   historicoAberto: HistoricoStatusAberto[] = [],
+  opcoes: { leve?: boolean } = {},
 ): KPIsProfissional[] {
+  // Modo leve: pula evolução semanal e os detalhamentos por atendimento/status —
+  // caros (loops por semana + sort) e não usados por quem só quer os agregados
+  // (ex: cards do dashboard, calculados várias vezes por período selecionado).
+  const { leve = false } = opcoes
   const kpis: KPIsProfissional[] = []
   const jornadasSemanaisPorProfissional = buildMapaSemanalPorProfissional(jornadas)
   const jornadasMensaisPorProfissional = buildMapaMensalPorProfissional(jornadasPlanejadas)
@@ -517,7 +522,7 @@ export function calcularKPIs(
       cursor = addDays(cursor, 1)
     }
 
-    const evolucaoPorSemana = agruparPorSemana(
+    const evolucaoPorSemana = leve ? [] : agruparPorSemana(
       atsProfissional,
       historicoProfissional,
       reuniaoProfissional,
@@ -527,7 +532,7 @@ export function calcularKPIs(
       dataFim,
     )
 
-    const detalheAtendimentos: AtendimentoDetalheKPI[] = atsProfissional
+    const detalheAtendimentos: AtendimentoDetalheKPI[] = leve ? [] : atsProfissional
       .filter((a) => isStatusFabril(a.status))
       .map((a) => ({
         id: a.id,
@@ -543,38 +548,40 @@ export function calcularKPIs(
     // o gestor conseguir revisar/pegar anomalias antes do fallback de 2h agir).
     const historicoAbertoProfissional = historicoAbertoPorProfissional.get(prof.id) ?? []
 
-    const detalheStatusFechados: StatusDetalheKPI[] = historicoProfissional
-      .filter((h) => {
-        const ini = new Date(h.inicio)
-        const fim = new Date(h.fim)
-        return !(ini > dataFim || fim < dataInicio)
-      })
-      .map((h) => ({
+    const detalheStatus: StatusDetalheKPI[] = leve ? [] : (() => {
+      const detalheStatusFechados: StatusDetalheKPI[] = historicoProfissional
+        .filter((h) => {
+          const ini = new Date(h.inicio)
+          const fim = new Date(h.fim)
+          return !(ini > dataFim || fim < dataInicio)
+        })
+        .map((h) => ({
+          id: h.id,
+          status: h.status,
+          observacao: h.observacao,
+          inicio: h.inicio,
+          fim: h.fim,
+          duracaoMinutos: h.duracao_minutos,
+          aberto: false,
+          descontadoMinutos: descontoPorBloco.get(h.id) ?? 0,
+        }))
+
+      const detalheStatusAbertos: StatusDetalheKPI[] = historicoAbertoProfissional.map((h) => ({
         id: h.id,
         status: h.status,
         observacao: h.observacao,
         inicio: h.inicio,
-        fim: h.fim,
-        duracaoMinutos: h.duracao_minutos,
-        aberto: false,
-        descontadoMinutos: descontoPorBloco.get(h.id) ?? 0,
+        fim: null,
+        duracaoMinutos: Math.max(0, Math.round((Date.now() - new Date(h.inicio).getTime()) / 60_000)),
+        aberto: true,
+        // Bloco aberto não entra nos agregados, então não há desconto aplicado a
+        // exibir. O que ele mostra é tempo corrido, não tempo contado.
+        descontadoMinutos: 0,
       }))
 
-    const detalheStatusAbertos: StatusDetalheKPI[] = historicoAbertoProfissional.map((h) => ({
-      id: h.id,
-      status: h.status,
-      observacao: h.observacao,
-      inicio: h.inicio,
-      fim: null,
-      duracaoMinutos: Math.max(0, Math.round((Date.now() - new Date(h.inicio).getTime()) / 60_000)),
-      aberto: true,
-      // Bloco aberto não entra nos agregados, então não há desconto aplicado a
-      // exibir. O que ele mostra é tempo corrido, não tempo contado.
-      descontadoMinutos: 0,
-    }))
-
-    const detalheStatus = [...detalheStatusAbertos, ...detalheStatusFechados]
-      .sort((a, b) => new Date(b.inicio).getTime() - new Date(a.inicio).getTime())
+      return [...detalheStatusAbertos, ...detalheStatusFechados]
+        .sort((a, b) => new Date(b.inicio).getTime() - new Date(a.inicio).getTime())
+    })()
 
     kpis.push({
       profissionalId: prof.id,
