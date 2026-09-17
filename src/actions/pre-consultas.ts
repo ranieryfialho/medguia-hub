@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { requirePermissaoAgendaAdmin, editarAtendimento } from '@/actions/agenda'
+import { requirePermissaoAgendaAdmin, editarAtendimento, deletarAgendamento, type MotivoExclusao } from '@/actions/agenda'
 import { createClient } from '@/lib/supabase/server'
 
 // Tipo fixo de toda pré-consulta gerada por este fluxo — a pré-consulta já
@@ -100,6 +100,45 @@ export async function atribuirFisioterapeutaPreConsulta(
 
   revalidatePath('/pre-consultas')
   revalidatePath('/agenda')
+  return { success: true }
+}
+
+// Trava de escopo desta Server Action: só exclui um atendimento que ainda
+// esteja "Aguardando Fisioterapeuta" (pendente, sem fisio atribuído) e que
+// seja ele mesmo uma pré/pós-consulta gerada por uma consulta médica
+// (agendamento_origem_id preenchido). A consulta médica de origem nunca é o
+// alvo — ela não tem agendamento_origem_id — então excluir aqui nunca
+// mexe nela.
+export async function excluirPreConsultaPendente(
+  atendimentoId: string,
+  motivo: MotivoExclusao,
+): Promise<{ success?: true; error?: string }> {
+  const ctx = await requirePermissaoAgendaAdmin()
+  if ('error' in ctx) return { error: ctx.error }
+  const { supabaseAdmin } = ctx
+
+  const { data, error } = await supabaseAdmin
+    .from('atendimentos')
+    .select('id, agendamento_origem_id, status')
+    .eq('id', atendimentoId)
+    .maybeSingle()
+
+  if (error || !data) {
+    return { error: 'Pré/pós-consulta não encontrada.' }
+  }
+
+  if (!data.agendamento_origem_id) {
+    return { error: 'Isso não é uma pré/pós-consulta de fisioterapia.' }
+  }
+
+  if (data.status !== 'Aguardando Fisioterapeuta') {
+    return { error: 'Só é possível excluir pré/pós-consultas ainda pendentes de atribuição.' }
+  }
+
+  const resultado = await deletarAgendamento(atendimentoId, motivo)
+  if (resultado.error) return { error: resultado.error }
+
+  revalidatePath('/pre-consultas')
   return { success: true }
 }
 
