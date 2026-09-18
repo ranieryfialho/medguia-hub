@@ -11,13 +11,16 @@ import {
   type FollowUpTipo,
   type FollowUpTemplate,
 } from '@/actions/follow-ups'
+import { ComboboxPaciente } from '@/components/features/pacientes/ComboboxPaciente'
 
 type Profissional = { id: string; full_name: string }
+type PacienteSelecionado = { id: string; nome: string }
+type TipoSelecionavel = Pick<FollowUpTipo, 'id' | 'nome'>
 
 type Props = {
-  pacienteId: string
+  pacienteId?: string
   atendimentoId?: string | null
-  tipos: FollowUpTipo[]
+  tipos: TipoSelecionavel[]
   profissionais: Profissional[]
   trigger?: React.ReactNode
   isOpen?: boolean
@@ -39,8 +42,14 @@ export function ModalFollowUp({
   const isControlled = isOpenProp !== undefined
   const isOpen = isControlled ? isOpenProp : isOpenLocal
 
-  const [passo, setPasso] = useState<'tipo' | 'form'>('tipo')
-  const [tipoSelecionado, setTipoSelecionado] = useState<FollowUpTipo | null>(null)
+  // Sem pacienteId fixo (uso fora do contexto de um paciente, ex.: /follow-ups),
+  // o primeiro passo é escolher o paciente antes de seguir para tipo/formulário.
+  const precisaEscolherPaciente = !pacienteId
+  const [pacienteEscolhido, setPacienteEscolhido] = useState<PacienteSelecionado | null>(null)
+  const pacienteIdEfetivo = pacienteId || pacienteEscolhido?.id || null
+
+  const [passo, setPasso] = useState<'paciente' | 'tipo' | 'form'>(precisaEscolherPaciente ? 'paciente' : 'tipo')
+  const [tipoSelecionado, setTipoSelecionado] = useState<TipoSelecionavel | null>(null)
   const [templates, setTemplates] = useState<FollowUpTemplate[]>([])
   const [templateId, setTemplateId] = useState('')
   const [descricao, setDescricao] = useState('')
@@ -72,7 +81,8 @@ export function ModalFollowUp({
   }
 
   function resetar() {
-    setPasso('tipo')
+    setPasso(precisaEscolherPaciente ? 'paciente' : 'tipo')
+    setPacienteEscolhido(null)
     setTipoSelecionado(null)
     setTemplates([])
     setTemplateId('')
@@ -80,12 +90,17 @@ export function ModalFollowUp({
     setResponsavelId(usuarioLogado?.id ?? '')
   }
 
+  function selecionarPaciente(item: PacienteSelecionado) {
+    setPacienteEscolhido(item)
+    setPasso('tipo')
+  }
+
   // Garante que quem esta logado apareca na lista mesmo se nao vier em profissionais
   const opcoesResponsavel = usuarioLogado && !profissionais.some(p => p.id === usuarioLogado.id)
     ? [usuarioLogado, ...profissionais]
     : profissionais
 
-  function selecionarTipo(tipo: FollowUpTipo) {
+  function selecionarTipo(tipo: TipoSelecionavel) {
     setTipoSelecionado(tipo)
     setTemplates([])
     setTemplateId('')
@@ -107,11 +122,11 @@ export function ModalFollowUp({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!tipoSelecionado) return
+    if (!tipoSelecionado || !pacienteIdEfetivo) return
 
     startTransition(async () => {
       const result = await criarFollowUp({
-        paciente_id: pacienteId,
+        paciente_id: pacienteIdEfetivo,
         atendimento_id: atendimentoId ?? null,
         tipo_id: tipoSelecionado.id,
         descricao: descricao || undefined,
@@ -151,7 +166,7 @@ export function ModalFollowUp({
       className="flex items-center gap-1.5 px-3 py-1.5 bg-[#006b5a]/10 text-[#006b5a] hover:bg-[#006b5a] hover:text-white rounded-lg text-sm font-medium transition-colors"
     >
       <Plus size={14} />
-      Follow-up
+      {precisaEscolherPaciente ? 'Novo Follow-up' : 'Follow-up'}
     </button>
   )
 
@@ -168,20 +183,28 @@ export function ModalFollowUp({
           className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[99999] flex items-center justify-center p-4"
           onClick={e => { if (e.target === e.currentTarget) fechar() }}
         >
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col animate-in fade-in slide-in-from-bottom-5 duration-300">
+          <div className={`bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col animate-in fade-in slide-in-from-bottom-5 duration-300 ${passo === 'paciente' ? 'overflow-visible' : 'overflow-hidden'}`}>
 
             {/* Header */}
-            <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-100 bg-slate-50/50 rounded-t-2xl">
               {passo === 'form' && (
                 <button onClick={() => setPasso('tipo')} className="text-slate-400 hover:text-slate-600 transition-colors p-1 -ml-1">
                   <ChevronLeft size={18} />
                 </button>
               )}
+              {passo === 'tipo' && precisaEscolherPaciente && (
+                <button onClick={() => setPasso('paciente')} className="text-slate-400 hover:text-slate-600 transition-colors p-1 -ml-1">
+                  <ChevronLeft size={18} />
+                </button>
+              )}
               <div className="flex-1">
                 <h3 className="text-lg font-bold text-[#006b5a]">
-                  {passo === 'tipo' ? 'Adicionar Follow-up' : tipoSelecionado?.nome}
+                  {passo === 'paciente' ? 'Selecionar paciente' : passo === 'tipo' ? 'Adicionar Follow-up' : tipoSelecionado?.nome}
                 </h3>
-                {passo === 'form' && tipoSelecionado && (
+                {passo !== 'paciente' && pacienteEscolhido && (
+                  <p className="text-xs text-slate-400 mt-0.5">Paciente: {pacienteEscolhido.nome}</p>
+                )}
+                {passo === 'form' && tipoSelecionado && !pacienteEscolhido && (
                   <p className="text-xs text-slate-400 mt-0.5">Preencha os detalhes do follow-up</p>
                 )}
               </div>
@@ -189,6 +212,18 @@ export function ModalFollowUp({
                 <X size={20} />
               </button>
             </div>
+
+            {/* Passo 0 — Seleção de paciente (só quando não há paciente fixo) */}
+            {passo === 'paciente' && (
+              <div className="p-6 pb-24 rounded-b-2xl">
+                <label className="block text-xs font-medium text-slate-500 mb-1.5">Paciente</label>
+                <ComboboxPaciente
+                  name="paciente_busca"
+                  placeholder="Buscar paciente pelo nome..."
+                  onSelect={(item) => selecionarPaciente({ id: item.id, nome: item.nome })}
+                />
+              </div>
+            )}
 
             {/* Passo 1 — Seleção de tipo */}
             {passo === 'tipo' && (

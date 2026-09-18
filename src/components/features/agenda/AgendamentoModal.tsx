@@ -108,6 +108,7 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
   const statusMenuRef = useRef<HTMLDivElement>(null)
   const tabsRef = useRef<HTMLDivElement>(null)
   const [evolucaoDirty, setEvolucaoDirty] = useState(false)
+  const [sugerirFollowUpAoSalvarEvolucao, setSugerirFollowUpAoSalvarEvolucao] = useState(initialTab === 'evolucao')
 
   function podeSairDaEvolucao() {
     return !evolucaoDirty || window.confirm('A evolução ainda não foi salva. Sair mesmo assim?')
@@ -277,10 +278,22 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
     setStatus(novoStatus)
 
     if (getAtendimentoStatusKey(novoStatus) === 'concluido') {
-      setActiveTab('followup')
+      setActiveTab('evolucao')
+      setSugerirFollowUpAoSalvarEvolucao(true)
     } else {
       router.refresh()
     }
+  }
+
+  function handleEvolucaoSalva() {
+    if (sugerirFollowUpAoSalvarEvolucao) {
+      setSugerirFollowUpAoSalvarEvolucao(false)
+      if (window.confirm('Deseja criar um follow-up para este paciente?')) {
+        setActiveTab('followup')
+        return
+      }
+    }
+    router.refresh()
   }
 
   async function handleConfirmarFalta(reagendar: boolean) {
@@ -546,6 +559,7 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
                 atendimentoId={agendamento.id}
                 pacienteId={agendamento.paciente_id}
                 onDirtyChange={setEvolucaoDirty}
+                onSuccess={handleEvolucaoSalva}
               />
             )}
 

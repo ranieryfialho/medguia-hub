@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Save, Loader2, Activity, MessageSquare, Layers, StickyNote, CheckCircle2 } from 'lucide-react'
+import { Save, Loader2, Activity, MessageSquare, Layers, StickyNote, CheckCircle2, AlertTriangle } from 'lucide-react'
 import {
   buscarProntuarioPorAtendimento,
   salvarProntuario,
@@ -81,19 +81,20 @@ function SectionLabel({ icon: Icon, label }: { icon: React.ElementType; label: s
   return (
     <div className="flex items-center gap-2 mb-2.5">
       <Icon size={14} className="text-[#006b5a] shrink-0" />
-      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{label}</span>
+      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+        {label} <span className="text-red-500">*</span>
+      </span>
     </div>
   )
 }
 
-function temCampoAbertoPreenchido(campos: string[]) {
-  return campos.some((campo) => campo.trim().length > 0)
+function todosCamposPreenchidos(campos: string[]) {
+  return campos.every((campo) => campo.trim().length > 0)
 }
 
 export function ProntuarioEvolucao({ atendimentoId, pacienteId, onSuccess, onDirtyChange }: Props) {
   const [loading, setLoading]                 = useState(true)
   const [saving, setSaving]                   = useState(false)
-  const [autoSaving, setAutoSaving]           = useState(false)
   const [lastSavedAt, setLastSavedAt]         = useState<string | null>(null)
   const [escalaDor, setEscalaDor]             = useState<number | null>(null)
   const [queixaPrincipal, setQueixaPrincipal] = useState('')
@@ -102,9 +103,8 @@ export function ProntuarioEvolucao({ atendimentoId, pacienteId, onSuccess, onDir
   const [observacoes, setObservacoes]         = useState('')
 
   const isDirty          = useRef(false)
-  const autoSaveTimer    = useRef<ReturnType<typeof setTimeout> | null>(null)
   const onDirtyChangeRef = useRef(onDirtyChange)
-  onDirtyChangeRef.current = onDirtyChange
+  useEffect(() => { onDirtyChangeRef.current = onDirtyChange })
 
   function marcarSujo() {
     isDirty.current = true
@@ -124,49 +124,16 @@ export function ProntuarioEvolucao({ atendimentoId, pacienteId, onSuccess, onDir
     })
   }, [atendimentoId])
 
-  // Auto-save com debounce de 3s — só dispara após interação do usuário
-  useEffect(() => {
-    if (!isDirty.current) return
-    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
-
-    const temCampoAberto = temCampoAbertoPreenchido([queixaPrincipal, evolucao, procedimentos, observacoes])
-    if (escalaDor === null || !temCampoAberto) return
-
-    autoSaveTimer.current = setTimeout(async () => {
-      setAutoSaving(true)
-      const result = await salvarProntuario(atendimentoId, pacienteId, {
-        queixa_principal: queixaPrincipal,
-        evolucao,
-        procedimentos,
-        escala_dor: escalaDor,
-        observacoes,
-      })
-      setAutoSaving(false)
-      if (!result.error) {
-        isDirty.current = false
-        onDirtyChangeRef.current?.(false)
-        const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-        setLastSavedAt(hora)
-        toast.success(`Evolução salva automaticamente às ${hora}`, { duration: 2000 })
-      }
-    }, 3000)
-
-    return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current) }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [escalaDor, queixaPrincipal, evolucao, procedimentos, observacoes])
-
   async function handleSalvar() {
-    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
-
-    const temCampoAberto = temCampoAbertoPreenchido([
+    const camposPreenchidos = todosCamposPreenchidos([
       queixaPrincipal,
       evolucao,
       procedimentos,
       observacoes,
     ])
 
-    if (escalaDor === null || !temCampoAberto) {
-      toast.error('Preencha a escala de dor e ao menos um campo antes de salvar.')
+    if (escalaDor === null || !camposPreenchidos) {
+      toast.error('Preencha a escala de dor e todos os campos antes de salvar.')
       return
     }
 
@@ -205,13 +172,23 @@ export function ProntuarioEvolucao({ atendimentoId, pacienteId, onSuccess, onDir
   return (
     <div className="space-y-6">
 
+      {/* Aviso de preenchimento manual */}
+      <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3">
+        <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-600" />
+        <p className="text-xs font-medium leading-relaxed text-amber-800">
+          Atenção, fisioterapeuta: registre a evolução com o máximo de detalhes possível (queixas, resposta ao
+          tratamento, procedimentos e observações). As informações só são salvas ao clicar em{' '}
+          <span className="font-bold">&quot;Salvar Evolução&quot;</span>. Nada é salvo automaticamente.
+        </p>
+      </div>
+
       {/* Escala de dor EVA */}
       <div>
         <div className="flex items-center justify-between mb-2.5">
           <div className="flex items-center gap-2">
             <Activity size={14} className="text-[#006b5a]" />
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Escala de Dor — EVA
+              Escala de Dor — EVA <span className="text-red-500">*</span>
             </span>
           </div>
           {escalaDor !== null && (
@@ -303,27 +280,20 @@ export function ProntuarioEvolucao({ atendimentoId, pacienteId, onSuccess, onDir
       {/* Botão salvar */}
       <button
         onClick={handleSalvar}
-        disabled={saving || autoSaving}
+        disabled={saving}
         className="w-full flex items-center justify-center gap-2.5 px-4 py-4 rounded-xl bg-[#006b5a] text-white font-bold text-sm hover:bg-[#005548] active:scale-[0.98] transition-all disabled:opacity-60 shadow-lg shadow-[#006b5a]/20 mt-2"
       >
         {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
         {saving ? 'Salvando...' : 'Salvar Evolução'}
       </button>
 
-      {/* Indicador de auto-save */}
-      {(autoSaving || lastSavedAt) && (
+      {/* Indicador de último salvamento manual */}
+      {lastSavedAt && (
         <div className="flex items-center justify-center pt-1">
-          {autoSaving ? (
-            <span className="flex items-center gap-1.5 text-[11px] text-slate-400">
-              <Loader2 size={11} className="animate-spin" />
-              Salvando automaticamente...
-            </span>
-          ) : (
-            <span className="flex items-center gap-1.5 text-[11px] text-[#006b5a]">
-              <CheckCircle2 size={11} />
-              Salvo automaticamente às {lastSavedAt}
-            </span>
-          )}
+          <span className="flex items-center gap-1.5 text-[11px] text-[#006b5a]">
+            <CheckCircle2 size={11} />
+            Salvo às {lastSavedAt}
+          </span>
         </div>
       )}
     </div>

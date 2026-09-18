@@ -106,7 +106,7 @@ export function AgendamentoItemDia({
   podeVerComercial?: boolean
 }) {
   const [modalAberto, setModalAberto] = useState(false)
-  const [modalInicialTab, setModalInicialTab] = useState<'detalhes' | 'followup'>('detalhes')
+  const [modalInicialTab, setModalInicialTab] = useState<'detalhes' | 'evolucao'>('detalhes')
   const [slideEditarAberto, setSlideEditarAberto] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [statusLoading, setStatusLoading] = useState<string | null>(null)
@@ -361,7 +361,7 @@ export function AgendamentoItemDia({
                     agendamentoId={agendamento.agendamento_id || undefined}
                     pacienteNome={nomePaciente}
                     dataAgendamento={agendamento.data_agendamento}
-                    onConcluido={() => { setModalInicialTab('followup'); setModalAberto(true) }}
+                    onConcluido={() => { setModalInicialTab('evolucao'); setModalAberto(true) }}
                   />
                 </div>
               </div>

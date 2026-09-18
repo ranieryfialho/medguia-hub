@@ -1,15 +1,13 @@
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { ClipboardList, Search, User, ChevronRight, CalendarDays, CheckCheck, History } from 'lucide-react'
+import { ClipboardList, Search, User, ChevronRight, CalendarDays, CheckCheck, History, BarChart3, AlertTriangle } from 'lucide-react'
 import { requireModulo } from '@/lib/guard'
 import { createClient } from '@/lib/supabase/server'
 import { isGestorSistema } from '@/lib/permissoes'
-import { parseAppDate, getAppDayRangeUTC } from '@/lib/datetime'
+import { getAppDayRangeUTC } from '@/lib/datetime'
 import { BotaoConcluirFollowUp } from '@/components/features/follow-ups/BotaoConcluirFollowUp'
-import { DashboardFollowUps } from '@/components/features/follow-ups/DashboardFollowUps'
-import { BtnGerarPdfFollowUps, BtnExportarMdFollowUps } from '@/components/features/shared'
-import type { DadosRelatorioFollowUps } from '@/lib/relatorios/follow-ups-relatorio-dados'
+import { BotaoNovoFollowUp } from '@/components/features/follow-ups/BotaoNovoFollowUp'
 import AvatarPaciente from '@/components/features/pacientes/AvatarPaciente'
 
 const LIMITE = 25
@@ -52,17 +50,22 @@ export default async function FollowUpsPage({
 
   const semResultados = busca.length > 0 && pacienteIdsBusca.length === 0
 
-  const [tiposRes, profissionaisRes] = await Promise.all([
+  const [tiposRes, profissionaisRes, todosProfissionaisRes] = await Promise.all([
     supabase.from('follow_up_tipos').select('id, nome, cor').eq('ativo', true).order('ordem').order('nome'),
     isGestorOuMaster
       ? supabase.from('profiles').select('id, full_name').order('full_name')
       : Promise.resolve({ data: null }),
+    // Independe do nível de acesso: usado no formulário de "Novo Follow-up" para
+    // permitir endereçar a qualquer responsável, mesmo para quem não é gestor.
+    supabase.from('profiles').select('id, full_name').order('full_name'),
   ])
 
   const tipos = tiposRes.data ?? []
   const profissionais = profissionaisRes.data ?? []
+  const todosProfissionais = todosProfissionaisRes.data ?? []
 
   // ─── Lista paginada (respeita aba + filtros, incluindo o range de datas) ────
+  // Pendentes: mais antigos primeiro (fila de trabalho). Histórico: mais recentes primeiro.
   let query = supabase
     .from('follow_ups')
     .select(`
@@ -73,7 +76,7 @@ export default async function FollowUpsPage({
       autor:profiles!criado_por(id, full_name)
     `, { count: 'exact' })
     .eq('status', aba === 'historico' ? 'concluido' : 'pendente')
-    .order('created_at', { ascending: false })
+    .order('created_at', { ascending: aba !== 'historico' })
     .range(offset, offset + LIMITE - 1)
 
   if (tipoFiltro) query = query.eq('tipo_id', tipoFiltro)
@@ -83,159 +86,32 @@ export default async function FollowUpsPage({
   if (de) query = query.gte('created_at', getAppDayRangeUTC(de).start)
   if (ate) query = query.lte('created_at', getAppDayRangeUTC(ate).end)
 
-  // ─── Backlog: pendentes há mais de 7 dias (sempre sobre o total atual, sem filtro de período) ───
+  // ─── Backlog: quantos pendentes (sob os filtros atuais) já passaram de 7 dias ───
   const cutoffBacklogIso = new Date(new Date().getTime() - BACKLOG_DIAS * 24 * 60 * 60 * 1000).toISOString()
-
-  let pendentesAntigosCountQuery = supabase
+  let backlogCountQuery = supabase
     .from('follow_ups')
     .select('id', { count: 'exact', head: true })
     .eq('status', 'pendente')
     .lt('created_at', cutoffBacklogIso)
-  if (tipoFiltro) pendentesAntigosCountQuery = pendentesAntigosCountQuery.eq('tipo_id', tipoFiltro)
-  if (responsavelFiltro) pendentesAntigosCountQuery = pendentesAntigosCountQuery.eq('responsavel_id', responsavelFiltro)
-  if (semResponsavel) pendentesAntigosCountQuery = pendentesAntigosCountQuery.is('responsavel_id', null)
-  if (pacienteIdsBusca.length > 0) pendentesAntigosCountQuery = pendentesAntigosCountQuery.in('paciente_id', pacienteIdsBusca)
-
-  let pendentesAntigosListaQuery = supabase
-    .from('follow_ups')
-    .select(`
-      id, created_at,
-      tipo:follow_up_tipos(nome),
-      responsavel:profiles!responsavel_id(full_name),
-      paciente:pacientes(nome)
-    `)
-    .eq('status', 'pendente')
-    .lt('created_at', cutoffBacklogIso)
-    .order('created_at', { ascending: true })
-    .limit(20)
-  if (tipoFiltro) pendentesAntigosListaQuery = pendentesAntigosListaQuery.eq('tipo_id', tipoFiltro)
-  if (responsavelFiltro) pendentesAntigosListaQuery = pendentesAntigosListaQuery.eq('responsavel_id', responsavelFiltro)
-  if (semResponsavel) pendentesAntigosListaQuery = pendentesAntigosListaQuery.is('responsavel_id', null)
-  if (pacienteIdsBusca.length > 0) pendentesAntigosListaQuery = pendentesAntigosListaQuery.in('paciente_id', pacienteIdsBusca)
-
-  // ─── Dashboard: conjunto filtrado (tipo/responsável/busca + período), pendente e concluído ───
-  let periodoQuery = supabase
-    .from('follow_ups')
-    .select(`
-      id, tipo_id, responsavel_id, status, created_at, updated_at,
-      tipo:follow_up_tipos(nome, cor),
-      responsavel:profiles!responsavel_id(full_name)
-    `)
-    .order('created_at', { ascending: false })
-    .limit(3000)
-  if (tipoFiltro) periodoQuery = periodoQuery.eq('tipo_id', tipoFiltro)
-  if (responsavelFiltro) periodoQuery = periodoQuery.eq('responsavel_id', responsavelFiltro)
-  if (semResponsavel) periodoQuery = periodoQuery.is('responsavel_id', null)
-  if (pacienteIdsBusca.length > 0) periodoQuery = periodoQuery.in('paciente_id', pacienteIdsBusca)
-  if (de) periodoQuery = periodoQuery.gte('created_at', getAppDayRangeUTC(de).start)
-  if (ate) periodoQuery = periodoQuery.lte('created_at', getAppDayRangeUTC(ate).end)
+  if (tipoFiltro) backlogCountQuery = backlogCountQuery.eq('tipo_id', tipoFiltro)
+  if (responsavelFiltro) backlogCountQuery = backlogCountQuery.eq('responsavel_id', responsavelFiltro)
+  if (semResponsavel) backlogCountQuery = backlogCountQuery.is('responsavel_id', null)
+  if (pacienteIdsBusca.length > 0) backlogCountQuery = backlogCountQuery.in('paciente_id', pacienteIdsBusca)
 
   let followUpsRaw: any[] = []
   let count = 0
   let totalPendentesAntigos = 0
-  let pendentesAntigosRaw: any[] = []
-  let periodoRaw: any[] = []
 
   if (!semResultados) {
-    const [listaRes, backlogCountRes, backlogListaRes, periodoRes] = await Promise.all([
-      query,
-      pendentesAntigosCountQuery,
-      pendentesAntigosListaQuery,
-      periodoQuery,
-    ])
+    const [listaRes, backlogCountRes] = await Promise.all([query, backlogCountQuery])
     followUpsRaw = listaRes.data ?? []
     count = listaRes.count ?? 0
     totalPendentesAntigos = backlogCountRes.count ?? 0
-    pendentesAntigosRaw = backlogListaRes.data ?? []
-    periodoRaw = periodoRes.data ?? []
   }
 
   const followUps = followUpsRaw
   const total = count
   const totalPaginas = Math.ceil(total / LIMITE)
-
-  // ─── Monta os dados agregados do dashboard / exportações ───────────────────
-  const totalDashboard = periodoRaw.length
-  const totalPendentesFiltro = periodoRaw.filter((p: any) => p.status === 'pendente').length
-  const totalConcluidosFiltro = periodoRaw.filter((p: any) => p.status === 'concluido').length
-  const taxaConclusao = totalDashboard > 0 ? Math.round((totalConcluidosFiltro / totalDashboard) * 100) : 0
-
-  const concluidosComTempo = periodoRaw.filter((p: any) => p.status === 'concluido')
-  const tempoMedioConclusaoDias = concluidosComTempo.length > 0
-    ? Math.round(
-        concluidosComTempo.reduce((soma: number, p: any) =>
-          soma + (new Date(p.updated_at).getTime() - new Date(p.created_at).getTime()), 0)
-        / concluidosComTempo.length / (1000 * 60 * 60 * 24)
-      )
-    : null
-
-  const tipoMap = new Map<string, { nome: string; cor: string | null; total: number }>()
-  for (const p of periodoRaw) {
-    const nome = p.tipo?.nome ?? 'Sem tipo'
-    const atual = tipoMap.get(nome) ?? { nome, cor: p.tipo?.cor ?? null, total: 0 }
-    atual.total++
-    tipoMap.set(nome, atual)
-  }
-
-  const responsavelMap = new Map<string, { nome: string; total: number; pendentes: number; concluidos: number }>()
-  for (const p of periodoRaw) {
-    const chave = p.responsavel_id ?? 'sem_responsavel'
-    const nome = p.responsavel?.full_name ?? 'Sem responsável'
-    const atual = responsavelMap.get(chave) ?? { nome, total: 0, pendentes: 0, concluidos: 0 }
-    atual.total++
-    if (p.status === 'pendente') atual.pendentes++
-    else atual.concluidos++
-    responsavelMap.set(chave, atual)
-  }
-
-  const pendentesAntigos = pendentesAntigosRaw.map((p: any) => ({
-    paciente_nome: p.paciente?.nome ?? 'Paciente',
-    tipo_nome: p.tipo?.nome ?? 'Sem tipo',
-    responsavel_nome: p.responsavel?.full_name ?? null,
-    dias_pendente: Math.floor((new Date().getTime() - new Date(p.created_at).getTime()) / (1000 * 60 * 60 * 24)),
-    criado_em: p.created_at,
-  }))
-
-  const periodoLabel = de && ate
-    ? `${format(parseAppDate(de), 'dd/MM/yyyy')} – ${format(parseAppDate(ate), 'dd/MM/yyyy')}`
-    : de
-    ? `A partir de ${format(parseAppDate(de), 'dd/MM/yyyy')}`
-    : ate
-    ? `Até ${format(parseAppDate(ate), 'dd/MM/yyyy')}`
-    : 'Todos os períodos'
-
-  const partesFiltro: string[] = []
-  if (tipoFiltro) {
-    const tipoNome = tipos.find(t => t.id === tipoFiltro)?.nome
-    if (tipoNome) partesFiltro.push(`Tipo: ${tipoNome}`)
-  }
-  if (isGestorOuMaster && semResponsavel) {
-    partesFiltro.push('Responsável: sem responsável atribuído')
-  } else if (isGestorOuMaster && responsavelFiltro) {
-    const respNome = profissionais.find(p => p.id === responsavelFiltro)?.full_name
-    if (respNome) partesFiltro.push(`Responsável: ${respNome}`)
-  } else if (!isGestorOuMaster) {
-    partesFiltro.push(`Responsável: ${profile?.full_name ?? 'Você'}`)
-  }
-  if (busca) partesFiltro.push(`Busca: "${busca}"`)
-  const filtrosLabel = partesFiltro.length > 0 ? partesFiltro.join(' · ') : 'Todos os follow-ups'
-
-  const dadosRelatorio: DadosRelatorioFollowUps = {
-    periodoLabel,
-    filtrosLabel,
-    total: totalDashboard,
-    totalPendentes: totalPendentesFiltro,
-    totalConcluidos: totalConcluidosFiltro,
-    taxaConclusao,
-    tempoMedioConclusaoDias,
-    totalPendentesAntigos,
-    pendentesAntigos,
-    contagemPorTipo: [...tipoMap.values()],
-    porResponsavel: [...responsavelMap.values()].map(r => ({
-      ...r,
-      taxaConclusao: r.total > 0 ? Math.round((r.concluidos / r.total) * 100) : 0,
-    })),
-  }
 
   function buildUrl(p: number, abaAlvo?: string) {
     const sp = new URLSearchParams()
@@ -249,6 +125,17 @@ export default async function FollowUpsPage({
     return `/follow-ups?${sp.toString()}`
   }
 
+  function buildRelatorioUrl() {
+    const sp = new URLSearchParams()
+    if (busca) sp.set('busca', busca)
+    if (tipoFiltro) sp.set('tipo_id', tipoFiltro)
+    if (isGestorOuMaster && responsavelParam) sp.set('responsavel_id', responsavelParam)
+    if (de) sp.set('de', de)
+    if (ate) sp.set('ate', ate)
+    const qs = sp.toString()
+    return qs ? `/relatorios/follow-ups?${qs}` : '/relatorios/follow-ups'
+  }
+
   const paginas: Array<number | '...'> = []
   if (totalPaginas <= 7) {
     for (let p = 1; p <= totalPaginas; p++) paginas.push(p)
@@ -259,6 +146,8 @@ export default async function FollowUpsPage({
     if (pagina < totalPaginas - 3) paginas.push('...')
     paginas.push(totalPaginas)
   }
+
+  const agoraMs = new Date().getTime()
 
   return (
     <div className="w-full space-y-5">
@@ -277,8 +166,14 @@ export default async function FollowUpsPage({
           </div>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          <BtnExportarMdFollowUps {...dadosRelatorio} />
-          <BtnGerarPdfFollowUps {...dadosRelatorio} />
+          <BotaoNovoFollowUp tipos={tipos} profissionais={todosProfissionais} />
+          <Link
+            href={buildRelatorioUrl()}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:border-[#006b5a]/40 text-slate-600 hover:text-[#006b5a] rounded-lg text-sm font-medium transition-colors"
+          >
+            <BarChart3 size={14} />
+            Relatório
+          </Link>
           {aba === 'pendentes' && total > 0 && (
             <span className="bg-red-100 text-red-700 text-sm font-bold px-3 py-1.5 rounded-full shrink-0">
               {total} pendente{total !== 1 ? 's' : ''}
@@ -292,8 +187,17 @@ export default async function FollowUpsPage({
         </div>
       </div>
 
-      {/* Dashboard */}
-      <DashboardFollowUps dados={dadosRelatorio} />
+      {/* Alerta de backlog */}
+      {aba === 'pendentes' && totalPendentesAntigos > 0 && (
+        <Link
+          href={buildRelatorioUrl()}
+          className="flex items-center gap-2.5 bg-amber-50 border border-amber-200 hover:border-amber-300 text-amber-800 px-4 py-3 rounded-xl text-sm font-medium transition-colors"
+        >
+          <AlertTriangle size={16} className="shrink-0 text-amber-600" />
+          {totalPendentesAntigos} follow-up{totalPendentesAntigos !== 1 ? 's' : ''} pendente{totalPendentesAntigos !== 1 ? 's' : ''} há mais de {BACKLOG_DIAS} dias.
+          <span className="underline underline-offset-2 ml-auto shrink-0">Ver no relatório</span>
+        </Link>
+      )}
 
       {/* Abas */}
       <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
@@ -408,11 +312,17 @@ export default async function FollowUpsPage({
             const responsavel = fu.responsavel as { id: string; full_name: string } | null
             const autor = fu.autor as { id: string; full_name: string } | null
             const nome = paciente?.nome ?? 'Paciente'
+            const diasPendente = aba === 'pendentes'
+              ? Math.floor((agoraMs - new Date(fu.created_at).getTime()) / (1000 * 60 * 60 * 24))
+              : null
+            const atrasado = diasPendente !== null && diasPendente >= BACKLOG_DIAS
 
             return (
               <div
                 key={fu.id}
-                className="flex items-center gap-4 bg-white rounded-xl p-4 shadow-sm border border-slate-100 hover:border-[#006b5a]/20 transition-all"
+                className={`flex items-center gap-4 bg-white rounded-xl p-4 shadow-sm border transition-all ${
+                  atrasado ? 'border-amber-300 hover:border-amber-400' : 'border-slate-100 hover:border-[#006b5a]/20'
+                }`}
               >
                 <Link
                   href={`/pacientes/${fu.paciente_id}?aba=follow-ups&follow_up_id=${fu.id}`}
@@ -440,6 +350,14 @@ export default async function FollowUpsPage({
                         }
                       >
                         {tipo.nome}
+                      </span>
+                    )}
+                    {diasPendente !== null && (
+                      <span className={`flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                        atrasado ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'
+                      }`}>
+                        {atrasado && <AlertTriangle size={10} />}
+                        {diasPendente === 0 ? 'hoje' : `há ${diasPendente} dia${diasPendente !== 1 ? 's' : ''}`}
                       </span>
                     )}
                   </div>

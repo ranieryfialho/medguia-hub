@@ -72,7 +72,7 @@ export function Sidebar({
   const [equipeOpen, setEquipeOpen] = useState(() => (pathname?.startsWith('/equipe') || pathname?.startsWith('/relatorios/tempo-fabril') || pathname?.startsWith('/relatorios/conferencia-agendamentos') || pathname?.startsWith('/relatorios/auditoria-exclusoes') || pathname?.startsWith('/configuracoes/jornada') || pathname?.startsWith('/configuracoes/disponibilidade') || pathname?.startsWith('/configuracoes/status-disponibilidade')) ?? false)
   const [comercialOpen, setComercialOpen] = useState(() => (pathname?.startsWith('/vendas') || pathname?.startsWith('/produtos') || pathname?.startsWith('/objecoes') || pathname?.startsWith('/relatorios/vendas') || pathname?.startsWith('/vendas/protocolos')) ?? false)
   const [pacientesOpen, setPacientesOpen] = useState(() => pathname?.startsWith('/pacientes') ?? false)
-  const [prontuariosOpen, setProntuariosOpen] = useState(() => (pathname?.startsWith('/prontuarios') || pathname?.startsWith('/follow-ups')) ?? false)
+  const [prontuariosOpen, setProntuariosOpen] = useState(() => (pathname?.startsWith('/prontuarios') || pathname?.startsWith('/follow-ups') || pathname?.startsWith('/relatorios/follow-ups')) ?? false)
   const modulos = modulosLiberadosProp ?? []
   const prontuariosPendentes = prontuariosPendentesProp ?? 0
   const followUpsPendentes = followUpsPendentesProp ?? 0
@@ -252,7 +252,7 @@ export function Sidebar({
 
         {pvGrupo('prontuarios') && (
           <div>
-            <button onClick={() => setProntuariosOpen(v => !v)} className={groupCls(!!isActive('/prontuarios') || !!isActive('/follow-ups'))}>
+            <button onClick={() => setProntuariosOpen(v => !v)} className={groupCls(!!isActive('/prontuarios') || !!isActive('/follow-ups') || !!isActive('/relatorios/follow-ups'))}>
               <FileText size={20} />
               <span className="flex-1 text-left">Prontuários e Follow-ups</span>
               {!prontuariosOpen && (
@@ -274,6 +274,12 @@ export function Sidebar({
                     <ClipboardList size={14} />
                     <span className="flex-1">Follow-ups</span>
                     <FollowUpsBadge initialCount={followUpsPendentes} />
+                  </Link>
+                )}
+                {pv('follow_ups') && (
+                  <Link href="/relatorios/follow-ups" onClick={handleNavClick} className={subLinkCls(!!isActive('/relatorios/follow-ups'))}>
+                    <BarChart3 size={14} />
+                    Relatório de Follow-ups
                   </Link>
                 )}
                 {pv('follow_ups:tipos') && (
