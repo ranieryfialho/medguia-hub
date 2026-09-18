@@ -130,12 +130,12 @@ export default async function RelatorioAtendidosPage({ searchParams }: { searchP
     const { data: profsData } = await supabase
       .from('profiles')
       .select('id, full_name, role')
-      .in('role', ['fisioterapeuta', 'gestor', 'medico'])
+      .in('role', ['fisioterapeuta', 'medico'])
       .eq('ativo', true)
       .order('full_name')
 
     const profs = (profsData ?? []) as { id: string; full_name: string | null; role: string | null }[]
-    fisioterapeutas = profs.filter((p) => p.role !== 'medico').map((p) => ({ id: p.id, nome: p.full_name || 'Sem nome' }))
+    fisioterapeutas = profs.filter((p) => p.role === 'fisioterapeuta').map((p) => ({ id: p.id, nome: p.full_name || 'Sem nome' }))
     medicosOpcoes = profs.filter((p) => p.role === 'medico').map((p) => ({ id: p.id, nome: p.full_name || 'Sem nome' }))
 
     const opcoesCategoria = categoria === 'medicos' ? medicosOpcoes : fisioterapeutas
