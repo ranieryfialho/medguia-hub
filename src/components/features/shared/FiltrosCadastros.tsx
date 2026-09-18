@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { SelectCheckbox } from './SelectCheckbox'
 
 type TipoFiltro = '12meses' | 'mes' | 'semana' | 'personalizado'
-type CategoriaProfissional = 'fisioterapia' | 'medicos'
+type CategoriaProfissional = 'todos' | 'fisioterapia' | 'medicos'
 
 type ProfissionalOpcao = { id: string; nome: string }
 
@@ -46,7 +46,11 @@ export function FiltrosCadastros({
   const [tipo, setTipo] = useState<TipoFiltro>(tipoInicial)
   const [categoria, setCategoria] = useState<CategoriaProfissional>(categoriaAtual ?? 'fisioterapia')
   const mostrarFiltroProfissional = fisioterapeutas !== undefined && medicos !== undefined
-  const opcoesProfissionais = categoria === 'medicos' ? medicos ?? [] : fisioterapeutas ?? []
+  const opcoesProfissionais = categoria === 'medicos'
+    ? medicos ?? []
+    : categoria === 'fisioterapia'
+      ? fisioterapeutas ?? []
+      : [...(fisioterapeutas ?? []), ...(medicos ?? [])]
   const isFiltered = tipoInicial !== '12meses' || selectedOrigems.length > 0 || !!profissionalIdAtual
 
   return (
@@ -125,6 +129,7 @@ export function FiltrosCadastros({
                 onChange={e => setCategoria(e.target.value as CategoriaProfissional)}
                 className="px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
               >
+                <option value="todos">Todos</option>
                 <option value="fisioterapia">Fisioterapeuta</option>
                 <option value="medicos">Médico</option>
               </select>

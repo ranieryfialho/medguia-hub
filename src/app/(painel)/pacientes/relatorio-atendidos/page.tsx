@@ -119,7 +119,11 @@ export default async function RelatorioAtendidosPage({ searchParams }: { searchP
   }
 
   const isGestorOuMaster = isGestorSistema(profile?.nivel_acesso)
-  const categoria = params.categoria === 'medicos' ? 'medicos' : 'fisioterapia'
+  const categoria = params.categoria === 'medicos'
+    ? 'medicos'
+    : params.categoria === 'todos'
+      ? 'todos'
+      : 'fisioterapia'
   const profissionalIdParam = (params.profissional_id as string) || ''
 
   let profIds: string[] = [user.id]
@@ -138,7 +142,11 @@ export default async function RelatorioAtendidosPage({ searchParams }: { searchP
     fisioterapeutas = profs.filter((p) => p.role === 'fisioterapeuta').map((p) => ({ id: p.id, nome: p.full_name || 'Sem nome' }))
     medicosOpcoes = profs.filter((p) => p.role === 'medico').map((p) => ({ id: p.id, nome: p.full_name || 'Sem nome' }))
 
-    const opcoesCategoria = categoria === 'medicos' ? medicosOpcoes : fisioterapeutas
+    const opcoesCategoria = categoria === 'medicos'
+      ? medicosOpcoes
+      : categoria === 'fisioterapia'
+        ? fisioterapeutas
+        : [...fisioterapeutas, ...medicosOpcoes]
     const profissionalValido = opcoesCategoria.some((p) => p.id === profissionalIdParam)
     profIds = profissionalValido ? [profissionalIdParam] : opcoesCategoria.map((p) => p.id)
   }
@@ -207,9 +215,13 @@ export default async function RelatorioAtendidosPage({ searchParams }: { searchP
 
   const profissionalLabel = (() => {
     if (!isGestorOuMaster) return null
-    const opcoes = categoria === 'medicos' ? medicosOpcoes : fisioterapeutas
+    const opcoes = categoria === 'medicos'
+      ? medicosOpcoes
+      : categoria === 'fisioterapia'
+        ? fisioterapeutas
+        : [...fisioterapeutas, ...medicosOpcoes]
     const selecionado = opcoes.find((p) => p.id === profissionalIdParam)
-    const categoriaLabel = categoria === 'medicos' ? 'Médicos' : 'Fisioterapeutas'
+    const categoriaLabel = categoria === 'medicos' ? 'Médicos' : categoria === 'fisioterapia' ? 'Fisioterapeutas' : 'Todos'
     return selecionado ? selecionado.nome : `Todos (${categoriaLabel})`
   })()
 
