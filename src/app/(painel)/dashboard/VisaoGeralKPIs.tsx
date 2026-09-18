@@ -44,6 +44,7 @@ export type PeriodoDashboardData = {
   jornadaMin: number
   agendaHref: string
   ocupacaoHref: string
+  pacientesAtivosHref: string
   distribuicao: StatusDistribuicao
   tendencia: TendenciaDiaData[]
   ranking: RankingItem[]
@@ -188,7 +189,7 @@ export default function VisaoGeralKPIs({
         </Link>
 
         <Link
-          href="/pacientes"
+          href={d.pacientesAtivosHref}
           className="bg-white p-6 rounded-3xl shadow-sm border border-[#bcc9c4]/30 hover:border-[#006b5a]/40 transition-colors"
         >
           <div className="flex justify-between items-start mb-4">

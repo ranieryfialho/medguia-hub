@@ -322,6 +322,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       jornadaMin,
       agendaHref,
       ocupacaoHref,
+      pacientesAtivosHref: `/pacientes?ativos_de=${inicioKey}&ativos_ate=${fimKey}`,
       distribuicao: { concluidos, cancelados, faltas, emAberto, total: atendPeriodo.length },
       tendencia: Array.from(tendenciaMap.values()),
       ranking: kpisPeriodo.map(k => ({

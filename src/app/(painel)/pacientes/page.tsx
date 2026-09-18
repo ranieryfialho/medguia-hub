@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Plus, Eye, Edit } from 'lucide-react'
+import { Plus, Eye, Edit, X } from 'lucide-react'
 import { BtnWhatsApp } from '@/components/features/shared'
 import { BtnArquivarPaciente } from '@/components/features/pacientes'
 import { FiltrosPacientes } from '@/components/features/pacientes'
@@ -10,13 +10,29 @@ import { extrairMetadataInativacao } from '@/lib/paciente-inativacao'
 import AvatarPaciente from '@/components/features/pacientes/AvatarPaciente'
 import { SeletorTagsPaciente } from '@/components/features/pacientes'
 import { listarTagsPacienteAtivas, listarTagsPorPacientes } from '@/actions/paciente-tags'
+import { isGestorSistema } from '@/lib/permissoes'
+import { formatAppDate, getAppDayRangeUTC, parseAppDate } from '@/lib/datetime'
+
+type PacienteListItem = {
+  id: string
+  nome: string
+  cpf: string | null
+  email: string | null
+  telefone: string | null
+  recuperacao_base: boolean | null
+  convenio: string | null
+  ativo: boolean | null
+  observacoes_gerais: string | null
+  foto_drive_file_id: string | null
+  foto_atualizada_em: string | null
+}
 
 export default async function PacientesListPage({
   searchParams,
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
-  await requireModulo('pacientes')
+  const { user, profile } = await requireModulo('pacientes')
 
   const supabase = await createClient()
 
@@ -27,27 +43,92 @@ export default async function PacientesListPage({
   const pagina = Math.max(1, parseInt((resolvedParams.pagina as string) || '1'))
   const offset = (pagina - 1) * limite
 
-  let query = supabase
-    .from('pacientes')
-    .select(
-      'id, nome, cpf, email, telefone, recuperacao_base, convenio, ativo, observacoes_gerais, foto_drive_file_id, foto_atualizada_em',
-      { count: 'exact' }
-    )
-    .order('nome', { ascending: true })
+  // Filtro "Pacientes Ativos" vindo do dashboard: quem teve atendimento no período de/até.
+  const ativosDe = typeof resolvedParams.ativos_de === 'string' ? resolvedParams.ativos_de : undefined
+  const ativosAte = typeof resolvedParams.ativos_ate === 'string' ? resolvedParams.ativos_ate : undefined
+  const filtrarAtivosPeriodo = Boolean(ativosDe && ativosAte)
 
-  if (!mostrarInativos) {
-    query = query.or('ativo.eq.true,ativo.is.null')
+  let pacientes: PacienteListItem[] = []
+  let total = 0
+
+  if (filtrarAtivosPeriodo && ativosDe && ativosAte) {
+    // Não dá pra filtrar `pacientes.id in (...)` com centenas de UUIDs: a URL fica grande
+    // demais e o proxy na frente do Supabase self-hosted derruba a request com 502.
+    // Em vez disso, buscamos os atendimentos do período (poucos profissionais no filtro,
+    // URL curta) já com o paciente embutido via join, e filtramos/paginamos em memória.
+    const isGestorOuMaster = isGestorSistema(profile?.nivel_acesso)
+    let profIds: string[] = [user.id]
+    if (isGestorOuMaster) {
+      const { data: profsData } = await supabase
+        .from('profiles')
+        .select('id')
+        .in('role', ['fisioterapeuta', 'gestor'])
+        .eq('ativo', true)
+      profIds = (profsData ?? []).map((p) => p.id)
+    }
+
+    const { start } = getAppDayRangeUTC(ativosDe)
+    const { end } = getAppDayRangeUTC(ativosAte)
+
+    const { data: atendData } = await supabase
+      .from('atendimentos')
+      .select(
+        'paciente_id, pacientes(id, nome, cpf, email, telefone, recuperacao_base, convenio, ativo, observacoes_gerais, foto_drive_file_id, foto_atualizada_em)'
+      )
+      .in('profissional_id', profIds)
+      .gte('data_agendamento', start)
+      .lte('data_agendamento', end)
+
+    const porId = new Map<string, PacienteListItem>()
+    for (const row of atendData ?? []) {
+      const p = row.pacientes as unknown as PacienteListItem | null
+      if (p && !porId.has(p.id)) porId.set(p.id, p)
+    }
+
+    let todos = Array.from(porId.values())
+
+    if (!mostrarInativos) {
+      todos = todos.filter((p) => p.ativo !== false)
+    }
+
+    if (busca) {
+      const buscaLower = busca.toLowerCase()
+      todos = todos.filter(
+        (p) =>
+          p.nome?.toLowerCase().includes(buscaLower) ||
+          p.cpf?.includes(busca) ||
+          p.telefone?.includes(busca)
+      )
+    }
+
+    todos.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+
+    total = todos.length
+    pacientes = todos.slice(offset, offset + limite)
+  } else {
+    let query = supabase
+      .from('pacientes')
+      .select(
+        'id, nome, cpf, email, telefone, recuperacao_base, convenio, ativo, observacoes_gerais, foto_drive_file_id, foto_atualizada_em',
+        { count: 'exact' }
+      )
+      .order('nome', { ascending: true })
+
+    if (!mostrarInativos) {
+      query = query.or('ativo.eq.true,ativo.is.null')
+    }
+
+    if (busca) {
+      query = query.or(`nome.ilike.%${busca}%,cpf.ilike.%${busca}%,telefone.ilike.%${busca}%`)
+    }
+
+    query = query.range(offset, offset + limite - 1)
+
+    const { data, count } = await query
+    pacientes = data ?? []
+    total = count ?? 0
   }
 
-  if (busca) {
-    query = query.or(`nome.ilike.%${busca}%,cpf.ilike.%${busca}%,telefone.ilike.%${busca}%`)
-  }
-
-  query = query.range(offset, offset + limite - 1)
-
-  const { data: pacientes, count } = await query
-
-  const total = count ?? 0
   const totalPaginas = Math.ceil(total / limite)
 
   const [tagsCatalogo, tagsPorPaciente] = await Promise.all([
@@ -77,6 +158,19 @@ export default async function PacientesListPage({
           </Link>
         </div>
       </div>
+
+      {filtrarAtivosPeriodo && ativosDe && ativosAte && (
+        <div className="flex items-center justify-between gap-3 bg-[#f0fcf9] border border-[#006b5a]/20 text-[#006b5a] text-sm px-4 py-2.5 rounded-lg">
+          <span>
+            Filtrando <strong>pacientes ativos</strong> entre {formatAppDate(parseAppDate(ativosDe))} e {formatAppDate(parseAppDate(ativosAte))}
+            {' '}({total} {total === 1 ? 'paciente' : 'pacientes'})
+          </span>
+          <Link href="/pacientes" className="flex items-center gap-1 font-semibold hover:underline shrink-0">
+            <X size={14} />
+            Limpar filtro
+          </Link>
+        </div>
+      )}
 
       <div className="bg-surface rounded-b-lg shadow-sm border border-border -mt-6">
         <FiltrosPacientes />
