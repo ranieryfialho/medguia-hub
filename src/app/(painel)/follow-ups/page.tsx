@@ -227,15 +227,6 @@ export default async function FollowUpsPage({
           Pendentes
         </Link>
         <Link
-          href={buildUrl(1, 'historico')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-            aba === 'historico' ? 'bg-white text-[#006b5a] shadow-sm' : 'text-slate-500 hover:text-slate-700'
-          }`}
-        >
-          <History size={15} />
-          Histórico
-        </Link>
-        <Link
           href={buildUrl(1, 'criados')}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
             aba === 'criados' ? 'bg-white text-[#006b5a] shadow-sm' : 'text-slate-500 hover:text-slate-700'
@@ -243,6 +234,15 @@ export default async function FollowUpsPage({
         >
           <Send size={15} />
           Criados por mim
+        </Link>
+        <Link
+          href={buildUrl(1, 'historico')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            aba === 'historico' ? 'bg-white text-[#006b5a] shadow-sm' : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <History size={15} />
+          Histórico
         </Link>
       </div>
 
