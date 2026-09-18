@@ -209,7 +209,7 @@ export function Sidebar({
             </button>
             {pacientesOpen && (
               <div className="mt-1 ml-4 space-y-0.5 border-l-2 border-[#bcc9c4]/40 pl-3">
-                <Link href="/pacientes" onClick={handleNavClick} className={subLinkCls(!!isActive('/pacientes') && !isActive('/pacientes/origens') && !isActive('/pacientes/tipos-consulta') && !isActive('/pacientes/planos-saude') && !isActive('/pacientes/tags') && !isActive('/pacientes/relatorio-consultas') && !isActive('/pacientes/relatorio-cadastros') && !isActive('/pacientes/relatorio-aniversariantes'))}>
+                <Link href="/pacientes" onClick={handleNavClick} className={subLinkCls(!!isActive('/pacientes') && !isActive('/pacientes/origens') && !isActive('/pacientes/tipos-consulta') && !isActive('/pacientes/planos-saude') && !isActive('/pacientes/tags') && !isActive('/pacientes/relatorio-consultas') && !isActive('/pacientes/relatorio-cadastros') && !isActive('/pacientes/relatorio-atendidos') && !isActive('/pacientes/relatorio-aniversariantes'))}>
                   <Users size={14} />
                   Listar Pacientes
                 </Link>
@@ -236,6 +236,10 @@ export function Sidebar({
                 <Link href="/pacientes/relatorio-cadastros" onClick={handleNavClick} className={subLinkCls(!!isActive('/pacientes/relatorio-cadastros'))}>
                   <UserPlus size={14} />
                   Relatório de Cadastros
+                </Link>
+                <Link href="/pacientes/relatorio-atendidos" onClick={handleNavClick} className={subLinkCls(!!isActive('/pacientes/relatorio-atendidos'))}>
+                  <Stethoscope size={14} />
+                  Relatório de Atendidos
                 </Link>
                 <Link href="/pacientes/relatorio-aniversariantes" onClick={handleNavClick} className={subLinkCls(!!isActive('/pacientes/relatorio-aniversariantes'))}>
                   <Cake size={14} />

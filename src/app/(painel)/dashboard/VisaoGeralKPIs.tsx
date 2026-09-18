@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { TrendingUp, CalendarDays, Users, UserPlus, Search, Loader2, Target, ArrowRight } from 'lucide-react'
+import { TrendingUp, CalendarDays, Users, UserPlus, Search, Loader2, Target, ArrowRight, Stethoscope } from 'lucide-react'
 
 export type StatusDistribuicao = {
   concluidos: number
@@ -38,6 +38,8 @@ export type PeriodoDashboardData = {
   agendamentos: number
   taxaConclusao: number
   pacientesAtivos: number
+  pacientesAtendidos: number
+  totalAtendidos: number
   pacientesCadastrados: number
   taxaOcupacao: number
   fabrilMin: number
@@ -45,6 +47,7 @@ export type PeriodoDashboardData = {
   agendaHref: string
   ocupacaoHref: string
   pacientesAtivosHref: string
+  pacientesAtendidosHref: string
   distribuicao: StatusDistribuicao
   tendencia: TendenciaDiaData[]
   ranking: RankingItem[]
@@ -157,7 +160,7 @@ export default function VisaoGeralKPIs({
       )}
 
       {/* Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <Link
           href={d.ocupacaoHref}
           className="bg-gradient-to-br from-[#006b5a] to-[#33a68f] p-6 rounded-3xl shadow-lg text-white hover:shadow-xl transition-shadow"
@@ -198,6 +201,18 @@ export default function VisaoGeralKPIs({
           </div>
           <p className="text-3xl font-bold text-[#171d1c]">{d.pacientesAtivos}</p>
           <p className="text-xs mt-2 text-[#3d4945]/70">com agenda/sessão no período</p>
+        </Link>
+
+        <Link
+          href={d.pacientesAtendidosHref}
+          className="bg-white p-6 rounded-3xl shadow-sm border border-[#bcc9c4]/30 hover:border-[#006b5a]/40 transition-colors"
+        >
+          <div className="flex justify-between items-start mb-4">
+            <h3 className="text-xs font-bold text-[#3d4945] uppercase tracking-widest">Pacientes Atendidos</h3>
+            <Stethoscope size={18} className="text-[#006b5a]" />
+          </div>
+          <p className="text-3xl font-bold text-[#171d1c]">{d.pacientesAtendidos}</p>
+          <p className="text-xs mt-2 text-[#3d4945]/70">{d.totalAtendidos} atendimento{d.totalAtendidos === 1 ? '' : 's'} no período</p>
         </Link>
 
         <Link

@@ -14,6 +14,7 @@ import { isGestorSistema } from '@/lib/permissoes'
 import {
   getAtendimentoStatusKey,
   isStatusConcluido,
+  isStatusFabril,
   STATUS_PENDENTE_KEYS,
 } from '@/lib/atendimento-status'
 import { criarContagemStatusContato, LABEL_POR_STATUS_CONTATO } from '@/lib/contatos-kanban'
@@ -222,6 +223,12 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       return k >= inicioKey && k <= fimKey
     })
     const pacientesAtivosPeriodo = new Set(atendPeriodo.map(a => a.paciente_id))
+
+    // Pacientes Atendidos: subconjunto dos Ativos que de fato passaram pela sessão
+    // (concluído ou em atendimento) — Ativos conta qualquer status, inclusive agendado.
+    const atendidosPeriodo = atendPeriodo.filter(a => isStatusFabril(a.status))
+    const pacientesAtendidosPeriodo = new Set(atendidosPeriodo.map(a => a.paciente_id))
+
     const pacientesCadastradosPeriodo = pacientesNovos.filter(p => {
       const k = formatAppDateKey(p.created_at)
       return k >= inicioKey && k <= fimKey
@@ -316,6 +323,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       agendamentos: atendPeriodo.length,
       taxaConclusao: taxaConclusaoPeriodo,
       pacientesAtivos: pacientesAtivosPeriodo.size,
+      pacientesAtendidos: pacientesAtendidosPeriodo.size,
+      totalAtendidos: atendidosPeriodo.length,
       pacientesCadastrados: pacientesCadastradosPeriodo,
       taxaOcupacao,
       fabrilMin,
@@ -323,6 +332,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       agendaHref,
       ocupacaoHref,
       pacientesAtivosHref: `/pacientes?ativos_de=${inicioKey}&ativos_ate=${fimKey}`,
+      pacientesAtendidosHref: `/pacientes/relatorio-atendidos?tipo=personalizado&inicio=${inicioKey}&fim=${fimKey}`,
       distribuicao: { concluidos, cancelados, faltas, emAberto, total: atendPeriodo.length },
       tendencia: Array.from(tendenciaMap.values()),
       ranking: kpisPeriodo.map(k => ({
