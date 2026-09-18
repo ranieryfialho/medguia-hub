@@ -159,20 +159,20 @@ export default async function PacientesListPage({
         </div>
       </div>
 
-      {filtrarAtivosPeriodo && ativosDe && ativosAte && (
-        <div className="flex items-center justify-between gap-3 bg-[#f0fcf9] border border-[#006b5a]/20 text-[#006b5a] text-sm px-4 py-2.5 rounded-lg">
-          <span>
-            Filtrando <strong>pacientes ativos</strong> entre {formatAppDate(parseAppDate(ativosDe))} e {formatAppDate(parseAppDate(ativosAte))}
-            {' '}({total} {total === 1 ? 'paciente' : 'pacientes'})
-          </span>
-          <Link href="/pacientes" className="flex items-center gap-1 font-semibold hover:underline shrink-0">
-            <X size={14} />
-            Limpar filtro
-          </Link>
-        </div>
-      )}
-
       <div className="bg-surface rounded-b-lg shadow-sm border border-border -mt-6">
+        {filtrarAtivosPeriodo && ativosDe && ativosAte && (
+          <div className="flex items-center justify-between gap-3 bg-[#f0fcf9] border-b border-[#006b5a]/20 text-[#006b5a] text-sm px-4 py-2.5">
+            <span>
+              Filtrando <strong>pacientes ativos</strong> entre {formatAppDate(parseAppDate(ativosDe))} e {formatAppDate(parseAppDate(ativosAte))}
+              {' '}({total} {total === 1 ? 'paciente' : 'pacientes'})
+            </span>
+            <Link href="/pacientes" className="flex items-center gap-1 font-semibold hover:underline shrink-0">
+              <X size={14} />
+              Limpar filtro
+            </Link>
+          </div>
+        )}
+
         <FiltrosPacientes />
 
         {/* Tabela — desktop */}
