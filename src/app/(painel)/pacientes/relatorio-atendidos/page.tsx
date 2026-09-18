@@ -119,22 +119,38 @@ export default async function RelatorioAtendidosPage({ searchParams }: { searchP
   }
 
   const isGestorOuMaster = isGestorSistema(profile?.nivel_acesso)
+  const categoria = params.categoria === 'medicos' ? 'medicos' : 'fisioterapia'
+  const profissionalIdParam = (params.profissional_id as string) || ''
+
   let profIds: string[] = [user.id]
+  let fisioterapeutas: { id: string; nome: string }[] = []
+  let medicosOpcoes: { id: string; nome: string }[] = []
+
   if (isGestorOuMaster) {
     const { data: profsData } = await supabase
       .from('profiles')
-      .select('id')
-      .in('role', ['fisioterapeuta', 'gestor'])
+      .select('id, full_name, role')
+      .in('role', ['fisioterapeuta', 'gestor', 'medico'])
       .eq('ativo', true)
-    profIds = (profsData ?? []).map((p) => p.id)
+      .order('full_name')
+
+    const profs = (profsData ?? []) as { id: string; full_name: string | null; role: string | null }[]
+    fisioterapeutas = profs.filter((p) => p.role !== 'medico').map((p) => ({ id: p.id, nome: p.full_name || 'Sem nome' }))
+    medicosOpcoes = profs.filter((p) => p.role === 'medico').map((p) => ({ id: p.id, nome: p.full_name || 'Sem nome' }))
+
+    const opcoesCategoria = categoria === 'medicos' ? medicosOpcoes : fisioterapeutas
+    const profissionalValido = opcoesCategoria.some((p) => p.id === profissionalIdParam)
+    profIds = profissionalValido ? [profissionalIdParam] : opcoesCategoria.map((p) => p.id)
   }
 
-  const { data: atendData } = await supabase
-    .from('atendimentos')
-    .select('paciente_id, status, data_agendamento')
-    .in('profissional_id', profIds)
-    .gte('data_agendamento', queryInicio)
-    .lte('data_agendamento', queryFim)
+  const { data: atendData } = profIds.length > 0
+    ? await supabase
+        .from('atendimentos')
+        .select('paciente_id, status, data_agendamento')
+        .in('profissional_id', profIds)
+        .gte('data_agendamento', queryInicio)
+        .lte('data_agendamento', queryFim)
+    : { data: [] }
 
   const todosAtendimentos = (atendData ?? []) as AtendimentoResumo[]
 
@@ -189,6 +205,14 @@ export default async function RelatorioAtendidosPage({ searchParams }: { searchP
     return 'Últimos 12 meses'
   })()
 
+  const profissionalLabel = (() => {
+    if (!isGestorOuMaster) return null
+    const opcoes = categoria === 'medicos' ? medicosOpcoes : fisioterapeutas
+    const selecionado = opcoes.find((p) => p.id === profissionalIdParam)
+    const categoriaLabel = categoria === 'medicos' ? 'Médicos' : 'Fisioterapeutas'
+    return selecionado ? selecionado.nome : `Todos (${categoriaLabel})`
+  })()
+
   return (
     <div className="space-y-6">
       <div>
@@ -204,7 +228,8 @@ export default async function RelatorioAtendidosPage({ searchParams }: { searchP
           Relatório de Pacientes Atendidos
         </h1>
         <p className="text-sm text-text-secondary mt-1">
-          {periodoLabel} · pacientes que passaram por sessão (concluído ou em atendimento), agrupados por dia, semana e mês.
+          {periodoLabel}
+          {profissionalLabel && ` · ${profissionalLabel}`} · pacientes que passaram por sessão (concluído ou em atendimento), agrupados por dia, semana e mês.
         </p>
       </div>
 
@@ -217,6 +242,14 @@ export default async function RelatorioAtendidosPage({ searchParams }: { searchP
         action="/pacientes/relatorio-atendidos"
         limparHref="/pacientes/relatorio-atendidos"
         tipoLabels={{ semana: 'Semana específica (padrão: esta semana)' }}
+        {...(isGestorOuMaster
+          ? {
+              categoriaAtual: categoria,
+              profissionalIdAtual: profissionalIdParam,
+              fisioterapeutas,
+              medicos: medicosOpcoes,
+            }
+          : {})}
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

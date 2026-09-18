@@ -5,6 +5,9 @@ import { useState } from 'react'
 import { SelectCheckbox } from './SelectCheckbox'
 
 type TipoFiltro = '12meses' | 'mes' | 'semana' | 'personalizado'
+type CategoriaProfissional = 'fisioterapia' | 'medicos'
+
+type ProfissionalOpcao = { id: string; nome: string }
 
 type Props = {
   tipo: TipoFiltro
@@ -17,6 +20,11 @@ type Props = {
   action?: string
   limparHref?: string
   tipoLabels?: Partial<Record<TipoFiltro, string>>
+  /** Mostra o filtro de categoria (Fisioterapeuta/Médico) + profissional — só faz sentido para gestor/master. */
+  categoriaAtual?: CategoriaProfissional
+  profissionalIdAtual?: string
+  fisioterapeutas?: ProfissionalOpcao[]
+  medicos?: ProfissionalOpcao[]
 }
 
 export function FiltrosCadastros({
@@ -30,9 +38,16 @@ export function FiltrosCadastros({
   action,
   limparHref = '/pacientes/relatorio-cadastros',
   tipoLabels = {},
+  categoriaAtual,
+  profissionalIdAtual = '',
+  fisioterapeutas,
+  medicos,
 }: Props) {
   const [tipo, setTipo] = useState<TipoFiltro>(tipoInicial)
-  const isFiltered = tipoInicial !== '12meses' || selectedOrigems.length > 0
+  const [categoria, setCategoria] = useState<CategoriaProfissional>(categoriaAtual ?? 'fisioterapia')
+  const mostrarFiltroProfissional = fisioterapeutas !== undefined && medicos !== undefined
+  const opcoesProfissionais = categoria === 'medicos' ? medicos ?? [] : fisioterapeutas ?? []
+  const isFiltered = tipoInicial !== '12meses' || selectedOrigems.length > 0 || !!profissionalIdAtual
 
   return (
     <form method="get" action={action} className="bg-surface rounded-lg border border-border p-4">
@@ -96,6 +111,37 @@ export function FiltrosCadastros({
                 defaultValue={fim}
                 className="px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
               />
+            </div>
+          </>
+        )}
+
+        {mostrarFiltroProfissional && (
+          <>
+            <div>
+              <label className="block text-xs text-text-secondary uppercase mb-1">Categoria</label>
+              <select
+                name="categoria"
+                value={categoria}
+                onChange={e => setCategoria(e.target.value as CategoriaProfissional)}
+                className="px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
+              >
+                <option value="fisioterapia">Fisioterapeuta</option>
+                <option value="medicos">Médico</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-text-secondary uppercase mb-1">Profissional</label>
+              <select
+                name="profissional_id"
+                key={categoria}
+                defaultValue={categoria === categoriaAtual ? profissionalIdAtual : ''}
+                className="px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500 min-w-[180px]"
+              >
+                <option value="">Todos</option>
+                {opcoesProfissionais.map(p => (
+                  <option key={p.id} value={p.id}>{p.nome}</option>
+                ))}
+              </select>
             </div>
           </>
         )}
