@@ -30,6 +30,8 @@ import AvatarPaciente from '@/components/features/pacientes/AvatarPaciente'
 import { ProntuarioEvolucao } from '../prontuarios'
 import { ModalSessaoReposicao } from '../shared'
 import { ConfirmacaoFaltaModal } from './AgendamentoItem'
+import { ConfirmacaoFollowUpModal } from './ConfirmacaoFollowUpModal'
+import { ConfirmacaoSairEvolucaoModal } from './ConfirmacaoSairEvolucaoModal'
 import { TabMidia } from './TabMidia'
 import { TabHistorico } from './TabHistorico'
 import { ModalSelecaoExclusao } from './ModalSelecaoExclusao'
@@ -109,20 +111,32 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
   const tabsRef = useRef<HTMLDivElement>(null)
   const [evolucaoDirty, setEvolucaoDirty] = useState(false)
   const [sugerirFollowUpAoSalvarEvolucao, setSugerirFollowUpAoSalvarEvolucao] = useState(initialTab === 'evolucao')
+  const [confirmacaoFollowUp, setConfirmacaoFollowUp] = useState(false)
+  const [acaoPendenteSairEvolucao, setAcaoPendenteSairEvolucao] = useState<(() => void) | null>(null)
 
-  function podeSairDaEvolucao() {
-    return !evolucaoDirty || window.confirm('A evolução ainda não foi salva. Sair mesmo assim?')
+  function guardarSaidaEvolucao(acao: () => void) {
+    if (!evolucaoDirty) { acao(); return }
+    setAcaoPendenteSairEvolucao(() => acao)
+  }
+
+  function handleConfirmarSairEvolucao() {
+    const acao = acaoPendenteSairEvolucao
+    setAcaoPendenteSairEvolucao(null)
+    acao?.()
+  }
+
+  function handleCancelarSairEvolucao() {
+    setAcaoPendenteSairEvolucao(null)
   }
 
   function fecharComGuarda() {
-    if (!podeSairDaEvolucao()) return
-    onClose()
+    guardarSaidaEvolucao(onClose)
   }
 
   function trocarAba(aba: typeof activeTab) {
     if (activeTab === 'evolucao' && aba !== 'evolucao') {
-      if (!podeSairDaEvolucao()) return
-      setEvolucaoDirty(false)
+      guardarSaidaEvolucao(() => { setEvolucaoDirty(false); setActiveTab(aba) })
+      return
     }
     setActiveTab(aba)
   }
@@ -288,11 +302,19 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
   function handleEvolucaoSalva() {
     if (sugerirFollowUpAoSalvarEvolucao) {
       setSugerirFollowUpAoSalvarEvolucao(false)
-      if (window.confirm('Deseja criar um follow-up para este paciente?')) {
-        setActiveTab('followup')
-        return
-      }
+      setConfirmacaoFollowUp(true)
+      return
     }
+    router.refresh()
+  }
+
+  function handleConfirmarFollowUp() {
+    setConfirmacaoFollowUp(false)
+    setActiveTab('followup')
+  }
+
+  function handleCancelarFollowUp() {
+    setConfirmacaoFollowUp(false)
     router.refresh()
   }
 
@@ -483,7 +505,7 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
             <div className="mt-5 flex items-center gap-2 sm:gap-3">
               <button
                 type="button"
-                onClick={() => { if (!podeSairDaEvolucao()) return; router.push('/confirmacoes/cards'); onClose() }}
+                onClick={() => guardarSaidaEvolucao(() => { router.push('/confirmacoes/cards'); onClose() })}
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#bcc9c4] px-3 py-2.5 text-[11px] sm:text-xs font-semibold text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
               >
                 <MessageCircle size={14} className="text-[#25d366]" />
@@ -990,6 +1012,20 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
         <ConfirmacaoFaltaModal
           onConfirmar={handleConfirmarFalta}
           onCancelar={() => setConfirmacaoFalta(false)}
+        />,
+        document.body
+      )}
+      {typeof document !== 'undefined' && confirmacaoFollowUp && createPortal(
+        <ConfirmacaoFollowUpModal
+          onConfirmar={handleConfirmarFollowUp}
+          onCancelar={handleCancelarFollowUp}
+        />,
+        document.body
+      )}
+      {typeof document !== 'undefined' && acaoPendenteSairEvolucao && createPortal(
+        <ConfirmacaoSairEvolucaoModal
+          onConfirmar={handleConfirmarSairEvolucao}
+          onCancelar={handleCancelarSairEvolucao}
         />,
         document.body
       )}
