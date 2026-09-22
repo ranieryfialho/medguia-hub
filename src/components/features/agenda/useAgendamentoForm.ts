@@ -1,6 +1,6 @@
 import { useState, useEffect, useId, useMemo, useRef } from 'react'
 import { format } from 'date-fns'
-import { buscarDetalhesAgendamento, criarAgendamento, editarAtendimento } from '@/actions/agenda'
+import { buscarDetalhesAgendamento, criarAgendamento, editarAtendimento, verificarBloqueioAgenda } from '@/actions/agenda'
 import {
   criarPreConsultaPendente,
   buscarConsultaMedicaSemVinculo,
@@ -104,6 +104,8 @@ export function useAgendamentoForm({
   const [observacoesValue, setObservacoesValue] = useState('')
   const [selectedPlanoSaude, setSelectedPlanoSaude] = useState('')
   const [marcouRetorno, setMarcouRetorno] = useState(false)
+  const [bloqueioAgenda, setBloqueioAgenda] = useState<{ mensagem: string } | null>(null)
+  const [verificandoBloqueioAgenda, setVerificandoBloqueioAgenda] = useState(false)
 
   // Prompt "Tem pré-consulta?" — aberto depois de criar uma consulta médica
   const [promptPreConsultaAtendimentoId, setPromptPreConsultaAtendimentoId] = useState<string | null>(null)
@@ -381,6 +383,27 @@ export function useAgendamentoForm({
     })
   }, [totalSessoesConfiguradoNoAgendamento, modoRecorrencia, protocoloRecorrenteAtivo])
 
+  useEffect(() => {
+    setBloqueioAgenda(null)
+    if (!selectedProfissionalId || !dataAgendamento || !horaInicioValue || !horaFimValue) {
+      setVerificandoBloqueioAgenda(false)
+      return
+    }
+    let active = true
+    setVerificandoBloqueioAgenda(true)
+    const id = window.setTimeout(() => {
+      verificarBloqueioAgenda(selectedProfissionalId, dataAgendamento, horaInicioValue, horaFimValue)
+        .then((res) => {
+          if (!active) return
+          if (res && 'bloqueado' in res && res.bloqueado) {
+            setBloqueioAgenda({ mensagem: res.mensagem })
+          }
+        })
+        .finally(() => { if (active) setVerificandoBloqueioAgenda(false) })
+    }, 300)
+    return () => { active = false; window.clearTimeout(id) }
+  }, [selectedProfissionalId, dataAgendamento, horaInicioValue, horaFimValue])
+
   // ── Handlers ───────────────────────────────────────────────────────────────
 
   function getDuracaoTipo(tipoNome: string): number {
@@ -645,6 +668,11 @@ export function useAgendamentoForm({
       setLoading(false)
       return
     }
+    if (bloqueioAgenda) {
+      setError(bloqueioAgenda.mensagem)
+      setLoading(false)
+      return
+    }
 
     if (!modoEdicao && modoAtendimento === 'protocolo' && protocoloAtendimentoSelecionado && tiposDoProtocolo.length > 1) {
       formData.set('is_recorrente', 'true')
@@ -760,6 +788,8 @@ export function useAgendamentoForm({
     disponibilidadeSelecionada,
     horarioPreenchido,
     horarioValidoNaDisponibilidade,
+    bloqueioAgenda,
+    verificandoBloqueioAgenda,
     // Recorrência
     isRecorrente,
     modoRecorrencia,

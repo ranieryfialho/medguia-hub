@@ -92,6 +92,14 @@ export function resolverJornadaDoDia(
   return jornadaSemanalMap.get(data.getDay()) ?? null
 }
 
+export function obterJornadaMensalDoDia(
+  data: Date,
+  jornadaMensalMap?: Map<string, JornadaMensalDiaPlanejado>,
+) {
+  const dataKey = formatAppDateKey(data)
+  return jornadaMensalMap?.get(dataKey)
+}
+
 export function profissionalTemAlgumaJornada(
   profissionalId: string,
   jornadasSemanaisMap: Map<string, Map<number, JornadaDia>>,

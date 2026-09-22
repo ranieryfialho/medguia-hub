@@ -7,7 +7,11 @@ import {
   type IntervaloMinutos,
   type JornadaDia,
 } from '@/lib/jornada'
-import { resolverJornadaDoDia, type JornadaMensalDiaPlanejado } from '@/lib/jornada-planejada'
+import {
+  obterJornadaMensalDoDia,
+  resolverJornadaDoDia,
+  type JornadaMensalDiaPlanejado,
+} from '@/lib/jornada-planejada'
 
 export type DisponibilidadeDia = JornadaDia
 export type DisponibilidadeMensalMap = Map<string, JornadaMensalDiaPlanejado>
@@ -109,6 +113,36 @@ export function validarHorarioDisponibilidade(
     motivo: ok ? ('ok' as const) : ('fora_da_jornada' as const),
     faixas,
   }
+}
+
+// Checa apenas bloqueios explícitos (dia inteiro ou faixa de horário),
+// sem exigir jornada semanal cadastrada — usada para profissionais cujo
+// agendamento não depende de jornada fixa (ex.: médicos), mas cuja agenda
+// pode ainda assim ser bloqueada pontualmente.
+export function validarBloqueioExplicito(
+  data: string,
+  horaInicio: string,
+  horaFim: string,
+  disponibilidadesMensais?: DisponibilidadeMensalMap,
+  bloqueiosDoDia?: BloqueioHorario[],
+) {
+  const jornadaMensal = obterJornadaMensalDoDia(parseAppDate(data), disponibilidadesMensais)
+
+  if (jornadaMensal && !jornadaMensal.ativo) {
+    return { ok: false, motivo: 'dia_bloqueado' as const }
+  }
+
+  const inicio = toMin(horaInicio)
+  const fim = toMin(horaFim)
+  const bloqueado = (bloqueiosDoDia ?? []).some(
+    (b) => inicio < toMin(b.hora_fim) && fim > toMin(b.hora_inicio),
+  )
+
+  if (bloqueado) {
+    return { ok: false, motivo: 'horario_bloqueado' as const }
+  }
+
+  return { ok: true, motivo: 'ok' as const }
 }
 
 function getNowParts(timeZone: string) {

@@ -32,7 +32,7 @@ export default async function JornadaPage({
       .from('profiles')
       .select('id, full_name')
       .eq('ativo', true)
-      .eq('role', 'fisioterapeuta')
+      .in('role', ['fisioterapeuta', 'medico'])
       .order('full_name')
     profissionais = (data ?? []).map(p => ({ id: p.id, nome: p.full_name || 'Sem nome' }))
   }

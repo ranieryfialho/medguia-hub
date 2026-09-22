@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { buildAppDateTimeISO, formatAppDateKey } from '@/lib/datetime'
 import {
   normalizarDisponibilidade,
+  validarBloqueioExplicito,
   validarHorarioDisponibilidade,
   type BloqueioHorario,
   type BloqueiosPorDataMap,
@@ -213,9 +214,34 @@ function validarOcorrenciasNaDisponibilidade(
   disponibilidades: Map<number, DisponibilidadeDia>,
   disponibilidadesMensais: DisponibilidadeMensalMap,
   ocorrencias: { data: string; hora_inicio: string; hora_fim: string }[],
-  bloqueios?: BloqueiosPorDataMap,
+  bloqueios: BloqueiosPorDataMap | undefined,
+  exigeJornadaCompleta: boolean,
 ) {
   for (const ocorrencia of ocorrencias) {
+    // Bloqueio explícito (dia inteiro ou faixa de horário) vale para
+    // qualquer profissional, mesmo quando não há jornada semanal exigida.
+    const bloqueio = validarBloqueioExplicito(
+      ocorrencia.data,
+      ocorrencia.hora_inicio,
+      ocorrencia.hora_fim,
+      disponibilidadesMensais,
+      bloqueios?.get(ocorrencia.data),
+    )
+
+    if (!bloqueio.ok) {
+      if (bloqueio.motivo === 'dia_bloqueado') {
+        return {
+          error: `A agenda do profissional está bloqueada em ${ocorrencia.data} (dia inteiro).`,
+        }
+      }
+
+      return {
+        error: `O horário ${ocorrencia.hora_inicio}–${ocorrencia.hora_fim} em ${ocorrencia.data} está bloqueado na agenda do profissional.`,
+      }
+    }
+
+    if (!exigeJornadaCompleta) continue
+
     const validacao = validarHorarioDisponibilidade(
       disponibilidades,
       ocorrencia.data,
@@ -239,6 +265,50 @@ function validarOcorrenciasNaDisponibilidade(
   }
 
   return null
+}
+
+// Checagem client-side (via server action) do bloqueio de agenda ao
+// preencher o formulário — a validação que de fato impede a gravação roda
+// em validarOcorrenciasNaDisponibilidade, dentro de criarAgendamento/
+// editarAtendimento. Esta função só existe para dar feedback imediato
+// (botão desabilitado + aviso) antes do submit.
+export async function verificarBloqueioAgenda(
+  profissional_id: string,
+  data: string,
+  horaInicio: string,
+  horaFim: string,
+) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado.' as const }
+
+  if (!profissional_id || !data || !horaInicio || !horaFim) {
+    return { bloqueado: false as const }
+  }
+
+  const [disponibilidadesMensais, bloqueios] = await Promise.all([
+    carregarDisponibilidadesMensaisProfissional(profissional_id, data, data),
+    carregarBloqueiosProfissional(profissional_id, data, data),
+  ])
+
+  const resultado = validarBloqueioExplicito(
+    data,
+    horaInicio,
+    horaFim,
+    disponibilidadesMensais,
+    bloqueios.get(data),
+  )
+
+  if (resultado.ok) return { bloqueado: false as const }
+
+  return {
+    bloqueado: true as const,
+    motivo: resultado.motivo,
+    mensagem:
+      resultado.motivo === 'dia_bloqueado'
+        ? 'A agenda deste profissional está bloqueada nesse dia (dia inteiro).'
+        : 'A agenda deste profissional está bloqueada nesse horário.',
+  }
 }
 
 function removerMetadadosDisponibilidade(atendimento: {
@@ -487,8 +557,13 @@ export async function criarAgendamento(formData: FormData) {
     }))
   }
 
-  if (exigeDisponibilidade) {
-    const disponibilidades = await carregarDisponibilidadesProfissional(profissional_id)
+  {
+    // Bloqueio explícito de agenda (dia inteiro ou faixa de horário) é
+    // verificado sempre, inclusive para médicos, que não exigem jornada
+    // semanal cadastrada.
+    const disponibilidades = exigeDisponibilidade
+      ? await carregarDisponibilidadesProfissional(profissional_id)
+      : new Map<number, DisponibilidadeDia>()
     const datasOcorrencias = atendimentosParaInserir.map((a) => a.data).sort()
     const [disponibilidadesMensais, bloqueios] = await Promise.all([
       carregarDisponibilidadesMensaisProfissional(
@@ -511,6 +586,7 @@ export async function criarAgendamento(formData: FormData) {
         hora_fim: a.hora_fim,
       })),
       bloqueios,
+      exigeDisponibilidade,
     )
 
     if (erroDisponibilidade) {
@@ -1229,8 +1305,11 @@ export async function editarAtendimento(id: string, formData: FormData) {
   }
 
   const roleProfissional = await carregarRoleProfissional(profissional_id)
-  if (roleProfissional !== 'medico') {
-    const disponibilidades = await carregarDisponibilidadesProfissional(profissional_id)
+  const exigeDisponibilidade = roleProfissional !== 'medico'
+  {
+    const disponibilidades = exigeDisponibilidade
+      ? await carregarDisponibilidadesProfissional(profissional_id)
+      : new Map<number, DisponibilidadeDia>()
     const [disponibilidadesMensais, bloqueios] = await Promise.all([
       carregarDisponibilidadesMensaisProfissional(profissional_id, dataStr, dataStr),
       carregarBloqueiosProfissional(profissional_id, dataStr, dataStr),
@@ -1240,6 +1319,7 @@ export async function editarAtendimento(id: string, formData: FormData) {
       disponibilidadesMensais,
       [{ data: dataStr, hora_inicio: horaInicio, hora_fim: horaFim }],
       bloqueios,
+      exigeDisponibilidade,
     )
 
     if (erroDisponibilidade) {

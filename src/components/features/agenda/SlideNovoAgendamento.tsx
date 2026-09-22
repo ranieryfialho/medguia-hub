@@ -75,6 +75,8 @@ export function SlideNovoAgendamento(props: SlideProps) {
     disponibilidadeSelecionada,
     horarioPreenchido,
     horarioValidoNaDisponibilidade,
+    bloqueioAgenda,
+    verificandoBloqueioAgenda,
     // Recorrência
     isRecorrente,
     modoRecorrencia,
@@ -336,6 +338,14 @@ export function SlideNovoAgendamento(props: SlideProps) {
                 )
               })()}
 
+              {/* Aviso de bloqueio de agenda (dia inteiro ou faixa de horário) */}
+              {bloqueioAgenda && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-300 text-xs text-red-700 font-semibold">
+                  <Clock size={13} />
+                  {bloqueioAgenda.mensagem}
+                </div>
+              )}
+
               {/* Sugestão de vínculo com consulta médica recente (pós-consulta) */}
               {!modoEdicao && sugestaoConsultaOrigem && !sugestaoDispensada && (
                 <div className="px-3 py-2.5 rounded-lg border bg-[#f0fcf9] border-[#006b5a]/20 text-xs text-[#083142]">
@@ -431,8 +441,8 @@ export function SlideNovoAgendamento(props: SlideProps) {
               <button type="button" onClick={handleClose} className="w-full sm:w-auto px-6 py-2.5 rounded-lg font-bold text-[#3d4945] bg-white border border-[#bcc9c4] hover:bg-[#dee3e3] transition-colors">
                 Cancelar
               </button>
-              <button form={formId} type="submit" disabled={loading} className="w-full sm:w-auto bg-[#006b5a] text-white px-8 py-2.5 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-[#004f43] transition-colors shadow-md disabled:opacity-70">
-                {loading ? 'Salvando...' : 'Salvar'}
+              <button form={formId} type="submit" disabled={loading || Boolean(bloqueioAgenda) || verificandoBloqueioAgenda} className="w-full sm:w-auto bg-[#006b5a] text-white px-8 py-2.5 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-[#004f43] transition-colors shadow-md disabled:opacity-70">
+                {loading ? 'Salvando...' : bloqueioAgenda ? 'Agenda bloqueada' : 'Salvar'}
               </button>
             </div>
           </div>
