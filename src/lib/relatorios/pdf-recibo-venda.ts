@@ -65,7 +65,21 @@ function cabecalho(doc: jsPDF, vendaId: string, clinica?: ConfigClinica | null, 
   if (logoDataUrl) {
     doc.setFillColor(255, 255, 255)
     doc.roundedRect(logoX - 2, 3, logoW + 4, logoH + 2, 2, 2, 'F')
-    try { doc.addImage(logoDataUrl, logoX, 5, logoW, logoH - 2) } catch {}
+    try {
+      // Encaixa a logo preservando a proporção original (em vez de esticar
+      // pra caber exatamente na caixa, o que distorcia imagens não quadradas).
+      const { width: imgWNatural, height: imgHNatural } = doc.getImageProperties(logoDataUrl)
+      const boxW = logoW - 4
+      const boxH = logoH - 4
+      const escala = Math.min(boxW / imgWNatural, boxH / imgHNatural)
+      const imgW = imgWNatural * escala
+      const imgH = imgHNatural * escala
+      const imgX = logoX + (logoW - imgW) / 2
+      const imgY = 4 + (logoH - imgH) / 2
+      doc.addImage(logoDataUrl, imgX, imgY, imgW, imgH)
+    } catch (err) {
+      console.error('[PDF Recibo] falha ao inserir logo', err)
+    }
   }
 
   const textLimit = logoDataUrl ? logoX - MX - 4 : PW - MX * 2
@@ -98,11 +112,23 @@ function cabecalho(doc: jsPDF, vendaId: string, clinica?: ConfigClinica | null, 
   doc.setTextColor(200, 230, 225)
   doc.text('Comprovante de contratação e compra de serviços', MX, yInicio + 7)
 
-  doc.text(numeroRecibo, PW - MX, yInicio, { align: 'right' })
   const dataAtual = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
-  doc.text(dataAtual, PW - MX, yInicio + 7, { align: 'right' })
 
-  return alturaHeader + 8
+  // Sem logo, número/data cabem no canto do cabeçalho. Com logo, esse canto
+  // já está ocupado pela imagem — mostramos a mesma informação numa linha
+  // logo abaixo do cabeçalho em vez de desenhar por cima da logo.
+  if (!logoDataUrl) {
+    doc.text(numeroRecibo, PW - MX, yInicio, { align: 'right' })
+    doc.text(dataAtual, PW - MX, yInicio + 7, { align: 'right' })
+    return alturaHeader + 8
+  }
+
+  doc.setFontSize(7.5)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(...MUT)
+  doc.text(`${numeroRecibo}  ·  Emitido em ${dataAtual}`, PW - MX, alturaHeader + 6, { align: 'right' })
+
+  return alturaHeader + 11
 }
 
 function secao(doc: jsPDF, y: number, titulo: string): number {
