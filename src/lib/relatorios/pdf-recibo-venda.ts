@@ -116,7 +116,7 @@ function secao(doc: jsPDF, y: number, titulo: string): number {
   doc.setTextColor(...BRAND)
   doc.text(titulo.toUpperCase(), MX + 3, y + 4.8)
 
-  return y + 11
+  return y + 9
 }
 
 function campo(doc: jsPDF, x: number, y: number, w: number, label: string, valor: string | null): void {
@@ -167,10 +167,10 @@ export async function gerarPdfReciboVenda(input: GerarPdfReciboInput): Promise<B
   // --- Contratada ---
   y = secao(doc, y, 'Contratada')
   campo(doc, MX, y, CW, 'Razão social', contratadaNome)
-  y += 10
+  y += 8
   campo(doc, MX, y, 90, 'CNPJ', contratadaCnpj)
   campo(doc, MX + 100, y, 60, 'Endereço', contratadaEndereco)
-  y += 14
+  y += 9
 
   // --- Dados do Paciente ---
   y = secao(doc, y, 'Dados do Contratante')
@@ -184,13 +184,10 @@ export async function gerarPdfReciboVenda(input: GerarPdfReciboInput): Promise<B
 
   campo(doc, MX, y, 100, 'Nome completo', paciente.nome)
   campo(doc, MX + 110, y, 45, 'CPF', paciente.cpf)
-  y += 10
-  campo(doc, MX, y, 100, 'RG', docRg)
-  y += 10
-  if (enderecoPaciente) {
-    campo(doc, MX, y, CW, 'Endereço', enderecoPaciente)
-    y += 10
-  }
+  y += 8
+  campo(doc, MX, y, 90, 'RG', docRg)
+  campo(doc, MX + 100, y, 60, 'Endereço', enderecoPaciente)
+  y += 9
 
   // --- Detalhes da venda ---
   const temDetalhesVenda = !!(input.tipoVenda || input.protocoloNome || input.medicoReferenciador || input.observacoes)
@@ -202,15 +199,16 @@ export async function gerarPdfReciboVenda(input: GerarPdfReciboInput): Promise<B
     if (input.protocoloNome) {
       campo(doc, MX + 100, y, 60, 'Protocolo', input.protocoloNome)
     }
-    y += 10
+    if (input.tipoVenda || input.protocoloNome) y += 8
     if (input.medicoReferenciador) {
       campo(doc, MX, y, CW, 'Médico referenciador', input.medicoReferenciador)
-      y += 10
+      y += 8
     }
     if (input.observacoes) {
       campo(doc, MX, y, CW, 'Observações', input.observacoes)
-      y += 10
+      y += 8
     }
+    y += 1
   }
 
   y = divisor(doc, y)
@@ -246,7 +244,7 @@ export async function gerarPdfReciboVenda(input: GerarPdfReciboInput): Promise<B
     y += 7
   }
 
-  y = garantirEspaco(doc, y, 13)
+  y = garantirEspaco(doc, y, 11)
   doc.setFillColor(...SFT)
   doc.rect(MX, y, CW, 8, 'F')
   doc.setFont('helvetica', 'bold')
@@ -254,18 +252,18 @@ export async function gerarPdfReciboVenda(input: GerarPdfReciboInput): Promise<B
   doc.setTextColor(...BRAND)
   doc.text('TOTAL', MX + 4, y + 5.5)
   doc.text(fmtMoeda(input.total), PW - MX - 2, y + 5.5, { align: 'right' })
-  y += 13
+  y += 11
 
   // --- Detalhes do Pagamento ---
-  y = garantirEspaco(doc, y, 18)
+  y = garantirEspaco(doc, y, 14)
   y = secao(doc, y, 'Detalhes do Pagamento')
   campo(doc, MX, y, 80, 'Forma de pagamento', input.forma_pagamento)
   campo(doc, MX + 90, y, 55, 'Profissional responsável', input.profissional)
   campo(doc, MX + 150, y, 40, 'Data da venda', fmtData(input.data_venda))
-  y += 18
+  y += 11
 
   // --- Declaração ---
-  y = garantirEspaco(doc, y, 20)
+  y = garantirEspaco(doc, y, 14)
   y = divisor(doc, y)
 
   doc.setFontSize(8)
@@ -273,12 +271,12 @@ export async function gerarPdfReciboVenda(input: GerarPdfReciboInput): Promise<B
   doc.setTextColor(...MUT)
   const declaracao = 'Declaro que li e concordo com a contratação dos serviços descritos neste recibo, confirmando a compra nas condições de pagamento estabelecidas e autorizando o início dos procedimentos.'
   const wrappedDecl = doc.splitTextToSize(declaracao, CW)
-  y = garantirEspaco(doc, y, wrappedDecl.length * 5)
+  y = garantirEspaco(doc, y, wrappedDecl.length * 4.2)
   doc.text(wrappedDecl, MX, y)
-  y += wrappedDecl.length * 5 + 8
+  y += wrappedDecl.length * 4.2 + 5
 
   // --- Assinatura ---
-  const alturaAssinatura = 22
+  const alturaAssinatura = 20
   const larguraAssinatura = 80
   const temAssinatura = !!input.assinaturaDataUrl
 
