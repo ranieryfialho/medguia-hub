@@ -1,12 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Plus, Eye, Edit, FileText, Info } from 'lucide-react'
+import { Plus, Info } from 'lucide-react'
 import { FiltrosVendas } from '@/components/features/vendas'
-import { BtnDeletarVenda } from '@/components/features/vendas'
+import { MenuAcoesVenda } from '@/components/features/vendas/MenuAcoesVenda'
 import { SeletorTagsVenda } from '@/components/features/vendas'
 import { listarTagsVendaAtivas, listarTagsPorVendas } from '@/actions/venda-tags'
 import { requireModulo } from '@/lib/guard'
 import { FORMA_PAGAMENTO_LABEL, TIPO_VENDA_LABEL } from '@/lib/vendas'
+import { getConfigClinica } from '@/lib/clinica'
+import { parseComprovantesVenda } from '@/lib/comprovantes-venda'
 import { formatAppDate, getAppDayRangeUTC } from '@/lib/datetime'
 
 const STATUS_BADGE: Record<string, { label: string; classes: string }> = {
@@ -29,7 +31,9 @@ const SELECT_VENDAS_BASE = `
   status,
   tipo_venda,
   comprovante_pagamento_google_drive_file_id,
+  comprovante_pagamento_google_drive_file_url,
   comprovante_pagamento_nome,
+  comprovantes_pagamento,
   criado_em,
   itens_venda(quantidade, preco_unitario, produtos(nome))
 `
@@ -137,6 +141,7 @@ export default async function VendasListPage({
   await requireModulo('comercial:vendas')
 
   const supabase = await createClient()
+  const clinica = await getConfigClinica()
 
   const resolvedParams = await searchParams
   const busca = ((resolvedParams.busca as string) || '').trim()
@@ -345,6 +350,7 @@ export default async function VendasListPage({
                   (sum: number, item: any) => sum + item.quantidade * item.preco_unitario,
                   0
                 )
+                const comprovantes = parseComprovantesVenda(venda)
 
                 return (
                   <tr key={venda.id} className="hover:bg-page/50 transition-colors">
@@ -408,32 +414,13 @@ export default async function VendasListPage({
                     <td className="px-6 py-4 text-sm text-text-secondary">{dataFormatada}</td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <Link
-                          href={`/vendas/${venda.id}`}
-                          className="p-2 text-text-secondary hover:text-primary-500 hover:bg-page rounded transition-colors"
-                          title="Visualizar"
-                        >
-                          <Eye size={16} />
-                        </Link>
-                        <Link
-                          href={`/vendas/${venda.id}/editar`}
-                          className="p-2 text-text-secondary hover:text-primary-500 hover:bg-page rounded transition-colors"
-                          title="Editar"
-                        >
-                          <Edit size={16} />
-                        </Link>
-                        {venda.comprovante_pagamento_google_drive_file_id && (
-                          <a
-                            href={`/api/drive/file/${venda.comprovante_pagamento_google_drive_file_id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-2 text-text-secondary hover:text-primary-500 hover:bg-page rounded transition-colors"
-                            title="Ver comprovante de pagamento"
-                          >
-                            <FileText size={16} />
-                          </a>
-                        )}
-                        <BtnDeletarVenda id={venda.id} status={venda.status} />
+                        <MenuAcoesVenda
+                          vendaId={venda.id}
+                          vendaStatus={venda.status ?? 'venda_confirmada'}
+                          nomePaciente={venda.pacientes?.nome ?? ''}
+                          clinica={clinica}
+                          comprovantes={comprovantes}
+                        />
                       </div>
                     </td>
                   </tr>
@@ -456,6 +443,7 @@ export default async function VendasListPage({
                 (sum: number, item: any) => sum + item.quantidade * item.preco_unitario,
                 0
               )
+              const comprovantes = parseComprovantesVenda(venda)
 
               return (
                 <div key={venda.id} className="p-4 space-y-2">
@@ -513,32 +501,14 @@ export default async function VendasListPage({
                   {venda.medico_referenciador_nome && (
                     <p className="text-xs text-text-secondary">Dr. {venda.medico_referenciador_nome}</p>
                   )}
-                  <div className="flex items-center gap-2 pt-2">
-                    <Link
-                      href={`/vendas/${venda.id}`}
-                      className="flex-1 px-3 py-1.5 text-xs rounded-md bg-page text-text-primary hover:bg-page/80 transition-colors flex items-center justify-center gap-1"
-                    >
-                      <Eye size={14} />
-                      Ver
-                    </Link>
-                    <Link
-                      href={`/vendas/${venda.id}/editar`}
-                      className="flex-1 px-3 py-1.5 text-xs rounded-md bg-page text-text-primary hover:bg-page/80 transition-colors flex items-center justify-center gap-1"
-                    >
-                      <Edit size={14} />
-                      Editar
-                    </Link>
-                    {venda.comprovante_pagamento_google_drive_file_id && (
-                      <a
-                        href={`/api/drive/file/${venda.comprovante_pagamento_google_drive_file_id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 px-3 py-1.5 text-xs rounded-md bg-page text-text-primary hover:bg-page/80 transition-colors flex items-center justify-center gap-1"
-                      >
-                        <FileText size={14} />
-                        Comprovante
-                      </a>
-                    )}
+                  <div className="flex items-center justify-end pt-2">
+                    <MenuAcoesVenda
+                      vendaId={venda.id}
+                      vendaStatus={venda.status ?? 'venda_confirmada'}
+                      nomePaciente={venda.pacientes?.nome ?? ''}
+                      clinica={clinica}
+                      comprovantes={comprovantes}
+                    />
                   </div>
                 </div>
               )

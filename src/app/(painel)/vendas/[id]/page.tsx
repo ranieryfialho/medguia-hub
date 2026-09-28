@@ -2,11 +2,14 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { ArrowLeft, Edit, AlertTriangle } from 'lucide-react'
 import { BtnDeletarVenda, BtnAtualizarStatusVenda, BtnMarcarPagamentoRecebido, SeletorTagsVenda, ComprovanteVendaPreview } from '@/components/features/vendas'
+import { ModalTermoVenda } from '@/components/features/vendas/ModalTermoVenda'
+import { ModalReciboVenda } from '@/components/features/vendas/ModalReciboVenda'
 import { listarTagsDaVenda, listarTagsVendaAtivas } from '@/actions/venda-tags'
 import { requireModulo } from '@/lib/guard'
 import { FORMA_PAGAMENTO_LABEL, STATUS_VENDA_LABEL, TIPO_VENDA_LABEL } from '@/lib/vendas'
 import { parseComprovantesVenda } from '@/lib/comprovantes-venda'
 import { formatAppDate, formatAppDateKey, parseAppDate } from '@/lib/datetime'
+import { getConfigClinica } from '@/lib/clinica'
 
 const STATUS_BADGE: Record<string, { classes: string }> = {
   venda_confirmada:   { classes: 'bg-emerald-100 text-emerald-800' },
@@ -17,7 +20,7 @@ const STATUS_BADGE: Record<string, { classes: string }> = {
 const SELECT_VENDA_BASE = `
   id,
   paciente_id,
-  pacientes(id, nome, cpf, telefone, email),
+  pacientes(id, nome, cpf, rg, orgao_emissor_rg, data_nascimento, telefone, email, endereco, complemento),
   profissional_id,
   profiles:profissional_id(id, full_name, role),
   origem,
@@ -129,19 +132,22 @@ export default async function VendaDetalhePage({
       : fallback.data
   }
 
-  const { data: itens } = await supabase
-    .from('itens_venda')
-    .select(`
-      id,
-      produto_id,
-      produtos(id, nome, numero_atendimentos, preco_padrao),
-      quantidade,
-      preco_unitario,
-      numero_atendimentos,
-      subtotal
-    `)
-    .eq('venda_id', id)
-    .order('criado_em')
+  const [{ data: itens }, clinica] = await Promise.all([
+    supabase
+      .from('itens_venda')
+      .select(`
+        id,
+        produto_id,
+        produtos(id, nome, numero_atendimentos, preco_padrao),
+        quantidade,
+        preco_unitario,
+        numero_atendimentos,
+        subtotal
+      `)
+      .eq('venda_id', id)
+      .order('criado_em'),
+    getConfigClinica(),
+  ])
 
   const { data: pagamentos } = await supabase
     .from('pagamentos_venda')
@@ -234,6 +240,67 @@ export default async function VendaDetalhePage({
             <SeletorTagsVenda vendaId={id} tagsAtuais={tagsVenda} catalogo={tagsCatalogo} size="md" />
           </div>
           <div className="flex items-center gap-2">
+            {!isOrcamento && (
+            <ModalReciboVenda
+              dados={{
+                vendaId: id,
+                paciente: {
+                  id: v.pacientes?.id ?? '',
+                  nome: v.pacientes?.nome ?? '',
+                  cpf: v.pacientes?.cpf ?? null,
+                  rg: v.pacientes?.rg ?? null,
+                  orgao_emissor_rg: v.pacientes?.orgao_emissor_rg ?? null,
+                  endereco: v.pacientes?.endereco ?? null,
+                  complemento: v.pacientes?.complemento ?? null,
+                },
+                profissional: v.profiles?.full_name ?? null,
+                forma_pagamento: FORMA_PAGAMENTO_LABEL[venda.forma_pagamento] || venda.forma_pagamento,
+                data_venda: venda.data_venda,
+                itens: (itens || []).map((item: any) => ({
+                  nome: item.produtos?.nome ?? '',
+                  quantidade: item.quantidade,
+                  preco_unitario: item.preco_unitario,
+                  subtotal: item.quantidade * item.preco_unitario,
+                })),
+                total,
+                tipoVenda,
+                protocoloNome,
+                medicoReferenciador: venda.medico_referenciador_nome ?? null,
+                observacoes: venda.observacoes ?? null,
+                clinica,
+              }}
+            />
+            )}
+            {!isOrcamento && (
+            <ModalTermoVenda
+              dados={{
+                vendaId: id,
+                paciente: {
+                  id: v.pacientes?.id ?? '',
+                  nome: v.pacientes?.nome ?? '',
+                  cpf: v.pacientes?.cpf ?? null,
+                  rg: v.pacientes?.rg ?? null,
+                  orgao_emissor_rg: v.pacientes?.orgao_emissor_rg ?? null,
+                  data_nascimento: v.pacientes?.data_nascimento ?? null,
+                  telefone: v.pacientes?.telefone ?? null,
+                  email: v.pacientes?.email ?? null,
+                  endereco: v.pacientes?.endereco ?? null,
+                  complemento: v.pacientes?.complemento ?? null,
+                },
+                profissional: v.profiles?.full_name ?? null,
+                forma_pagamento: venda.forma_pagamento,
+                data_venda: venda.data_venda,
+                itens: (itens || []).map((item: any) => ({
+                  nome: item.produtos?.nome ?? '',
+                  quantidade: item.quantidade,
+                  preco_unitario: item.preco_unitario,
+                  subtotal: item.quantidade * item.preco_unitario,
+                })),
+                total,
+                clinica,
+              }}
+            />
+            )}
             <Link
               href={`/vendas/${id}/editar`}
               className="inline-flex items-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-md font-medium transition-colors"
@@ -372,6 +439,7 @@ export default async function VendaDetalhePage({
                       fileId={comprovante.fileId}
                       nome={comprovante.nome}
                       fileUrl={comprovante.fileUrl}
+                      extensao={comprovante.extensao}
                     />
                   ))}
                 </div>

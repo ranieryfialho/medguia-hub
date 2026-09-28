@@ -21,7 +21,8 @@ import { buildSessaoEfetivaMap } from '@/lib/sessoes'
 import {
   FileText,
   CalendarClock,
-  Megaphone
+  Megaphone,
+  FolderOpen,
 } from 'lucide-react'
 import { getAtendimentoStatusKey } from '@/lib/atendimento-status'
 
@@ -108,7 +109,7 @@ export default async function PacienteDetailsPage({
     agendamento?: { tipo?: string | null; is_recorrente?: boolean | null; plano_saude?: string | null } | null
   }
 
-  const [{ data: atendimentos }, prontuariosRaw, { data: vendasRaw }, followUps, followUpTipos, { data: profissionaisRaw }] = await Promise.all([
+  const [{ data: atendimentos }, prontuariosRaw, { data: vendasRaw }, followUps, followUpTipos, { data: profissionaisRaw }, { data: pastaDrive }] = await Promise.all([
     supabase
       .from('atendimentos')
       .select(`*, agendamento:agendamentos(tipo, is_recorrente, plano_saude), profissional:profiles!profissional_id(full_name), fisioterapeuta_executor:profiles!fisioterapeuta_id(full_name)`)
@@ -134,6 +135,7 @@ export default async function PacienteDetailsPage({
     listarFollowUpsPaciente(pacienteId),
     listarTipos(),
     supabase.from('profiles').select('id, full_name').order('full_name'),
+    supabase.from('paciente_pastas_drive').select('google_drive_folder_url').eq('paciente_id', pacienteId).maybeSingle(),
   ])
 
   const [tagsPaciente, tagsCatalogo] = await Promise.all([
@@ -370,7 +372,21 @@ export default async function PacienteDetailsPage({
           <h2 className="text-2xl font-bold tracking-tight text-[#006b5a]">Prontuário Digital</h2>
         </div>
 
-        <BtnGerarPdfProntuario {...pdfInput} />
+        <div className="flex items-center gap-2">
+          {pastaDrive?.google_drive_folder_url && (
+            <a
+              href={pastaDrive.google_drive_folder_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-white hover:bg-page text-text-secondary hover:text-text-primary text-sm font-medium transition-colors"
+              title="Abrir pasta no Google Drive"
+            >
+              <FolderOpen size={15} className="text-[#1a73e8]" />
+              <span className="hidden sm:inline">Pasta no Drive</span>
+            </a>
+          )}
+          <BtnGerarPdfProntuario {...pdfInput} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">

@@ -4,8 +4,8 @@ import { useState } from 'react'
 import { FileText } from 'lucide-react'
 import { LightboxMidia, type TipoLightboxMidia } from '@/components/features/pacientes/LightboxMidia'
 
-function inferirTipo(nome: string): TipoLightboxMidia {
-  const ext = nome.split('.').pop()?.toLowerCase() ?? ''
+function inferirTipo(extensao: string): TipoLightboxMidia {
+  const ext = extensao.replace(/^\./, '').toLowerCase()
   if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'bmp'].includes(ext)) return 'image'
   if (ext === 'pdf') return 'pdf'
   return 'file'
@@ -15,13 +15,15 @@ export function ComprovanteVendaPreview({
   fileId,
   nome,
   fileUrl,
+  extensao = '',
 }: {
   fileId: string
   nome: string
   fileUrl?: string | null
+  extensao?: string
 }) {
   const [ampliado, setAmpliado] = useState(false)
-  const tipo = inferirTipo(nome)
+  const tipo = inferirTipo(extensao)
   const src = `/api/drive/file/${fileId}`
 
   return (

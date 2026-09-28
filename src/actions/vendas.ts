@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation'
 import { STATUS_VENDA, TIPO_VENDA } from '@/lib/vendas'
 import {
   MAX_COMPROVANTES_VENDA,
+  extensaoDoNome,
   parseComprovantesJson,
   parseComprovantesVenda,
   serializarComprovantes,
@@ -118,10 +119,13 @@ function lerComprovantesDoFormData(formData: FormData): ComprovanteVenda[] {
   const fileId = ((formData.get('comprovante_pagamento_file_id') as string) || '').trim()
   if (!fileId) return []
 
+  const nome = ((formData.get('comprovante_pagamento_nome') as string) || '').trim() || 'Comprovante'
+
   return [{
     fileId,
     fileUrl: ((formData.get('comprovante_pagamento_url') as string) || '').trim() || null,
-    nome: ((formData.get('comprovante_pagamento_nome') as string) || '').trim() || 'Comprovante',
+    nome,
+    extensao: extensaoDoNome(nome),
   }]
 }
 
@@ -861,11 +865,15 @@ export async function atualizarStatusVenda(
 
   const anexados: ComprovanteVenda[] = (novosComprovantes ?? [])
     .filter((c) => c?.fileId?.trim())
-    .map((c) => ({
-      fileId: c.fileId.trim(),
-      fileUrl: c.fileUrl?.trim() || null,
-      nome: c.nome?.trim() || 'Comprovante',
-    }))
+    .map((c) => {
+      const nome = c.nome?.trim() || 'Comprovante'
+      return {
+        fileId: c.fileId.trim(),
+        fileUrl: c.fileUrl?.trim() || null,
+        nome,
+        extensao: extensaoDoNome(nome),
+      }
+    })
 
   if (anexados.length > MAX_COMPROVANTES_VENDA) {
     return { error: `Máximo de ${MAX_COMPROVANTES_VENDA} comprovantes por venda.` }

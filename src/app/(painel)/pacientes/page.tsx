@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Plus, Eye, Edit, X } from 'lucide-react'
+import { Plus, Eye, Edit, X, FolderOpen } from 'lucide-react'
 import { BtnWhatsApp } from '@/components/features/shared'
 import { BtnArquivarPaciente } from '@/components/features/pacientes'
 import { FiltrosPacientes } from '@/components/features/pacientes'
@@ -25,6 +25,7 @@ type PacienteListItem = {
   observacoes_gerais: string | null
   foto_drive_file_id: string | null
   foto_atualizada_em: string | null
+  paciente_pastas_drive?: { google_drive_folder_url: string | null }[]
 }
 
 export default async function PacientesListPage({
@@ -73,7 +74,7 @@ export default async function PacientesListPage({
     const { data: atendData } = await supabase
       .from('atendimentos')
       .select(
-        'paciente_id, pacientes(id, nome, cpf, email, telefone, recuperacao_base, convenio, ativo, observacoes_gerais, foto_drive_file_id, foto_atualizada_em)'
+        'paciente_id, pacientes(id, nome, cpf, email, telefone, recuperacao_base, convenio, ativo, observacoes_gerais, foto_drive_file_id, foto_atualizada_em, paciente_pastas_drive(google_drive_folder_url))'
       )
       .in('profissional_id', profIds)
       .gte('data_agendamento', start)
@@ -109,7 +110,7 @@ export default async function PacientesListPage({
     let query = supabase
       .from('pacientes')
       .select(
-        'id, nome, cpf, email, telefone, recuperacao_base, convenio, ativo, observacoes_gerais, foto_drive_file_id, foto_atualizada_em',
+        'id, nome, cpf, email, telefone, recuperacao_base, convenio, ativo, observacoes_gerais, foto_drive_file_id, foto_atualizada_em, paciente_pastas_drive(google_drive_folder_url)',
         { count: 'exact' }
       )
       .order('nome', { ascending: true })
@@ -258,6 +259,17 @@ export default async function PacientesListPage({
                           <Edit size={18} />
                         </Link>
                         <BtnWhatsApp numero={numeroLimpo} />
+                        {(paciente as any).paciente_pastas_drive?.[0]?.google_drive_folder_url && (
+                          <a
+                            href={(paciente as any).paciente_pastas_drive[0].google_drive_folder_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Pasta no Google Drive"
+                            className="hover:text-[#1a73e8] transition-colors"
+                          >
+                            <FolderOpen size={18} />
+                          </a>
+                        )}
                         {isAtivo && (
                           <BtnArquivarPaciente id={paciente.id} nome={paciente.nome} />
                         )}
@@ -326,6 +338,17 @@ export default async function PacientesListPage({
                     <Edit size={17} />
                   </Link>
                   <BtnWhatsApp numero={numeroLimpo} />
+                  {(paciente as any).paciente_pastas_drive?.[0]?.google_drive_folder_url && (
+                    <a
+                      href={(paciente as any).paciente_pastas_drive[0].google_drive_folder_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Pasta no Google Drive"
+                      className="hover:text-[#1a73e8] transition-colors"
+                    >
+                      <FolderOpen size={17} />
+                    </a>
+                  )}
                 </div>
               </div>
             )

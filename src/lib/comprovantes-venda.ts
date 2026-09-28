@@ -13,6 +13,8 @@ export interface ComprovanteVenda {
   fileId: string
   fileUrl: string | null
   nome: string
+  /** Extensão do arquivo original (ex.: ".jpg"), usada só para decidir o tipo de preview — nunca exibida. */
+  extensao: string
 }
 
 /** Formato persistido no JSONB. */
@@ -27,6 +29,12 @@ interface VendaComComprovantes {
   comprovante_pagamento_google_drive_file_id?: string | null
   comprovante_pagamento_google_drive_file_url?: string | null
   comprovante_pagamento_nome?: string | null
+}
+
+/** Extensão do nome de um arquivo (ex.: ".jpg"), ou string vazia se não houver. */
+export function extensaoDoNome(nome: string): string {
+  const pontoIdx = nome.lastIndexOf('.')
+  return pontoIdx > 0 && pontoIdx < nome.length - 1 ? nome.slice(pontoIdx) : ''
 }
 
 function normalizarItem(valor: unknown): ComprovanteVenda | null {
@@ -47,12 +55,13 @@ function normalizarItem(valor: unknown): ComprovanteVenda | null {
     : typeof record.fileUrl === 'string'
       ? record.fileUrl
       : null
-  const nome = typeof record.nome === 'string' ? record.nome : ''
+  const nome = (typeof record.nome === 'string' ? record.nome : '').trim() || 'Comprovante'
 
   return {
     fileId: fileId.trim(),
     fileUrl: fileUrl?.trim() || null,
-    nome: nome.trim() || 'Comprovante',
+    nome,
+    extensao: extensaoDoNome(nome),
   }
 }
 
@@ -62,6 +71,15 @@ function deduplicar(comprovantes: ComprovanteVenda[]) {
     if (vistos.has(c.fileId)) return false
     vistos.add(c.fileId)
     return true
+  })
+}
+
+// O nome original do arquivo (ou, em dados antigos, o próprio ID do Drive)
+// não é algo que o usuário reconheça — exibimos sempre um rótulo genérico.
+function comNomesAmigaveis(comprovantes: ComprovanteVenda[]): ComprovanteVenda[] {
+  return comprovantes.map((c, i) => {
+    const sufixo = comprovantes.length > 1 ? ` ${i + 1}` : ''
+    return { ...c, nome: `Comprovante de venda${sufixo}` }
   })
 }
 
@@ -80,7 +98,7 @@ export function parseComprovantesVenda(venda: VendaComComprovantes | null | unde
     lista.map(normalizarItem).filter((c): c is ComprovanteVenda => c !== null)
   )
 
-  if (doJsonb.length > 0) return doJsonb.slice(0, MAX_COMPROVANTES_VENDA)
+  if (doJsonb.length > 0) return comNomesAmigaveis(doJsonb.slice(0, MAX_COMPROVANTES_VENDA))
 
   const legado = normalizarItem({
     file_id: venda.comprovante_pagamento_google_drive_file_id,
@@ -88,10 +106,14 @@ export function parseComprovantesVenda(venda: VendaComComprovantes | null | unde
     nome: venda.comprovante_pagamento_nome,
   })
 
-  return legado ? [legado] : []
+  return legado ? comNomesAmigaveis([legado]) : []
 }
 
-/** Lê a lista enviada pelo formulário (JSON), com fallback nos campos únicos antigos. */
+/**
+ * Lê a lista enviada pelo formulário (JSON), com fallback nos campos únicos antigos.
+ * Usada para persistir no banco — mantém o nome real do arquivo enviado, sem o
+ * rótulo genérico (esse é só para exibição, aplicado em `parseComprovantesVenda`).
+ */
 export function parseComprovantesJson(json: string | null | undefined): ComprovanteVenda[] {
   if (!json?.trim()) return []
   return deduplicar(
