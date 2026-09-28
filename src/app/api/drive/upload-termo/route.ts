@@ -25,6 +25,7 @@ export async function POST(request: Request) {
     const nomeTratamento = formData.get('nomeTratamento') as string | null
     const tipoRaw = formData.get('tipo') as string | null
     const tipo: 'termo' | 'recibo' = tipoRaw === 'recibo' ? 'recibo' : 'termo'
+    const aceiteEm = (formData.get('aceiteEm') as string | null) || null
 
     if (!file || !vendaId || !pacienteId || !nomePaciente) {
       return Response.json({ error: 'Dados obrigatórios ausentes' }, { status: 400 })
@@ -95,6 +96,7 @@ export async function POST(request: Request) {
       google_drive_file_url: uploaded.webViewLink ?? null,
       google_drive_folder_url: pastaTratamentoUrl,
       gerado_por: user.id,
+      aceite_em: aceiteEm,
     })
 
     return Response.json({

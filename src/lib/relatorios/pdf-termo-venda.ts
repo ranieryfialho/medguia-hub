@@ -191,7 +191,14 @@ function clausula(doc: jsPDF, y: number, titulo: string, paragrafos: string[]): 
   return y + 2
 }
 
-function clausulasCondicoesGerais(nomeContratante: string, formaPagamentoTexto: string): { titulo: string; paragrafos: string[] }[] {
+export type ClausulaCondicoesGerais = { titulo: string; paragrafos: string[] }
+
+/**
+ * Texto das cláusulas das Condições Gerais — fonte única usada tanto para
+ * renderizar o PDF quanto para o paciente ler no modal antes de assinar
+ * (ModalTermoVenda), garantindo que os dois nunca divirjam.
+ */
+export function clausulasCondicoesGerais(nomeContratante: string, formaPagamentoTexto: string): ClausulaCondicoesGerais[] {
   return [
     {
       titulo: '1. DO OBJETO',
