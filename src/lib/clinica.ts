@@ -94,6 +94,10 @@ export function enderecoCompleto(c: ConfigClinica): string | null {
 export async function urlParaDataUrl(url: string): Promise<string | null> {
   try {
     const res = await fetch(url)
+    if (!res.ok) {
+      console.error('[urlParaDataUrl] resposta não-OK ao buscar imagem', url, res.status)
+      return null
+    }
     const blob = await res.blob()
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
@@ -101,7 +105,8 @@ export async function urlParaDataUrl(url: string): Promise<string | null> {
       reader.onerror = reject
       reader.readAsDataURL(blob)
     })
-  } catch {
+  } catch (err) {
+    console.error('[urlParaDataUrl] falha ao buscar/converter imagem', url, err)
     return null
   }
 }

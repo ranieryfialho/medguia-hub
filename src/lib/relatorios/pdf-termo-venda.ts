@@ -67,7 +67,21 @@ function cabecalho(doc: jsPDF, clinica?: ConfigClinica | null, logoDataUrl?: str
   if (logoDataUrl) {
     doc.setFillColor(255, 255, 255)
     doc.roundedRect(logoX - 2, 3, logoW + 4, logoH + 2, 2, 2, 'F')
-    try { doc.addImage(logoDataUrl, logoX, 5, logoW, logoH - 2) } catch {}
+    try {
+      // Encaixa a logo preservando a proporção original (em vez de esticar
+      // pra caber exatamente na caixa, o que distorcia imagens não quadradas).
+      const { width: imgWNatural, height: imgHNatural } = doc.getImageProperties(logoDataUrl)
+      const boxW = logoW - 4
+      const boxH = logoH - 4
+      const escala = Math.min(boxW / imgWNatural, boxH / imgHNatural)
+      const imgW = imgWNatural * escala
+      const imgH = imgHNatural * escala
+      const imgX = logoX + (logoW - imgW) / 2
+      const imgY = 4 + (logoH - imgH) / 2
+      doc.addImage(logoDataUrl, imgX, imgY, imgW, imgH)
+    } catch (err) {
+      console.error('[PDF Contrato] falha ao inserir logo', err)
+    }
   }
 
   const textLimit = logoDataUrl ? logoX - MX - 4 : PW - MX * 2

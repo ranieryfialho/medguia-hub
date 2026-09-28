@@ -33,6 +33,17 @@ export async function POST(request: Request) {
 
     const db = createAdminClient()
 
+    // Já existe um documento desse tipo pra essa venda? Se sim, sobrepõe (mesmo
+    // arquivo no Drive, mesma linha no banco) em vez de acumular cópias.
+    const { data: termoExistente } = await db
+      .from('venda_termos')
+      .select('id, google_drive_file_id')
+      .eq('venda_id', vendaId)
+      .eq('tipo', tipo)
+      .order('gerado_em', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
     // Garante pasta do paciente
     let { data: pastaPaciente } = await db
       .from('paciente_pastas_drive')
@@ -66,42 +77,84 @@ export async function POST(request: Request) {
     const drive = google.drive({ version: 'v3', auth })
 
     const buffer = Buffer.from(await file.arrayBuffer())
-    const readable = Readable.from(buffer)
 
     const dataHoje = new Date().toISOString().slice(0, 10)
     const nomeArquivo = `${tipo === 'recibo' ? 'Recibo' : 'Contrato'}_${dataHoje}.pdf`
 
-    const { data: uploaded } = await drive.files.create({
-      requestBody: {
-        name: nomeArquivo,
-        parents: [pastaTratamentoId],
-      },
-      media: {
-        mimeType: 'application/pdf',
-        body: readable,
-      },
-      fields: 'id, name, webViewLink',
-    })
+    let fileId: string | null | undefined
+    let fileUrl: string | null | undefined
 
-    if (!uploaded.id) {
+    if (termoExistente?.google_drive_file_id) {
+      try {
+        // Sobrepõe o arquivo já existente no Drive, mantendo o mesmo id/link.
+        const { data: atualizado } = await drive.files.update({
+          fileId: termoExistente.google_drive_file_id,
+          requestBody: { name: nomeArquivo },
+          media: {
+            mimeType: 'application/pdf',
+            body: Readable.from(buffer),
+          },
+          fields: 'id, name, webViewLink',
+        })
+        fileId = atualizado.id
+        fileUrl = atualizado.webViewLink
+      } catch (err) {
+        // Arquivo anterior não existe mais no Drive (apagado/movido manualmente) —
+        // cria um novo em vez de falhar a geração.
+        const status = (err as { code?: number; status?: number })?.code ?? (err as { status?: number })?.status
+        if (status !== 404) throw err
+      }
+    }
+
+    if (!fileId) {
+      const { data: uploaded } = await drive.files.create({
+        requestBody: {
+          name: nomeArquivo,
+          parents: [pastaTratamentoId],
+        },
+        media: {
+          mimeType: 'application/pdf',
+          body: Readable.from(buffer),
+        },
+        fields: 'id, name, webViewLink',
+      })
+      fileId = uploaded.id
+      fileUrl = uploaded.webViewLink
+    }
+
+    if (!fileId) {
       return Response.json({ error: 'Falha ao fazer upload para o Drive' }, { status: 500 })
     }
 
-    // Salva registro na tabela venda_termos
-    await db.from('venda_termos').insert({
-      venda_id: vendaId,
-      paciente_id: pacienteId,
-      tipo,
-      google_drive_file_id: uploaded.id,
-      google_drive_file_url: uploaded.webViewLink ?? null,
-      google_drive_folder_url: pastaTratamentoUrl,
-      gerado_por: user.id,
-      aceite_em: aceiteEm,
-    })
+    if (termoExistente) {
+      // Atualiza a mesma linha em vez de acumular uma nova.
+      await db
+        .from('venda_termos')
+        .update({
+          google_drive_file_id: fileId,
+          google_drive_file_url: fileUrl ?? null,
+          google_drive_folder_url: pastaTratamentoUrl,
+          gerado_por: user.id,
+          gerado_em: new Date().toISOString(),
+          aceite_em: aceiteEm,
+        })
+        .eq('id', termoExistente.id)
+    } else {
+      await db.from('venda_termos').insert({
+        venda_id: vendaId,
+        paciente_id: pacienteId,
+        tipo,
+        google_drive_file_id: fileId,
+        google_drive_file_url: fileUrl ?? null,
+        google_drive_folder_url: pastaTratamentoUrl,
+        gerado_por: user.id,
+        aceite_em: aceiteEm,
+      })
+    }
 
     return Response.json({
-      fileId: uploaded.id,
-      fileUrl: uploaded.webViewLink,
+      fileId,
+      fileUrl,
       folderUrl: pastaTratamentoUrl,
     })
   } catch (err) {

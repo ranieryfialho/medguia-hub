@@ -20,6 +20,12 @@ export async function GET(request: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
     )
 
+    const { count } = await db
+      .from('venda_termos')
+      .select('id', { count: 'exact', head: true })
+      .eq('venda_id', vendaId)
+      .eq('tipo', tipo)
+
     const { data, error } = await db
       .from('venda_termos')
       .select('google_drive_file_id, google_drive_file_url, google_drive_folder_url')
@@ -30,7 +36,7 @@ export async function GET(request: Request) {
       .maybeSingle()
 
     if (error) throw error
-    if (!data?.google_drive_file_id) return Response.json({ exists: false })
+    if (!data?.google_drive_file_id) return Response.json({ exists: false, count: count ?? 0 })
 
     // Verifica se o arquivo ainda existe no Drive
     try {
@@ -38,16 +44,17 @@ export async function GET(request: Request) {
       const drive = google.drive({ version: 'v3', auth })
       await drive.files.get({ fileId: data.google_drive_file_id, fields: 'id' })
     } catch {
-      return Response.json({ exists: false })
+      return Response.json({ exists: false, count: count ?? 0 })
     }
 
     return Response.json({
       exists: true,
+      count: count ?? 0,
       fileId: data.google_drive_file_id,
       fileUrl: data.google_drive_file_url,
       folderUrl: data.google_drive_folder_url,
     })
   } catch {
-    return Response.json({ exists: false })
+    return Response.json({ exists: false, count: 0 })
   }
 }
