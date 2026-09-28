@@ -14,12 +14,21 @@ export type GerarPdfReciboInput = {
   paciente: {
     nome: string
     cpf: string | null
+    rg: string | null
+    orgao_emissor_rg: string | null
+    endereco: string | null
+    complemento: string | null
   }
   profissional: string | null
   forma_pagamento: string
   data_venda: string
   itens: ItemReciboPdf[]
   total: number
+  tipoVenda?: string | null
+  protocoloNome?: string | null
+  medicoReferenciador?: string | null
+  observacoes?: string | null
+  assinaturaDataUrl?: string
   clinica?: ConfigClinica | null
 }
 
@@ -28,6 +37,7 @@ type RGB = readonly [number, number, number]
 const PW = 210
 const MX = 16
 const CW = PW - MX * 2
+const BOTTOM = 280
 const BRAND: RGB = [0, 107, 90]
 const TXT: RGB = [24, 29, 28]
 const MUT: RGB = [102, 112, 108]
@@ -88,11 +98,9 @@ function cabecalho(doc: jsPDF, vendaId: string, clinica?: ConfigClinica | null, 
   doc.setTextColor(200, 230, 225)
   doc.text('Comprovante de contratação e compra de serviços', MX, yInicio + 7)
 
-  if (!logoDataUrl) {
-    doc.text(numeroRecibo, PW - MX, yInicio, { align: 'right' })
-    const dataAtual = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
-    doc.text(dataAtual, PW - MX, yInicio + 7, { align: 'right' })
-  }
+  doc.text(numeroRecibo, PW - MX, yInicio, { align: 'right' })
+  const dataAtual = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+  doc.text(dataAtual, PW - MX, yInicio + 7, { align: 'right' })
 
   return alturaHeader + 8
 }
@@ -111,7 +119,7 @@ function secao(doc: jsPDF, y: number, titulo: string): number {
   return y + 11
 }
 
-function campo(doc: jsPDF, x: number, y: number, label: string, valor: string | null): void {
+function campo(doc: jsPDF, x: number, y: number, w: number, label: string, valor: string | null): void {
   doc.setFontSize(7.5)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(...MUT)
@@ -119,13 +127,27 @@ function campo(doc: jsPDF, x: number, y: number, label: string, valor: string | 
 
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(...TXT)
-  doc.text(valor || '—', x, y + 4.5)
+  const linhas = doc.splitTextToSize(valor || '—', w)
+  doc.text(linhas, x, y + 4.5)
 }
 
 function divisor(doc: jsPDF, y: number): number {
   doc.setDrawColor(...LIN)
   doc.line(MX, y, PW - MX, y)
   return y + 5
+}
+
+function garantirEspaco(doc: jsPDF, y: number, alturaNecessaria: number): number {
+  if (y + alturaNecessaria > BOTTOM) {
+    doc.addPage()
+    return 14
+  }
+  return y
+}
+
+const TIPO_VENDA_LABEL: Record<string, string> = {
+  fisioterapica: 'Fisioterápica',
+  medica: 'Médica',
 }
 
 export async function gerarPdfReciboVenda(input: GerarPdfReciboInput): Promise<Blob> {
@@ -136,13 +158,62 @@ export async function gerarPdfReciboVenda(input: GerarPdfReciboInput): Promise<B
     ? await urlParaDataUrl(input.clinica.logo_url)
     : null
 
+  const contratadaNome = input.clinica?.nome ?? 'Clínica não configurada'
+  const contratadaCnpj = input.clinica?.cnpj ?? null
+  const contratadaEndereco = input.clinica ? enderecoCompleto(input.clinica) : null
+
   let y = cabecalho(doc, input.vendaId, input.clinica, logoDataUrl)
 
-  // --- Dados do Paciente ---
-  y = secao(doc, y, 'Dados do Paciente')
-  campo(doc, MX, y, 'Nome completo', input.paciente.nome)
-  campo(doc, MX + 110, y, 'CPF', input.paciente.cpf)
+  // --- Contratada ---
+  y = secao(doc, y, 'Contratada')
+  campo(doc, MX, y, CW, 'Razão social', contratadaNome)
+  y += 10
+  campo(doc, MX, y, 90, 'CNPJ', contratadaCnpj)
+  campo(doc, MX + 100, y, 60, 'Endereço', contratadaEndereco)
   y += 14
+
+  // --- Dados do Paciente ---
+  y = secao(doc, y, 'Dados do Contratante')
+  const { paciente } = input
+  const docRg = paciente.rg
+    ? `${paciente.rg}${paciente.orgao_emissor_rg ? ` — ${paciente.orgao_emissor_rg}` : ''}`
+    : null
+  const enderecoPaciente = paciente.complemento
+    ? `${paciente.endereco ?? ''}, ${paciente.complemento}`.replace(/^, /, '')
+    : paciente.endereco
+
+  campo(doc, MX, y, 100, 'Nome completo', paciente.nome)
+  campo(doc, MX + 110, y, 45, 'CPF', paciente.cpf)
+  y += 10
+  campo(doc, MX, y, 100, 'RG', docRg)
+  y += 10
+  if (enderecoPaciente) {
+    campo(doc, MX, y, CW, 'Endereço', enderecoPaciente)
+    y += 10
+  }
+
+  // --- Detalhes da venda ---
+  const temDetalhesVenda = !!(input.tipoVenda || input.protocoloNome || input.medicoReferenciador || input.observacoes)
+  if (temDetalhesVenda) {
+    y = secao(doc, y, 'Detalhes da Venda')
+    if (input.tipoVenda) {
+      campo(doc, MX, y, 90, 'Tipo da venda', TIPO_VENDA_LABEL[input.tipoVenda] ?? input.tipoVenda)
+    }
+    if (input.protocoloNome) {
+      campo(doc, MX + 100, y, 60, 'Protocolo', input.protocoloNome)
+    }
+    y += 10
+    if (input.medicoReferenciador) {
+      campo(doc, MX, y, CW, 'Médico referenciador', input.medicoReferenciador)
+      y += 10
+    }
+    if (input.observacoes) {
+      campo(doc, MX, y, CW, 'Observações', input.observacoes)
+      y += 10
+    }
+  }
+
+  y = divisor(doc, y)
 
   // --- Serviços / Produtos ---
   y = secao(doc, y, 'Serviços / Produtos')
@@ -161,6 +232,7 @@ export async function gerarPdfReciboVenda(input: GerarPdfReciboInput): Promise<B
   y += 3
 
   for (const item of input.itens) {
+    y = garantirEspaco(doc, y, 8)
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(...TXT)
     doc.setFontSize(8)
@@ -174,6 +246,7 @@ export async function gerarPdfReciboVenda(input: GerarPdfReciboInput): Promise<B
     y += 7
   }
 
+  y = garantirEspaco(doc, y, 13)
   doc.setFillColor(...SFT)
   doc.rect(MX, y, CW, 8, 'F')
   doc.setFont('helvetica', 'bold')
@@ -184,30 +257,44 @@ export async function gerarPdfReciboVenda(input: GerarPdfReciboInput): Promise<B
   y += 13
 
   // --- Detalhes do Pagamento ---
+  y = garantirEspaco(doc, y, 18)
   y = secao(doc, y, 'Detalhes do Pagamento')
-  campo(doc, MX, y, 'Forma de pagamento', input.forma_pagamento)
-  campo(doc, MX + 80, y, 'Profissional responsável', input.profissional)
-  campo(doc, MX + 145, y, 'Data da venda', fmtData(input.data_venda))
+  campo(doc, MX, y, 80, 'Forma de pagamento', input.forma_pagamento)
+  campo(doc, MX + 90, y, 55, 'Profissional responsável', input.profissional)
+  campo(doc, MX + 150, y, 40, 'Data da venda', fmtData(input.data_venda))
   y += 18
 
   // --- Declaração ---
+  y = garantirEspaco(doc, y, 20)
   y = divisor(doc, y)
 
   doc.setFontSize(8)
   doc.setFont('helvetica', 'italic')
   doc.setTextColor(...MUT)
-  const declaracao = `Declaro que li e concordo com a contratação dos serviços descritos neste recibo, confirmando a compra nas condições de pagamento estabelecidas e autorizando o início dos procedimentos.`
+  const declaracao = 'Declaro que li e concordo com a contratação dos serviços descritos neste recibo, confirmando a compra nas condições de pagamento estabelecidas e autorizando o início dos procedimentos.'
   const wrappedDecl = doc.splitTextToSize(declaracao, CW)
+  y = garantirEspaco(doc, y, wrappedDecl.length * 5)
   doc.text(wrappedDecl, MX, y)
   y += wrappedDecl.length * 5 + 8
 
   // --- Assinatura ---
+  const alturaAssinatura = 22
   const larguraAssinatura = 80
+  const temAssinatura = !!input.assinaturaDataUrl
+
+  y = garantirEspaco(doc, y, alturaAssinatura + 12)
 
   doc.setDrawColor(...LIN)
-  doc.rect(MX, y, larguraAssinatura, 22, 'S')
+  doc.rect(MX, y, larguraAssinatura, alturaAssinatura, 'S')
+  if (temAssinatura) {
+    try {
+      doc.addImage(input.assinaturaDataUrl!, 'PNG', MX + 2, y + 2, larguraAssinatura - 4, alturaAssinatura - 4)
+    } catch {
+      // ignore image error
+    }
+  }
 
-  y += 25
+  y += alturaAssinatura + 3
 
   doc.setDrawColor(...TXT)
   doc.line(MX, y, MX + larguraAssinatura, y)
@@ -217,6 +304,15 @@ export async function gerarPdfReciboVenda(input: GerarPdfReciboInput): Promise<B
   doc.setTextColor(...MUT)
   doc.text('Assinatura do contratante', MX, y + 4.5)
 
+  if (temAssinatura) {
+    const dataHoraAssinatura = new Date().toLocaleString('pt-BR', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    })
+    doc.setFontSize(7.5)
+    doc.text(`Assinado digitalmente em: ${dataHoraAssinatura}`, MX, y + 9)
+  }
+
   // Rodapé
   const totalPages = doc.getNumberOfPages()
   for (let i = 1; i <= totalPages; i++) {
@@ -224,13 +320,13 @@ export async function gerarPdfReciboVenda(input: GerarPdfReciboInput): Promise<B
     doc.setFontSize(7)
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(...MUT)
-    const c = input.clinica
-    const rodapeNome = c?.nome ?? 'MedGuia Hub'
     const rodapeInfo = [
-      c?.cnpj ? `CNPJ ${c.cnpj}` : null,
-      c ? enderecoCompleto(c) : null,
+      contratadaCnpj ? `CNPJ ${contratadaCnpj}` : null,
+      contratadaEndereco,
     ].filter(Boolean).join(' · ')
-    doc.text(`${rodapeNome}${rodapeInfo ? ` — ${rodapeInfo}` : ''} — Documento gerado eletronicamente`, MX, 292)
+    doc.text(`${contratadaNome}${rodapeInfo ? ` — ${rodapeInfo}` : ''} — Documento gerado eletronicamente`, MX, 292, {
+      maxWidth: CW - 25,
+    })
     doc.text(`Página ${i} de ${totalPages}`, PW - MX, 292, { align: 'right' })
   }
 

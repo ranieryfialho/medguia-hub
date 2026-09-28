@@ -3,29 +3,43 @@
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
-import { MoreHorizontal, Eye, FileText, Printer, Edit, Trash2, ExternalLink, Loader2, Receipt } from 'lucide-react'
+import { MoreHorizontal, Eye, FileText, Edit, Trash2, ExternalLink, Loader2, Receipt, Paperclip } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { createClient } from '@/lib/supabase/client'
 import { ModalTermoVenda, type DadosTermoVenda } from './ModalTermoVenda'
+import { ModalReciboVenda } from './ModalReciboVenda'
+import { LightboxMidia, type TipoLightboxMidia } from '@/components/features/pacientes/LightboxMidia'
 import { FORMA_PAGAMENTO_LABEL } from '@/lib/vendas'
 import { deletarVenda } from '@/actions/vendas'
 import type { ConfigClinica } from '@/lib/clinica'
+import type { ComprovanteVenda } from '@/lib/comprovantes-venda'
+
+function inferirTipoMidia(extensao: string): TipoLightboxMidia {
+  const ext = extensao.replace(/^\./, '').toLowerCase()
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'bmp'].includes(ext)) return 'image'
+  if (ext === 'pdf') return 'pdf'
+  return 'file'
+}
 
 type Props = {
   vendaId: string
   vendaStatus: string
   nomePaciente: string
   clinica?: ConfigClinica | null
+  comprovantes?: ComprovanteVenda[]
 }
 
 const DROPDOWN_HEIGHT = 300
 
-export function MenuAcoesVenda({ vendaId, vendaStatus, nomePaciente, clinica }: Props) {
+export function MenuAcoesVenda({ vendaId, vendaStatus, nomePaciente, clinica, comprovantes = [] }: Props) {
   const [aberto, setAberto] = useState(false)
   const [posicao, setPosicao] = useState<{ top?: number; bottom?: number; left: number }>({ top: 0, left: 0 })
-  const [carregando, setCarregando] = useState<'gerar' | 'imprimir' | 'recibo' | 'visualizar' | null>(null)
+  const [carregando, setCarregando] = useState<'gerar' | 'recibo' | 'visualizar' | null>(null)
   const [dadosTermo, setDadosTermo] = useState<DadosTermoVenda | null>(null)
   const [modalGerarAberto, setModalGerarAberto] = useState(false)
+  const [modalReciboAberto, setModalReciboAberto] = useState(false)
+  const [comprovanteAberto, setComprovanteAberto] = useState<ComprovanteVenda | null>(null)
+  const [documentoAberto, setDocumentoAberto] = useState<{ src: string; nome: string; urlExterna: string | null } | null>(null)
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -52,7 +66,7 @@ export function MenuAcoesVenda({ vendaId, vendaStatus, nomePaciente, clinica }: 
     const { data: venda } = await supabase
       .from('vendas')
       .select(`
-        id, forma_pagamento, data_venda,
+        id, forma_pagamento, data_venda, tipo_venda, protocolo_nome, observacoes, medico_referenciador_nome,
         pacientes(id, nome, cpf, rg, orgao_emissor_rg, data_nascimento, telefone, email, endereco, complemento),
         profiles:profissional_id(full_name)
       `)
@@ -95,6 +109,10 @@ export function MenuAcoesVenda({ vendaId, vendaStatus, nomePaciente, clinica }: 
       data_venda: v.data_venda,
       itens: itensFormatados,
       total: itensFormatados.reduce((s: number, i: any) => s + i.subtotal, 0),
+      tipoVenda: v.tipo_venda ?? null,
+      protocoloNome: v.protocolo_nome ?? null,
+      medicoReferenciador: v.medico_referenciador_nome ?? null,
+      observacoes: v.observacoes ?? null,
     }
 
     setDadosTermo(dados)
@@ -113,79 +131,33 @@ export function MenuAcoesVenda({ vendaId, vendaStatus, nomePaciente, clinica }: 
     }
   }
 
-  const handleImprimir = async () => {
-    setAberto(false)
-    setCarregando('imprimir')
-    try {
-      const dados = await buscarDadosCompletos()
-      if (!dados) { toast.error('Erro ao carregar dados da venda.'); return }
-
-      const { gerarPdfTermoVenda } = await import('@/lib/relatorios/pdf-termo-venda')
-      const blob = await gerarPdfTermoVenda({
-        paciente: dados.paciente,
-        profissional: dados.profissional,
-        forma_pagamento: dados.forma_pagamento,
-        data_venda: dados.data_venda,
-        itens: dados.itens,
-        total: dados.total,
-        clinica,
-      })
-
-      const url = URL.createObjectURL(blob)
-      const w = window.open(url, '_blank')
-      if (w) setTimeout(() => w.print(), 800)
-      setTimeout(() => URL.revokeObjectURL(url), 10_000)
-    } catch {
-      toast.error('Erro ao gerar o termo para impressão.')
-    } finally {
-      setCarregando(null)
-    }
-  }
-
-  const handleImprimirRecibo = async () => {
+  const handleGerarRecibo = async () => {
     setAberto(false)
     setCarregando('recibo')
     try {
       const dados = await buscarDadosCompletos()
       if (!dados) { toast.error('Erro ao carregar dados da venda.'); return }
-
-      const { gerarPdfReciboVenda } = await import('@/lib/relatorios/pdf-recibo-venda')
-      const blob = await gerarPdfReciboVenda({
-        vendaId: dados.vendaId,
-        paciente: { nome: dados.paciente.nome, cpf: dados.paciente.cpf },
-        profissional: dados.profissional,
-        forma_pagamento: dados.forma_pagamento,
-        data_venda: dados.data_venda,
-        itens: dados.itens,
-        total: dados.total,
-        clinica,
-      })
-
-      const url = URL.createObjectURL(blob)
-      const w = window.open(url, '_blank')
-      if (w) setTimeout(() => w.print(), 800)
-      setTimeout(() => URL.revokeObjectURL(url), 10_000)
-    } catch {
-      toast.error('Erro ao gerar o recibo.')
+      setModalReciboAberto(true)
     } finally {
       setCarregando(null)
     }
   }
 
-  const handleVisualizar = async () => {
+  const handleAbrirDocumento = async (tipo: 'termo' | 'recibo') => {
     setAberto(false)
     setCarregando('visualizar')
+    const rotulo = tipo === 'termo' ? 'Contrato' : 'Recibo'
     try {
-      const res = await fetch(`/api/drive/verificar-termo?vendaId=${vendaId}`)
+      const res = await fetch(`/api/drive/verificar-termo?vendaId=${vendaId}&tipo=${tipo}`)
       const json = await res.json()
 
-      if (json.exists) {
-        window.open(json.fileUrl ?? json.folderUrl, '_blank')
+      if (json.exists && json.fileId) {
+        setDocumentoAberto({ src: `/api/drive/file/${json.fileId}`, nome: rotulo, urlExterna: json.fileUrl ?? json.folderUrl ?? null })
       } else {
-        toast('Nenhum termo salvo para esta venda. Use "Gerar Termo" primeiro.', { icon: 'ℹ️' })
+        toast(`Nenhum ${rotulo.toLowerCase()} salvo para esta venda ainda. Gere um primeiro.`, { icon: 'ℹ️' })
       }
     } catch {
-      toast('Nenhum termo salvo para esta venda. Use "Gerar Termo" primeiro.', { icon: 'ℹ️' })
+      toast(`Nenhum ${rotulo.toLowerCase()} salvo para esta venda ainda. Gere um primeiro.`, { icon: 'ℹ️' })
     } finally {
       setCarregando(null)
     }
@@ -202,6 +174,7 @@ export function MenuAcoesVenda({ vendaId, vendaStatus, nomePaciente, clinica }: 
   }
 
   const isLoading = carregando !== null
+  const podeGerarDocumentos = vendaStatus === 'venda_confirmada'
 
   return (
     <>
@@ -287,39 +260,59 @@ export function MenuAcoesVenda({ vendaId, vendaStatus, nomePaciente, clinica }: 
               <Edit size={14} className="text-text-secondary" />
               Editar
             </Link>
+            {comprovantes.map((comprovante) => (
+              <button
+                key={comprovante.fileId}
+                onClick={() => { setAberto(false); setComprovanteAberto(comprovante) }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-text-primary hover:bg-page transition-colors"
+              >
+                <Paperclip size={14} className="text-text-secondary shrink-0" />
+                <span className="truncate">{comprovante.nome}</span>
+              </button>
+            ))}
+
+            <div className="my-1 border-t border-border" />
+
+            <p className="px-3 py-1.5 text-[10px] font-semibold text-text-secondary uppercase tracking-wider">
+              Contrato{!podeGerarDocumentos && ' (após confirmar a venda)'}
+            </p>
             <button
-              onClick={handleImprimirRecibo}
+              onClick={handleGerar}
+              disabled={!podeGerarDocumentos}
+              title={podeGerarDocumentos ? undefined : 'Disponível após a venda ser confirmada'}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-text-primary hover:bg-page transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+            >
+              <FileText size={14} className="text-primary-500" />
+              Gerar Contrato
+            </button>
+            <button
+              onClick={() => handleAbrirDocumento('termo')}
               className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-text-primary hover:bg-page transition-colors"
             >
-              <Receipt size={14} className="text-text-secondary" />
-              Recibo de Contratação
+              <ExternalLink size={14} className="text-text-secondary" />
+              Abrir Contrato
             </button>
 
             <div className="my-1 border-t border-border" />
 
             <p className="px-3 py-1.5 text-[10px] font-semibold text-text-secondary uppercase tracking-wider">
-              Termo
+              Recibo{!podeGerarDocumentos && ' (após confirmar a venda)'}
             </p>
             <button
-              onClick={handleGerar}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-text-primary hover:bg-page transition-colors"
+              onClick={handleGerarRecibo}
+              disabled={!podeGerarDocumentos}
+              title={podeGerarDocumentos ? undefined : 'Disponível após a venda ser confirmada'}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-text-primary hover:bg-page transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
             >
-              <FileText size={14} className="text-primary-500" />
-              Gerar Termo
+              <Receipt size={14} className="text-primary-500" />
+              Gerar Recibo
             </button>
             <button
-              onClick={handleVisualizar}
+              onClick={() => handleAbrirDocumento('recibo')}
               className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-text-primary hover:bg-page transition-colors"
             >
               <ExternalLink size={14} className="text-text-secondary" />
-              Visualizar no Drive
-            </button>
-            <button
-              onClick={handleImprimir}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-text-primary hover:bg-page transition-colors"
-            >
-              <Printer size={14} className="text-text-secondary" />
-              Imprimir Termo
+              Abrir Recibo
             </button>
 
             <div className="my-1 border-t border-border" />
@@ -341,6 +334,60 @@ export function MenuAcoesVenda({ vendaId, vendaStatus, nomePaciente, clinica }: 
           dados={dadosTermo}
           forceOpen
           onClose={() => setModalGerarAberto(false)}
+        />
+      )}
+
+      {modalReciboAberto && dadosTermo && (
+        <ModalReciboVenda
+          dados={{
+            vendaId: dadosTermo.vendaId,
+            paciente: {
+              id: dadosTermo.paciente.id,
+              nome: dadosTermo.paciente.nome,
+              cpf: dadosTermo.paciente.cpf,
+              rg: dadosTermo.paciente.rg,
+              orgao_emissor_rg: dadosTermo.paciente.orgao_emissor_rg,
+              endereco: dadosTermo.paciente.endereco,
+              complemento: dadosTermo.paciente.complemento,
+            },
+            profissional: dadosTermo.profissional,
+            forma_pagamento: dadosTermo.forma_pagamento,
+            data_venda: dadosTermo.data_venda,
+            itens: dadosTermo.itens,
+            total: dadosTermo.total,
+            tipoVenda: dadosTermo.tipoVenda,
+            protocoloNome: dadosTermo.protocoloNome,
+            medicoReferenciador: dadosTermo.medicoReferenciador,
+            observacoes: dadosTermo.observacoes,
+            clinica,
+          }}
+          forceOpen
+          onClose={() => setModalReciboAberto(false)}
+        />
+      )}
+
+      {comprovanteAberto && (
+        <LightboxMidia
+          item={{
+            src: `/api/drive/file/${comprovanteAberto.fileId}`,
+            nome: comprovanteAberto.nome,
+            tipo: inferirTipoMidia(comprovanteAberto.extensao),
+            urlExterna: comprovanteAberto.fileUrl,
+          }}
+          onClose={() => setComprovanteAberto(null)}
+        />
+      )}
+
+      {documentoAberto && (
+        <LightboxMidia
+          item={{
+            src: documentoAberto.src,
+            nome: documentoAberto.nome,
+            tipo: 'pdf',
+            urlExterna: documentoAberto.urlExterna,
+            permitirImprimir: true,
+          }}
+          onClose={() => setDocumentoAberto(null)}
         />
       )}
     </>

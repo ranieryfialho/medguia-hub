@@ -47,7 +47,7 @@ test('@spec:AC-096 @spec:AC-113 prontuário digital usa AvatarPaciente com foto 
 test('@spec:AC-096 @spec:AC-097 listagem de pacientes seleciona foto_drive_file_id e foto_atualizada_em', () => {
   assert.match(
     fonteListaPacientes,
-    /'id, nome, cpf, email, telefone, recuperacao_base, convenio, ativo, observacoes_gerais, foto_drive_file_id, foto_atualizada_em'/,
+    /'id, nome, cpf, email, telefone, recuperacao_base, convenio, ativo, observacoes_gerais, foto_drive_file_id, foto_atualizada_em/,
   )
 })
 

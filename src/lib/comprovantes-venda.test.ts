@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   MAX_COMPROVANTES_VENDA,
+  extensaoDoNome,
   parseComprovantesJson,
   parseComprovantesVenda,
   serializarComprovantes,
@@ -10,7 +11,7 @@ import {
 // comprovantes-venda.ts é TS puro (sem JSX, sem alias @/), então o `node --test`
 // importa o módulo shippado de verdade — nada de extrair o fonte com regex.
 
-test('lê a lista do JSONB quando a coluna nova está preenchida', () => {
+test('lê a lista do JSONB quando a coluna nova está preenchida, com rótulo genérico exibido', () => {
   const comprovantes = parseComprovantesVenda({
     comprovantes_pagamento: [
       { file_id: 'a', file_url: 'https://drive/a', nome: 'entrada.pdf' },
@@ -22,8 +23,8 @@ test('lê a lista do JSONB quando a coluna nova está preenchida', () => {
   })
 
   assert.deepEqual(comprovantes, [
-    { fileId: 'a', fileUrl: 'https://drive/a', nome: 'entrada.pdf' },
-    { fileId: 'b', fileUrl: null, nome: 'parcela.jpg' },
+    { fileId: 'a', fileUrl: 'https://drive/a', nome: 'Comprovante de venda 1', extensao: '.pdf' },
+    { fileId: 'b', fileUrl: null, nome: 'Comprovante de venda 2', extensao: '.jpg' },
   ])
 })
 
@@ -36,7 +37,7 @@ test('venda legada (JSONB vazio) cai nas colunas escalares antigas', () => {
   })
 
   assert.deepEqual(comprovantes, [
-    { fileId: 'legado', fileUrl: 'https://drive/legado', nome: 'comprovante.pdf' },
+    { fileId: 'legado', fileUrl: 'https://drive/legado', nome: 'Comprovante de venda', extensao: '.pdf' },
   ])
 })
 
@@ -58,12 +59,12 @@ test('itens sem file_id são descartados e duplicados são removidos', () => {
   assert.deepEqual(comprovantes.map((c) => c.fileId), ['a'])
 })
 
-test('item sem nome ganha rótulo padrão', () => {
+test('item sem nome, exibido, ganha o rótulo genérico', () => {
   const [comprovante] = parseComprovantesVenda({
     comprovantes_pagamento: [{ file_id: 'a', file_url: null, nome: '' }],
   })
 
-  assert.equal(comprovante.nome, 'Comprovante')
+  assert.equal(comprovante.nome, 'Comprovante de venda')
 })
 
 test('a lista nunca passa do limite por venda', () => {
@@ -77,10 +78,10 @@ test('a lista nunca passa do limite por venda', () => {
   assert.equal(parseComprovantesJson(JSON.stringify(excesso)).length, MAX_COMPROVANTES_VENDA)
 })
 
-test('o JSON do formulário faz a volta completa pelo serializador', () => {
+test('o JSON do formulário (gravação) preserva o nome real do arquivo, sem o rótulo genérico', () => {
   const original = [
-    { fileId: 'a', fileUrl: 'https://drive/a', nome: 'entrada.pdf' },
-    { fileId: 'b', fileUrl: null, nome: 'parcela.jpg' },
+    { fileId: 'a', fileUrl: 'https://drive/a', nome: 'entrada.pdf', extensao: '.pdf' },
+    { fileId: 'b', fileUrl: null, nome: 'parcela.jpg', extensao: '.jpg' },
   ]
 
   assert.deepEqual(parseComprovantesJson(JSON.stringify(serializarComprovantes(original))), original)
@@ -91,4 +92,11 @@ test('JSON inválido ou vazio vindo do formulário não quebra', () => {
   assert.deepEqual(parseComprovantesJson(''), [])
   assert.deepEqual(parseComprovantesJson(null), [])
   assert.deepEqual(parseComprovantesJson('{"file_id":"a"}'), [])
+})
+
+test('extensaoDoNome extrai a extensão ou devolve vazio', () => {
+  assert.equal(extensaoDoNome('foto.jpg'), '.jpg')
+  assert.equal(extensaoDoNome('9763a64c-4c5a-4082-b4f8-abcdef123456.PNG'), '.PNG')
+  assert.equal(extensaoDoNome('sem-extensao'), '')
+  assert.equal(extensaoDoNome('termina.em.ponto.'), '')
 })

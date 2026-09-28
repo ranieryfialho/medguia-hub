@@ -29,6 +29,10 @@ export type DadosTermoVenda = {
   itens: ItemTermoPdf[]
   total: number
   clinica?: ConfigClinica | null
+  tipoVenda?: string | null
+  protocoloNome?: string | null
+  medicoReferenciador?: string | null
+  observacoes?: string | null
 }
 
 type Props = {
@@ -102,11 +106,12 @@ export function ModalTermoVenda({ dados, trigger, forceOpen, onClose }: Props) {
       const nomeTratamento = dados.itens[0]?.nome ?? 'Geral'
 
       const formData = new FormData()
-      formData.append('file', new File([blob], 'termo.pdf', { type: 'application/pdf' }))
+      formData.append('file', new File([blob], 'contrato.pdf', { type: 'application/pdf' }))
       formData.append('vendaId', dados.vendaId)
       formData.append('pacienteId', dados.paciente.id)
       formData.append('nomePaciente', dados.paciente.nome)
       formData.append('nomeTratamento', nomeTratamento)
+      formData.append('tipo', 'termo')
 
       const res = await fetch('/api/drive/upload-termo', { method: 'POST', body: formData })
       const json = await res.json()
@@ -115,11 +120,16 @@ export function ModalTermoVenda({ dados, trigger, forceOpen, onClose }: Props) {
         throw new Error(json.error || 'Erro ao salvar no Drive')
       }
 
+      const url = URL.createObjectURL(blob)
+      const w = window.open(url, '_blank')
+      if (w) setTimeout(() => w.print(), 800)
+      setTimeout(() => URL.revokeObjectURL(url), 10_000)
+
       setDriveUrl(json.folderUrl ?? json.fileUrl ?? null)
       setEtapa('salvo')
-      toast.success('Termo salvo no Google Drive.')
+      toast.success('Contrato salvo no Google Drive.')
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Erro ao gerar o termo'
+      const msg = err instanceof Error ? err.message : 'Erro ao gerar o contrato'
       setErro(msg)
       setEtapa('assinatura')
     }
@@ -135,7 +145,7 @@ export function ModalTermoVenda({ dados, trigger, forceOpen, onClose }: Props) {
               <FileText size={18} />
             </div>
             <div>
-              <h2 className="font-semibold text-text-primary text-base">Gerar Termo de Responsabilidade</h2>
+              <h2 className="font-semibold text-text-primary text-base">Gerar Contrato</h2>
               <p className="text-xs text-text-secondary">{dados.paciente.nome}</p>
             </div>
           </div>
@@ -156,9 +166,9 @@ export function ModalTermoVenda({ dados, trigger, forceOpen, onClose }: Props) {
                 <CheckCircle2 size={32} />
               </div>
               <div>
-                <p className="font-semibold text-text-primary text-lg">Termo salvo com sucesso</p>
+                <p className="font-semibold text-text-primary text-lg">Contrato salvo com sucesso</p>
                 <p className="text-sm text-text-secondary mt-1">
-                  O PDF foi gerado e salvo automaticamente na pasta do paciente no Google Drive.
+                  O PDF foi gerado, aberto para impressão e salvo automaticamente na pasta do paciente no Google Drive.
                 </p>
               </div>
               {driveUrl && (
@@ -216,7 +226,7 @@ export function ModalTermoVenda({ dados, trigger, forceOpen, onClose }: Props) {
                   Assinatura do paciente
                 </p>
                 <p className="text-xs text-text-secondary">
-                  Solicite ao paciente que assine no campo abaixo antes de gerar o termo.
+                  Solicite ao paciente que assine no campo abaixo antes de gerar o contrato.
                 </p>
                 <AssinaturaCanvas onChange={setAssinatura} height={160} />
               </div>
@@ -262,7 +272,7 @@ export function ModalTermoVenda({ dados, trigger, forceOpen, onClose }: Props) {
                 ) : (
                   <>
                     <FileText size={15} />
-                    Gerar e Salvar no Drive
+                    Gerar, Imprimir e Salvar
                   </>
                 )}
               </button>
@@ -282,7 +292,7 @@ export function ModalTermoVenda({ dados, trigger, forceOpen, onClose }: Props) {
             className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-border hover:bg-page text-text-primary rounded-md font-medium text-sm transition-colors"
           >
             <FileText size={15} />
-            Gerar Termo
+            Gerar Contrato
           </button>
         )}
       </div>

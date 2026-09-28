@@ -12,6 +12,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const vendaId = searchParams.get('vendaId')
     if (!vendaId) return Response.json({ error: 'vendaId obrigatório' }, { status: 400 })
+    const tipoRaw = searchParams.get('tipo')
+    const tipo: 'termo' | 'recibo' = tipoRaw === 'recibo' ? 'recibo' : 'termo'
 
     const db = createServiceClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,6 +24,7 @@ export async function GET(request: Request) {
       .from('venda_termos')
       .select('google_drive_file_id, google_drive_file_url, google_drive_folder_url')
       .eq('venda_id', vendaId)
+      .eq('tipo', tipo)
       .order('gerado_em', { ascending: false })
       .limit(1)
       .maybeSingle()
@@ -40,6 +43,7 @@ export async function GET(request: Request) {
 
     return Response.json({
       exists: true,
+      fileId: data.google_drive_file_id,
       fileUrl: data.google_drive_file_url,
       folderUrl: data.google_drive_folder_url,
     })

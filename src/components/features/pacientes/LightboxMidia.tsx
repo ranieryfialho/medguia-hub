@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ExternalLink, FileIcon, Loader2, VideoIcon, X } from 'lucide-react'
+import { ExternalLink, FileIcon, Loader2, Printer, VideoIcon, X } from 'lucide-react'
 
 export type TipoLightboxMidia = 'image' | 'video' | 'pdf' | 'file'
 
@@ -11,6 +11,8 @@ export interface LightboxMidiaItem {
   nome: string
   tipo: TipoLightboxMidia
   urlExterna?: string | null
+  /** Mostra um botão de impressão (abre `src` numa aba e aciona o print do navegador). */
+  permitirImprimir?: boolean
 }
 
 /** Visualização ampliada de uma mídia (imagem/vídeo/PDF/arquivo), extraída de `TabMidiasPaciente` para reuso no `AvatarPaciente` (AC-100). */
@@ -24,6 +26,11 @@ export function LightboxMidia({ item, onClose }: { item: LightboxMidiaItem; onCl
   }, [item])
 
   if (typeof document === 'undefined') return null
+
+  const imprimir = () => {
+    const w = window.open(item.src, '_blank')
+    if (w) setTimeout(() => w.print(), 800)
+  }
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center p-4" onClick={onClose}>
@@ -69,6 +76,12 @@ export function LightboxMidia({ item, onClose }: { item: LightboxMidiaItem; onCl
         )}
         <div className="flex items-center gap-3">
           <p className="text-white/70 text-xs">{item.nome}</p>
+          {item.permitirImprimir && (
+            <button type="button" onClick={imprimir}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 text-white text-xs font-semibold hover:bg-white/20">
+              <Printer size={12} />Imprimir
+            </button>
+          )}
           {item.urlExterna && (
             <a href={item.urlExterna} target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 text-white text-xs font-semibold hover:bg-white/20">

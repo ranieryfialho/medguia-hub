@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react'
 import { LoaderCircle, Upload, FileText, X, ExternalLink } from 'lucide-react'
 import { criarPastaPaciente } from '@/actions/google-drive'
-import { MAX_COMPROVANTES_VENDA, type ComprovanteVenda } from '@/lib/comprovantes-venda'
+import { MAX_COMPROVANTES_VENDA, extensaoDoNome, type ComprovanteVenda } from '@/lib/comprovantes-venda'
 
 const TAMANHO_MAXIMO = 50 * 1024 * 1024
 
@@ -68,7 +68,8 @@ export function UploadComprovantesVenda({
         if (!res.ok) {
           falhas.push(`${file.name}: ${json.error ?? 'erro no upload'}`)
         } else {
-          enviados.push({ fileId: json.id, fileUrl: json.fileUrl ?? null, nome: json.nome ?? file.name })
+          const nome = json.nome ?? file.name
+          enviados.push({ fileId: json.id, fileUrl: json.fileUrl ?? null, nome, extensao: extensaoDoNome(nome) })
         }
       }
 

@@ -23,6 +23,8 @@ export async function POST(request: Request) {
     const pacienteId = formData.get('pacienteId') as string | null
     const nomePaciente = formData.get('nomePaciente') as string | null
     const nomeTratamento = formData.get('nomeTratamento') as string | null
+    const tipoRaw = formData.get('tipo') as string | null
+    const tipo: 'termo' | 'recibo' = tipoRaw === 'recibo' ? 'recibo' : 'termo'
 
     if (!file || !vendaId || !pacienteId || !nomePaciente) {
       return Response.json({ error: 'Dados obrigatórios ausentes' }, { status: 400 })
@@ -66,7 +68,7 @@ export async function POST(request: Request) {
     const readable = Readable.from(buffer)
 
     const dataHoje = new Date().toISOString().slice(0, 10)
-    const nomeArquivo = `Termo_${dataHoje}.pdf`
+    const nomeArquivo = `${tipo === 'recibo' ? 'Recibo' : 'Contrato'}_${dataHoje}.pdf`
 
     const { data: uploaded } = await drive.files.create({
       requestBody: {
@@ -88,6 +90,7 @@ export async function POST(request: Request) {
     await db.from('venda_termos').insert({
       venda_id: vendaId,
       paciente_id: pacienteId,
+      tipo,
       google_drive_file_id: uploaded.id,
       google_drive_file_url: uploaded.webViewLink ?? null,
       google_drive_folder_url: pastaTratamentoUrl,

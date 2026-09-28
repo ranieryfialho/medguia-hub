@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { ArrowLeft, Edit, AlertTriangle } from 'lucide-react'
 import { BtnDeletarVenda, BtnAtualizarStatusVenda, BtnMarcarPagamentoRecebido, SeletorTagsVenda, ComprovanteVendaPreview } from '@/components/features/vendas'
 import { ModalTermoVenda } from '@/components/features/vendas/ModalTermoVenda'
-import { BtnImprimirRecibo } from '@/components/features/vendas/BtnImprimirRecibo'
+import { ModalReciboVenda } from '@/components/features/vendas/ModalReciboVenda'
 import { listarTagsDaVenda, listarTagsVendaAtivas } from '@/actions/venda-tags'
 import { requireModulo } from '@/lib/guard'
 import { FORMA_PAGAMENTO_LABEL, STATUS_VENDA_LABEL, TIPO_VENDA_LABEL } from '@/lib/vendas'
@@ -240,12 +240,18 @@ export default async function VendaDetalhePage({
             <SeletorTagsVenda vendaId={id} tagsAtuais={tagsVenda} catalogo={tagsCatalogo} size="md" />
           </div>
           <div className="flex items-center gap-2">
-            <BtnImprimirRecibo
+            {!isOrcamento && (
+            <ModalReciboVenda
               dados={{
                 vendaId: id,
                 paciente: {
+                  id: v.pacientes?.id ?? '',
                   nome: v.pacientes?.nome ?? '',
                   cpf: v.pacientes?.cpf ?? null,
+                  rg: v.pacientes?.rg ?? null,
+                  orgao_emissor_rg: v.pacientes?.orgao_emissor_rg ?? null,
+                  endereco: v.pacientes?.endereco ?? null,
+                  complemento: v.pacientes?.complemento ?? null,
                 },
                 profissional: v.profiles?.full_name ?? null,
                 forma_pagamento: FORMA_PAGAMENTO_LABEL[venda.forma_pagamento] || venda.forma_pagamento,
@@ -257,9 +263,15 @@ export default async function VendaDetalhePage({
                   subtotal: item.quantidade * item.preco_unitario,
                 })),
                 total,
+                tipoVenda,
+                protocoloNome,
+                medicoReferenciador: venda.medico_referenciador_nome ?? null,
+                observacoes: venda.observacoes ?? null,
                 clinica,
               }}
             />
+            )}
+            {!isOrcamento && (
             <ModalTermoVenda
               dados={{
                 vendaId: id,
@@ -288,6 +300,7 @@ export default async function VendaDetalhePage({
                 clinica,
               }}
             />
+            )}
             <Link
               href={`/vendas/${id}/editar`}
               className="inline-flex items-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-md font-medium transition-colors"
@@ -426,6 +439,7 @@ export default async function VendaDetalhePage({
                       fileId={comprovante.fileId}
                       nome={comprovante.nome}
                       fileUrl={comprovante.fileUrl}
+                      extensao={comprovante.extensao}
                     />
                   ))}
                 </div>
