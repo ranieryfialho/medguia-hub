@@ -35,8 +35,11 @@ export function FiltrosVendas({ produtos = [] }: { produtos?: Produto[] }) {
   const [busca, setBusca] = useState(buscaAtual)
   const [produtosAberto, setProdutosAberto] = useState(false)
   const [buscaProduto, setBuscaProduto] = useState('')
+  const [dataInicio, setDataInicio] = useState(dataInicioAtual)
+  const [dataFim, setDataFim] = useState(dataFimAtual)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const montado = useRef(false)
+  const montadoData = useRef(false)
 
   useEffect(() => {
     if (!montado.current) {
@@ -57,6 +60,26 @@ export function FiltrosVendas({ produtos = [] }: { produtos?: Produto[] }) {
     return () => clearTimeout(timer)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busca])
+
+  // Datas em estado local, com debounce antes de ir pra URL — do contrário,
+  // cada dígito digitado (sobretudo no ano) dispara `router.replace` na hora
+  // e a navegação resultante interrompe a digitação em andamento.
+  useEffect(() => {
+    if (!montadoData.current) {
+      montadoData.current = true
+      return
+    }
+    const timer = setTimeout(() => {
+      const params = new URLSearchParams(searchParams.toString())
+      if (dataInicio) { params.set('data_inicio', dataInicio) } else { params.delete('data_inicio') }
+      if (dataFim) { params.set('data_fim', dataFim) } else { params.delete('data_fim') }
+      params.delete('pagina')
+      router.replace(`?${params.toString()}`)
+    }, 500)
+
+    return () => clearTimeout(timer)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataInicio, dataFim])
 
   useEffect(() => {
     function handleClickFora(e: MouseEvent) {
@@ -82,14 +105,6 @@ export function FiltrosVendas({ produtos = [] }: { produtos?: Produto[] }) {
     router.replace(`?${params.toString()}`)
   }
 
-  const mudarPeriodo = (inicio: string, fim: string) => {
-    const params = new URLSearchParams(searchParams.toString())
-    if (inicio) { params.set('data_inicio', inicio) } else { params.delete('data_inicio') }
-    if (fim) { params.set('data_fim', fim) } else { params.delete('data_fim') }
-    params.delete('pagina')
-    router.replace(`?${params.toString()}`)
-  }
-
   const mudarLimite = (valor: string) => {
     const params = new URLSearchParams(searchParams.toString())
     params.set('limite', valor)
@@ -110,6 +125,8 @@ export function FiltrosVendas({ produtos = [] }: { produtos?: Produto[] }) {
   const limparFiltros = () => {
     setBusca('')
     setBuscaProduto('')
+    setDataInicio('')
+    setDataFim('')
     router.replace('?')
   }
 
@@ -249,8 +266,8 @@ export function FiltrosVendas({ produtos = [] }: { produtos?: Produto[] }) {
 
         <input
           type="date"
-          value={dataInicioAtual}
-          onChange={(e) => mudarPeriodo(e.target.value, dataFimAtual)}
+          value={dataInicio}
+          onChange={(e) => setDataInicio(e.target.value)}
           className="bg-input border border-border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary-500"
         />
 
@@ -258,8 +275,8 @@ export function FiltrosVendas({ produtos = [] }: { produtos?: Produto[] }) {
 
         <input
           type="date"
-          value={dataFimAtual}
-          onChange={(e) => mudarPeriodo(dataInicioAtual, e.target.value)}
+          value={dataFim}
+          onChange={(e) => setDataFim(e.target.value)}
           className="bg-input border border-border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary-500"
         />
 
