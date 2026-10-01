@@ -1,4 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { jwtVerify } from 'jose'
 import { NextResponse, type NextRequest } from 'next/server'
 
 function isPublicRoute(pathname: string) {
@@ -9,6 +11,42 @@ function isPublicRoute(pathname: string) {
     pathname === '/api/confirmacoes/sms-reply' ||
     pathname === '/api/confirmacoes/sms-status'
   )
+}
+
+// Margem para não aceitar um token prestes a expirar: dentro dela cai no
+// getUser(), que renova a sessão via refresh token.
+const MARGEM_EXPIRACAO_S = 60
+
+const jwtSecret = process.env.SUPABASE_JWT_SECRET
+  ? new TextEncoder().encode(process.env.SUPABASE_JWT_SECRET)
+  : null
+
+// getUser() é uma chamada HTTP ao supabase-auth (3 queries no banco cada) e o
+// proxy roda em toda requisição. Com o JWT_SECRET (HS256) validamos a
+// assinatura localmente e só vamos ao Auth quando o token está ausente,
+// inválido ou perto de expirar. Sem a variável, mantém o comportamento antigo.
+async function resolverUsuario(supabase: SupabaseClient): Promise<{ id: string } | null> {
+  if (jwtSecret) {
+    try {
+      // getSession() só lê os cookies; a assinatura é verificada abaixo.
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.access_token) {
+        const { payload } = await jwtVerify(session.access_token, jwtSecret, {
+          algorithms: ['HS256'],
+          audience: 'authenticated',
+        })
+        const agora = Math.floor(Date.now() / 1000)
+        if (payload.sub && payload.exp && payload.exp - agora > MARGEM_EXPIRACAO_S) {
+          return { id: payload.sub }
+        }
+      }
+    } catch {
+      // assinatura inválida/expirada: confirma no Auth
+    }
+  }
+
+  const { data: { user } } = await supabase.auth.getUser()
+  return user
 }
 
 export async function updateSession(request: NextRequest) {
@@ -37,9 +75,7 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = await resolverUsuario(supabase)
 
   const publicRoute = isPublicRoute(request.nextUrl.pathname)
   
