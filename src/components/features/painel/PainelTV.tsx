@@ -129,7 +129,9 @@ export function PainelTV({ atendimentosIniciais }: { atendimentosIniciais: Atend
   }, [])
 
   useEffect(() => {
-    const id = setInterval(() => router.refresh(), 20_000)
+    // O Realtime já mantém a lista viva; o refresh é só rede de segurança.
+    // Cada refresh custa proxy + page (getUser x2) + query com join.
+    const id = setInterval(() => router.refresh(), 5 * 60_000)
     return () => clearInterval(id)
   }, [router])
 
