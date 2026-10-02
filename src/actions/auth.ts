@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { destinoRetornoSeguro } from '@/lib/sso/retorno-seguro'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 
@@ -32,7 +33,9 @@ export async function login(prevState: any, formData: FormData) {
     }
   }
 
-  redirect('/dashboard')
+  // SSO com o dashboard (AC-120): valida o retorno de novo no servidor, nunca confia no formulário.
+  const retorno = destinoRetornoSeguro(formData.get('retorno') as string | null)
+  redirect(retorno ?? '/dashboard')
 }
 
 export async function trocarSenhaPrimeiroAcesso(formData: FormData) {

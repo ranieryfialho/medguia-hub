@@ -1,0 +1,37 @@
+{
+  "feature": "sso-cookie-dashboard",
+  "timestamp": "2026-10-02T15:57:49.502Z",
+  "gitRev": "940a655",
+  "command": "node --test --test-reporter=tap",
+  "reporter": "tap",
+  "exitCode": 1,
+  "testsParsed": 411,
+  "results": {
+    "AC-116": {
+      "status": "pass",
+      "testName": "AC-116: o cookie vale para o domínio pai do Hub @spec:AC-116",
+      "method": "tap"
+    },
+    "AC-117": {
+      "status": "pass",
+      "testName": "AC-117: os três clientes do Supabase usam as mesmas opções de cookie @spec:AC-117",
+      "method": "tap"
+    },
+    "AC-118": {
+      "status": "pass",
+      "testName": "AC-118: aceita https no domínio pai do Hub e em subdomínios, preservando caminho e filtros @spec:AC-118",
+      "method": "tap"
+    },
+    "AC-119": {
+      "status": "pass",
+      "testName": "AC-119: o proxy leva quem já está logado ao retorno seguro e, sem ele, a /dashboard @spec:AC-119",
+      "method": "tap"
+    },
+    "AC-120": {
+      "status": "pass",
+      "testName": "AC-120: a tela de login repassa o retorno e a ação o valida de novo no servidor @spec:AC-120",
+      "method": "tap"
+    }
+  },
+  "principles": {}
+}
