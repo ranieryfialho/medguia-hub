@@ -1,10 +1,21 @@
 'use client'
 
-import { useActionState } from 'react'
+import { Suspense, useActionState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { login } from '@/actions/auth'
 
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
+  )
+}
+
+function LoginForm() {
   const [state, formAction, isPending] = useActionState(login, null)
+  // SSO com o dashboard (AC-120): o servidor valida o retorno antes de usar.
+  const retorno = useSearchParams().get('retorno')
 
   return (
     <div className="min-h-dvh flex items-center justify-center bg-page p-4">
@@ -16,6 +27,7 @@ export default function LoginPage() {
         </div>
 
         <form action={formAction} className="space-y-4">
+          {retorno && <input type="hidden" name="retorno" value={retorno} />}
           <div>
             <label className="block text-xs font-medium text-text-secondary mb-1">
               E-mail

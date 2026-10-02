@@ -2,6 +2,8 @@ import { createServerClient } from '@supabase/ssr'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { jwtVerify } from 'jose'
 import { NextResponse, type NextRequest } from 'next/server'
+import { opcoesCookieSessao } from '@/lib/sso/dominio-cookie'
+import { destinoRetornoSeguro } from '@/lib/sso/retorno-seguro'
 
 function isPublicRoute(pathname: string) {
   return (
@@ -58,6 +60,7 @@ export async function updateSession(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieOptions: opcoesCookieSessao(),
       cookies: {
         getAll() {
           return request.cookies.getAll()
@@ -86,6 +89,10 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user && (request.nextUrl.pathname === '/' || request.nextUrl.pathname.startsWith('/login'))) {
+     // SSO com o dashboard (AC-119): quem já está logado volta ao endereço que pediu.
+     const retorno = destinoRetornoSeguro(request.nextUrl.searchParams.get('retorno'))
+     if (retorno) return NextResponse.redirect(retorno)
+
      const url = request.nextUrl.clone()
      url.pathname = '/dashboard' 
      return NextResponse.redirect(url)
