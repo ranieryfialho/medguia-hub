@@ -18,7 +18,7 @@ import {
   serializarPagamentos,
   validarPagamentos,
 } from '@/lib/pagamentos-venda'
-import { marcarVendaSemContrato } from '@/lib/venda-tags-sistema'
+import { sincronizarTagContratoVenda } from '@/lib/venda-tags-sistema'
 import { formatAppDateKey, getAppDayRangeUTC, parseAppDate } from '@/lib/datetime'
 
 const USUARIO_AUTORIZADO_VENDA_ZERADA = '46581234-19dd-4e7d-904d-db0357fa2219'
@@ -461,7 +461,7 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
   }
 
   const { data: { user: usuarioCriador } } = await supabase.auth.getUser()
-  await marcarVendaSemContrato(supabase, vendaInserida.id, usuarioCriador?.id)
+  await sincronizarTagContratoVenda(supabase, vendaInserida.id, usuarioCriador?.id)
 
   revalidatePath('/vendas')
   redirect(`/vendas/${vendaInserida.id}`)
@@ -684,6 +684,9 @@ export async function editarVenda(_prevState: unknown, formData: FormData) {
   if (erroPagamentosUpdate) {
     return { error: `Erro ao atualizar pagamentos: ${erroPagamentosUpdate.message}` }
   }
+
+  // O status pode ter mudado (ex.: orçamento virou venda na edição).
+  await sincronizarTagContratoVenda(supabase, id)
 
   revalidatePath('/vendas')
   redirect(`/vendas/${id}`)
@@ -924,6 +927,8 @@ export async function atualizarStatusVenda(
   if (error) {
     return { error: `Erro ao atualizar status: ${error.message}` }
   }
+
+  await sincronizarTagContratoVenda(supabase, id)
 
   revalidatePath('/vendas')
   revalidatePath(`/vendas/${id}`)
