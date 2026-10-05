@@ -19,8 +19,9 @@ const OPCOES_STATUS = [
 ]
 
 type Produto = { id: string; nome: string }
+type TagOpcao = { id: string; nome: string }
 
-export function FiltrosVendas({ produtos = [] }: { produtos?: Produto[] }) {
+export function FiltrosVendas({ produtos = [], tags = [] }: { produtos?: Produto[]; tags?: TagOpcao[] }) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -30,6 +31,7 @@ export function FiltrosVendas({ produtos = [] }: { produtos?: Produto[] }) {
   const dataFimAtual = searchParams.get('data_fim') || ''
   const limiteAtual = searchParams.get('limite') || '50'
   const statusAtual = searchParams.get('status') || ''
+  const tagAtual = searchParams.get('tag') || ''
   const produtoIdsAtual = searchParams.get('produto_ids')?.split(',').filter(Boolean) ?? []
 
   const [busca, setBusca] = useState(buscaAtual)
@@ -98,7 +100,14 @@ export function FiltrosVendas({ produtos = [] }: { produtos?: Produto[] }) {
     router.replace(`?${params.toString()}`)
   }
 
-  const mudarOrigem = (valor: string) => {
+  const mudarTag = (valor: string) => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (valor) { params.set('tag', valor) } else { params.delete('tag') }
+    params.delete('pagina')
+    router.replace(`?${params.toString()}`)
+  }
+
+  const mudarOrigem =(valor: string) => {
     const params = new URLSearchParams(searchParams.toString())
     if (valor) { params.set('origem', valor) } else { params.delete('origem') }
     params.delete('pagina')
@@ -134,7 +143,7 @@ export function FiltrosVendas({ produtos = [] }: { produtos?: Produto[] }) {
     p.nome.toLowerCase().includes(buscaProduto.toLowerCase())
   )
 
-  const temFiltros = busca || origemAtual || dataInicioAtual || dataFimAtual || statusAtual || produtoIdsAtual.length > 0
+  const temFiltros = busca || origemAtual || dataInicioAtual || dataFimAtual || statusAtual || tagAtual || produtoIdsAtual.length > 0
 
   return (
     <div className="p-4 space-y-3 border-b border-border">
@@ -194,6 +203,21 @@ export function FiltrosVendas({ produtos = [] }: { produtos?: Produto[] }) {
             </option>
           ))}
         </select>
+
+        {tags.length > 0 && (
+          <select
+            value={tagAtual}
+            onChange={(e) => mudarTag(e.target.value)}
+            className="bg-input border border-border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary-500"
+          >
+            <option value="">Todas as tags</option>
+            {tags.map((tag) => (
+              <option key={tag.id} value={tag.id}>
+                {tag.nome}
+              </option>
+            ))}
+          </select>
+        )}
 
         {/* Combobox de produtos */}
         {produtos.length > 0 && (
