@@ -151,6 +151,8 @@ export default async function VendasListPage({
   const status = (resolvedParams.status as string) || ''
   const produtoIdsParam = (resolvedParams.produto_ids as string) || ''
   const produtoIdsFiltro = produtoIdsParam ? produtoIdsParam.split(',').filter(Boolean) : []
+  const tagParam = (resolvedParams.tag as string) || ''
+  const tagFiltro = /^[0-9a-f-]{36}$/i.test(tagParam) ? tagParam : ''
   const limite = Math.max(1, parseInt((resolvedParams.limite as string) || '50'))
   const pagina = Math.max(1, parseInt((resolvedParams.pagina as string) || '1'))
   const offset = (pagina - 1) * limite
@@ -160,7 +162,7 @@ export default async function VendasListPage({
   let profissionalIdsBusca: string[] = []
   let vendaIdsProduto: string[] | null = null
 
-  const [produtosResult, buscaResult, produtoFiltroResult] = await Promise.all([
+  const [produtosResult, buscaResult, produtoFiltroResult, tagsCatalogo] = await Promise.all([
     supabase.from('produtos').select('id, nome').eq('ativo', true).order('nome'),
     buscaNormalizada
       ? Promise.all([
@@ -171,6 +173,7 @@ export default async function VendasListPage({
     produtoIdsFiltro.length > 0
       ? supabase.from('itens_venda').select('venda_id').in('produto_id', produtoIdsFiltro)
       : null,
+    listarTagsVendaAtivas(),
   ])
 
   const produtos = (produtosResult.data ?? []) as { id: string; nome: string }[]
@@ -186,10 +189,15 @@ export default async function VendasListPage({
   }
 
   const buildQuery = (selectClause: string) => {
+    // Filtro por tag: join inner no vínculo, filtrado pela tag escolhida.
     let query = supabase
       .from('vendas')
-      .select(selectClause, { count: 'exact' })
+      .select(tagFiltro ? `${selectClause}, venda_tags_vinculos!inner(tag_id)` : selectClause, { count: 'exact' })
       .order('data_venda', { ascending: false })
+
+    if (tagFiltro) {
+      query = query.eq('venda_tags_vinculos.tag_id', tagFiltro)
+    }
 
     if (origem) {
       query = query.eq('origem', origem)
@@ -287,10 +295,7 @@ export default async function VendasListPage({
 
   const totalPaginas = Math.ceil(total / limite)
 
-  const [tagsCatalogo, tagsPorVenda] = await Promise.all([
-    listarTagsVendaAtivas(),
-    listarTagsPorVendas(vendas.map((v) => v.id)),
-  ])
+  const tagsPorVenda = await listarTagsPorVendas(vendas.map((v) => v.id))
 
   return (
     <div className="space-y-6">
@@ -318,7 +323,7 @@ export default async function VendasListPage({
       </div>
 
       <div className="bg-surface rounded-b-lg shadow-sm border border-border -mt-6">
-        <FiltrosVendas produtos={produtos} />
+        <FiltrosVendas produtos={produtos} tags={tagsCatalogo.map(({ id, nome }) => ({ id, nome }))} />
 
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[900px]">
