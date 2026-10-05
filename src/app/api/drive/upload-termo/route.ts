@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { getClienteAutenticado, buscarOuCriarSubpasta, criarPastaPacienteNoDrive } from '@/lib/google-drive'
+import { marcarVendaContratoAssinado } from '@/lib/venda-tags-sistema'
 import { google } from 'googleapis'
 import { Readable } from 'stream'
 
@@ -150,6 +151,10 @@ export async function POST(request: Request) {
         gerado_por: user.id,
         aceite_em: aceiteEm,
       })
+    }
+
+    if (tipo === 'termo') {
+      await marcarVendaContratoAssinado(db, vendaId, user.id)
     }
 
     return Response.json({

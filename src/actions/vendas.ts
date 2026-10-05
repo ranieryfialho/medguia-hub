@@ -18,6 +18,7 @@ import {
   serializarPagamentos,
   validarPagamentos,
 } from '@/lib/pagamentos-venda'
+import { marcarVendaSemContrato } from '@/lib/venda-tags-sistema'
 import { formatAppDateKey, getAppDayRangeUTC, parseAppDate } from '@/lib/datetime'
 
 const USUARIO_AUTORIZADO_VENDA_ZERADA = '46581234-19dd-4e7d-904d-db0357fa2219'
@@ -458,6 +459,9 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
     await supabase.from('vendas').delete().eq('id', vendaInserida.id)
     return { error: `Erro ao adicionar pagamentos: ${erroPagamentosInsert.message}` }
   }
+
+  const { data: { user: usuarioCriador } } = await supabase.auth.getUser()
+  await marcarVendaSemContrato(supabase, vendaInserida.id, usuarioCriador?.id)
 
   revalidatePath('/vendas')
   redirect(`/vendas/${vendaInserida.id}`)

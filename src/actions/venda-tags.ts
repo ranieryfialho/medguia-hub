@@ -9,6 +9,7 @@ export type VendaTag = {
   cor: string
   ordem: number
   ativo: boolean
+  sistema_chave?: string | null
 }
 
 function revalidarRotasRelacionadas() {
@@ -39,7 +40,7 @@ export async function listarTagsVenda(): Promise<VendaTag[]> {
   const supabase = await createClient()
   const { data } = await supabase
     .from('venda_tags')
-    .select('id, nome, cor, ordem, ativo')
+    .select('id, nome, cor, ordem, ativo, sistema_chave')
     .order('ativo', { ascending: false })
     .order('ordem', { ascending: true })
     .order('nome', { ascending: true })
@@ -51,7 +52,7 @@ export async function listarTagsVendaAtivas(): Promise<VendaTag[]> {
   const supabase = await createClient()
   const { data } = await supabase
     .from('venda_tags')
-    .select('id, nome, cor, ordem, ativo')
+    .select('id, nome, cor, ordem, ativo, sistema_chave')
     .eq('ativo', true)
     .order('ordem', { ascending: true })
     .order('nome', { ascending: true })
@@ -89,7 +90,7 @@ export async function criarTagVenda(nome: string, cor: string): Promise<{ error?
       ordem: (ultima?.ordem ?? 0) + 1,
       ativo: true,
     })
-    .select('id, nome, cor, ordem, ativo')
+    .select('id, nome, cor, ordem, ativo, sistema_chave')
     .single()
 
   if (error) return { error: error.message }
@@ -105,6 +106,9 @@ export async function atualizarTagVenda(id: string, nome: string, cor: string): 
   let supabase
   try { supabase = await assertGestor() } catch (e: unknown) { return { error: (e as Error).message } }
 
+  const { data: atual } = await supabase.from('venda_tags').select('sistema_chave').eq('id', id).maybeSingle()
+  if (atual?.sistema_chave) return { error: 'Tag padrão do sistema não pode ser editada' }
+
   const { error } = await supabase
     .from('venda_tags')
     .update({ nome: nomeNormalizado, cor, updated_at: new Date().toISOString() })
@@ -119,6 +123,9 @@ export async function atualizarTagVenda(id: string, nome: string, cor: string): 
 export async function excluirTagVenda(id: string): Promise<{ error?: string }> {
   let supabase
   try { supabase = await assertGestor() } catch (e: unknown) { return { error: (e as Error).message } }
+
+  const { data: atual } = await supabase.from('venda_tags').select('sistema_chave').eq('id', id).maybeSingle()
+  if (atual?.sistema_chave) return { error: 'Tag padrão do sistema não pode ser excluída' }
 
   const { error } = await supabase
     .from('venda_tags')
@@ -137,7 +144,7 @@ export async function listarTagsDaVenda(vendaId: string): Promise<VendaTag[]> {
   const supabase = await createClient()
   const { data } = await supabase
     .from('venda_tags_vinculos')
-    .select('tag:venda_tags(id, nome, cor, ordem, ativo)')
+    .select('tag:venda_tags(id, nome, cor, ordem, ativo, sistema_chave)')
     .eq('venda_id', vendaId)
 
   return ((data ?? [])
@@ -152,7 +159,7 @@ export async function listarTagsPorVendas(vendaIds: string[]): Promise<Record<st
   const supabase = await createClient()
   const { data } = await supabase
     .from('venda_tags_vinculos')
-    .select('venda_id, tag:venda_tags(id, nome, cor, ordem, ativo)')
+    .select('venda_id, tag:venda_tags(id, nome, cor, ordem, ativo, sistema_chave)')
     .in('venda_id', vendaIds)
 
   const mapa: Record<string, VendaTag[]> = {}
