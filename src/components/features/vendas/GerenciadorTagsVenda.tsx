@@ -199,22 +199,28 @@ export function GerenciadorTagsVenda({ tags: inicial }: { tags: VendaTag[] }) {
                       {tag.nome}
                     </span>
                     <span className="flex-1" />
-                    <button
-                      onClick={() => iniciarEdicao(tag)}
-                      disabled={isPending}
-                      className="p-1.5 text-text-secondary hover:text-primary-500 hover:bg-page rounded transition-colors"
-                      title="Editar"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      onClick={() => { setExcluindoId(tag.id); setEditandoId(null) }}
-                      disabled={isPending}
-                      className="p-1.5 text-text-secondary hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                      title="Excluir"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    {tag.sistema_chave ? (
+                      <span className="text-xs text-text-tertiary">Padrão do sistema</span>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => iniciarEdicao(tag)}
+                          disabled={isPending}
+                          className="p-1.5 text-text-secondary hover:text-primary-500 hover:bg-page rounded transition-colors"
+                          title="Editar"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          onClick={() => { setExcluindoId(tag.id); setEditandoId(null) }}
+                          disabled={isPending}
+                          className="p-1.5 text-text-secondary hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                          title="Excluir"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </>
+                    )}
                   </>
                 )}
               </li>
