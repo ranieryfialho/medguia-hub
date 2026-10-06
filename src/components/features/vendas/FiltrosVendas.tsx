@@ -1,8 +1,9 @@
 'use client'
 
-import { ChevronDown, Search, X } from 'lucide-react'
+import { Check, ChevronDown, Search, Tag, X } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
+import { getTagCorConfig } from '@/lib/tag-cores'
 
 const OPCOES_LIMITE = [10, 25, 50, 100]
 const OPCOES_ORIGEM = [
@@ -19,7 +20,7 @@ const OPCOES_STATUS = [
 ]
 
 type Produto = { id: string; nome: string }
-type TagOpcao = { id: string; nome: string }
+type TagOpcao = { id: string; nome: string; cor: string }
 
 export function FiltrosVendas({ produtos = [], tags = [] }: { produtos?: Produto[]; tags?: TagOpcao[] }) {
   const router = useRouter()
@@ -39,7 +40,9 @@ export function FiltrosVendas({ produtos = [], tags = [] }: { produtos?: Produto
   const [buscaProduto, setBuscaProduto] = useState('')
   const [dataInicio, setDataInicio] = useState(dataInicioAtual)
   const [dataFim, setDataFim] = useState(dataFimAtual)
+  const [tagsAberto, setTagsAberto] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const tagsRef = useRef<HTMLDivElement>(null)
   const montado = useRef(false)
   const montadoData = useRef(false)
 
@@ -88,6 +91,9 @@ export function FiltrosVendas({ produtos = [], tags = [] }: { produtos?: Produto
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setProdutosAberto(false)
       }
+      if (tagsRef.current && !tagsRef.current.contains(e.target as Node)) {
+        setTagsAberto(false)
+      }
     }
     document.addEventListener('mousedown', handleClickFora)
     return () => document.removeEventListener('mousedown', handleClickFora)
@@ -105,9 +111,10 @@ export function FiltrosVendas({ produtos = [], tags = [] }: { produtos?: Produto
     if (valor) { params.set('tag', valor) } else { params.delete('tag') }
     params.delete('pagina')
     router.replace(`?${params.toString()}`)
+    setTagsAberto(false)
   }
 
-  const mudarOrigem =(valor: string) => {
+  const mudarOrigem = (valor: string) => {
     const params = new URLSearchParams(searchParams.toString())
     if (valor) { params.set('origem', valor) } else { params.delete('origem') }
     params.delete('pagina')
@@ -204,20 +211,65 @@ export function FiltrosVendas({ produtos = [], tags = [] }: { produtos?: Produto
           ))}
         </select>
 
-        {tags.length > 0 && (
-          <select
-            value={tagAtual}
-            onChange={(e) => mudarTag(e.target.value)}
-            className="bg-input border border-border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary-500"
-          >
-            <option value="">Todas as tags</option>
-            {tags.map((tag) => (
-              <option key={tag.id} value={tag.id}>
-                {tag.nome}
-              </option>
-            ))}
-          </select>
-        )}
+        {tags.length > 0 && (() => {
+          const tagSel = tags.find((t) => t.id === tagAtual)
+          const cfgSel = tagSel ? getTagCorConfig(tagSel.cor) : null
+          return (
+            <div className="relative" ref={tagsRef}>
+              <button
+                type="button"
+                onClick={() => setTagsAberto((v) => !v)}
+                className={`border rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary-500 flex items-center gap-2 min-w-[160px] transition-colors ${
+                  cfgSel ? `${cfgSel.bg} ${cfgSel.border} ${cfgSel.text} font-semibold` : 'bg-input border-border-input'
+                }`}
+              >
+                {cfgSel ? (
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${cfgSel.dot}`} />
+                ) : (
+                  <Tag size={14} className="shrink-0 text-text-secondary" />
+                )}
+                <span className="flex-1 text-left">{tagSel ? tagSel.nome : 'Todas as tags'}</span>
+                <ChevronDown size={14} className={`shrink-0 transition-transform ${tagsAberto ? 'rotate-180' : ''} ${cfgSel ? '' : 'text-text-secondary'}`} />
+              </button>
+
+              {tagsAberto && (
+                <div className="absolute top-full left-0 z-50 mt-1 w-60 bg-white border border-border rounded-lg shadow-lg p-1">
+                  <button
+                    type="button"
+                    onClick={() => mudarTag('')}
+                    className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded hover:bg-page text-sm text-text-secondary"
+                  >
+                    <Tag size={14} className="shrink-0" />
+                    <span className="flex-1 text-left">Todas as tags</span>
+                    {!tagAtual && <Check size={14} className="text-primary-500" />}
+                  </button>
+                  <div className="max-h-60 overflow-y-auto">
+                    {tags.map((tag) => {
+                      const cfg = getTagCorConfig(tag.cor)
+                      return (
+                        <button
+                          key={tag.id}
+                          type="button"
+                          onClick={() => mudarTag(tag.id === tagAtual ? '' : tag.id)}
+                          className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded hover:bg-page"
+                        >
+                          <span
+                            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${cfg.bg} ${cfg.text} ${cfg.border}`}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+                            {tag.nome}
+                          </span>
+                          <span className="flex-1" />
+                          {tag.id === tagAtual && <Check size={14} className="text-primary-500" />}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })()}
 
         {/* Combobox de produtos */}
         {produtos.length > 0 && (
