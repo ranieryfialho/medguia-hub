@@ -323,7 +323,7 @@ export default async function VendasListPage({
       </div>
 
       <div className="bg-surface rounded-b-lg shadow-sm border border-border -mt-6">
-        <FiltrosVendas produtos={produtos} tags={tagsCatalogo.map(({ id, nome }) => ({ id, nome }))} />
+        <FiltrosVendas produtos={produtos} tags={tagsCatalogo.map(({ id, nome, cor }) => ({ id, nome, cor }))} />
 
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[900px]">
