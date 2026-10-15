@@ -130,7 +130,7 @@ export function SlideNovoAgendamento(props: SlideProps) {
           {/* Header */}
           <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-[#bcc9c4]/30 flex items-center justify-between bg-white shrink-0 safe-top">
             <h2 className="text-lg sm:text-xl font-bold text-[#083142]">
-              {modoEdicao ? 'Editar agendamento' : 'Novo agendamento'}
+              {modoEdicao ? 'Editar agendamento' : props.modeloReagendamento ? 'Reagendar atendimento' : 'Novo agendamento'}
             </h2>
             <button type="button" onClick={handleClose} className="p-2 border border-[#bcc9c4] text-[#3d4945] hover:bg-[#dee3e3] rounded-lg transition-colors">
               <X size={16} />

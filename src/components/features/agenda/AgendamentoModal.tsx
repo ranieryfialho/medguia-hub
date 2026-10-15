@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-  Calendar, ChevronDown, ClipboardList, Clock, FolderOpen,
+  Calendar, CalendarPlus, ChevronDown, ClipboardList, Clock, FolderOpen,
   Layers, Loader2, Mail, MessageCircle, Pencil, Phone, Timer, Trash2, User, UserCheck, UserPlus, X,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -57,13 +57,14 @@ type AgendamentoModalProps = {
   agendamento: AgendamentoDetalhe
   onClose: () => void
   onEditar: () => void
+  onReagendar?: () => void
   onConcluido?: (pacienteId: string, atendimentoId: string) => void
   profissionais?: { id: string; full_name: string }[]
   initialTab?: 'detalhes' | 'evolucao' | 'historico' | 'midia' | 'followup'
   podeVerComercial?: boolean
 }
 
-export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, profissionais = [], initialTab = 'detalhes', podeVerComercial = false }: AgendamentoModalProps) {
+export function AgendamentoModal({ agendamento, onClose, onEditar, onReagendar, onConcluido, profissionais = [], initialTab = 'detalhes', podeVerComercial = false }: AgendamentoModalProps) {
   const router = useRouter()
   const [status, setStatus] = useState(agendamento.status)
   const [activeTab, setActiveTab] = useState<'detalhes' | 'evolucao' | 'historico' | 'midia' | 'followup'>(initialTab)
@@ -511,6 +512,17 @@ export function AgendamentoModal({ agendamento, onClose, onEditar, onConcluido, 
                 <MessageCircle size={14} className="text-[#25d366]" />
                 <span className="hidden xs:inline">Enviar</span> Lembrete
               </button>
+
+              {onReagendar && (
+                <button
+                  type="button"
+                  onClick={() => guardarSaidaEvolucao(onReagendar)}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#bcc9c4] px-3 py-2.5 text-[11px] sm:text-xs font-semibold text-[#3d4945] hover:bg-[#f0f5f4] transition-colors"
+                >
+                  <CalendarPlus size={14} className="text-[#006b5a]" />
+                  Reagendar
+                </button>
+              )}
 
               <div className="relative flex-1" ref={opcoesRef}>
                 <button
