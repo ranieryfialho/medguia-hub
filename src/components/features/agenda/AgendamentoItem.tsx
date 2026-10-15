@@ -108,6 +108,7 @@ export function AgendamentoItemDia({
   const [modalAberto, setModalAberto] = useState(false)
   const [modalInicialTab, setModalInicialTab] = useState<'detalhes' | 'evolucao'>('detalhes')
   const [slideEditarAberto, setSlideEditarAberto] = useState(false)
+  const [slideReagendarAberto, setSlideReagendarAberto] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [statusLoading, setStatusLoading] = useState<string | null>(null)
   const router = useRouter()
@@ -427,6 +428,7 @@ export function AgendamentoItemDia({
           initialTab={modalInicialTab}
           onClose={() => { setModalAberto(false); setModalInicialTab('detalhes') }}
           onEditar={() => { setModalAberto(false); setModalInicialTab('detalhes'); setSlideEditarAberto(true) }}
+          onReagendar={() => { setModalAberto(false); setModalInicialTab('detalhes'); setSlideReagendarAberto(true) }}
         />
       )}
 
@@ -437,6 +439,16 @@ export function AgendamentoItemDia({
         controlledOpen={slideEditarAberto}
         onControlledClose={() => setSlideEditarAberto(false)}
         atendimentoParaEditar={slideEditarAberto ? agendamento : undefined}
+      />
+
+      <SlideNovoAgendamento
+        pacientes={pacientes}
+        profissionais={profissionais}
+        planos={planos}
+        controlledOpen={slideReagendarAberto}
+        onControlledClose={() => setSlideReagendarAberto(false)}
+        defaultPacienteId={agendamento.paciente_id}
+        modeloReagendamento={slideReagendarAberto ? agendamento : undefined}
       />
 
       {modalEdicaoSerie && agendamento.agendamento_id && (
@@ -496,6 +508,7 @@ export function AgendamentoItemSemana({
 }) {
   const [modalAberto, setModalAberto] = useState(false)
   const [slideEditarAberto, setSlideEditarAberto] = useState(false)
+  const [slideReagendarAberto, setSlideReagendarAberto] = useState(false)
   const router = useRouter()
   const config = getConfig(agendamento.status)
   const primeiroNome = (agendamento.pacientes?.nome || 'Paciente').split(' ')[0]
@@ -541,6 +554,7 @@ export function AgendamentoItemSemana({
           profissionais={profissionais.map(p => ({ id: p.id, full_name: p.nome }))}
           onClose={() => setModalAberto(false)}
           onEditar={() => { setModalAberto(false); setSlideEditarAberto(true) }}
+          onReagendar={() => { setModalAberto(false); setSlideReagendarAberto(true) }}
         />
       )}
 
@@ -551,6 +565,16 @@ export function AgendamentoItemSemana({
         controlledOpen={slideEditarAberto}
         onControlledClose={() => setSlideEditarAberto(false)}
         atendimentoParaEditar={slideEditarAberto ? agendamento : undefined}
+      />
+
+      <SlideNovoAgendamento
+        pacientes={pacientes}
+        profissionais={profissionais}
+        planos={planos}
+        controlledOpen={slideReagendarAberto}
+        onControlledClose={() => setSlideReagendarAberto(false)}
+        defaultPacienteId={agendamento.paciente_id}
+        modeloReagendamento={slideReagendarAberto ? agendamento : undefined}
       />
     </>
   )

@@ -50,6 +50,8 @@ export interface SlideProps {
   defaultData?: string
   defaultHora?: string
   atendimentoParaEditar?: AtendimentoParaEditar
+  /** Cria um NOVO agendamento pré-preenchido com os dados deste atendimento (sem alterá-lo). */
+  modeloReagendamento?: AtendimentoParaEditar
 }
 
 export function useAgendamentoForm({
@@ -66,6 +68,7 @@ export function useAgendamentoForm({
   defaultData,
   defaultHora,
   atendimentoParaEditar,
+  modeloReagendamento,
 }: SlideProps) {
   const isControlled = controlledOpen !== undefined
   const modoEdicao = !!atendimentoParaEditar
@@ -210,6 +213,35 @@ export function useAgendamentoForm({
   const pacientesFiltrados = pacientes
 
   // ── Effects ────────────────────────────────────────────────────────────────
+
+  // Reagendar: novo agendamento reaproveitando profissional, tipo, plano e horário
+  // do card. Data e observações ficam vazias; o paciente vem de defaultPacienteId.
+  const modeloAplicadoRef = useRef(false)
+  useEffect(() => {
+    if (!open || !modeloReagendamento) {
+      modeloAplicadoRef.current = false
+      return
+    }
+    if (modeloAplicadoRef.current) return
+    modeloAplicadoRef.current = true
+    queueMicrotask(() => {
+      const inicio = new Date(modeloReagendamento.data_agendamento)
+      const horaInicio = format(inicio, 'HH:mm')
+      const prof = profissionais.find((p) => p.id === modeloReagendamento.profissional_id)
+      setSelectedProfissionalId(modeloReagendamento.profissional_id ?? '')
+      setTipoProfissional(prof?.cargo === 'medico' ? 'medico' : 'fisioterapeuta')
+      setSelectedPlanoSaude(modeloReagendamento.agendamento_pai?.plano_saude ?? '')
+      setSelectedTipo(modeloReagendamento.tipo || primeiroTipoDisponivel)
+      setObservacoesValue('')
+      setHoraInicioValue(horaInicio)
+      const duracao = modeloReagendamento.duracao_minutos
+      setHoraFimValue(
+        duracao
+          ? format(new Date(inicio.getTime() + duracao * 60000), 'HH:mm')
+          : somarUmaHora(horaInicio),
+      )
+    })
+  }, [open, modeloReagendamento, profissionais, primeiroTipoDisponivel])
 
   useEffect(() => {
     if (!atendimentoParaEditar) return
