@@ -189,7 +189,7 @@ export default async function DashboardLayout({
       planosSaude={planosSaude}
       headerData={{ nomeUsuario, cargoUsuario, avatarUrl, userRole, userNivelAcesso, modulosLiberados, prontuariosPendentes, followUpsPendentes, userEmail: user?.email ?? '', userId: user?.id ?? '' }}
     >
-      <Header nomeUsuario={nomeUsuario} cargoUsuario={cargoUsuario} avatarUrl={avatarUrl} modulosLiberados={modulosLiberados} userId={user?.id ?? ''} />
+      <Header nomeUsuario={nomeUsuario} cargoUsuario={cargoUsuario} avatarUrl={avatarUrl} modulosLiberados={modulosLiberados} />
       <main
         className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 w-0 min-w-full px-4 pt-4 pb-28 md:px-6 md:pt-6 md:pb-32 lg:px-8 lg:pt-8 lg:pb-32"
         style={{ WebkitOverflowScrolling: 'touch' }}

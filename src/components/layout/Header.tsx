@@ -11,10 +11,9 @@ type HeaderProps = {
   cargoUsuario: string
   avatarUrl: string
   modulosLiberados?: string[]
-  userId: string
 }
 
-export async function Header({ nomeUsuario, cargoUsuario, avatarUrl, modulosLiberados = [], userId }: HeaderProps) {
+export async function Header({ nomeUsuario, cargoUsuario, avatarUrl, modulosLiberados = [] }: HeaderProps) {
   const mostrarDrive = temAcesso(modulosLiberados, 'configuracoes:google_drive')
   const statusDrive = mostrarDrive ? await buscarStatusConexaoGoogle() : null
 
@@ -40,7 +39,7 @@ export async function Header({ nomeUsuario, cargoUsuario, avatarUrl, modulosLibe
           </Link>
         )}
 
-        <SinoNotificacoes userId={userId} />
+        <SinoNotificacoes />
         <div className="flex items-center gap-3 pl-4 border-l border-[#bcc9c4]/50">
           <div className="text-right hidden sm:block">
             <p className="text-sm font-bold text-[#171d1c] leading-none capitalize">{nomeUsuario}</p>

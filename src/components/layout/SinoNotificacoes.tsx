@@ -5,26 +5,15 @@ import { Bell, CheckCheck, X, ChevronRight, Trash2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { useNotificacoes } from '@/hooks/useNotificacoes'
+import { useNotificacoesContext } from './NotificacoesContext'
+import { TIPO_CONFIG } from './notificacoes-tipos'
 import type { Notificacao } from '@/actions/notificacoes'
 
-const TIPO_CONFIG: Record<string, { cor: string; label: string }> = {
-  agenda_confirmou:      { cor: 'bg-emerald-100 text-emerald-700', label: 'Agenda'      },
-  agenda_vai_faltar:     { cor: 'bg-amber-100 text-amber-700',     label: 'Agenda'      },
-  agenda_nao_atendeu:    { cor: 'bg-slate-100 text-slate-600',     label: 'Confirmação' },
-  agenda_falta:          { cor: 'bg-red-100 text-red-700',         label: 'Agenda'      },
-  prontuario_pendente:   { cor: 'bg-orange-100 text-orange-700',   label: 'Prontuário'  },
-  prontuario_dor_alta:   { cor: 'bg-red-100 text-red-700',         label: 'Prontuário'  },
-  acesso_alterado:       { cor: 'bg-blue-100 text-blue-700',       label: 'Acesso'      },
-  follow_up_atribuido:   { cor: 'bg-teal-100 text-teal-700',       label: 'Follow-up'   },
-  contato_frio:          { cor: 'bg-amber-100 text-amber-700',     label: 'Base fria'   },
-}
-
-export function SinoNotificacoes({ userId }: { userId: string }) {
+export function SinoNotificacoes() {
   const [aberto, setAberto] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const router = useRouter()
-  const { notificacoes, naoLidas, carregando, marcarComoLida, marcarTodasComoLidas, limpar } = useNotificacoes(userId)
+  const { notificacoes, naoLidas, carregando, recarregarSeAntigo, marcarComoLida, marcarTodasComoLidas, limpar } = useNotificacoesContext()
 
   useEffect(() => {
     function onClickFora(e: MouseEvent) {
@@ -47,7 +36,10 @@ export function SinoNotificacoes({ userId }: { userId: string }) {
   return (
     <div ref={ref} className="relative">
       <button
-        onClick={() => setAberto((v) => !v)}
+        onClick={() => {
+          if (!aberto) recarregarSeAntigo()
+          setAberto((v) => !v)
+        }}
         className="relative p-2 rounded-full hover:bg-[#dee3e3] transition-colors text-[#3d4945]"
         aria-label="Notificações"
       >
