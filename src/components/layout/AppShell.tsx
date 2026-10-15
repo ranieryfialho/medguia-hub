@@ -7,6 +7,8 @@ import { SlideNovoAgendamento } from '@/components/features/agenda'
 import { BuscaGlobal } from './BuscaGlobal'
 import { BuscaGlobalTrigger } from './BuscaGlobalTrigger'
 import { SinoNotificacoes } from './SinoNotificacoes'
+import { NotificacoesProvider } from './NotificacoesContext'
+import { ModalNotificacoesDiarias } from './ModalNotificacoesDiarias'
 import { Menu } from 'lucide-react'
 import type { DisponibilidadeDia } from '@/lib/disponibilidade'
 import { SlideNovoAgendamentoProvider } from './SlideNovoAgendamentoContext'
@@ -54,6 +56,7 @@ export function AppShell({
   const [slideNovoAberto, setSlideNovoAberto] = useState(false)
 
   return (
+    <NotificacoesProvider userId={headerData.userId}>
     <SlideNovoAgendamentoProvider aberto={slideNovoAberto} abrir={() => setSlideNovoAberto(true)}>
       <TiposConsultaProvider tiposConsulta={tiposConsulta}>
       <ProtocolosAtendimentoProvider protocolosAtendimento={protocolosAtendimento}>
@@ -98,7 +101,7 @@ export function AppShell({
                 <Menu size={22} />
               </button>
               <span className="font-bold text-[#006b5a] text-base tracking-tight flex-1">MedGuia Hub</span>
-              <SinoNotificacoes userId={headerData.userId} />
+              <SinoNotificacoes />
               <Image
                 src={headerData.avatarUrl}
                 alt={headerData.nomeUsuario}
@@ -118,6 +121,9 @@ export function AppShell({
         {/* Modal de busca global — renderizado uma vez, ativado via Ctrl+K ou trigger */}
         <BuscaGlobal modulosLiberados={headerData.modulosLiberados} />
 
+        {/* Resumo diário de pendências — 1x por dia no primeiro acesso */}
+        <ModalNotificacoesDiarias />
+
         {/* SlideNovoAgendamento fora da div com transform para fixed funcionar corretamente */}
         <SlideNovoAgendamento
           profissionais={profissionais}
@@ -131,5 +137,6 @@ export function AppShell({
       </ProtocolosAtendimentoProvider>
       </TiposConsultaProvider>
     </SlideNovoAgendamentoProvider>
+    </NotificacoesProvider>
   )
 }

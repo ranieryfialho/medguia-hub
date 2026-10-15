@@ -1,6 +1,8 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { TAG_SISTEMA_SEM_CONTRATO } from '@/lib/venda-tags-sistema'
+import { formatAppDateKey } from '@/lib/datetime'
 
 export type Notificacao = {
   id: string
@@ -13,36 +15,104 @@ export type Notificacao = {
   criado_em: string
 }
 
-const STATUS_CONCLUIDO = ['Concluído', 'Concluido', 'concluído', 'concluido']
+const PREFIXOS_DERIVADAS = ['pending-', 'followup-', 'cold-', 'contrato-'] as const
+const LIMITE_PRONTUARIOS_PENDENTES = 30
 
-export async function buscarNotificacoes(): Promise<Notificacao[]> {
+function ehDerivada(id: string) {
+  return PREFIXOS_DERIVADAS.some((p) => id.startsWith(p))
+}
+
+export type ResultadoNotificacoes = {
+  notificacoes: Notificacao[]
+  /** Dia (yyyy-mm-dd, America/Sao_Paulo) em que o modal diário foi visto por último. */
+  modalVistoEm: string | null
+}
+
+/** Lê role + dia do modal na mesma query; se a coluna ainda não existir, cai para só o role. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function lerPerfil(supabase: any, userId: string): Promise<{ role: string; modalVistoEm: string | null }> {
+  const completo = await supabase
+    .from('profiles')
+    .select('role, modal_notif_visto_em')
+    .eq('id', userId)
+    .single()
+  if (!completo.error) {
+    return { role: completo.data?.role ?? '', modalVistoEm: completo.data?.modal_notif_visto_em ?? null }
+  }
+  const basico = await supabase.from('profiles').select('role').eq('id', userId).single()
+  return { role: basico.data?.role ?? '', modalVistoEm: null }
+}
+
+export async function buscarNotificacoes(): Promise<ResultadoNotificacoes> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return []
+  if (!user) return { notificacoes: [], modalVistoEm: null }
 
-  const [{ data: notifs }, { data: profile }] = await Promise.all([
+  const [{ data: notifs }, perfil, { data: estados }] = await Promise.all([
     supabase
       .from('notificacoes')
       .select('id, tipo, titulo, mensagem, lida, link, metadados, criado_em')
       .eq('usuario_id', user.id)
       .order('criado_em', { ascending: false })
       .limit(30),
+    lerPerfil(supabase, user.id),
+    supabase
+      .from('notificacoes_estado')
+      .select('chave, lida, dispensada')
+      .eq('usuario_id', user.id),
+  ])
+
+  const role = perfil.role
+  const [pendentes, followUps, contatosFrios, contratos] = await Promise.all([
+    buscarProntuariosPendentes(supabase, user.id, role),
+    buscarFollowUpsPendentesNotif(supabase, user.id),
+    buscarContatosFriosNotif(supabase, user.id, role),
+    buscarContratosNaoAssinadosNotif(supabase, role),
+  ])
+
+  const derivadas = [...followUps, ...contatosFrios, ...contratos, ...pendentes]
+  const estadoPorChave = new Map(
+    (estados ?? []).map((e: { chave: string; lida: boolean; dispensada: boolean }) => [e.chave, e]),
+  )
+
+  // Poda estados de pendências que já foram resolvidas (chave não é mais gerada).
+  const chavesAtuais = new Set(derivadas.map((n) => n.id))
+  const obsoletas = (estados ?? [])
+    .map((e: { chave: string }) => e.chave)
+    .filter((c: string) => !chavesAtuais.has(c))
+  if (obsoletas.length > 0) {
+    await supabase
+      .from('notificacoes_estado')
+      .delete()
+      .eq('usuario_id', user.id)
+      .in('chave', obsoletas)
+  }
+
+  const visiveis = derivadas
+    .filter((n) => !estadoPorChave.get(n.id)?.dispensada)
+    .map((n) => ({ ...n, lida: estadoPorChave.get(n.id)?.lida ?? false }))
+
+  const notificacoes = [...visiveis, ...((notifs ?? []) as Notificacao[])].sort(
+    (a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime(),
+  )
+  return { notificacoes, modalVistoEm: perfil.modalVistoEm }
+}
+
+/**
+ * Registra que o usuário já viu o modal de hoje (dia local da clínica) e marca
+ * como lidas as pendências que ele exibiu. Uma ida ao banco por dia.
+ */
+export async function registrarModalNotificacoesVisto(idsExibidos: string[] = []): Promise<void> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+  await Promise.all([
     supabase
       .from('profiles')
-      .select('role, pendentes_descartados')
-      .eq('id', user.id)
-      .single(),
+      .update({ modal_notif_visto_em: formatAppDateKey(new Date()) })
+      .eq('id', user.id),
+    gravarEstado(supabase, user.id, idsExibidos.slice(0, 50), { lida: true }),
   ])
-
-  const role = profile?.role ?? ''
-  const descartados = new Set<string>(profile?.pendentes_descartados ?? [])
-  const [pendentes, followUpsPendentes, contatosFrios] = await Promise.all([
-    buscarProntuariosPendentes(supabase, user.id, role, descartados),
-    buscarFollowUpsPendentesNotif(supabase, user.id, descartados),
-    buscarContatosFriosNotif(supabase, user.id, role),
-  ])
-
-  return [...followUpsPendentes, ...contatosFrios, ...pendentes, ...(notifs ?? [])] as Notificacao[]
 }
 
 async function buscarProntuariosPendentes(
@@ -50,71 +120,49 @@ async function buscarProntuariosPendentes(
   supabase: any,
   userId: string,
   role: string,
-  descartados: Set<string>,
 ): Promise<Notificacao[]> {
   if (role === 'medico') return []
 
   const isFisio = role !== 'gestor' && role !== 'master'
 
-  let query = supabase
-    .from('atendimentos')
-    .select('id, paciente_id, data_agendamento, pacientes(nome)')
-    .in('status', STATUS_CONCLUIDO)
+  // Mesma regra da tela de prontuários (RPC): exclui atendimentos de médicos
+  // e já considera o fisioterapeuta executor.
+  const { data, error } = await supabase.rpc('listar_atendimentos_sem_prontuario', {
+    limit_count: LIMITE_PRONTUARIOS_PENDENTES,
+    fisio_id: isFisio ? userId : null,
+  })
+  if (error) return []
 
-  if (isFisio) {
-    query = query.eq('profissional_id', userId)
-  } else {
-    // Exclui atendimentos cujo profissional é médico (mesma regra do RPC listar_atendimentos_sem_prontuario)
-    const { data: naoMedicos } = await supabase
-      .from('profiles')
-      .select('id')
-      .neq('role', 'medico')
-    const idsNaoMedico = (naoMedicos ?? []).map((p: { id: string }) => p.id)
-    if (idsNaoMedico.length > 0) {
-      query = query.in('profissional_id', idsNaoMedico)
-    }
-  }
-
-  const [{ data: atendimentos }, { data: comProntuario }] = await Promise.all([
-    query,
-    supabase.from('prontuarios').select('atendimento_id'),
-  ])
-
-  const idsComProntuario = new Set(
-    (comProntuario ?? []).map((p: { atendimento_id: string }) => p.atendimento_id),
-  )
-
-  return (atendimentos ?? [])
-    .filter((a: { id: string }) => !idsComProntuario.has(a.id) && !descartados.has(`pending-${a.id}`))
-    .map((a: { id: string; paciente_id: string; data_agendamento: string; pacientes?: { nome: string } }) => ({
+  return (data ?? []).map(
+    (a: { id: string; paciente_nome: string | null; data_agendamento: string | null }) => ({
       id: `pending-${a.id}`,
       tipo: 'prontuario_pendente',
       titulo: 'Prontuário pendente',
-      mensagem: `${a.pacientes?.nome ?? 'Paciente'} aguarda registro clínico`,
+      mensagem: `${a.paciente_nome ?? 'Paciente'} aguarda registro clínico`,
       lida: false,
       link: '/prontuarios',
-      metadados: { atendimento_id: a.id, paciente_id: a.paciente_id },
+      metadados: { atendimento_id: a.id },
       criado_em: a.data_agendamento ?? new Date().toISOString(),
-    }))
+    }),
+  )
 }
 
 async function buscarFollowUpsPendentesNotif(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   userId: string,
-  descartados: Set<string>,
 ): Promise<Notificacao[]> {
-  const { data: followUps } = await supabase
+  const { data: followUps, error } = await supabase
     .from('follow_ups')
     .select('id, paciente_id, created_at, pacientes(nome), tipo:follow_up_tipos(nome)')
     .eq('responsavel_id', userId)
     .eq('status', 'pendente')
     .order('created_at', { ascending: false })
     .limit(20)
+  if (error) return []
 
-  return (followUps ?? [])
-    .filter((f: { id: string }) => !descartados.has(`followup-${f.id}`))
-    .map((f: { id: string; paciente_id: string; created_at: string; pacientes?: { nome: string }; tipo?: { nome: string } }) => ({
+  return (followUps ?? []).map(
+    (f: { id: string; paciente_id: string; created_at: string; pacientes?: { nome: string }; tipo?: { nome: string } }) => ({
       id: `followup-${f.id}`,
       tipo: 'follow_up_atribuido',
       titulo: 'Follow-up pendente',
@@ -123,7 +171,8 @@ async function buscarFollowUpsPendentesNotif(
       link: '/follow-ups',
       metadados: { follow_up_id: f.id, paciente_id: f.paciente_id },
       criado_em: f.created_at,
-    }))
+    }),
+  )
 }
 
 const DIAS_SEM_ATIVIDADE_POR_STATUS: Record<string, number> = {
@@ -137,6 +186,15 @@ function cutoffIso(dias: number) {
   return new Date(Date.now() - dias * 24 * 60 * 60 * 1000).toISOString()
 }
 
+/** Segunda-feira (UTC) da semana corrente, yyyy-mm-dd. Faz o aviso reaparecer semanalmente após ser dispensado. */
+function inicioDaSemanaUtc() {
+  const d = new Date()
+  const dia = (d.getUTCDay() + 6) % 7
+  d.setUTCDate(d.getUTCDate() - dia)
+  d.setUTCHours(0, 0, 0, 0)
+  return d
+}
+
 async function buscarContatosFriosNotif(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
@@ -146,76 +204,139 @@ async function buscarContatosFriosNotif(
   try {
     const isGestor = role === 'gestor' || role === 'master'
 
-    // Filtro SQL preciso por status+threshold — sem JS filter adicional
     const orFilter = Object.entries(DIAS_SEM_ATIVIDADE_POR_STATUS)
       .map(([status, dias]) => `and(status.eq.${status},ultima_atividade.lt.${cutoffIso(dias)})`)
       .join(',')
 
     let query = supabase
       .from('contatos_base')
-      .select('paciente_id, status, ultima_atividade, pacientes(nome)')
+      .select('paciente_id', { count: 'exact', head: true })
       .or(orFilter)
-      .order('ultima_atividade', { ascending: true })
 
-    if (!isGestor) {
-      query = query.eq('responsavel_id', userId)
-    }
+    if (!isGestor) query = query.eq('responsavel_id', userId)
 
-    const { data, error } = await query
+    const { count, error } = await query
+    if (error || !count) return []
 
-    if (error) return []
-
-    const frios = data ?? []
-    if (frios.length === 0) return []
-
+    const semana = inicioDaSemanaUtc()
     return [{
-      id: 'cold-contacts-summary',
+      id: `cold-${semana.toISOString().slice(0, 10)}`,
       tipo: 'contato_frio',
-      titulo: `Base fria: ${frios.length} contato${frios.length !== 1 ? 's' : ''} sem atividade`,
+      titulo: `Base fria: ${count} contato${count !== 1 ? 's' : ''} sem atividade`,
       mensagem: 'Revise a base para mantê-la aquecida.',
       lida: false,
       link: '/contatos',
-      metadados: { total: frios.length },
-      criado_em: new Date().toISOString(),
+      metadados: { total: count },
+      criado_em: semana.toISOString(),
     }]
   } catch {
     return []
   }
 }
 
+const ROLES_CONTRATOS_NAO_ASSINADOS = ['gestor', 'master', 'recepcionista', 'comercial']
+
+/**
+ * Vendas confirmadas com a tag de sistema SEM CONTRATO (mantida por
+ * sincronizarTagContratoVenda). Só gestor, master, recepção e comercial
+ * recebem o aviso, sempre com o total da clínica.
+ */
+async function buscarContratosNaoAssinadosNotif(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  role: string,
+): Promise<Notificacao[]> {
+  if (!ROLES_CONTRATOS_NAO_ASSINADOS.includes(role)) return []
+
+  try {
+    const { data: tag } = await supabase
+      .from('venda_tags')
+      .select('id')
+      .eq('sistema_chave', TAG_SISTEMA_SEM_CONTRATO)
+      .maybeSingle()
+    if (!tag) return []
+
+    const { count, error } = await supabase
+      .from('venda_tags_vinculos')
+      .select('venda_id', { count: 'exact', head: true })
+      .eq('tag_id', tag.id)
+    if (error || !count) return []
+
+    const semana = inicioDaSemanaUtc()
+    return [{
+      id: `contrato-${semana.toISOString().slice(0, 10)}`,
+      tipo: 'contrato_nao_assinado',
+      titulo: `${count} contrato${count !== 1 ? 's' : ''} sem assinatura`,
+      mensagem: count !== 1
+        ? 'Há vendas confirmadas sem contrato. Gere e colete a assinatura.'
+        : 'Há uma venda confirmada sem contrato. Gere e colete a assinatura.',
+      lida: false,
+      link: `/vendas?tag=${tag.id}`,
+      metadados: { total: count },
+      criado_em: semana.toISOString(),
+    }]
+  } catch {
+    return []
+  }
+}
+
+async function gravarEstado(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  userId: string,
+  ids: string[],
+  campos: { lida?: boolean; dispensada?: boolean },
+) {
+  const chaves = [...new Set(ids.filter(ehDerivada))]
+  if (chaves.length === 0) return
+  // Em conflito, só as colunas informadas são sobrescritas (o resto mantém o valor atual).
+  await supabase.from('notificacoes_estado').upsert(
+    chaves.map((chave) => ({
+      usuario_id: userId,
+      chave,
+      ...campos,
+      atualizado_em: new Date().toISOString(),
+    })),
+    { onConflict: 'usuario_id,chave' },
+  )
+}
+
 export async function marcarComoLida(id: string): Promise<void> {
-  if (id.startsWith('pending-') || id.startsWith('followup-') || id.startsWith('cold-')) return
-  const supabase = await createClient()
-  await supabase.from('notificacoes').update({ lida: true }).eq('id', id)
-}
-
-export async function marcarTodasComoLidas(): Promise<void> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return
-  await supabase
-    .from('notificacoes')
-    .update({ lida: true })
-    .eq('usuario_id', user.id)
-    .eq('lida', false)
-}
-
-export async function limparNotificacoes(pendingIds: string[]): Promise<void> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('pendentes_descartados')
-    .eq('id', user.id)
-    .single()
+  if (ehDerivada(id)) {
+    await gravarEstado(supabase, user.id, [id], { lida: true })
+    return
+  }
+  await supabase.from('notificacoes').update({ lida: true }).eq('id', id).eq('usuario_id', user.id)
+}
 
-  const jaDescartados: string[] = profile?.pendentes_descartados ?? []
-  const novosDescartados = [...new Set([...jaDescartados, ...pendingIds])]
+/** `idsDerivadas`: ids das notificações calculadas visíveis no sino. */
+export async function marcarTodasComoLidas(idsDerivadas: string[] = []): Promise<void> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+
+  await Promise.all([
+    supabase
+      .from('notificacoes')
+      .update({ lida: true })
+      .eq('usuario_id', user.id)
+      .eq('lida', false),
+    gravarEstado(supabase, user.id, idsDerivadas, { lida: true }),
+  ])
+}
+
+/** Apaga as persistidas e dispensa as derivadas informadas (até a pendência ser resolvida/renovada). */
+export async function limparNotificacoes(idsDerivadas: string[]): Promise<void> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
 
   await Promise.all([
     supabase.from('notificacoes').delete().eq('usuario_id', user.id),
-    supabase.from('profiles').update({ pendentes_descartados: novosDescartados }).eq('id', user.id),
+    gravarEstado(supabase, user.id, idsDerivadas, { lida: true, dispensada: true }),
   ])
 }
