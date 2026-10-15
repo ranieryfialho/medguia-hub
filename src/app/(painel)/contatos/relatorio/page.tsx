@@ -221,6 +221,8 @@ export default async function RelatorioContatosPage({
   const anotacoesRaw: AnotacaoRow[] = (todasAnotacoes ?? [])
     .filter(n =>
       pacientesIdsSet.has(n.paciente_id) &&
+      n.criado_em >= utcInicio &&
+      n.criado_em <= utcFim &&
       !n.texto.toLowerCase().startsWith('status alterado para:') &&
       !n.texto.toLowerCase().startsWith('etapa alterada para:')
     )

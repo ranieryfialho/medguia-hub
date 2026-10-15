@@ -37,12 +37,12 @@ export async function gerarPdfContatos(input: GerarPdfContatosInput) {
   doc.addPage()
   desenharPaginaDistribuicaoGeral(doc, input)
 
-  if (input.contatosPorResponsavelGlobal.length > 0 || input.contatosPorResponsavelPeriodo.length > 0) {
+  if (input.contatosPorResponsavelPeriodo.length > 0) {
     doc.addPage()
     desenharPaginaResponsaveis(doc, input)
   }
 
-  if (input.atividadeContatosPorResponsavelGlobal.length > 0 || input.atividadeContatosPorResponsavel.length > 0) {
+  if (input.atividadeContatosPorResponsavel.length > 0 || input.totalContatadosPeriodo > 0) {
     doc.addPage()
     desenharPaginaAtividade(doc, input)
   }
@@ -72,7 +72,7 @@ function desenharPaginaResumo(doc: jsPDF, input: GerarPdfContatosInput) {
 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(10)
-  doc.text('Funil de vendas e performance de contatos — base completa e período filtrado', MARGIN_X, 30)
+  doc.text('Funil de vendas e performance de contatos — período filtrado', MARGIN_X, 30)
   doc.text(
     input.filtroProfissionalLabel ? `${input.periodoLabel} · Profissional: ${input.filtroProfissionalLabel}` : input.periodoLabel,
     MARGIN_X,
@@ -81,12 +81,12 @@ function desenharPaginaResumo(doc: jsPDF, input: GerarPdfContatosInput) {
 
   let y = 58
   y = desenharGradeCards(doc, y, [
-    ['Carteira total (geral)', String(input.totalContatos)],
     ['Contatos no período', String(input.totalContatosPeriodo)],
-    ['Taxa conversão geral', `${input.taxaConversaoGeral}%`],
+    ['Agendaram (período)', String(input.contagemPorStatusPeriodo.agendou)],
     ['Taxa conversão (período)', `${input.taxaConversaoPeriodo}%`],
+    ['Contatados (período)', String(input.totalContatadosPeriodo)],
+    ['Efetivos (período)', String(input.totalEfetivosPeriodo)],
     ['Contatos em risco', String(input.contatosEmRisco.length)],
-    ['Sem responsável', String(input.contatosSemResponsavelCount)],
   ])
 
   y += 10
@@ -112,17 +112,16 @@ function desenharPaginaResumo(doc: jsPDF, input: GerarPdfContatosInput) {
 }
 
 function desenharPaginaDistribuicaoGeral(doc: jsPDF, input: GerarPdfContatosInput) {
-  let y = desenharCabecalhoInterno(doc, 'Distribuição por Status', 'Base completa (geral) x Período filtrado')
+  let y = desenharCabecalhoInterno(doc, 'Distribuição por Status', input.periodoLabel)
   y += 4
 
-  const headers = ['Status', 'Geral', '% Geral', 'Período', '% Período']
-  const widths = [56, 26, 28, 32, 32]
+  const headers = ['Status', 'Contatos', '%']
+  const widths = [110, 30, 38]
   y = desenharLinhaTabela(doc, y, headers, widths, true)
 
   for (const status of STATUS_CONTATO_PADRAO) {
-    const geral = input.contagemPorStatusGlobal[status]
     const periodo = input.contagemPorStatusPeriodo[status]
-    if (geral === 0 && periodo === 0) continue
+    if (periodo === 0) continue
     if (y > PAGE_HEIGHT - 22) {
       doc.addPage()
       y = desenharCabecalhoInterno(doc, 'Distribuição por Status', 'Continuação')
@@ -130,45 +129,9 @@ function desenharPaginaDistribuicaoGeral(doc: jsPDF, input: GerarPdfContatosInpu
     }
     y = desenharLinhaTabela(doc, y, [
       LABEL_POR_STATUS_CONTATO[status],
-      String(geral),
-      fmtPct(geral, input.totalContatos),
       String(periodo),
       fmtPct(periodo, input.totalContatosPeriodo),
     ], widths)
-  }
-
-  y += 12
-  if (y > PAGE_HEIGHT - 60) {
-    doc.addPage()
-    y = desenharCabecalhoInterno(doc, 'Etapas do Kanban', 'Base completa (geral) x Período filtrado')
-  } else {
-    y = desenharTituloSecao(doc, y, 'Etapas do Kanban — Geral x Período')
-  }
-
-  const headersK = ['Etapa', 'Geral', '% Geral', 'Período', '% Período']
-  const widthsK = [56, 26, 28, 32, 32]
-  y = desenharLinhaTabela(doc, y, headersK, widthsK, true)
-
-  const nomesEtapas = new Set([
-    ...input.contagemPorColunaGlobal.map(c => c.nome),
-    ...input.contagemPorColunaPeriodo.map(c => c.nome),
-  ])
-  for (const nome of nomesEtapas) {
-    const geral = input.contagemPorColunaGlobal.find(c => c.nome === nome)?.total ?? 0
-    const periodo = input.contagemPorColunaPeriodo.find(c => c.nome === nome)?.total ?? 0
-    if (geral === 0 && periodo === 0) continue
-    if (y > PAGE_HEIGHT - 22) {
-      doc.addPage()
-      y = desenharCabecalhoInterno(doc, 'Etapas do Kanban', 'Continuação')
-      y = desenharLinhaTabela(doc, y + 4, headersK, widthsK, true)
-    }
-    y = desenharLinhaTabela(doc, y, [
-      nome,
-      String(geral),
-      fmtPct(geral, input.totalContatos),
-      String(periodo),
-      fmtPct(periodo, input.totalContatosPeriodo),
-    ], widthsK)
   }
 }
 
@@ -205,17 +168,10 @@ function desenharTabelaResponsaveis(
 
 function desenharPaginaResponsaveis(doc: jsPDF, input: GerarPdfContatosInput) {
   const titulo = 'Performance por Responsável'
-  let y = desenharCabecalhoInterno(doc, titulo, 'Base completa (geral)')
+  let y = desenharCabecalhoInterno(doc, titulo, input.periodoLabel)
   y += 4
 
-  y = desenharTabelaResponsaveis(doc, y, 'Geral (toda a base)', input.contatosPorResponsavelGlobal, titulo)
-
-  y += 12
-  if (y > PAGE_HEIGHT - 60) {
-    doc.addPage()
-    y = desenharCabecalhoInterno(doc, titulo, 'Período filtrado')
-  }
-  desenharTabelaResponsaveis(doc, y, `Período — ${input.periodoLabel}`, input.contatosPorResponsavelPeriodo, titulo)
+  desenharTabelaResponsaveis(doc, y, 'Contatos do período', input.contatosPorResponsavelPeriodo, titulo)
 }
 
 function desenharTabelaAtividade(
@@ -252,34 +208,21 @@ function desenharTabelaAtividade(
 
 function desenharPaginaAtividade(doc: jsPDF, input: GerarPdfContatosInput) {
   const titulo = 'Atividade por Responsável'
-  let y = desenharCabecalhoInterno(doc, titulo, 'Contatados x efetivos — geral e no período')
+  let y = desenharCabecalhoInterno(doc, titulo, `Contatados x efetivos — ${input.periodoLabel}`)
   y += 4
 
-  const taxaEfetGeral = input.totalContatadosGlobal > 0
-    ? Math.round((input.totalEfetivosGlobal / input.totalContatadosGlobal) * 100)
-    : 0
   const taxaEfetPeriodo = input.totalContatadosPeriodo > 0
     ? Math.round((input.totalEfetivosPeriodo / input.totalContatadosPeriodo) * 100)
     : 0
 
   y = desenharGradeCards(doc, y, [
-    ['Contatados (geral)', String(input.totalContatadosGlobal)],
     ['Contatados (período)', String(input.totalContatadosPeriodo)],
-    ['Efetivos (geral)', String(input.totalEfetivosGlobal)],
     ['Efetivos (período)', String(input.totalEfetivosPeriodo)],
-    ['Taxa efetividade (geral)', `${taxaEfetGeral}%`],
     ['Taxa efetividade (período)', `${taxaEfetPeriodo}%`],
   ])
   y += 10
 
-  y = desenharTabelaAtividade(doc, y, 'Geral (toda a base)', input.atividadeContatosPorResponsavelGlobal, titulo)
-
-  y += 12
-  if (y > PAGE_HEIGHT - 60) {
-    doc.addPage()
-    y = desenharCabecalhoInterno(doc, titulo, 'Período filtrado')
-  }
-  desenharTabelaAtividade(doc, y, `Período — ${input.periodoLabel}`, input.atividadeContatosPorResponsavel, titulo)
+  desenharTabelaAtividade(doc, y, 'Por profissional', input.atividadeContatosPorResponsavel, titulo)
 }
 
 function desenharPaginaRisco(doc: jsPDF, contatosEmRisco: ContatoEmRiscoResumo[]) {
@@ -351,7 +294,7 @@ function desenharPaginaRisco(doc: jsPDF, contatosEmRisco: ContatoEmRiscoResumo[]
 
 function desenharPaginaAnotacoes(doc: jsPDF, anotacoes: AnotacaoContatoResumo[]) {
   const titulo = 'Anotações'
-  let y = desenharCabecalhoInterno(doc, titulo, `${anotacoes.length} anotação(ões) registrada(s)`)
+  let y = desenharCabecalhoInterno(doc, titulo, `${anotacoes.length} anotação(ões) no período`)
   y += 4
 
   const headers = ['Data', 'Paciente', 'Autor', 'Anotação']
@@ -395,10 +338,6 @@ function desenharPaginaAnotacoes(doc: jsPDF, anotacoes: AnotacaoContatoResumo[])
 function montarDestaques(input: GerarPdfContatosInput): string[] {
   const destaques: string[] = []
 
-  destaques.push(
-    `A base possui ${input.totalContatos} contato(s) no total, com taxa de conversão geral de ${input.taxaConversaoGeral}%.`,
-  )
-
   if (input.totalContatosPeriodo > 0) {
     destaques.push(
       `No período selecionado, ${input.totalContatosPeriodo} contato(s) foram atualizados, com taxa de conversão de ${input.taxaConversaoPeriodo}%.`,
@@ -407,33 +346,29 @@ function montarDestaques(input: GerarPdfContatosInput): string[] {
     destaques.push('Não há contatos atualizados no período selecionado.')
   }
 
-  const topResponsavelGeral = [...input.contatosPorResponsavelGlobal].sort((a, b) => b.total - a.total)[0]
-  if (topResponsavelGeral) {
+  const topResponsavel = [...input.contatosPorResponsavelPeriodo].sort((a, b) => b.total - a.total)[0]
+  if (topResponsavel) {
     destaques.push(
-      `${topResponsavelGeral.nome} lidera o volume geral de contatos, com ${topResponsavelGeral.total} contato(s) e ${topResponsavelGeral.taxaConversao}% de conversão.`,
+      `${topResponsavel.nome} lidera o volume no período, com ${topResponsavel.total} contato(s) e ${topResponsavel.taxaConversao}% de conversão.`,
     )
   }
 
-  const topEfetividade = [...input.atividadeContatosPorResponsavelGlobal].sort((a, b) => b.taxaEfetividade - a.taxaEfetividade)[0]
+  const topEfetividade = [...input.atividadeContatosPorResponsavel].sort((a, b) => b.taxaEfetividade - a.taxaEfetividade)[0]
   if (topEfetividade && topEfetividade.contatados > 0) {
     destaques.push(
-      `${topEfetividade.nome} tem a maior taxa de efetividade geral (${topEfetividade.taxaEfetividade}%), com ${topEfetividade.efetivos} de ${topEfetividade.contatados} contatos efetivos.`,
+      `${topEfetividade.nome} tem a maior taxa de efetividade no período (${topEfetividade.taxaEfetividade}%), com ${topEfetividade.efetivos} de ${topEfetividade.contatados} contatos efetivos.`,
     )
   }
 
   if (input.contatosEmRisco.length > 0) {
     const emRisco90 = input.contatosEmRisco.filter(c => c.dias_sem_atividade >= 90).length
     destaques.push(
-      `${input.contatosEmRisco.length} contato(s) estão em risco (30+ dias sem atividade), sendo ${emRisco90} há mais de 90 dias.`,
+      `${input.contatosEmRisco.length} contato(s) estão em risco (30+ dias sem atividade, base completa), sendo ${emRisco90} há mais de 90 dias.`,
     )
   }
 
-  if (input.contatosSemResponsavelCount > 0) {
-    destaques.push(`${input.contatosSemResponsavelCount} contato(s) ainda não têm responsável atribuído.`)
-  }
-
   if (input.anotacoes.length > 0) {
-    destaques.push(`${input.anotacoes.length} anotação(ões) registrada(s) nos contatos.`)
+    destaques.push(`${input.anotacoes.length} anotação(ões) registrada(s) no período.`)
   }
 
   return destaques
