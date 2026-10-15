@@ -23,67 +23,50 @@ export function gerarMarkdownContatos(input: GerarMarkdownContatosInput): string
   }
   linhas.push('')
 
-  // ── Resumo geral ────────────────────────────────────────────
-  linhas.push('## Resumo Geral')
+  // ── Resumo do período ───────────────────────────────────────
+  const taxaEfetPeriodo = input.totalContatadosPeriodo > 0
+    ? Math.round((input.totalEfetivosPeriodo / input.totalContatadosPeriodo) * 100)
+    : 0
+
+  linhas.push('## Resumo do Período')
   linhas.push('')
-  linhas.push(`- **Carteira total (geral):** ${input.totalContatos}`)
   linhas.push(`- **Contatos no período:** ${input.totalContatosPeriodo}`)
-  linhas.push(`- **Taxa de conversão geral:** ${input.taxaConversaoGeral}%`)
+  linhas.push(`- **Agendaram (período):** ${input.contagemPorStatusPeriodo.agendou}`)
   linhas.push(`- **Taxa de conversão no período:** ${input.taxaConversaoPeriodo}%`)
+  linhas.push(`- **Contatados (período):** ${input.totalContatadosPeriodo}`)
+  linhas.push(`- **Efetivos (período):** ${input.totalEfetivosPeriodo} (${taxaEfetPeriodo}%)`)
   linhas.push(`- **Contatos em risco (30+ dias sem atividade):** ${input.contatosEmRisco.length}`)
-  linhas.push(`- **Contatos sem responsável:** ${input.contatosSemResponsavelCount}`)
-  linhas.push(`- **Anotações registradas:** ${input.anotacoes.length}`)
+  linhas.push(`- **Anotações no período:** ${input.anotacoes.length}`)
   linhas.push('')
 
   // ── Distribuição por status ─────────────────────────────────
-  linhas.push('## Distribuição por Status — Geral x Período')
+  linhas.push('## Distribuição por Status')
   linhas.push('')
-  linhas.push('| Status | Geral | % Geral | Período | % Período |')
-  linhas.push('|---|---|---|---|---|')
+  linhas.push('| Status | Contatos | % |')
+  linhas.push('|---|---|---|')
   for (const status of STATUS_CONTATO_PADRAO) {
-    const geral = input.contagemPorStatusGlobal[status]
     const periodo = input.contagemPorStatusPeriodo[status]
-    if (geral === 0 && periodo === 0) continue
-    linhas.push(
-      `| ${LABEL_POR_STATUS_CONTATO[status]} | ${geral} | ${pct(geral, input.totalContatos)} | ${periodo} | ${pct(periodo, input.totalContatosPeriodo)} |`,
-    )
+    if (periodo === 0) continue
+    linhas.push(`| ${LABEL_POR_STATUS_CONTATO[status]} | ${periodo} | ${pct(periodo, input.totalContatosPeriodo)} |`)
   }
   linhas.push('')
 
   // ── Etapas do Kanban ─────────────────────────────────────────
-  const nomesEtapas = new Set([
-    ...input.contagemPorColunaGlobal.map(c => c.nome),
-    ...input.contagemPorColunaPeriodo.map(c => c.nome),
-  ])
-  if (nomesEtapas.size > 0) {
-    linhas.push('## Etapas do Kanban — Geral x Período')
+  const etapas = input.contagemPorColunaPeriodo.filter(c => c.total > 0)
+  if (etapas.length > 0) {
+    linhas.push('## Etapas do Kanban')
     linhas.push('')
-    linhas.push('| Etapa | Geral | % Geral | Período | % Período |')
-    linhas.push('|---|---|---|---|---|')
-    for (const nome of nomesEtapas) {
-      const geral = input.contagemPorColunaGlobal.find(c => c.nome === nome)?.total ?? 0
-      const periodo = input.contagemPorColunaPeriodo.find(c => c.nome === nome)?.total ?? 0
-      if (geral === 0 && periodo === 0) continue
-      linhas.push(`| ${nome} | ${geral} | ${pct(geral, input.totalContatos)} | ${periodo} | ${pct(periodo, input.totalContatosPeriodo)} |`)
+    linhas.push('| Etapa | Contatos | % |')
+    linhas.push('|---|---|---|')
+    for (const c of etapas) {
+      linhas.push(`| ${c.nome} | ${c.total} | ${pct(c.total, input.totalContatosPeriodo)} |`)
     }
     linhas.push('')
   }
 
   // ── Performance por responsável ─────────────────────────────
-  if (input.contatosPorResponsavelGlobal.length > 0) {
-    linhas.push('## Performance por Responsável — Geral (toda a base)')
-    linhas.push('')
-    linhas.push('| Responsável | Total | Agendou | Taxa de Conversão |')
-    linhas.push('|---|---|---|---|')
-    const ordenados = [...input.contatosPorResponsavelGlobal].sort((a, b) => b.total - a.total)
-    for (const resp of ordenados) {
-      linhas.push(`| ${resp.nome} | ${resp.total} | ${resp.contagemPorStatus.agendou} | ${resp.taxaConversao}% |`)
-    }
-    linhas.push('')
-  }
-
   if (input.contatosPorResponsavelPeriodo.length > 0) {
-    linhas.push(`## Performance por Responsável — Período (${input.periodoLabel})`)
+    linhas.push('## Performance por Responsável')
     linhas.push('')
     linhas.push('| Responsável | Total | Agendou | Taxa de Conversão |')
     linhas.push('|---|---|---|---|')
@@ -95,33 +78,8 @@ export function gerarMarkdownContatos(input: GerarMarkdownContatosInput): string
   }
 
   // ── Atividade por responsável ────────────────────────────────
-  const taxaEfetGeral = input.totalContatadosGlobal > 0
-    ? Math.round((input.totalEfetivosGlobal / input.totalContatadosGlobal) * 100)
-    : 0
-  const taxaEfetPeriodo = input.totalContatadosPeriodo > 0
-    ? Math.round((input.totalEfetivosPeriodo / input.totalContatadosPeriodo) * 100)
-    : 0
-
-  linhas.push('## Atividade — Geral x Período')
-  linhas.push('')
-  linhas.push(`- **Contatados (geral):** ${input.totalContatadosGlobal} · **Efetivos (geral):** ${input.totalEfetivosGlobal} · **Taxa efetividade (geral):** ${taxaEfetGeral}%`)
-  linhas.push(`- **Contatados (período):** ${input.totalContatadosPeriodo} · **Efetivos (período):** ${input.totalEfetivosPeriodo} · **Taxa efetividade (período):** ${taxaEfetPeriodo}%`)
-  linhas.push('')
-
-  if (input.atividadeContatosPorResponsavelGlobal.length > 0) {
-    linhas.push('### Atividade por Profissional — Geral')
-    linhas.push('')
-    linhas.push('| Profissional | Carteira | Contatados | Efetivos | Taxa de Efetividade |')
-    linhas.push('|---|---|---|---|---|')
-    const ordenados = [...input.atividadeContatosPorResponsavelGlobal].sort((a, b) => b.contatados - a.contatados)
-    for (const item of ordenados) {
-      linhas.push(`| ${item.nome} | ${item.carteira} | ${item.contatados} | ${item.efetivos} | ${item.taxaEfetividade}% |`)
-    }
-    linhas.push('')
-  }
-
   if (input.atividadeContatosPorResponsavel.length > 0) {
-    linhas.push(`### Atividade por Profissional — Período (${input.periodoLabel})`)
+    linhas.push('## Atividade por Profissional')
     linhas.push('')
     linhas.push('| Profissional | Carteira | Contatados | Efetivos | Taxa de Efetividade |')
     linhas.push('|---|---|---|---|---|')
@@ -176,7 +134,7 @@ export function gerarMarkdownContatos(input: GerarMarkdownContatosInput): string
 
   // ── Anotações ─────────────────────────────────────────────────
   if (input.anotacoes.length > 0) {
-    linhas.push('## Anotações')
+    linhas.push('## Anotações do Período')
     linhas.push('')
     linhas.push('| Data | Paciente | Autor | Anotação |')
     linhas.push('|---|---|---|---|')

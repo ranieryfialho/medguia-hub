@@ -69,6 +69,6 @@ export type DadosRelatorioContatos = {
   // Contatos em risco (sempre a base completa, sem filtro de período)
   contatosEmRisco: ContatoEmRiscoResumo[]
 
-  // Anotações (base completa dos contatos filtrados na tela)
+  // Anotações registradas dentro do período filtrado
   anotacoes: AnotacaoContatoResumo[]
 }
