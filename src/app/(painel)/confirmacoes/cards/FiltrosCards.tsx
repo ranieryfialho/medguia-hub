@@ -47,7 +47,10 @@ export function FiltrosCards({ opcoesProfissionais, opcoesTipos, opcoesPeriodo }
       else params.delete(key)
     }
     router.replace(`${pathname}?${params.toString()}`)
-    void salvarPreferenciaTela(TELA, Object.fromEntries(params.entries())).catch(() => {})
+    // periodo não é salvo: "amanhã"/"segunda" mudam de sentido a cada dia
+    const paraSalvar = Object.fromEntries(params.entries())
+    delete paraSalvar.periodo
+    void salvarPreferenciaTela(TELA, paraSalvar).catch(() => {})
   }
 
   useEffect(() => {

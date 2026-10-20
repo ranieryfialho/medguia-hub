@@ -52,7 +52,10 @@ function periodoParaContatar(): { periodos: Periodo[]; isSexta: boolean } {
     weekday: 'long',
   }).format(agora)
 
-  const isSexta = diaSemanaAtual === 'Friday'
+  // Dias até a próxima segunda: sexta 3, sábado 2, domingo 1
+  const DIAS_ATE_SEGUNDA: Record<string, number> = { Friday: 3, Saturday: 2, Sunday: 1 }
+  const diasAteSegunda = DIAS_ATE_SEGUNDA[diaSemanaAtual]
+  const isSexta = diasAteSegunda !== undefined
 
   const MIDNIGHT_BRT_IN_UTC = 'T03:00:00Z'
 
@@ -73,11 +76,10 @@ function periodoParaContatar(): { periodos: Periodo[]; isSexta: boolean } {
   }
 
   if (isSexta) {
-    // Sexta: busca hoje + segunda-feira (pula sábado e domingo)
-    // Segunda = agora + 3 dias
-    const segundaDate = new Date(agora.getTime() + 3 * 24 * 60 * 60 * 1000)
+    // Sexta, sábado e domingo: busca hoje + segunda-feira
+    const segundaDate = new Date(agora.getTime() + diasAteSegunda * 24 * 60 * 60 * 1000)
     const segundaString = dateBRT(segundaDate)
-    const tercaDate = new Date(agora.getTime() + 4 * 24 * 60 * 60 * 1000)
+    const tercaDate = new Date(agora.getTime() + (diasAteSegunda + 1) * 24 * 60 * 60 * 1000)
     const tercaString = dateBRT(tercaDate)
 
     return {
@@ -131,6 +133,7 @@ export default async function CardsPage({
     if (salvo && Object.keys(salvo).length > 0) {
       const qs = new URLSearchParams()
       for (const [key, value] of Object.entries(salvo)) {
+        if (key === 'periodo') continue
         if (value) qs.set(key, value)
       }
       const qsString = qs.toString()
@@ -149,10 +152,12 @@ export default async function CardsPage({
   const categoriaFiltro = typeof params.categoria === 'string' ? params.categoria : ''
   const tipoFiltro = typeof params.tipo === 'string' ? params.tipo : ''
   const contatoFiltro = typeof params.contato === 'string' ? params.contato : ''
-  const periodoFiltro = typeof params.periodo === 'string' ? params.periodo : ''
+  const periodoParam = typeof params.periodo === 'string' ? params.periodo : ''
 
   const supabase = await createClient()
   const { periodos, isSexta } = periodoParaContatar()
+  // Ignora período que não existe no dia (ex.: link/URL antigo com "amanha" numa sexta)
+  const periodoFiltro = periodos.some((p) => p.diaSemana === periodoParam) ? periodoParam : ''
 
   let atendimentosQuery = supabase
     .from('atendimentos')
@@ -311,9 +316,9 @@ export default async function CardsPage({
         <div className="bg-linear-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
           <CalendarDays size={18} className="text-amber-600 mt-0.5 shrink-0" />
           <div>
-            <p className="text-sm font-semibold text-amber-700">Rotina de sexta-feira</p>
+            <p className="text-sm font-semibold text-amber-700">Rotina de fim de semana</p>
             <p className="text-xs text-amber-600 mt-0.5">
-              Confirme as consultas de hoje e antecipe os pacientes de segunda-feira — eles precisam ser avisados ainda hoje.
+              Confirme as consultas de hoje e antecipe os pacientes de segunda-feira — eles precisam ser avisados antes do fim de semana acabar.
             </p>
           </div>
         </div>
