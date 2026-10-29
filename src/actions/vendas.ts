@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { STATUS_VENDA, TIPO_VENDA } from '@/lib/vendas'
+import { origemVendaExiste } from '@/actions/origens-venda'
 import {
   MAX_COMPROVANTES_VENDA,
   extensaoDoNome,
@@ -236,6 +237,10 @@ export async function criarVenda(_prevState: unknown, formData: FormData) {
 
   if (!paciente_id || !origem || pagamentos.length === 0) {
     return { error: 'Paciente, origem e forma de pagamento são obrigatórios.' }
+  }
+
+  if (!(await origemVendaExiste(origem, true))) {
+    return { error: 'Origem inválida ou inativa. Selecione uma origem cadastrada.' }
   }
 
   if (!tipo_venda || !tipoVendaValido(tipo_venda)) {
@@ -489,6 +494,10 @@ export async function editarVenda(_prevState: unknown, formData: FormData) {
 
   if (!paciente_id || !origem || pagamentos.length === 0) {
     return { error: 'Paciente, origem e forma de pagamento são obrigatórios.' }
+  }
+
+  if (!(await origemVendaExiste(origem, false))) {
+    return { error: 'Origem inválida. Selecione uma origem cadastrada.' }
   }
 
   if (!tipo_venda || !tipoVendaValido(tipo_venda)) {

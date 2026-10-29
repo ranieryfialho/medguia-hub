@@ -10,6 +10,7 @@ import { FormaPagamentoSplit, pagamentosValidosParaEnvio, type PagamentoVendaFor
 import { TIPO_VENDA } from '@/lib/vendas'
 import { createClient } from '@/lib/supabase/client'
 import { formatAppDateKey } from '@/lib/datetime'
+import type { OpcaoOrigem } from '@/lib/origens-venda'
 
 interface Profissional {
   id: string
@@ -63,15 +64,9 @@ interface FormEditarVendaProps {
   profissionais: Profissional[]
   produtos: Produto[]
   medicos?: Profissional[]
+  origens: OpcaoOrigem[]
 }
 
-const OPCOES_ORIGEM = [
-  { value: 'medico', label: 'Médico' },
-  { value: 'leads', label: 'Leads' },
-  { value: 'indicacao', label: 'Indicação' },
-  { value: 'renovacao', label: 'Renovação' },
-  { value: 'campanha', label: 'Campanha' },
-]
 const USUARIO_AUTORIZADO_VENDA_ZERADA = '46581234-19dd-4e7d-904d-db0357fa2219'
 
 // @spec:AC-061 @spec:AC-062 — venda_em_consultorio só existe (não-null) quando origem é 'medico';
@@ -87,6 +82,7 @@ export function FormEditarVenda({
   profissionais,
   produtos,
   medicos = [],
+  origens,
 }: FormEditarVendaProps) {
   const [state, formAction] = useActionState(editarVenda, null)
 
@@ -305,7 +301,7 @@ export function FormEditarVenda({
       <div>
         <label className="block text-sm font-medium text-text-primary mb-3">{isOrcamento ? 'Origem do Orçamento' : 'Origem da Venda'}</label>
         <div className="space-y-2">
-          {OPCOES_ORIGEM.map((opt) => (
+          {origens.map((opt) => (
             <label key={opt.value} className="flex items-center gap-3 cursor-pointer">
               <input
                 type="radio"

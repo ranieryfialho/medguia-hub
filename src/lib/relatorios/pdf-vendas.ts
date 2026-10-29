@@ -31,6 +31,7 @@ export type VendaDetalhe = {
 
 export type GerarPdfVendasInput = {
   periodoLabel: string
+  rotulosOrigem?: Record<string, string>
   totalFaturado: number
   totalVendas: number
   vendaMedia: number
@@ -68,13 +69,9 @@ const MUTED: RGB = [102, 112, 108]
 const LINE: RGB = [220, 226, 223]
 const SOFT: RGB = [246, 248, 247]
 
-const TRADUCAO_ORIGEM: Record<string, string> = {
-  medico: 'Médico',
-  leads: 'Leads',
-  indicacao: 'Indicação',
-  renovacao: 'Renovação',
-  campanha: 'Campanha',
-}
+// Rótulos das origens (cadastro em /vendas/origens), definidos no início de cada
+// geração do PDF a partir de `input.rotulosOrigem`.
+let TRADUCAO_ORIGEM: Record<string, string> = {}
 
 const fmt = (v: number) =>
   `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -162,6 +159,7 @@ function agregarPorItem(
 }
 
 export async function gerarPdfVendas(input: GerarPdfVendasInput) {
+  TRADUCAO_ORIGEM = input.rotulosOrigem ?? {}
   const { jsPDF } = await import('jspdf')
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
 

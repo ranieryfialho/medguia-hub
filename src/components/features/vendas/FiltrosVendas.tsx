@@ -6,13 +6,6 @@ import { useEffect, useRef, useState } from 'react'
 import { getTagCorConfig } from '@/lib/tag-cores'
 
 const OPCOES_LIMITE = [10, 25, 50, 100]
-const OPCOES_ORIGEM = [
-  { value: 'medico', label: 'Médico' },
-  { value: 'leads', label: 'Leads' },
-  { value: 'indicacao', label: 'Indicação' },
-  { value: 'renovacao', label: 'Renovação' },
-  { value: 'campanha', label: 'Campanha' },
-]
 const OPCOES_STATUS = [
   { value: 'venda_confirmada',   label: 'Venda confirmada' },
   { value: 'orcamento_pendente', label: 'Orçamento pendente' },
@@ -22,7 +15,7 @@ const OPCOES_STATUS = [
 type Produto = { id: string; nome: string }
 type TagOpcao = { id: string; nome: string; cor: string }
 
-export function FiltrosVendas({ produtos = [], tags = [] }: { produtos?: Produto[]; tags?: TagOpcao[] }) {
+export function FiltrosVendas({ produtos = [], tags = [], origens = [] }: { produtos?: Produto[]; tags?: TagOpcao[]; origens?: { value: string; label: string }[] }) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -204,7 +197,7 @@ export function FiltrosVendas({ produtos = [], tags = [] }: { produtos?: Produto
           className="bg-input border border-border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary-500"
         >
           <option value="">Todas as origens</option>
-          {OPCOES_ORIGEM.map((opt) => (
+          {origens.map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}
             </option>

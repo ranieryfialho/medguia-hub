@@ -11,6 +11,7 @@ import { TIPO_VENDA } from '@/lib/vendas'
 import { createClient } from '@/lib/supabase/client'
 import { formatAppDateKey } from '@/lib/datetime'
 import type { Protocolo } from '@/actions/protocolos'
+import type { OpcaoOrigem } from '@/lib/origens-venda'
 
 interface Profissional {
   id: string
@@ -43,15 +44,8 @@ interface FormNovaVendaProps {
   medicos?: Profissional[]
   protocolos?: Protocolo[]
   objecoes?: Objecao[]
+  origens: OpcaoOrigem[]
 }
-
-const OPCOES_ORIGEM = [
-  { value: 'medico', label: 'Médico' },
-  { value: 'leads', label: 'Leads' },
-  { value: 'indicacao', label: 'Indicação' },
-  { value: 'renovacao', label: 'Renovação' },
-  { value: 'campanha', label: 'Campanha' },
-]
 
 const ROLE_LABEL: Record<string, string> = {
   fisioterapeuta: 'Fisioterapeuta',
@@ -68,7 +62,7 @@ export function resolverVendaEmConsultorioParaEnvio(origem: string, toggleAtivo:
 const ABAS = ['Paciente & Profissional', 'Origem da Venda', 'Produtos']
 const USUARIO_AUTORIZADO_VENDA_ZERADA = '46581234-19dd-4e7d-904d-db0357fa2219'
 
-export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolos = [], objecoes = [] }: FormNovaVendaProps) {
+export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolos = [], objecoes = [], origens }: FormNovaVendaProps) {
   const [state, formAction] = useActionState(criarVenda, null)
 
   const [abaAtual, setAbaAtual] = useState(0)
@@ -426,7 +420,7 @@ export function FormNovaVenda({ profissionais, produtos, medicos = [], protocolo
             <h2 className="text-base font-semibold text-text-primary border-b border-border pb-2">Origem da Venda</h2>
 
             <div className="space-y-2">
-              {OPCOES_ORIGEM.map((opt) => (
+              {origens.map((opt) => (
                 <label
                   key={opt.value}
                   className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${

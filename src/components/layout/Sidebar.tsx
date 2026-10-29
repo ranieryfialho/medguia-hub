@@ -40,6 +40,7 @@ import {
   Stethoscope,
   Tag,
   Building2,
+  Route,
 } from 'lucide-react'
 import { ProntuariosBadge } from './ProntuariosBadge'
 import { FollowUpsBadge } from './FollowUpsBadge'
@@ -313,7 +314,7 @@ export function Sidebar({
             {comercialOpen && (
               <div className="mt-1 ml-4 space-y-0.5 border-l-2 border-[#bcc9c4]/40 pl-3">
                 {pv('comercial:vendas') && (
-                  <Link href="/vendas" onClick={handleNavClick} className={subLinkCls(!!isActive('/vendas') && !isActive('/vendas/protocolos') && !isActive('/vendas/tags'))}>
+                  <Link href="/vendas" onClick={handleNavClick} className={subLinkCls(!!isActive('/vendas') && !isActive('/vendas/protocolos') && !isActive('/vendas/tags') && !isActive('/vendas/origens'))}>
                     <ShoppingCart size={14} />
                     Vendas
                   </Link>
@@ -322,6 +323,12 @@ export function Sidebar({
                   <Link href="/vendas/tags" onClick={handleNavClick} className={subLinkCls(!!isActive('/vendas/tags'))}>
                     <Tag size={14} />
                     Tags
+                  </Link>
+                )}
+                {pv('comercial:vendas') && (
+                  <Link href="/vendas/origens" onClick={handleNavClick} className={subLinkCls(!!isActive('/vendas/origens'))}>
+                    <Route size={14} />
+                    Origens
                   </Link>
                 )}
                 {pv('comercial:produtos') && (

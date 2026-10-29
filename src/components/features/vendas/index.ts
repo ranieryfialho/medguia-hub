@@ -9,3 +9,4 @@ export { SeletorTagsVenda } from './SeletorTagsVenda';
 export { GerenciadorTagsVenda } from './GerenciadorTagsVenda';
 export { ComprovanteVendaPreview } from './ComprovanteVendaPreview';
 export { UploadComprovantesVenda } from './UploadComprovantesVenda';
+export { GerenciadorOrigensVenda } from './GerenciadorOrigensVenda';

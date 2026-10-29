@@ -3,6 +3,8 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { FormEditarVenda } from '@/components/features/vendas'
 import { requireModulo } from '@/lib/guard'
+import { listarOrigensVendaParaEdicao } from '@/actions/origens-venda'
+import { origensParaOpcoes } from '@/lib/origens-venda'
 
 interface ProfileRow {
   id: string
@@ -181,6 +183,7 @@ export default async function EditarVendaPage({
   ])
 
   const medicosFormatados = ((medicos || []) as ProfileRow[]).map(formatProfile)
+  const origens = origensParaOpcoes(await listarOrigensVendaParaEdicao(venda?.origem))
 
   if (!venda) {
     return (
@@ -257,6 +260,7 @@ export default async function EditarVendaPage({
           profissionais={((profiles || []) as ProfileRow[]).map(formatProfile)}
           produtos={produtos || []}
           medicos={medicosFormatados}
+          origens={origens}
         />
       </div>
     </div>

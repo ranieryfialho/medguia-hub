@@ -46,7 +46,7 @@ BEGIN
     RAISE EXCEPTION 'p_data_inicio e p_data_fim são obrigatórios';
   END IF;
 
-  IF p_origem IS NOT NULL AND p_origem NOT IN ('medico', 'leads', 'indicacao', 'renovacao', 'campanha') THEN
+  IF p_origem IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.origens_venda ov WHERE ov.valor = p_origem) THEN
     RAISE EXCEPTION 'origem inválida: %', p_origem;
   END IF;
 

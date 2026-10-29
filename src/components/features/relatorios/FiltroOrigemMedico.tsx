@@ -3,27 +3,20 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 
-const ORIGENS = [
-  { value: 'medico', label: 'Médico' },
-  { value: 'leads', label: 'Leads' },
-  { value: 'indicacao', label: 'Indicação' },
-  { value: 'renovacao', label: 'Renovação' },
-  { value: 'campanha', label: 'Campanha' },
-]
-
 interface Medico {
   id: string
   full_name: string
 }
 
 interface Props {
+  origens: { value: string; label: string }[]
   defaultOrigem: string
   defaultMedicoNomes: string[]
   medicos: Medico[]
   defaultModalidade?: string
 }
 
-export function FiltroOrigemMedico({ defaultOrigem, defaultMedicoNomes, medicos, defaultModalidade = '' }: Props) {
+export function FiltroOrigemMedico({ origens, defaultOrigem, defaultMedicoNomes, medicos, defaultModalidade = '' }: Props) {
   const [origem, setOrigem] = useState(defaultOrigem)
   const [medicosSelecionados, setMedicosSelecionados] = useState<string[]>(defaultMedicoNomes)
   const [modalidade, setModalidade] = useState(defaultModalidade)
@@ -77,7 +70,7 @@ export function FiltroOrigemMedico({ defaultOrigem, defaultMedicoNomes, medicos,
           className="px-3 py-2 bg-input border border-border-input rounded-md text-sm focus:outline-none focus:border-primary-500"
         >
           <option value="">Todas as origens</option>
-          {ORIGENS.map((o) => (
+          {origens.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>

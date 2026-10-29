@@ -39,10 +39,11 @@ export type VendaTimeline = {
   itens_venda: ItemVendaResumido[]
 }
 
-export function CartaoVenda({ venda }: { venda: VendaTimeline }) {
+export function CartaoVenda({ venda, rotulosOrigem = {} }: { venda: VendaTimeline; rotulosOrigem?: Record<string, string> }) {
   const [expandido, setExpandido] = useState(false)
 
-  const origemCfg = ORIGEM_CONFIG[venda.origem] ?? { label: venda.origem, cor: 'text-slate-600', bg: 'bg-slate-100' }
+  const origemBase = ORIGEM_CONFIG[venda.origem] ?? { label: venda.origem, cor: 'text-slate-600', bg: 'bg-slate-100' }
+  const origemCfg = { ...origemBase, label: rotulosOrigem[venda.origem] ?? origemBase.label }
   const statusKey = venda.status ?? 'venda_confirmada'
   const statusCfg = STATUS_CONFIG[statusKey] ?? STATUS_CONFIG.venda_confirmada
   const isOrcamento = statusKey !== 'venda_confirmada'
