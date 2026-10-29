@@ -2,16 +2,11 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { LineChart } from 'lucide-react'
 import { requireModulo } from '@/lib/guard'
+import { listarOrigensVenda } from '@/actions/origens-venda'
+import { origensParaOpcoes } from '@/lib/origens-venda'
 import { derivarCardsExecutivos, montarTabelaHistorico, type LinhaMensal } from '@/lib/relatorios/vendas-historicas'
 import { VendasHistoricasClient, FiltroPeriodoVendasHistoricas } from '@/components/features/relatorios'
 
-const ORIGENS = [
-  { value: 'medico', label: 'Médico' },
-  { value: 'leads', label: 'Leads' },
-  { value: 'indicacao', label: 'Indicação' },
-  { value: 'renovacao', label: 'Renovação' },
-  { value: 'campanha', label: 'Campanha' },
-]
 
 const CATEGORIAS = [
   { value: 'tratamento', label: 'Tratamento' },
@@ -78,13 +73,16 @@ export default async function RelatorioVendasHistoricasPage({
     { data: profissionaisRaw },
     { data: medicosRaw },
     medicoResolvido,
+    origensCatalogo,
   ] = await Promise.all([
     supabase.from('profiles').select('id, full_name').in('role', ['fisioterapeuta', 'gestor']).order('full_name'),
     supabase.from('profiles').select('id, full_name').eq('role', 'medico').eq('ativo', true).order('full_name'),
     !medico_id && medico_nome
       ? supabase.from('profiles').select('id').eq('role', 'medico').eq('full_name', medico_nome).maybeSingle()
       : Promise.resolve({ data: null }),
+    listarOrigensVenda(),
   ])
+  const ORIGENS = origensParaOpcoes(origensCatalogo)
 
   if (!medico_id && medicoResolvido?.data?.id) {
     medico_id = medicoResolvido.data.id

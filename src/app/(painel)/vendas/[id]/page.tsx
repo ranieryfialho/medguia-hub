@@ -5,6 +5,8 @@ import { BtnDeletarVenda, BtnAtualizarStatusVenda, BtnMarcarPagamentoRecebido, S
 import { ModalTermoVenda } from '@/components/features/vendas/ModalTermoVenda'
 import { ModalReciboVenda } from '@/components/features/vendas/ModalReciboVenda'
 import { listarTagsDaVenda, listarTagsVendaAtivas } from '@/actions/venda-tags'
+import { listarOrigensVenda } from '@/actions/origens-venda'
+import { mapaRotulosOrigem, rotuloOrigem } from '@/lib/origens-venda'
 import { requireModulo } from '@/lib/guard'
 import { FORMA_PAGAMENTO_LABEL, STATUS_VENDA_LABEL, TIPO_VENDA_LABEL } from '@/lib/vendas'
 import { parseComprovantesVenda } from '@/lib/comprovantes-venda'
@@ -160,9 +162,10 @@ export default async function VendaDetalhePage({
     .filter((p) => p.status === 'pendente')
     .reduce((sum, p) => sum + p.valor, 0)
 
-  const [tagsVenda, tagsCatalogo] = await Promise.all([
+  const [tagsVenda, tagsCatalogo, origensCatalogo] = await Promise.all([
     listarTagsDaVenda(id),
     listarTagsVendaAtivas(),
+    listarOrigensVenda(),
   ])
 
   if (!venda) {
@@ -190,16 +193,7 @@ export default async function VendaDetalhePage({
     day: 'numeric',
   })
 
-  const origemLabel =
-    venda.origem === 'medico'
-      ? 'Médico'
-      : venda.origem === 'leads'
-        ? 'Leads'
-        : venda.origem === 'indicacao'
-          ? 'Indicação'
-          : venda.origem === 'renovacao'
-            ? 'Renovação'
-            : 'Campanha'
+  const origemLabel = rotuloOrigem(mapaRotulosOrigem(origensCatalogo), venda.origem)
 
   const statusAtual = (v.status ?? 'venda_confirmada') as string
   const statusCfg = STATUS_BADGE[statusAtual] ?? STATUS_BADGE.venda_confirmada

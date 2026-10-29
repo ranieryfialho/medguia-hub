@@ -5,6 +5,8 @@ import { FiltrosVendas } from '@/components/features/vendas'
 import { MenuAcoesVenda } from '@/components/features/vendas/MenuAcoesVenda'
 import { SeletorTagsVenda } from '@/components/features/vendas'
 import { listarTagsVendaAtivas, listarTagsPorVendas } from '@/actions/venda-tags'
+import { listarOrigensVenda } from '@/actions/origens-venda'
+import { origensParaOpcoes, mapaRotulosOrigem, rotuloOrigem } from '@/lib/origens-venda'
 import { requireModulo } from '@/lib/guard'
 import { FORMA_PAGAMENTO_LABEL, TIPO_VENDA_LABEL } from '@/lib/vendas'
 import { getConfigClinica } from '@/lib/clinica'
@@ -162,7 +164,7 @@ export default async function VendasListPage({
   let profissionalIdsBusca: string[] = []
   let vendaIdsProduto: string[] | null = null
 
-  const [produtosResult, buscaResult, produtoFiltroResult, tagsCatalogo] = await Promise.all([
+  const [produtosResult, buscaResult, produtoFiltroResult, tagsCatalogo, origensCatalogo] = await Promise.all([
     supabase.from('produtos').select('id, nome').eq('ativo', true).order('nome'),
     buscaNormalizada
       ? Promise.all([
@@ -174,7 +176,9 @@ export default async function VendasListPage({
       ? supabase.from('itens_venda').select('venda_id').in('produto_id', produtoIdsFiltro)
       : null,
     listarTagsVendaAtivas(),
+    listarOrigensVenda(),
   ])
+  const rotulosOrigem = mapaRotulosOrigem(origensCatalogo)
 
   const produtos = (produtosResult.data ?? []) as { id: string; nome: string }[]
 
@@ -323,7 +327,7 @@ export default async function VendasListPage({
       </div>
 
       <div className="bg-surface rounded-b-lg shadow-sm border border-border -mt-6">
-        <FiltrosVendas produtos={produtos} tags={tagsCatalogo.map(({ id, nome, cor }) => ({ id, nome, cor }))} />
+        <FiltrosVendas produtos={produtos} origens={origensParaOpcoes(origensCatalogo)} tags={tagsCatalogo.map(({ id, nome, cor }) => ({ id, nome, cor }))} />
 
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[900px]">
@@ -398,15 +402,7 @@ export default async function VendasListPage({
                     </td>
                     <td className="px-6 py-4 text-sm text-text-secondary capitalize">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-page text-text-primary">
-                        {venda.origem === 'medico'
-                          ? 'Médico'
-                          : venda.origem === 'leads'
-                            ? 'Leads'
-                            : venda.origem === 'indicacao'
-                              ? 'Indicação'
-                              : venda.origem === 'renovacao'
-                                ? 'Renovação'
-                              : 'Campanha'}
+                        {rotuloOrigem(rotulosOrigem, venda.origem)}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-text-secondary">
@@ -482,15 +478,7 @@ export default async function VendasListPage({
                         )
                       })()}
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-page text-text-primary capitalize">
-                        {venda.origem === 'medico'
-                          ? 'Médico'
-                          : venda.origem === 'leads'
-                            ? 'Leads'
-                            : venda.origem === 'indicacao'
-                              ? 'Indicação'
-                              : venda.origem === 'renovacao'
-                                ? 'Renovação'
-                                : 'Campanha'}
+                        {rotuloOrigem(rotulosOrigem, venda.origem)}
                       </span>
                       {venda.tipo_venda && (
                         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-sky-50 text-sky-700">

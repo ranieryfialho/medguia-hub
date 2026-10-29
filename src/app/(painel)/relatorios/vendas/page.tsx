@@ -5,17 +5,11 @@ import { RelatorioVendasClient, FiltroOrigemMedico, GraficoFaturamentoPeriodo, C
 import { BtnGerarPdfVendas } from '@/components/features/shared'
 import { FiltroProdutosMultiSelect } from '@/components/features/produtos'
 import { requireModulo } from '@/lib/guard'
+import { listarOrigensVenda } from '@/actions/origens-venda'
+import { origensParaOpcoes, mapaRotulosOrigem } from '@/lib/origens-venda'
 import { FORMAS_PAGAMENTO, TIPO_VENDA_LABEL } from '@/lib/vendas'
 import type { VendaDetalhe, ItemDetalheVenda } from '@/lib/relatorios/pdf-vendas'
 import { formatAppDateKey, getAppDayRangeUTC } from '@/lib/datetime'
-
-const ORIGENS = [
-  { value: 'medico', label: 'Médico' },
-  { value: 'leads', label: 'Leads' },
-  { value: 'indicacao', label: 'Indicação' },
-  { value: 'renovacao', label: 'Renovação' },
-  { value: 'campanha', label: 'Campanha' },
-]
 
 type PerfilVenda = {
   full_name: string | null
@@ -187,6 +181,7 @@ export default async function RelatorioVendasPage({
     { data: protocolosRaw },
     { data: medicosRaw },
     resumoCanonico,
+    origensCatalogo,
   ] = await Promise.all([
     query.range(0, 9999),
     supabase.from('profiles').select('id, full_name, role').in('role', ['fisioterapeuta', 'gestor']).order('full_name'),
@@ -202,7 +197,9 @@ export default async function RelatorioVendasPage({
           p_modalidade: modalidade || null,
         })
       : Promise.resolve({ data: null, error: null }),
+    listarOrigensVenda(),
   ])
+  const rotulosOrigem = mapaRotulosOrigem(origensCatalogo)
   const vendas = (vendasRaw ?? []) as unknown as VendaRow[]
 
   if (vendasCount !== null && vendasCount > vendas.length) {
@@ -387,7 +384,7 @@ export default async function RelatorioVendasPage({
           : venda.venda_em_consultorio === false
             ? 'Conversão Fisio'
             : 'Médico'
-        : ORIGENS.find((o) => o.value === venda.origem)?.label || venda.origem
+        : rotulosOrigem[venda.origem] || venda.origem
     porProfissionalOrigem[venda.profissional_id].total += 1
     porProfissionalOrigem[venda.profissional_id].origens[origemLabel] =
       (porProfissionalOrigem[venda.profissional_id].origens[origemLabel] || 0) + 1
@@ -530,6 +527,7 @@ export default async function RelatorioVendasPage({
           </h1>
           {vendasDetalhadas.length > 0 && (
             <BtnGerarPdfVendas
+              rotulosOrigem={rotulosOrigem}
               periodoLabel={
                 data_inicio && data_fim
                   ? `${data_inicio} até ${data_fim}`
@@ -585,6 +583,7 @@ export default async function RelatorioVendasPage({
             />
           </div>
           <FiltroOrigemMedico
+            origens={origensParaOpcoes(origensCatalogo)}
             defaultOrigem={origem}
             defaultMedicoNomes={medicoNomes}
             medicos={medicosFiltro}
@@ -818,6 +817,7 @@ export default async function RelatorioVendasPage({
 
       {/* Gráficos (cliente) */}
       <RelatorioVendasClient
+        rotulosOrigem={rotulosOrigem}
         porOrigem={porOrigem}
         porFormaPagamento={porFormaPagamento}
         porProfissional={profissionaisResumo}
@@ -1129,7 +1129,7 @@ export default async function RelatorioVendasPage({
                   .sort(([, a], [, b]) => b.faturamento - a.faturamento)
                   .map(([origemKey, data]) => {
                     const pct = totalFaturado > 0 ? (data.faturamento / totalFaturado) * 100 : 0
-                    const label = ORIGENS.find((o) => o.value === origemKey)?.label || origemKey
+                    const label = rotulosOrigem[origemKey] || origemKey
                     return (
                       <tr key={origemKey} className="hover:bg-page/50">
                         <td className="px-4 py-3 text-sm text-text-primary capitalize">{label}</td>

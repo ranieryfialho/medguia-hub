@@ -20,17 +20,10 @@ interface RelatorioVendasClientProps {
   porProfissional: AgregacaoNome[]
   porProduto: AgregacaoNome[]
   totalFaturado: number
+  rotulosOrigem: Record<string, string>
 }
 
 const CORES = ['#0A4D68', '#F18F01', '#C73E1D', '#6A994E', '#BC4749']
-
-const TRADUCAO_ORIGEM: Record<string, string> = {
-  medico: 'Médico',
-  leads: 'Leads',
-  indicacao: 'Indicação',
-  renovacao: 'Renovação',
-  campanha: 'Campanha',
-}
 
 const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -42,9 +35,10 @@ export function RelatorioVendasClient({
   porFormaPagamento,
   porProfissional,
   porProduto,
+  rotulosOrigem,
 }: RelatorioVendasClientProps) {
   const dadosPizza = Object.entries(porOrigem).map(([origem, d]) => ({
-    name: TRADUCAO_ORIGEM[origem] || origem,
+    name: rotulosOrigem[origem] || origem,
     value: d.faturamento,
   }))
 

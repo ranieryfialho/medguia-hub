@@ -15,6 +15,8 @@ import { PacienteTabsClient } from '@/components/features/pacientes/PacienteTabs
 import { CardContatosPaciente } from '@/components/features/pacientes/CardContatosPaciente'
 import { SeletorTagsPaciente } from '@/components/features/pacientes/SeletorTagsPaciente'
 import AvatarPaciente from '@/components/features/pacientes/AvatarPaciente'
+import { listarOrigensVenda } from '@/actions/origens-venda'
+import { mapaRotulosOrigem } from '@/lib/origens-venda'
 import { listarTagsDoPaciente, listarTagsPacienteAtivas } from '@/actions/paciente-tags'
 import { extrairMetadataInativacao } from '@/lib/paciente-inativacao'
 import { buildSessaoEfetivaMap } from '@/lib/sessoes'
@@ -182,6 +184,7 @@ export default async function PacienteDetailsPage({
   }
 
   const vendas = (vendasRaw ?? []) as unknown as VendaTimeline[]
+  const rotulosOrigem = mapaRotulosOrigem(await listarOrigensVenda())
   const profissionais = (profissionaisRaw ?? []).filter(p => p.full_name) as { id: string; full_name: string }[]
   const metadataInativacao = extrairMetadataInativacao(paciente.observacoes_gerais)
   const observacoesGeraisLimpa = metadataInativacao.observacoesLimpa
@@ -532,7 +535,7 @@ export default async function PacienteDetailsPage({
                   [...vendas]
                     .sort((a, b) => new Date(b.data_venda).getTime() - new Date(a.data_venda).getTime())
                     .map(venda => (
-                      <CartaoVenda key={venda.id} venda={venda} />
+                      <CartaoVenda key={venda.id} venda={venda} rotulosOrigem={rotulosOrigem} />
                     ))
                 )}
               </div>

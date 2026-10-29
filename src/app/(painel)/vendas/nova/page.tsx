@@ -5,6 +5,8 @@ import { FormNovaVenda } from '@/components/features/vendas'
 import { requireModulo } from '@/lib/guard'
 import { listarProtocolosAtivos } from '@/actions/protocolos'
 import { listarObjecoesAtivas } from '@/actions/objecoes'
+import { listarOrigensVendaAtivas } from '@/actions/origens-venda'
+import { origensParaOpcoes } from '@/lib/origens-venda'
 
 interface JornadaRow {
   profissional_id: string | null
@@ -29,7 +31,7 @@ export default async function NovaVendaPage() {
 
   const supabase = await createClient()
 
-  const [{ data: produtos }, { data: comJornada }, { data: fisioterapeutas }, { data: medicos }, protocolos, objecoes] = await Promise.all([
+  const [{ data: produtos }, { data: comJornada }, { data: fisioterapeutas }, { data: medicos }, protocolos, objecoes, origens] = await Promise.all([
     supabase
       .from('produtos')
       .select('id, nome, numero_atendimentos, preco_padrao')
@@ -49,6 +51,7 @@ export default async function NovaVendaPage() {
       .eq('role', 'medico'),
     listarProtocolosAtivos(),
     listarObjecoesAtivas(),
+    listarOrigensVendaAtivas(),
   ])
 
   const idsComJornada = [
@@ -98,6 +101,7 @@ export default async function NovaVendaPage() {
           medicos={medicosFormatados}
           protocolos={protocolos}
           objecoes={objecoes}
+          origens={origensParaOpcoes(origens)}
         />
       </div>
     </div>
