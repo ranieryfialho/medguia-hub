@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { destinoRetornoSeguro } from '@/lib/sso/retorno-seguro'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
+import { createClient as createSupabaseAdminClient } from '@supabase/supabase-js'
 
 export async function login(prevState: any, formData: FormData) {
   const email = formData.get('email') as string
@@ -63,14 +64,30 @@ export async function trocarSenhaPrimeiroAcesso(formData: FormData) {
     return { error: 'Erro ao redefinir a senha: ' + updateError.message }
   }
 
-  const { error: profileError } = await supabase
+  // Limpa o flag com service role e confere as linhas afetadas: o update via RLS
+  // pode afetar 0 linhas sem erro, deixando o modal preso apos a troca.
+  const supabaseAdmin = createSupabaseAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
+  const { data: perfilAtualizado, error: profileError } = await supabaseAdmin
     .from('profiles')
     .update({ primeiro_acesso: false })
     .eq('id', user.id)
+    .select('id')
 
-  if (profileError) {
+  if (profileError || !perfilAtualizado?.length) {
     return { error: 'Erro ao liberar o acesso do perfil.' }
   }
+
+  // Garante o metadata limpo no servidor, independente do estado da sessao do navegador.
+  await supabaseAdmin.auth.admin.updateUserById(user.id, {
+    user_metadata: { primeiro_acesso: false },
+  })
+
+  // Renova a sessao para que o JWT do cookie nao carregue o metadata antigo.
+  await supabase.auth.refreshSession()
 
   revalidatePath('/', 'layout')
   return { success: true }
