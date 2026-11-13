@@ -20,6 +20,7 @@ import {
 import { listarStatusOpcoesParaExibicao } from '@/actions/status-disponibilidade-config'
 import { podeEntrarNaAgendaOuRelatorio } from '@/lib/profissionais'
 import { deveIncluirNoRelatorio } from '@/lib/relatorios/inclusao-profissional'
+import { isStatusFabril } from '@/lib/atendimento-status'
 import { requireModulo } from '@/lib/guard'
 import { isGestorSistema } from '@/lib/permissoes'
 
@@ -175,13 +176,16 @@ export default async function TempoFabrilPage({
   }
   const atendimentos = Array.from(atendimentosMap.values())
 
-  // Presença de dado no período: quem trabalhou ou teve bloco de status aberto/fechado conta,
-  // mesmo desligado (AC-014/AC-015). Quem está ativo entra mesmo sem registro (AC-016).
+  // Presença de dado no período: só conta o que entra no cálculo — atendimento fábril
+  // (cancelado/faltou não conta) e bloco de status fechado. Bloco aberto não entra nos
+  // agregados e pode ser resíduo antigo, então não prova que a pessoa trabalhou no período.
+  // Desligado com registro real continua (AC-014/AC-015); ativo entra sempre (AC-016).
+  const atendimentosFabris = atendimentos.filter((a) => isStatusFabril(a.status))
   const idsComRegistroNoPeriodo = new Set([
-    ...atendimentos.map((a) => a.profissional_id),
-    ...atendimentos.map((a) => a.fisioterapeuta_id),
+    ...atendimentosFabris.map((a) => a.profissional_id),
+    ...atendimentosFabris.map((a) => a.fisioterapeuta_id),
     ...(historicoResp ?? []).map((h) => h.profissional_id),
-    ...(historicoAbertoResp ?? []).map((h) => h.profissional_id),
+    ...(reunioes ?? []).map((r) => r.profissional_id),
   ])
 
   const profissionais = profissionaisElegiveis
